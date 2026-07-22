@@ -1,0 +1,11 @@
+bin/
+obj/
+*.user
+*.suo
+*.DotSettings.user
+.vs/
+.idea/
+.omo/
+.superpowers/
+*.pdb
+*.log
