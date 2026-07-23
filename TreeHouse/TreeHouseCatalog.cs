@@ -158,6 +158,11 @@ public sealed class TreeHouseCatalog : IDisposable
             featureGate,
             teleportService,
             autoPathService);
+        var privateFeatures = privateTreeModule.CreateFeatures(new(
+            config,
+            saveConfig,
+            hookRegistry,
+            featureGate));
         var freeCompanyAction = new FreeCompanyActionFeature(
             privateTreeModule.AgentEventService,
             featureGate);
@@ -244,11 +249,7 @@ public sealed class TreeHouseCatalog : IDisposable
             new MultiDockFeature(config.MultiDock, saveConfig, iconBrowser),
             new TimelineConverterFeature(config)
         };
-        features.AddRange(privateTreeModule.CreateFeatures(new(
-            config,
-            saveConfig,
-            hookRegistry,
-            featureGate)));
+        features.AddRange(privateFeatures);
         return new(
             config,
             featureGate,
