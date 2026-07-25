@@ -29,7 +29,7 @@ internal static class MitigationMonitorPanel
                 ImGui.TableNextColumn();
                 ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
                 var opacity = config.Opacity * 100f;
-                if (ImGui.SliderFloat("##mitigationOpacity", ref opacity, 0f, 100f, "%.0f%%"))
+                if (OmniControls.SliderFloat("##mitigationOpacity", ref opacity, 0f, 100f, "%.0f%%", ImGui.GetContentRegionAvail().X))
                 {
                     config.Opacity = opacity / 100f;
                 }
@@ -42,7 +42,7 @@ internal static class MitigationMonitorPanel
                 ImGui.TableNextColumn();
                 ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
                 var replaySaveCount = config.ReplaySaveCount;
-                if (ImGui.InputInt("##mitigationReplaySaveCount", ref replaySaveCount, 1, 10))
+                if (OmniControls.InputInt("##mitigationReplaySaveCount", ref replaySaveCount, 1, 10))
                 {
                     feature.SetReplaySaveCount(replaySaveCount);
                 }
@@ -52,7 +52,7 @@ internal static class MitigationMonitorPanel
         }
 
         var showDotDamage = config.ShowDotDamage;
-        if (ImGui.Checkbox(
+        if (OmniControls.Checkbox(
                 OmniLoc.Get("Feature.MitigationMonitor.ShowDotDamage"),
                 ref showDotDamage))
         {
@@ -91,13 +91,13 @@ internal static class MitigationMonitorPanel
             }
         }
 
-        if (ImGui.Button(OmniLoc.Get("Feature.MitigationMonitor.Clear")))
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.MitigationMonitor.Clear"), false))
         {
             feature.ClearRecords();
         }
 
         ImGui.SameLine();
-        if (ImGui.Button(OmniLoc.Get("Feature.MitigationMonitor.ResetLayout")))
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.MitigationMonitor.ResetLayout"), false))
         {
             feature.ResetLayout();
             changed = true;

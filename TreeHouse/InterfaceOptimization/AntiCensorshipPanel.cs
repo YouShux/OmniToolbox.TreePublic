@@ -16,7 +16,7 @@ internal static class AntiCensorshipPanel
     {
         var changed = false;
         var coloring = config.EnableColoring;
-        if (ImGui.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))
+        if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))
         {
             config.EnableColoring = coloring;
             changed = true;
@@ -38,7 +38,7 @@ internal static class AntiCensorshipPanel
         ImGuiOm.HelpMarker(OmniLoc.Get("Feature.AntiCensorship.Coloring.Help"));
 
         var autoHandle = config.EnableAutoHandle;
-        if (ImGui.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.AutoHandle")}##antiCensorshipAutoHandle", ref autoHandle))
+        if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.AutoHandle")}##antiCensorshipAutoHandle", ref autoHandle))
         {
             config.EnableAutoHandle = autoHandle;
             changed = true;
@@ -47,7 +47,7 @@ internal static class AntiCensorshipPanel
         ImGui.SameLine();
         ImGui.SetNextItemWidth(OmniTheme.Scale(60f));
         var separator = config.Separator.ToString();
-        if (ImGui.InputText(
+        if (OmniControls.InputText(
                 $"{OmniLoc.Get("Feature.AntiCensorship.Separator")}##antiCensorshipSeparator",
                 ref separator,
                 8))

@@ -23,7 +23,7 @@ public sealed class TimelineConverterFeature(TreeHouseConfig config) : TreeHouse
         ImGui.TextUnformatted(OmniLoc.Get("Feature.TimelineConverter.Path"));
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
         var path = config.TimelineConverter.DirectoryPath;
-        if (ImGui.InputText("##timelineConverterPath", ref path, 512))
+        if (OmniControls.InputText("##timelineConverterPath", ref path, 512))
         {
             config.TimelineConverter.DirectoryPath = path;
         }

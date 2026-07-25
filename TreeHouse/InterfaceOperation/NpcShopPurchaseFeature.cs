@@ -27,6 +27,8 @@ public sealed class NpcShopPurchaseFeature : TreeHouseFeatureBase, INpcShopPurch
             "Feature.NpcShopPurchase.Title",
             "Feature.NpcShopPurchase.Description",
             TreeHouseCategory.InterfaceOperation,
+            true,
+            false,
             true))
     {
         this.autoPathConfig = autoPathConfig;
@@ -42,7 +44,7 @@ public sealed class NpcShopPurchaseFeature : TreeHouseFeatureBase, INpcShopPurch
 
     public override bool HasSettings => true;
 
-    public override bool DrawSettings() => NpcShopPurchasePanel.Draw(this, autoPathConfig, IsEnabled);
+    public override bool DrawSettings() => NpcShopPurchasePanel.Draw(this, IsEnabled);
 
     public bool RequestPurchase(uint itemId, uint quantity)
     {

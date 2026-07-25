@@ -58,7 +58,7 @@ internal static class DesynthesisEnhancementPanel
         ImGui.TextUnformatted(OmniLoc.Get("Feature.DesynthesisEnhancement.CustomItemId"));
         ImGui.SameLine();
         ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (ImGui.InputInt("##desynthesisCustomItemId", ref customItemIdInput) && customItemIdInput < 0)
+        if (OmniControls.InputInt("##desynthesisCustomItemId", ref customItemIdInput) && customItemIdInput < 0)
         {
             customItemIdInput = 0;
         }
@@ -67,7 +67,7 @@ internal static class DesynthesisEnhancementPanel
         Item item = default;
         var hasItem = itemId > 0 && LuminaGetter.TryGetRow(itemId, out item);
         ImGui.SameLine();
-        if (ImGui.Button(OmniLoc.Get("Feature.DesynthesisEnhancement.Add")) &&
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.DesynthesisEnhancement.Add"), false) &&
             customItemIdInput > 0 &&
             !config.CustomLockItemIds.Contains(itemId))
         {
@@ -118,7 +118,7 @@ internal static class DesynthesisEnhancementPanel
                 ImGui.SetTooltip(lockedItem.Name.ToString());
             }
 
-            if (ImGui.Button(OmniLoc.Get("Feature.DesynthesisEnhancement.Delete")))
+            if (OmniControls.SmallButton(OmniLoc.Get("Feature.DesynthesisEnhancement.Delete"), false))
             {
                 config.CustomLockItemIds.RemoveAt(index--);
                 changed = true;
@@ -137,5 +137,5 @@ internal static class DesynthesisEnhancementPanel
     }
 
     private static bool DrawCheckbox(string labelKey, string id, ref bool value) =>
-        ImGui.Checkbox($"{OmniLoc.Get(labelKey)}##{id}", ref value);
+        OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##{id}", ref value);
 }

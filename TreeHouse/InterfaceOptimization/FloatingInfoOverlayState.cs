@@ -7,7 +7,7 @@ using OmniToolbox.Config;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools;
-using OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds;
+using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using CSCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;

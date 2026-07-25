@@ -85,7 +85,7 @@ internal sealed class ChatFrameOptimizationPanel
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-                ImGui.InputInt(
+                OmniControls.InputInt(
                     $"{OmniLoc.Get("Feature.ChatFrameOptimization.LogFileSizeKb")}##chatFrameOptimizationLogFileSize",
                     ref logFileSizeKb);
                 if (ImGui.IsItemDeactivatedAfterEdit())
@@ -100,7 +100,7 @@ internal sealed class ChatFrameOptimizationPanel
 
                 ImGui.TableNextColumn();
                 ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-                ImGui.InputInt(
+                OmniControls.InputInt(
                     $"{OmniLoc.Get("Feature.ChatFrameOptimization.LogFileCount")}##chatFrameOptimizationLogFileCount",
                     ref logFileCount);
                 if (ImGui.IsItemDeactivatedAfterEdit())
@@ -145,7 +145,7 @@ internal sealed class ChatFrameOptimizationPanel
 
     private static bool DrawCheckbox(string labelKey, string id, ref bool value, string? helpKey = null)
     {
-        var changed = ImGui.Checkbox(
+        var changed = OmniControls.Checkbox(
             $"{OmniLoc.Get(labelKey)}##chatFrameOptimization{id}",
             ref value);
         if (helpKey is not null)

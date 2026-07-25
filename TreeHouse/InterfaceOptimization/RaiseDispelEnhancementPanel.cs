@@ -106,7 +106,7 @@ internal static class RaiseDispelEnhancementPanel
         Action<bool> setter)
     {
         var value = current;
-        if (!ImGui.Checkbox($"{OmniLoc.Get(labelKey)}##raiseDispel{id}", ref value))
+        if (!OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##raiseDispel{id}", ref value))
         {
             return false;
         }
@@ -146,13 +146,13 @@ internal static class RaiseDispelEnhancementPanel
         Action<float> setter)
     {
         var value = Math.Clamp(current <= 0f ? 1f : current, 0.3f, 3f);
-        ImGui.SetNextItemWidth(OmniTheme.Scale(128f));
-        var changed = ImGui.SliderFloat(
+        var changed = OmniControls.SliderFloat(
             $"##raiseDispel{id}",
             ref value,
             0.3f,
             3f,
-            "%.2f");
+            "%.2f",
+            OmniTheme.Scale(128f));
         ImGui.SameLine(0f, OmniTheme.Scale(8f));
         ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         if (changed)

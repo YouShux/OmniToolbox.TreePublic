@@ -24,7 +24,6 @@ internal sealed class MultiDockPanel
     private readonly Action saveConfig;
     private readonly Action itemsChanged;
     private readonly Action iconsChanged;
-    private readonly Action normalizeConfig;
     private string pluginFilter = string.Empty;
     private string windowName = string.Empty;
     private string windowDisplayName = string.Empty;
@@ -41,22 +40,20 @@ internal sealed class MultiDockPanel
         IconBrowser iconBrowser,
         Action saveConfig,
         Action itemsChanged,
-        Action iconsChanged,
-        Action normalizeConfig)
+        Action iconsChanged)
     {
         this.config = config;
         this.iconBrowser = iconBrowser;
         this.saveConfig = saveConfig;
         this.itemsChanged = itemsChanged;
         this.iconsChanged = iconsChanged;
-        this.normalizeConfig = normalizeConfig;
     }
 
     public bool Draw()
     {
         var changed = DrawClipboardToolbar();
         ImGui.Spacing();
-        if (ImGui.CollapsingHeader(
+        if (OmniControls.CollapsingHeader(
                 OmniLoc.Get("Feature.MultiDock.PluginDock"),
                 ImGuiTreeNodeFlags.DefaultOpen))
         {
@@ -66,7 +63,7 @@ internal sealed class MultiDockPanel
         }
 
         ImGui.Spacing();
-        if (ImGui.CollapsingHeader(
+        if (OmniControls.CollapsingHeader(
                 OmniLoc.Get("Feature.MultiDock.CommandDock"),
                 ImGuiTreeNodeFlags.DefaultOpen))
         {
@@ -81,7 +78,7 @@ internal sealed class MultiDockPanel
     private bool DrawClipboardToolbar()
     {
         var changed = false;
-        if (ImGui.SmallButton(OmniLoc.Get("Feature.MultiDock.Export")))
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.MultiDock.Export"), false))
         {
             ImGui.SetClipboardText(JsonSerializer.Serialize(
                 new MultiDockClipboardSnapshot { Config = config },
@@ -90,7 +87,7 @@ internal sealed class MultiDockPanel
         }
 
         ImGui.SameLine();
-        if (ImGui.SmallButton(OmniLoc.Get("Feature.MultiDock.Import")))
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.MultiDock.Import"), false))
         {
             try
             {
@@ -105,9 +102,8 @@ internal sealed class MultiDockPanel
                 config.PluginDock = snapshot.Config.PluginDock;
                 config.CommandDock = snapshot.Config.CommandDock;
                 config.Items = snapshot.Config.Items;
-                normalizeConfig();
+                config.HiddenWindows = snapshot.Config.HiddenWindows;
                 itemsChanged();
-                iconsChanged();
                 editingItemIndex = -1;
                 changed = true;
                 SetClipboardStatus("Feature.MultiDock.ImportSuccess", false);
@@ -273,7 +269,7 @@ internal sealed class MultiDockPanel
     private bool DrawPluginPicker()
     {
         ImGui.SetNextItemWidth(-1f);
-        ImGui.InputTextWithHint(
+        OmniControls.InputTextWithHint(
             "##multiDockPluginFilter",
             OmniLoc.Get("Feature.MultiDock.Filter"),
             ref pluginFilter,
@@ -301,7 +297,7 @@ internal sealed class MultiDockPanel
             var index = FindPlugin(plugin.InternalName);
             var selected = index >= 0;
             ImGui.PushID(plugin.InternalName);
-            if (ImGui.Checkbox(plugin.Name, ref selected))
+            if (OmniControls.Checkbox(plugin.Name, ref selected))
             {
                 if (selected)
                 {
@@ -338,22 +334,23 @@ internal sealed class MultiDockPanel
     {
         var changed = false;
         ImGui.SetNextItemWidth(-1f);
-        ImGui.InputTextWithHint(
+        OmniControls.InputTextWithHint(
             "##multiDockWindowName",
             OmniLoc.Get("Feature.MultiDock.WindowName"),
             ref windowName,
             256);
         ImGui.SetNextItemWidth(-1f);
-        ImGui.InputTextWithHint(
+        OmniControls.InputTextWithHint(
             "##multiDockWindowDisplayName",
             OmniLoc.Get("Feature.MultiDock.DisplayName"),
             ref windowDisplayName,
             128);
         using (ImRaii.Disabled(windowName.Trim().Length == 0 || FindWindow(windowName.Trim()) >= 0))
         {
-            if (ImGui.Button(
+            if (OmniControls.SmallButton(
                     OmniLoc.Get("Feature.MultiDock.AddWindow"),
-                    new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+                    false,
+                    new Vector2(ImGui.GetContentRegionAvail().X, OmniTheme.SmallButtonSize().Y)))
             {
                 config.Items.Add(new()
                 {
@@ -402,13 +399,13 @@ internal sealed class MultiDockPanel
     private bool DrawCommandCreator()
     {
         ImGui.SetNextItemWidth(-1f);
-        ImGui.InputTextWithHint(
+        OmniControls.InputTextWithHint(
             "##multiDockCommandName",
             OmniLoc.Get("Feature.MultiDock.DisplayName"),
             ref commandName,
             128);
         ImGui.SetNextItemWidth(-1f);
-        ImGui.InputTextWithHint(
+        OmniControls.InputTextWithHint(
             "##multiDockCommandText",
             OmniLoc.Get("Feature.MultiDock.Command"),
             ref commandText,
@@ -416,9 +413,10 @@ internal sealed class MultiDockPanel
         var canAdd = MultiDockFeature.TryNormalizeCommand(commandText, out var normalized) &&
                      FindCommand(normalized) < 0;
         using var disabled = ImRaii.Disabled(!canAdd);
-        if (!ImGui.Button(
+        if (!OmniControls.SmallButton(
                 OmniLoc.Get("Feature.MultiDock.AddCommand"),
-                new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+                false,
+                new Vector2(ImGui.GetContentRegionAvail().X, OmniTheme.SmallButtonSize().Y)))
         {
             return false;
         }
@@ -438,7 +436,7 @@ internal sealed class MultiDockPanel
     private bool DrawCommandBrowser()
     {
         ImGui.SetNextItemWidth(-1f);
-        ImGui.InputTextWithHint(
+        OmniControls.InputTextWithHint(
             "##multiDockCommandFilter",
             OmniLoc.Get("Feature.MultiDock.Filter"),
             ref commandFilter,
@@ -471,7 +469,7 @@ internal sealed class MultiDockPanel
             var index = FindCommand(command);
             var selected = index >= 0;
             ImGui.PushID(command);
-            if (ImGui.Checkbox(command, ref selected))
+            if (OmniControls.Checkbox(command, ref selected))
             {
                 if (selected)
                 {
@@ -612,6 +610,12 @@ internal sealed class MultiDockPanel
         {
             case MultiDockItemType.Plugin:
                 ImGui.TextDisabled(item.PluginInternalName);
+                changed |= DrawTextProperty(
+                    "Feature.MultiDock.WindowName",
+                    $"window{index}",
+                    item.WindowName,
+                    256,
+                    value => item.WindowName = value);
                 changed |= DrawCheckbox(
                     "Feature.MultiDock.PreferConfigUi",
                     $"preferConfig{index}",
@@ -625,6 +629,52 @@ internal sealed class MultiDockPanel
                     item.WindowName,
                     256,
                     value => item.WindowName = value);
+                var linkedPluginName = item.LinkedPluginInternalName;
+                var linkedPluginDisplayName = linkedPluginName;
+                foreach (var plugin in DalamudServices.PluginInterface.InstalledPlugins)
+                {
+                    if (plugin.InternalName.Equals(linkedPluginName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        linkedPluginDisplayName = plugin.Name;
+                        break;
+                    }
+                }
+
+                ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiDock.PluginSource"));
+                if (OmniControls.BeginCombo(
+                        $"##linkedPlugin{index}",
+                        linkedPluginDisplayName.Length == 0 ? "-" : linkedPluginDisplayName,
+                        ImGui.GetContentRegionAvail().X))
+                {
+                    if (ImGui.Selectable("-", linkedPluginName.Length == 0))
+                    {
+                        item.LinkedPluginInternalName = string.Empty;
+                        changed = true;
+                    }
+
+                    foreach (var plugin in DalamudServices.PluginInterface.InstalledPlugins)
+                    {
+                        if (!plugin.IsLoaded || (!plugin.HasMainUi && !plugin.HasConfigUi))
+                        {
+                            continue;
+                        }
+
+                        var selected = plugin.InternalName.Equals(linkedPluginName, StringComparison.OrdinalIgnoreCase);
+                        if (ImGui.Selectable(plugin.Name, selected))
+                        {
+                            item.LinkedPluginInternalName = plugin.InternalName;
+                            changed = true;
+                        }
+                    }
+
+                    ImGui.EndCombo();
+                }
+
+                changed |= DrawCheckbox(
+                    "Feature.MultiDock.PreferConfigUi",
+                    $"preferConfig{index}",
+                    item.PreferConfigUi,
+                    value => item.PreferConfigUi = value);
                 break;
             case MultiDockItemType.Command:
                 changed |= DrawTextProperty(
@@ -648,6 +698,7 @@ internal sealed class MultiDockPanel
         {
             item.Name = item.Name.Trim();
             item.WindowName = item.WindowName.Trim();
+            item.LinkedPluginInternalName = item.LinkedPluginInternalName.Trim();
             item.Command = MultiDockFeature.TryNormalizeCommand(item.Command, out var command)
                 ? command
                 : string.Empty;
@@ -662,6 +713,8 @@ internal sealed class MultiDockPanel
                     item.ContextMenuMacros[i].Command = macroCommand;
                 }
             }
+
+            itemsChanged();
         }
 
         return changed;
@@ -722,7 +775,7 @@ internal sealed class MultiDockPanel
         ImGui.SetNextItemWidth(MathF.Max(
             OmniTheme.Scale(100f),
             ImGui.GetContentRegionAvail().X - OmniTheme.Scale(36f) - ImGui.GetStyle().ItemSpacing.X));
-        if (ImGui.InputInt("##gameIcon", ref gameIconId))
+        if (OmniControls.InputInt("##gameIcon", ref gameIconId))
         {
             icon.GameIconId = (uint)Math.Max(0, gameIconId);
         }
@@ -765,7 +818,7 @@ internal sealed class MultiDockPanel
             OmniTheme.Scale(100f),
             ImGui.GetContentRegionAvail().X - OmniTheme.Scale(36f) - ImGui.GetStyle().ItemSpacing.X));
         var seIcon = icon.SeIconChar;
-        if (ImGui.InputText("##seIcon", ref seIcon, 128))
+        if (OmniControls.InputText("##seIcon", ref seIcon, 128))
         {
             icon.SeIconChar = seIcon;
         }
@@ -811,7 +864,7 @@ internal sealed class MultiDockPanel
         var value = current;
         ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         ImGui.SetNextItemWidth(-1f);
-        if (ImGui.InputText($"##{id}", ref value, maxLength))
+        if (OmniControls.InputText($"##{id}", ref value, maxLength))
         {
             setter(value);
         }
@@ -839,7 +892,7 @@ internal sealed class MultiDockPanel
         Action<bool> setter)
     {
         var value = current;
-        if (!ImGui.Checkbox($"{OmniLoc.Get(labelKey)}##{id}", ref value))
+        if (!OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##{id}", ref value))
         {
             return false;
         }
@@ -861,9 +914,8 @@ internal sealed class MultiDockPanel
         ImGui.TableNextColumn();
         ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         ImGui.TableNextColumn();
-        ImGui.SetNextItemWidth(-1f);
         var value = current;
-        ImGui.SliderFloat($"##{id}", ref value, min, max, format);
+        OmniControls.SliderFloat($"##{id}", ref value, min, max, format, ImGui.GetContentRegionAvail().X);
         if (!ImGui.IsItemDeactivatedAfterEdit())
         {
             setter(value);
@@ -886,9 +938,8 @@ internal sealed class MultiDockPanel
         ImGui.TableNextColumn();
         ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         ImGui.TableNextColumn();
-        ImGui.SetNextItemWidth(-1f);
         var value = current;
-        ImGui.SliderInt($"##{id}", ref value, min, max);
+        OmniControls.SliderInt($"##{id}", ref value, min, max, "%d", ImGui.GetContentRegionAvail().X);
         if (!ImGui.IsItemDeactivatedAfterEdit())
         {
             setter(value);
@@ -905,15 +956,15 @@ internal sealed class MultiDockPanel
         ImGui.TableNextColumn();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiDock.AutoMode"));
         ImGui.TableNextColumn();
-        ImGui.SetNextItemWidth(-1f);
-        if (!ImGui.BeginCombo(
+        if (!OmniControls.BeginCombo(
                 $"##autoMode{id}",
                 OmniLoc.Get(dock.AutoMode switch
                 {
                     MultiDockAutoMode.Hide => "Feature.MultiDock.AutoMode.Hide",
                     MultiDockAutoMode.Collapse => "Feature.MultiDock.AutoMode.Collapse",
                     _ => "Feature.MultiDock.AutoMode.None"
-                })))
+                }),
+                ImGui.GetContentRegionAvail().X))
         {
             return false;
         }
@@ -951,8 +1002,10 @@ internal sealed class MultiDockPanel
         ImGui.TableNextColumn();
         ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         ImGui.TableNextColumn();
-        ImGui.SetNextItemWidth(-1f);
-        if (!ImGui.BeginCombo($"##{id}", OmniLoc.Get(current ? trueLabelKey : falseLabelKey)))
+        if (!OmniControls.BeginCombo(
+                $"##{id}",
+                OmniLoc.Get(current ? trueLabelKey : falseLabelKey),
+                ImGui.GetContentRegionAvail().X))
         {
             return false;
         }
@@ -990,10 +1043,12 @@ internal sealed class MultiDockPanel
 
     private int FindWindow(string name)
     {
+        var key = MultiDockFeature.NormalizeWindowKey(name);
         for (var i = 0; i < config.Items.Count; i++)
         {
             if (config.Items[i].Type == MultiDockItemType.ImGuiWindow &&
-                config.Items[i].WindowName.Equals(name, StringComparison.OrdinalIgnoreCase))
+                MultiDockFeature.NormalizeWindowKey(config.Items[i].WindowName)
+                    .Equals(key, StringComparison.OrdinalIgnoreCase))
             {
                 return i;
             }

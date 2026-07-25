@@ -56,10 +56,10 @@ internal sealed class MitigationMonitorHotkey(
     public bool DrawSettings()
     {
         var changed = false;
-        ImGui.SetNextItemWidth(OmniTheme.Scale(90f));
-        if (ImGui.BeginCombo(
+        if (OmniControls.BeginCombo(
                 "##MitigationHideHotkeyModifier",
-                GetModifierName(config.HideHotkeyModifier)))
+                GetModifierName(config.HideHotkeyModifier),
+                OmniTheme.Scale(90f)))
         {
             foreach (var modifier in Modifiers)
             {
@@ -76,8 +76,9 @@ internal sealed class MitigationMonitorHotkey(
         ImGui.SameLine();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Modifier"));
         ImGui.SameLine();
-        if (ImGui.Button(
+        if (OmniControls.SmallButton(
                 $"{(capturing ? OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Capturing") : GetDisplayName(config.HideHotkey))}##MitigationHideHotkey",
+                false,
                 new(OmniTheme.Scale(128f), 0f)))
         {
             capturing = true;
@@ -86,7 +87,7 @@ internal sealed class MitigationMonitorHotkey(
         ImGui.SameLine();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Key"));
         ImGui.SameLine();
-        if (ImGui.Button($"{OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Clear")}##MitigationHideHotkeyClear"))
+        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Clear")}##MitigationHideHotkeyClear", false))
         {
             capturing = false;
             hotkeyHeld = false;

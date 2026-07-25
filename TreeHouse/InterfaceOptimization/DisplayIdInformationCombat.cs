@@ -12,7 +12,7 @@ using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmenTools;
-using OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds;
+using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Models;
 using LuminaAction = Lumina.Excel.Sheets.Action;

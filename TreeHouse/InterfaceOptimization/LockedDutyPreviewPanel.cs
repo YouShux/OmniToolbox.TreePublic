@@ -11,7 +11,7 @@ internal static class LockedDutyPreviewPanel
     {
         var changed = false;
         var autoHide = config.AutoHideWhenAllUnlocked;
-        if (ImGui.Checkbox(
+        if (OmniControls.Checkbox(
                 $"{OmniLoc.Get("Feature.LockedDutyPreview.AutoHide")}##lockedDutyPreviewAutoHide",
                 ref autoHide))
         {
@@ -21,7 +21,7 @@ internal static class LockedDutyPreviewPanel
 
         ImGuiOm.HelpMarker(OmniLoc.Get("Feature.LockedDutyPreview.AutoHide.Help"));
         ImGui.SameLine(0f, OmniTheme.Scale(20f));
-        if (ImGui.Button(OmniLoc.Get("Feature.LockedDutyPreview.ClearExcluded")))
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.LockedDutyPreview.ClearExcluded"), false))
         {
             changed = config.ExcludedContentFinderConditionIds.Count > 0;
             config.ExcludedContentFinderConditionIds.Clear();

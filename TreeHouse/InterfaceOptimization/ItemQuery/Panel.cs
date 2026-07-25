@@ -1,6 +1,5 @@
 using OmniToolbox.Config;
 using OmniToolbox.Items;
-using OmniToolbox.TreeHouse.InterfaceOperation;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
@@ -9,30 +8,20 @@ namespace OmniToolbox.TreeHouse.InterfaceOptimization.ItemQuery;
 
 internal sealed class ItemQueryPanel
 {
-    private const ItemInventoryLocation InteractionLocations =
-        ItemInventoryLocation.Saddlebag |
-        ItemInventoryLocation.Retainer |
-        ItemInventoryLocation.GlamourDresser |
-        ItemInventoryLocation.Armoire |
-        ItemInventoryLocation.RetainerMarket;
-
     private readonly ItemConfig itemConfig;
     private readonly InventoryConfig inventoryConfig;
     private readonly PlayerInventoryService inventoryService;
-    private readonly IAutoStoreService autoStoreService;
     private readonly Action refreshItemTooltip;
 
     public ItemQueryPanel(
         ItemConfig itemConfig,
         InventoryConfig inventoryConfig,
         PlayerInventoryService inventoryService,
-        IAutoStoreService autoStoreService,
         Action refreshItemTooltip)
     {
         this.itemConfig = itemConfig;
         this.inventoryConfig = inventoryConfig;
         this.inventoryService = inventoryService;
-        this.autoStoreService = autoStoreService;
         this.refreshItemTooltip = refreshItemTooltip;
     }
 
@@ -41,8 +30,6 @@ internal sealed class ItemQueryPanel
         var changed = DrawLocationSettings();
         ImGui.Dummy(new Vector2(0f, OmniTheme.ContentGap()));
         changed |= DrawTooltipSettings();
-        ImGui.Dummy(new Vector2(0f, OmniTheme.ContentGap()));
-        DrawCharacterCacheSettings();
         return changed;
     }
 
@@ -262,172 +249,4 @@ internal sealed class ItemQueryPanel
         return OmniControls.Checkbox(id, ref value);
     }
 
-    private void DrawCharacterCacheSettings()
-    {
-        OmniControls.SectionLabel(OmniLoc.Get("Settings.CharacterCache.Title"));
-        ImGui.TextWrapped(OmniLoc.Get("Settings.CharacterCache.Description"));
-        ImGui.Spacing();
-        DrawCharacterCacheCollectionActions();
-        ImGui.Spacing();
-        if (!HasAnyInteractionCache())
-        {
-            ImGui.TextDisabled(OmniLoc.Get("Settings.CharacterCache.Empty"));
-            return;
-        }
-
-        if (OmniControls.SmallButton(OmniLoc.Get("Settings.CharacterCache.ClearAll"), false))
-        {
-            inventoryService.ClearAllInteractionCaches();
-            refreshItemTooltip();
-            return;
-        }
-
-        ImGui.Spacing();
-        if (HasHousingCache())
-        {
-            ImGui.TextDisabled(OmniLoc.Get("Settings.CharacterCache.HousingCaptured"));
-            ImGui.Spacing();
-        }
-
-        DrawCharacterCacheTable();
-    }
-
-    private void DrawCharacterCacheCollectionActions()
-    {
-        using (ImRaii.Disabled(!autoStoreService.IsAvailable || autoStoreService.IsBusy))
-        {
-            if (OmniControls.SmallButton(OmniLoc.Get("Settings.CharacterCache.CollectRetainer"), false))
-            {
-                autoStoreService.RequestCacheCollection(AutoStoreCacheCollection.Retainer);
-            }
-
-            ImGui.SameLine(0f, OmniTheme.Scale(6f));
-            if (OmniControls.SmallButton(OmniLoc.Get("Settings.CharacterCache.CollectGlamourArmoire"), false))
-            {
-                autoStoreService.RequestCacheCollection(AutoStoreCacheCollection.GlamourDresserAndArmoire);
-            }
-
-            ImGui.SameLine(0f, OmniTheme.Scale(6f));
-            if (OmniControls.SmallButton(OmniLoc.Get("Settings.CharacterCache.CollectFreeCompany"), false))
-            {
-                autoStoreService.RequestCacheCollection(AutoStoreCacheCollection.FreeCompanyChest);
-            }
-        }
-
-        if (!autoStoreService.IsBusy)
-        {
-            return;
-        }
-
-        ImGui.SameLine(0f, OmniTheme.Scale(6f));
-        if (OmniControls.SmallButton(OmniLoc.Get("Common.Cancel"), false))
-        {
-            autoStoreService.Cancel();
-        }
-    }
-
-    private void DrawCharacterCacheTable()
-    {
-        using var table = ImRaii.Table(
-            "##itemQueryCharacterCacheTable",
-            8,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.RowBg | ImGuiTableFlags.Borders,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
-        if (!table)
-        {
-            return;
-        }
-
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Settings.CharacterCache.Character"),
-            ImGuiTableColumnFlags.WidthStretch,
-            1.6f);
-        ImGui.TableSetupColumn(OmniLoc.Get("ItemSearch.Location.Saddlebag"));
-        ImGui.TableSetupColumn(OmniLoc.Get("ItemSearch.Location.Retainer"));
-        ImGui.TableSetupColumn(OmniLoc.Get("ItemSearch.Location.RetainerMarket"));
-        ImGui.TableSetupColumn(OmniLoc.Get("ItemSearch.Location.GlamourDresser"));
-        ImGui.TableSetupColumn(OmniLoc.Get("ItemSearch.Location.Armoire"));
-        ImGui.TableSetupColumn(OmniLoc.Get("ItemSearch.Location.FreeCompanyChest"));
-        ImGui.TableSetupColumn(OmniLoc.Get("Settings.CharacterCache.Action"));
-        ImGui.TableHeadersRow();
-
-        ulong clearContentId = 0;
-        foreach (var (contentId, cache) in inventoryConfig.Characters)
-        {
-            if (HasInteractionCache(contentId, cache))
-            {
-                DrawCharacterCacheRow(contentId, cache, ref clearContentId);
-            }
-        }
-
-        if (clearContentId == 0)
-        {
-            return;
-        }
-
-        inventoryService.ClearCharacterInteractionCache(clearContentId);
-        refreshItemTooltip();
-    }
-
-    private void DrawCharacterCacheRow(
-        ulong contentId,
-        CharacterInventoryCache cache,
-        ref ulong clearContentId)
-    {
-        ImGui.PushID(unchecked((int)(contentId ^ contentId >> 32)));
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        ImGui.TextUnformatted(string.IsNullOrWhiteSpace(cache.DisplayName)
-            ? string.Format(OmniLoc.Get("Settings.CharacterCache.CharacterId"), contentId)
-            : cache.DisplayName);
-        DrawCacheStatus(HasLocationSnapshot(cache, ItemInventoryLocation.Saddlebag));
-        DrawCacheStatus(HasLocationSnapshot(cache, ItemInventoryLocation.Retainer));
-        DrawCacheStatus(HasLocationSnapshot(cache, ItemInventoryLocation.RetainerMarket));
-        DrawCacheStatus(HasLocationSnapshot(cache, ItemInventoryLocation.GlamourDresser));
-        DrawCacheStatus(HasLocationSnapshot(cache, ItemInventoryLocation.Armoire));
-        DrawCacheStatus(inventoryConfig.FreeCompanyChestOwnerContentId == contentId);
-        ImGui.TableNextColumn();
-        if (OmniControls.SmallButton(OmniLoc.Get("Settings.CharacterCache.Clear"), false))
-        {
-            clearContentId = contentId;
-        }
-
-        ImGui.PopID();
-    }
-
-    private static void DrawCacheStatus(bool captured)
-    {
-        ImGui.TableNextColumn();
-        ImGui.TextUnformatted(captured ? OmniLoc.Get("Settings.CharacterCache.Captured") : "-");
-    }
-
-    private bool HasAnyInteractionCache()
-    {
-        if (HasHousingCache())
-        {
-            return true;
-        }
-
-        foreach (var (contentId, cache) in inventoryConfig.Characters)
-        {
-            if (HasInteractionCache(contentId, cache))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private bool HasHousingCache() =>
-        inventoryConfig.HousingInteriorStoreroomItems.Count != 0 ||
-        inventoryConfig.HousingExteriorStoreroomItems.Count != 0 ||
-        inventoryConfig.ApartmentStoreroomItems.Count != 0;
-
-    private bool HasInteractionCache(ulong contentId, CharacterInventoryCache cache) =>
-        (cache.CapturedLocations & InteractionLocations) != 0 ||
-        inventoryConfig.FreeCompanyChestOwnerContentId == contentId;
-
-    private static bool HasLocationSnapshot(CharacterInventoryCache cache, ItemInventoryLocation location) =>
-        (cache.CapturedLocations & location) != 0;
 }

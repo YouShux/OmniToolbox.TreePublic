@@ -323,11 +323,10 @@ internal sealed class MarketBrowserWindow(
             return;
         }
 
-        ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Browser.Column.World"), ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn("NQ", ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn("HQ", ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableHeadersRow();
+        OmniControls.ScrollableTableHeadersRow();
         for (var index = 0; index < worlds.Count; index++)
         {
             var world = worlds[index];
@@ -366,14 +365,13 @@ internal sealed class MarketBrowserWindow(
             return;
         }
 
-        ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Browser.Column.World"), ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Column.Quality"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(54f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Column.UnitPrice"), ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Column.Quantity"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(68f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Column.Total"), ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Browser.Column.Retainer"), ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableHeadersRow();
+        OmniControls.ScrollableTableHeadersRow();
         DrawClippedRows(visibleListings.Count, DrawListingRow);
     }
 
@@ -418,13 +416,12 @@ internal sealed class MarketBrowserWindow(
             return;
         }
 
-        ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Browser.Column.World"), ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Column.Quality"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(54f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Column.UnitPrice"), ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Column.Quantity"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(68f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MarketPurchase.Column.Time"), ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableHeadersRow();
+        OmniControls.ScrollableTableHeadersRow();
         DrawClippedRows(visibleHistory.Count, DrawHistoryRow);
     }
 

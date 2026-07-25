@@ -1,7 +1,6 @@
 using OmniToolbox.Config;
 using OmniToolbox.Items;
 using OmniToolbox.Tooltips;
-using OmniToolbox.TreeHouse.InterfaceOperation;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization.ItemQuery;
 
@@ -14,7 +13,6 @@ public sealed class ItemQueryFeature : TreeHouseFeatureBase
         ItemConfig itemConfig,
         InventoryConfig inventoryConfig,
         PlayerInventoryService inventoryService,
-        IAutoStoreService autoStoreService,
         ItemOwnedCountTooltip itemOwnedCountTooltip)
         : base(new(
             "item-query",
@@ -27,7 +25,6 @@ public sealed class ItemQueryFeature : TreeHouseFeatureBase
             itemConfig,
             inventoryConfig,
             inventoryService,
-            autoStoreService,
             itemOwnedCountTooltip.RefreshSettings);
     }
 

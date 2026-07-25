@@ -8,8 +8,8 @@ using Lumina.Excel;
 using Lumina.Excel.Sheets;
 using Lumina.Text.ReadOnly;
 using OmenTools;
-using OmenTools.Dalamud.Services.ObjectTable.Abstractions;
-using OmenPlayerCharacter = OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds.IPlayerCharacter;
+using OmenTools.Dalamud.Services.Game.Object.Abstractions;
+using OmenPlayerCharacter = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IPlayerCharacter;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 

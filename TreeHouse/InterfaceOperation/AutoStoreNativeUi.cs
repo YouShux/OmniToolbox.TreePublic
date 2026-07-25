@@ -7,7 +7,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmniToolbox.Host;
 using OmenTools;
-using OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds;
+using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.AddonEvent;
 using OmenTools.Interop.Game.Helpers;

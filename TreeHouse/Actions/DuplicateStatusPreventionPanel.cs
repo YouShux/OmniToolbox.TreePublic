@@ -18,7 +18,7 @@ internal static class DuplicateStatusPreventionPanel
         ImGui.SameLine();
         ImGui.SetNextItemWidth(OmniTheme.Scale(100f));
         var overlapThreshold = config.OverlapThreshold;
-        if (ImGui.InputFloat("##duplicateStatusOverlapThreshold", ref overlapThreshold, 0f, 0f, "%.1f"))
+        if (OmniControls.InputFloat("##duplicateStatusOverlapThreshold", ref overlapThreshold, 0f, 0f, "%.1f"))
         {
             config.OverlapThreshold = overlapThreshold;
         }
@@ -55,10 +55,9 @@ internal static class DuplicateStatusPreventionPanel
             return changed;
         }
 
-        ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Action"), ImGuiTableColumnFlags.WidthStretch, 0.5f);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Status"), ImGuiTableColumnFlags.WidthStretch, 0.5f);
-        ImGui.TableHeadersRow();
+        OmniControls.ScrollableTableHeadersRow();
 
         foreach (var action in DuplicateStatusPreventionRules.OrderedActions)
         {
@@ -70,7 +69,7 @@ internal static class DuplicateStatusPreventionPanel
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             var enabled = config.EnabledActions[action.Key];
-            if (ImGui.Checkbox($"##duplicateStatusAction{action.Key}", ref enabled))
+            if (OmniControls.Checkbox($"##duplicateStatusAction{action.Key}", ref enabled))
             {
                 config.EnabledActions[action.Key] = enabled;
                 changed = true;

@@ -17,7 +17,7 @@ internal static class CosmicLotteryPanel
         ImGui.TextUnformatted(OmniLoc.Get("Feature.CosmicLottery.Threshold"));
         ImGui.SameLine(0f, OmniTheme.Scale(10f));
         ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (ImGui.InputInt("##cosmicLotteryThreshold", ref threshold, 1_000, 1_000))
+        if (OmniControls.InputInt("##cosmicLotteryThreshold", ref threshold, 1_000, 1_000))
         {
             config.Threshold = Math.Max(1_000, threshold);
         }
@@ -30,7 +30,7 @@ internal static class CosmicLotteryPanel
         ImGui.TextUnformatted(OmniLoc.Get("Feature.CosmicLottery.DelayMs"));
         ImGui.SameLine(0f, OmniTheme.Scale(10f));
         ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (ImGui.InputInt("##cosmicLotteryDelayMs", ref delayMs, 10, 10))
+        if (OmniControls.InputInt("##cosmicLotteryDelayMs", ref delayMs, 10, 10))
         {
             config.DelayMs = Math.Max(0, delayMs);
         }
@@ -39,15 +39,15 @@ internal static class CosmicLotteryPanel
         ImGui.Spacing();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.CosmicLottery.TargetItemIds"));
         ImGui.SetNextItemWidth(OmniTheme.Scale(260f));
-        ImGui.InputText("##cosmicLotteryTargetItemIdInput", ref targetItemIdInput, 256);
+        OmniControls.InputText("##cosmicLotteryTargetItemIdInput", ref targetItemIdInput, 256);
         ImGui.SameLine();
-        if (ImGui.Button($"{OmniLoc.Get("Feature.CosmicLottery.Add")}##cosmicLotteryAdd"))
+        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.CosmicLottery.Add")}##cosmicLotteryAdd", false))
         {
             changed |= AddTargetItemIds(config);
         }
 
         ImGui.SameLine();
-        if (ImGui.Button($"{OmniLoc.Get("Feature.CosmicLottery.Clear")}##cosmicLotteryClear"))
+        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.CosmicLottery.Clear")}##cosmicLotteryClear", false))
         {
             config.TargetItemIds.Clear();
             targetItemIdInput = string.Empty;
@@ -96,7 +96,7 @@ internal static class CosmicLotteryPanel
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(LuminaWrapper.GetItemName(itemId));
             ImGui.TableNextColumn();
-            if (!ImGui.SmallButton($"{OmniLoc.Get("Feature.CosmicLottery.Remove")}##cosmicLotteryRemove{itemId}"))
+            if (!OmniControls.SmallButton($"{OmniLoc.Get("Feature.CosmicLottery.Remove")}##cosmicLotteryRemove{itemId}", false))
             {
                 continue;
             }

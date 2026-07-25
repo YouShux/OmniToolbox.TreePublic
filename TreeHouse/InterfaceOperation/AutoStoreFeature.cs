@@ -43,6 +43,8 @@ public sealed class AutoStoreFeature : TreeHouseFeatureBase, IAutoStoreService
             "Feature.AutoStore.Title",
             "Feature.AutoStore.Description",
             TreeHouseCategory.InterfaceOperation,
+            true,
+            false,
             true))
     {
         this.config = config;
@@ -57,6 +59,8 @@ public sealed class AutoStoreFeature : TreeHouseFeatureBase, IAutoStoreService
     }
 
     public bool IsAvailable => IsEnabled && taskHelper is not null;
+
+    public bool IsCacheCollectionAvailable => DalamudServices.PlayerState.ContentId != 0;
 
     public bool IsBusy => taskHelper?.IsBusy == true;
 
@@ -160,11 +164,12 @@ public sealed class AutoStoreFeature : TreeHouseFeatureBase, IAutoStoreService
 
     public bool RequestCacheCollection(AutoStoreCacheCollection target)
     {
-        if (!CanStart())
+        if (!IsCacheCollectionAvailable || IsBusy)
         {
             return false;
         }
 
+        taskHelper ??= CreateTaskHelper();
         switch (target)
         {
             case AutoStoreCacheCollection.Retainer:
@@ -232,12 +237,7 @@ public sealed class AutoStoreFeature : TreeHouseFeatureBase, IAutoStoreService
             throw new InvalidOperationException(reason);
         }
 
-        var helper = new TaskHelper
-        {
-            RetryIntervalMS = OperationIntervalMs,
-            TimeoutMS = OperationTimeoutMs
-        };
-        taskHelper = helper;
+        taskHelper ??= CreateTaskHelper();
 
         var lifetime = new FeatureLifetime();
         try
@@ -249,17 +249,7 @@ public sealed class AutoStoreFeature : TreeHouseFeatureBase, IAutoStoreService
         }
         catch
         {
-            try
-            {
-                lifetime.Dispose();
-            }
-            finally
-            {
-                helper.Abort();
-                helper.Dispose();
-                taskHelper = null;
-            }
-
+            lifetime.Dispose();
             throw;
         }
     }
@@ -278,12 +268,24 @@ public sealed class AutoStoreFeature : TreeHouseFeatureBase, IAutoStoreService
             listWindow.Close();
             CancelOperation(activeOperation);
             taskHelper?.Abort();
-            taskHelper?.Dispose();
-            taskHelper = null;
         }
     }
 
+    protected override void OnDispose()
+    {
+        CancelOperation(activeOperation);
+        taskHelper?.Abort();
+        taskHelper?.Dispose();
+        taskHelper = null;
+    }
+
     private bool CanStart() => IsAvailable && !IsBusy;
+
+    private static TaskHelper CreateTaskHelper() => new()
+    {
+        RetryIntervalMS = OperationIntervalMs,
+        TimeoutMS = OperationTimeoutMs
+    };
 
     private bool EnqueueRetrieve(AutoStoreItemRequest request)
     {
@@ -425,7 +427,15 @@ public sealed class AutoStoreFeature : TreeHouseFeatureBase, IAutoStoreService
                 return false;
             }
 
-            inventoryService.CaptureLoadedInteractionCaches();
+            inventoryService.CaptureLoadedInteractionCaches(facility switch
+            {
+                AutoStoreDestinationKind.Retainer =>
+                    ItemInventoryLocation.Retainer | ItemInventoryLocation.RetainerMarket,
+                AutoStoreDestinationKind.GlamourDresser => ItemInventoryLocation.GlamourDresser,
+                AutoStoreDestinationKind.Armoire => ItemInventoryLocation.Armoire,
+                AutoStoreDestinationKind.FreeCompanyChest => ItemInventoryLocation.FreeCompanyChest,
+                _ => 0
+            });
             return true;
         }
 

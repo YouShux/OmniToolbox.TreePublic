@@ -16,12 +16,13 @@ internal static class InfiniteSprintPanel
             ImGui.GetContentRegionAvail().X - ImGui.GetFrameHeightWithSpacing()));
 
         var intervalSeconds = Math.Clamp(config.IntervalMs, 0, InfiniteSprintFeature.MaxIntervalMs) / 1000f;
-        if (ImGui.SliderFloat(
+        if (OmniControls.SliderFloat(
                 "##infiniteSprintInterval",
                 ref intervalSeconds,
                 0f,
                 InfiniteSprintFeature.MaxIntervalMs / 1000f,
-                intervalSeconds == 0f ? OmniLoc.Get("Feature.InfiniteSprint.NoInterval") : "%.1fs"))
+                intervalSeconds == 0f ? OmniLoc.Get("Feature.InfiniteSprint.NoInterval") : "%.1fs",
+                ImGui.GetContentRegionAvail().X))
         {
             config.IntervalMs = Math.Clamp(
                 (int)(intervalSeconds * 1000f),

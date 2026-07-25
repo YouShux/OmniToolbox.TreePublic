@@ -173,13 +173,13 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.ItemId"));
         ImGui.SameLine();
         ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (ImGui.InputInt("##itemTooltipRemarkItemId", ref editingItemId) && editingItemId < 0)
+        if (OmniControls.InputInt("##itemTooltipRemarkItemId", ref editingItemId) && editingItemId < 0)
         {
             editingItemId = 0;
         }
 
         ImGui.SameLine();
-        if (ImGui.Button(OmniLoc.Get("Feature.ItemTooltipRemark.Load")))
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.ItemTooltipRemark.Load"), false))
         {
             LoadEditor(GetEditingItemId(), false);
         }
@@ -203,20 +203,20 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
             focusTextInput = false;
         }
 
-        ImGui.InputTextMultiline(
+        OmniControls.InputTextMultiline(
             "##itemTooltipRemarkText",
             ref editingText,
             MaxRemarkLength,
             new Vector2(ImGui.GetContentRegionAvail().X, OmniTheme.Scale(82f)));
 
         var changed = false;
-        if (ImGui.Button(OmniLoc.Get("Feature.ItemTooltipRemark.Save")))
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.ItemTooltipRemark.Save"), false))
         {
             changed |= SaveRemark(GetEditingItemId(), editingText, out editingText);
         }
 
         ImGui.SameLine();
-        if (ImGui.Button(OmniLoc.Get("Feature.ItemTooltipRemark.Delete")))
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.ItemTooltipRemark.Delete"), false))
         {
             changed |= SaveRemark(GetEditingItemId(), string.Empty, out editingText);
         }
@@ -272,7 +272,6 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
                 return false;
             }
 
-            ImGui.TableSetupScrollFreeze(0, 1);
             ImGui.TableSetupColumn(
                 OmniLoc.Get("Feature.ItemTooltipRemark.ItemId"),
                 ImGuiTableColumnFlags.WidthFixed,
@@ -287,7 +286,7 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
                 1.7f);
             ImGui.TableSetupColumn(editLabel, ImGuiTableColumnFlags.WidthFixed, editWidth);
             ImGui.TableSetupColumn(deleteLabel, ImGuiTableColumnFlags.WidthFixed, deleteWidth);
-            ImGui.TableHeadersRow();
+            OmniControls.ScrollableTableHeadersRow();
 
             foreach (var (itemId, remark) in config.Remarks.OrderBy(pair => pair.Key))
             {
@@ -322,13 +321,13 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
                 }
 
                 ImGui.TableNextColumn();
-                if (ImGui.Button(editLabel, new Vector2(editWidth, 0f)))
+                if (OmniControls.SmallButton(editLabel, false, new Vector2(editWidth, OmniTheme.SmallButtonSize().Y)))
                 {
                     LoadEditor(itemId, false);
                 }
 
                 ImGui.TableNextColumn();
-                if (ImGui.Button(deleteLabel, new Vector2(deleteWidth, 0f)))
+                if (OmniControls.SmallButton(deleteLabel, false, new Vector2(deleteWidth, OmniTheme.SmallButtonSize().Y)))
                 {
                     deleteItemId = itemId;
                 }

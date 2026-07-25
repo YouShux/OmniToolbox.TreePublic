@@ -11,10 +11,10 @@ using OmniToolbox.Lifecycle;
 using OmenTools;
 using OmenTools.OmenService;
 using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
-using IBattleChara = OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds.IBattleChara;
-using ICharacter = OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds.ICharacter;
-using IGameObject = OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds.IGameObject;
-using OmenObjectTable = OmenTools.Dalamud.Services.ObjectTable.Abstractions.IObjectTable;
+using IBattleChara = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IBattleChara;
+using ICharacter = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.ICharacter;
+using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IGameObject;
+using OmenObjectTable = OmenTools.Dalamud.Services.Game.Object.Abstractions.IObjectTable;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 
 namespace OmniToolbox.TreeHouse.General;

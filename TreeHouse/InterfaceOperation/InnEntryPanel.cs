@@ -13,7 +13,7 @@ internal static class InnEntryPanel
         else
         {
             using var disabled = ImRaii.Disabled(!enabled);
-            if (ImGui.Button($"{OmniLoc.Get("Feature.InnEntry.Enter")}##innEntry"))
+            if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.InnEntry.Enter")}##innEntry", false))
             {
                 service.RequestEnterNearestInn();
             }

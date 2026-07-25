@@ -8,7 +8,7 @@ internal static class MateriaTotalPanel
     public static bool Draw(MateriaTotalConfig config)
     {
         var highlightStats = config.HighlightStats;
-        var changed = ImGui.Checkbox(
+        var changed = OmniControls.Checkbox(
             $"{OmniLoc.Get("Feature.MateriaTotal.HighlightStats")}##materiaTotalHighlightStats",
             ref highlightStats);
         if (changed)
@@ -17,7 +17,7 @@ internal static class MateriaTotalPanel
         }
 
         var showTotal = config.ShowTotal;
-        if (ImGui.Checkbox(
+        if (OmniControls.Checkbox(
             $"{OmniLoc.Get("Feature.MateriaTotal.ShowTotal")}##materiaTotalShowTotal",
             ref showTotal))
         {

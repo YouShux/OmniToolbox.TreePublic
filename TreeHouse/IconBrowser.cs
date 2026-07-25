@@ -13,6 +13,9 @@ public sealed class IconBrowser
 {
     private const int IconMax = 350_000;
     private const int ScanBudgetPerFrame = 2_048;
+    private const float SearchControlWidth = 160f;
+    private const float IconSizeControlWidth = 160f;
+    private const float ModeControlWidth = 180f;
 
     private static readonly IconTabDefinition[] GameIconTabs =
     [
@@ -157,10 +160,12 @@ public sealed class IconBrowser
     private readonly IconBrowserConfig config;
     private readonly Action saveConfig;
     private readonly Dictionary<int, IconTabCache> tabCaches = [];
+    private readonly List<int> filteredGameIcons = [];
     private List<SeIconEntry>? seIconEntries;
     private Action<uint>? gameIconApplyTarget;
     private Action<string>? seIconApplyTarget;
     private BrowserMode mode;
+    private string gameIconFilter = string.Empty;
     private string seIconFilter = string.Empty;
 
     public IconBrowser(IconBrowserConfig config, Action saveConfig)
@@ -205,10 +210,21 @@ public sealed class IconBrowser
         using var style = new ComicStyleScope();
         var iconSize = OmniTheme.Scale(config.IconSize);
         var viewportSize = ImGuiHelpers.MainViewport.Size;
+        var imguiStyle = ImGui.GetStyle();
+        var toolbarMinWidth =
+            OmniTheme.Scale(SearchControlWidth + IconSizeControlWidth + ModeControlWidth) +
+            OmniControls.CompactButtonSize(OmniLoc.Get("IconBrowser.RebuildCache")).X +
+            ImGui.CalcTextSize(OmniLoc.Get("IconBrowser.Search")).X +
+            ImGui.CalcTextSize(OmniLoc.Get("IconBrowser.IconSize")).X +
+            ImGui.CalcTextSize(OmniLoc.Get("IconBrowser.Mode")).X +
+            (imguiStyle.ItemSpacing.X + imguiStyle.ItemInnerSpacing.X) * 3f +
+            imguiStyle.WindowPadding.X * 2f;
         ImGui.SetNextWindowSizeConstraints(
             new Vector2(
                 MathF.Min(
-                    (iconSize + ImGui.GetStyle().ItemSpacing.X) * 11f + ImGui.GetStyle().WindowPadding.X * 2f,
+                    MathF.Max(
+                        (iconSize + imguiStyle.ItemSpacing.X) * 11f + imguiStyle.WindowPadding.X * 2f,
+                        toolbarMinWidth),
                     viewportSize.X),
                 MathF.Min(OmniTheme.Scale(420f), viewportSize.Y)),
             viewportSize);
@@ -227,7 +243,6 @@ public sealed class IconBrowser
 
         IsOpen = isOpen;
         DrawToolbar();
-        DrawModeSelector();
         if (mode == BrowserMode.SeIconChar)
         {
             DrawSeIconBrowser(iconSize);
@@ -246,6 +261,37 @@ public sealed class IconBrowser
 
     private void DrawToolbar()
     {
+        if (mode == BrowserMode.GameIcon)
+        {
+            if (OmniControls.InputText(
+                    $"{OmniLoc.Get("IconBrowser.Search")}##iconBrowserGameFilter",
+                    ref gameIconFilter,
+                    16,
+                    OmniTheme.Scale(SearchControlWidth),
+                    ImGuiInputTextFlags.CharsDecimal))
+            {
+                filteredGameIcons.Clear();
+                if (int.TryParse(
+                        gameIconFilter,
+                        NumberStyles.None,
+                        CultureInfo.InvariantCulture,
+                        out var icon) &&
+                    IconExists((uint)icon))
+                {
+                    filteredGameIcons.Add(icon);
+                }
+            }
+        }
+        else
+        {
+            OmniControls.InputText(
+                $"{OmniLoc.Get("IconBrowser.Search")}##iconBrowserSeFilter",
+                ref seIconFilter,
+                128,
+                OmniTheme.Scale(SearchControlWidth));
+        }
+
+        ImGui.SameLine();
         var iconSize = config.IconSize;
         if (OmniControls.SliderFloat(
                 $"{OmniLoc.Get("IconBrowser.IconSize")}##iconBrowserSize",
@@ -253,7 +299,7 @@ public sealed class IconBrowser
                 16f,
                 128f,
                 "%.0f",
-                OmniTheme.Scale(160f)))
+                OmniTheme.Scale(IconSizeControlWidth)))
         {
             config.IconSize = Math.Clamp(iconSize, 16f, 128f);
         }
@@ -263,6 +309,8 @@ public sealed class IconBrowser
             saveConfig();
         }
 
+        ImGui.SameLine();
+        DrawModeSelector();
         ImGui.SameLine();
         if (OmniControls.SmallButton(OmniLoc.Get("IconBrowser.RebuildCache"), false))
         {
@@ -278,7 +326,7 @@ public sealed class IconBrowser
         if (!OmniControls.BeginCombo(
                 $"{OmniLoc.Get("IconBrowser.Mode")}##iconBrowserMode",
                 current,
-                OmniTheme.Scale(180f)))
+                OmniTheme.Scale(ModeControlWidth)))
         {
             return;
         }
@@ -314,9 +362,17 @@ public sealed class IconBrowser
                 continue;
             }
 
-            var cache = GetTabCache(i);
-            ScanTab(GameIconTabs[i], cache);
-            DrawIconGrid(i, cache.Icons, iconSize);
+            if (gameIconFilter.Length > 0)
+            {
+                DrawIconGrid(i, filteredGameIcons, iconSize);
+            }
+            else
+            {
+                var cache = GetTabCache(i);
+                ScanTab(GameIconTabs[i], cache);
+                DrawIconGrid(i, cache.Icons, iconSize);
+            }
+
             ImGui.EndTabItem();
         }
 
@@ -454,12 +510,6 @@ public sealed class IconBrowser
     private void DrawSeIconBrowser(float iconSize)
     {
         EnsureSeIconEntries();
-        OmniControls.InputText(
-            $"{OmniLoc.Get("IconBrowser.Filter")}##iconBrowserSeFilter",
-            ref seIconFilter,
-            128,
-            OmniTheme.Scale(260f));
-
         if (!ImGui.BeginChild("##iconBrowserSeIcons", Vector2.Zero, true))
         {
             ImGui.EndChild();

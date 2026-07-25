@@ -16,7 +16,7 @@ internal static class ArmoireRecordPanel
 
         ImGui.Spacing();
         using var disabled = ImRaii.Disabled(!enabled || service.IsStoring || service.IsRetrieving);
-        if (ImGui.Button($"{OmniLoc.Get("Feature.ArmoireRecord.Check")}##armoireRecordCheck"))
+        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.ArmoireRecord.Check")}##armoireRecordCheck", false))
         {
             service.RequestCheck();
         }
@@ -159,6 +159,6 @@ internal static class ArmoireRecordPanel
     private static bool DrawCheckbox(string labelKey, string id, bool current, out bool value)
     {
         value = current;
-        return ImGui.Checkbox($"{OmniLoc.Get(labelKey)}##armoireRecord{id}", ref value);
+        return OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##armoireRecord{id}", ref value);
     }
 }

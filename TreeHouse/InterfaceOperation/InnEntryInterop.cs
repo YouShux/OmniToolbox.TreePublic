@@ -7,8 +7,8 @@ using OmenTools.Info.Game.Packets.Upstream;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
 using CSGameObject = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
-using IAetheryteEntry = OmenTools.Dalamud.Services.AetheryteList.Abstractions.IAetheryteEntry;
-using IGameObject = OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds.IGameObject;
+using IAetheryteEntry = OmenTools.Dalamud.Services.Game.UI.Abstractions.IAetheryteEntry;
+using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IGameObject;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 using TerritoryIntendedUse = FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse;
 

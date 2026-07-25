@@ -14,7 +14,7 @@ internal static class MarketPurchasePanel
 
         using (ImRaii.Disabled(!service.IsAvailable))
         {
-            if (ImGui.Button($"{OmniLoc.Get("Feature.MarketPurchase.Browser.Open")}##marketBrowser"))
+            if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.MarketPurchase.Browser.Open")}##marketBrowser", false))
             {
                 service.OpenBrowser();
             }
@@ -24,7 +24,7 @@ internal static class MarketPurchasePanel
         {
             ImGui.SameLine();
             using var disabled = ImRaii.Disabled(!enabled);
-            if (ImGui.Button($"{OmniLoc.Get("Feature.MarketPurchase.Cancel")}##marketPurchase"))
+            if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.MarketPurchase.Cancel")}##marketPurchase", false))
             {
                 service.Cancel();
             }

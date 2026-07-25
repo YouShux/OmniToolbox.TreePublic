@@ -16,7 +16,9 @@ using OmniToolbox.TreeHouse.InterfaceOperation;
 using OmniToolbox.TreeHouse.Script;
 using OmniToolbox.TreeHouse.Utility;
 using OmniToolbox.Verification;
+using Dalamud.Plugin.Services;
 using OmenTools;
+using OmenTools.OmenService;
 
 namespace OmniToolbox.TreeHouse;
 
@@ -25,6 +27,8 @@ public sealed class TreeHouseCatalog : IDisposable
     private readonly TreeHouseConfig config;
     private readonly FeatureGate featureGate;
     private readonly FeatureLifetime lifetime = new();
+    private readonly List<ITreeHouseFeature> pendingFeatureRestores = [];
+    private bool restoreUpdateRegistered;
 
     private TreeHouseCatalog(
         TreeHouseConfig config,
@@ -38,6 +42,7 @@ public sealed class TreeHouseCatalog : IDisposable
         IArmoireRecordService armoireRecordService,
         ItemTooltipRemarkFeature itemTooltipRemarkService,
         MitigationMonitorFeature mitigationMonitorFeature,
+        FoodReminderFeature foodReminderFeature,
         IconBrowser iconBrowser,
         BetterUserMacroFeature betterUserMacroFeature,
         ChatFrameOptimizationFeature chatFrameOptimizationFeature,
@@ -61,6 +66,7 @@ public sealed class TreeHouseCatalog : IDisposable
         ArmoireRecordService = armoireRecordService;
         ItemTooltipRemarkService = itemTooltipRemarkService;
         MitigationMonitorFeature = mitigationMonitorFeature;
+        FoodReminderFeature = foodReminderFeature;
         IconBrowser = iconBrowser;
         BetterUserMacroFeature = betterUserMacroFeature;
         ChatFrameOptimizationFeature = chatFrameOptimizationFeature;
@@ -75,9 +81,22 @@ public sealed class TreeHouseCatalog : IDisposable
         foreach (var feature in features)
         {
             lifetime.Add(feature.Dispose);
-            if (config.IsEnabled(feature.Info.Id) && !SetEnabled(feature, true))
+            if (config.IsEnabled(feature.Info.Id) && !TryRestoreEnabled(feature))
             {
-                config.SetEnabled(feature.Info.Id, false);
+                pendingFeatureRestores.Add(feature);
+            }
+        }
+
+        if (pendingFeatureRestores.Count > 0)
+        {
+            restoreUpdateRegistered = FrameworkManager.Instance().Reg(RestorePendingFeatures, 1_000);
+            if (restoreUpdateRegistered)
+            {
+                lifetime.Add(StopPendingFeatureRestore);
+            }
+            else
+            {
+                DalamudServices.PluginLog.Error("TreeHouse pending feature restore registration failed.");
             }
         }
     }
@@ -101,6 +120,8 @@ public sealed class TreeHouseCatalog : IDisposable
     public ItemTooltipRemarkFeature ItemTooltipRemarkService { get; }
 
     public MitigationMonitorFeature MitigationMonitorFeature { get; }
+
+    public FoodReminderFeature FoodReminderFeature { get; }
 
     public IconBrowser IconBrowser { get; }
 
@@ -158,6 +179,7 @@ public sealed class TreeHouseCatalog : IDisposable
             featureGate,
             teleportService,
             autoPathService);
+        var voidPurchase = new VoidPurchaseFeature(marketPurchase, npcShopPurchase);
         var privateFeatures = privateTreeModule.CreateFeatures(new(
             config,
             saveConfig,
@@ -169,6 +191,7 @@ public sealed class TreeHouseCatalog : IDisposable
         var itemTooltipInventoryContext = new ItemTooltipInventoryContext(hookRegistry);
         var itemTooltipRemark = new ItemTooltipRemarkFeature(config.ItemTooltipRemark);
         var mitigationMonitor = new MitigationMonitorFeature(config.MitigationMonitor, saveConfig);
+        var foodReminder = new FoodReminderFeature(config.FoodReminder, saveConfig);
         var iconBrowser = new IconBrowser(config.IconBrowser, saveConfig);
         var betterUserMacro = new BetterUserMacroFeature(config.BetterUserMacro);
         var chatFrameOptimization = new ChatFrameOptimizationFeature(config.ChatFrameOptimization);
@@ -178,7 +201,6 @@ public sealed class TreeHouseCatalog : IDisposable
             itemConfig,
             inventoryConfig,
             inventoryService,
-            autoStore,
             itemOwnedCountTooltip);
         var itemPreview = new ItemPreviewFeature(itemConfig, itemPreviewService, itemSupplementTooltip);
         var nonEntityTargetVisibility = new NonEntityTargetVisibility(hookRegistry);
@@ -199,8 +221,7 @@ public sealed class TreeHouseCatalog : IDisposable
             featureGate);
         var features = new List<ITreeHouseFeature>
         {
-            marketPurchase,
-            npcShopPurchase,
+            voidPurchase,
             freeCompanyAction,
             new DisplayIdInformationFeature(config.DisplayIdInformation, iconBrowser),
             itemPriceQuery,
@@ -215,6 +236,8 @@ public sealed class TreeHouseCatalog : IDisposable
             new AutoPartyInviteFeature(config.AutoPartyInvite, featureGate),
             innEntry,
             new ReadyCheckFeature(config.ReadyCheck),
+            foodReminder,
+            new HouseExpirationReminderFeature(config.HouseExpirationReminder, saveConfig),
             new BetterCharacterPanelFeature(config.BetterCharacterPanel),
             new RealItemIconFeature(config.RealItemIcon, inventoryService, featureGate),
             betterUserMacro,
@@ -223,6 +246,7 @@ public sealed class TreeHouseCatalog : IDisposable
             new FastSearchResultsFeature(config.FastSearchResults, saveConfig),
             new CopyItemNameFeature(),
             new AltF4ExitFeature(),
+            new BackgroundChatReminderFeature(config.BackgroundChatReminder),
             new BackgroundFpsLimitFeature(config),
             new ChatHotbarLockFeature(config.ChatHotbarLock, saveConfig),
             chatFrameOptimization,
@@ -262,6 +286,7 @@ public sealed class TreeHouseCatalog : IDisposable
             armoireRecord,
             itemTooltipRemark,
             mitigationMonitor,
+            foodReminder,
             iconBrowser,
             betterUserMacro,
             chatFrameOptimization,
@@ -276,6 +301,8 @@ public sealed class TreeHouseCatalog : IDisposable
     }
 
     public bool IsFavorite(ITreeHouseFeature feature) => config.Favorites.Contains(feature.Info.Id);
+
+    public bool IsConfiguredEnabled(ITreeHouseFeature feature) => config.IsEnabled(feature.Info.Id);
 
     public void SetFavorite(ITreeHouseFeature feature, bool favorite)
     {
@@ -325,6 +352,60 @@ public sealed class TreeHouseCatalog : IDisposable
             DalamudServices.PluginLog.Error(ex, "TreeHouse feature {FeatureId} failed to change state.", feature.Info.Id);
             return false;
         }
+    }
+
+    private bool TryRestoreEnabled(ITreeHouseFeature feature)
+    {
+        if (!config.IsEnabled(feature.Info.Id) || feature.IsEnabled)
+        {
+            return true;
+        }
+
+        if (!CanEnable(feature, out _))
+        {
+            return false;
+        }
+
+        try
+        {
+            feature.SetEnabled(true);
+        }
+        catch (Exception ex)
+        {
+            DalamudServices.PluginLog.Error(
+                ex,
+                "TreeHouse feature {FeatureId} failed to restore its enabled state.",
+                feature.Info.Id);
+        }
+
+        return true;
+    }
+
+    private void RestorePendingFeatures(IFramework _)
+    {
+        for (var index = pendingFeatureRestores.Count - 1; index >= 0; index--)
+        {
+            if (TryRestoreEnabled(pendingFeatureRestores[index]))
+            {
+                pendingFeatureRestores.RemoveAt(index);
+            }
+        }
+
+        if (pendingFeatureRestores.Count == 0)
+        {
+            StopPendingFeatureRestore();
+        }
+    }
+
+    private void StopPendingFeatureRestore()
+    {
+        if (!restoreUpdateRegistered)
+        {
+            return;
+        }
+
+        restoreUpdateRegistered = false;
+        FrameworkManager.Instance().Unreg(RestorePendingFeatures);
     }
 
     public void Dispose() => lifetime.Dispose();

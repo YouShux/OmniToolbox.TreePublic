@@ -15,6 +15,8 @@ public interface IAutoStoreService
 {
     bool IsAvailable { get; }
 
+    bool IsCacheCollectionAvailable { get; }
+
     bool IsBusy { get; }
 
     bool RequestRetrieve(uint itemId);

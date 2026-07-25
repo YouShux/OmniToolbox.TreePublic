@@ -57,7 +57,7 @@ internal static class BetterUserMacroPanel
 
     private static bool DrawCheckbox(string labelKey, string id, ref bool value)
     {
-        var changed = ImGui.Checkbox($"{OmniLoc.Get(labelKey)}##betterUserMacro{id}", ref value);
+        var changed = OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##betterUserMacro{id}", ref value);
         ImGuiOm.HelpMarker(OmniLoc.Get($"{labelKey}.Help"));
         return changed;
     }

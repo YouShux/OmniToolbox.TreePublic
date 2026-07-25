@@ -53,13 +53,16 @@ internal static class DisplayIdInformationPanel
         }
 
         var buttonLabel = OmniLoc.Get("IconBrowser.Title");
-        var buttonWidth = ImGui.CalcTextSize(buttonLabel).X + ImGui.GetStyle().FramePadding.X * 2f;
-        if (ImGui.GetContentRegionAvail().X > buttonWidth + ImGui.GetStyle().ItemSpacing.X)
+        var buttonSize = OmniControls.CompactButtonSize(buttonLabel);
+        if (ImGui.GetContentRegionAvail().X > buttonSize.X + ImGui.GetStyle().ItemSpacing.X)
         {
             ImGui.SameLine();
         }
 
-        if (ImGui.Button(buttonLabel, new Vector2(MathF.Min(buttonWidth, ImGui.GetContentRegionAvail().X), 0f)))
+        if (OmniControls.SmallButton(
+                buttonLabel,
+                false,
+                new Vector2(MathF.Min(buttonSize.X, ImGui.GetContentRegionAvail().X), buttonSize.Y)))
         {
             iconBrowser.Toggle();
         }
@@ -184,6 +187,6 @@ internal static class DisplayIdInformationPanel
     private static bool DrawCheckbox(string labelKey, string id, bool current, out bool value)
     {
         value = current;
-        return ImGui.Checkbox($"{OmniLoc.Get(labelKey)}##displayId{id}", ref value);
+        return OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##displayId{id}", ref value);
     }
 }

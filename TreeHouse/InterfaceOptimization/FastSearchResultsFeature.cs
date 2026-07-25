@@ -13,6 +13,7 @@ using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Extensions;
@@ -406,7 +407,7 @@ public sealed unsafe class FastSearchResultsFeature(
 
             try
             {
-                if (ImGui.Checkbox("##fastSearchFreeCompanyDefaultPageToggle", ref isDefaultPage))
+                if (OmniControls.Checkbox("##fastSearchFreeCompanyDefaultPageToggle", ref isDefaultPage))
                 {
                     config.DefaultFreeCompanyPage = isDefaultPage && hasCurrentPage
                         ? currentPage

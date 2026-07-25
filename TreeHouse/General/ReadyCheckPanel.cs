@@ -123,7 +123,7 @@ internal static class ReadyCheckPanel
             ImGui.SetNextItemWidth(
                 ImGui.CalcTextSize("000").X + ImGui.GetStyle().FramePadding.X * 4f);
             var seconds = Math.Clamp(config.ClearAfterSeconds, 30, 900);
-            if (ImGui.InputInt("##readyCheckClearAfterSeconds", ref seconds, 0, 0))
+            if (OmniControls.InputInt("##readyCheckClearAfterSeconds", ref seconds, 0, 0))
             {
                 config.ClearAfterSeconds = Math.Clamp(seconds, 30, 900);
             }
@@ -143,7 +143,7 @@ internal static class ReadyCheckPanel
         out bool value)
     {
         value = current;
-        return ImGui.Checkbox($"{OmniLoc.Get(labelKey)}##readyCheckClear{id}", ref value);
+        return OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##readyCheckClear{id}", ref value);
     }
 
     private static bool DrawIconSettings(
@@ -158,25 +158,25 @@ internal static class ReadyCheckPanel
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         ImGui.TableNextColumn();
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        ImGui.DragFloat2(
+        OmniControls.DragFloat2(
             $"##readyCheck{id}Offset",
             ref offset,
             1f,
             -100f,
             100f,
-            "%.0f");
+            "%.0f",
+            ImGui.GetContentRegionAvail().X);
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         ImGui.TableNextColumn();
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        ImGui.DragFloat(
+        OmniControls.DragFloat(
             $"##readyCheck{id}Scale",
             ref scale,
             0.05f,
             0.3f,
             5f,
             "%.2f",
+            ImGui.GetContentRegionAvail().X,
             ImGuiSliderFlags.AlwaysClamp);
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();

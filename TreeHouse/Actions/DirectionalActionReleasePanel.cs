@@ -23,12 +23,11 @@ internal static class DirectionalActionReleasePanel
             return false;
         }
 
-        ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.DirectionalActionRelease.Camera"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(54f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.DirectionalActionRelease.Mouse"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(54f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.DirectionalActionRelease.Action"), ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.DirectionalActionRelease.Reverse"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(54f));
-        ImGui.TableHeadersRow();
+        OmniControls.ScrollableTableHeadersRow();
 
         foreach (var actionId in actionIds)
         {
@@ -40,7 +39,7 @@ internal static class DirectionalActionReleasePanel
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             var camera = config.Actions[actionId] == DirectionalActionMode.Camera;
-            if (ImGui.Checkbox($"##directionalCamera{actionId}", ref camera))
+            if (OmniControls.Checkbox($"##directionalCamera{actionId}", ref camera))
             {
                 config.Actions[actionId] = camera ? DirectionalActionMode.Camera : DirectionalActionMode.Disabled;
                 changed = true;
@@ -48,7 +47,7 @@ internal static class DirectionalActionReleasePanel
 
             ImGui.TableNextColumn();
             var mouse = config.Actions[actionId] == DirectionalActionMode.Mouse;
-            if (ImGui.Checkbox($"##directionalMouse{actionId}", ref mouse))
+            if (OmniControls.Checkbox($"##directionalMouse{actionId}", ref mouse))
             {
                 config.Actions[actionId] = mouse ? DirectionalActionMode.Mouse : DirectionalActionMode.Disabled;
                 changed = true;
@@ -59,7 +58,7 @@ internal static class DirectionalActionReleasePanel
 
             ImGui.TableNextColumn();
             var reversed = config.ReversedActions.Contains(actionId);
-            if (ImGui.Checkbox($"##directionalReverse{actionId}", ref reversed))
+            if (OmniControls.Checkbox($"##directionalReverse{actionId}", ref reversed))
             {
                 if (reversed)
                 {

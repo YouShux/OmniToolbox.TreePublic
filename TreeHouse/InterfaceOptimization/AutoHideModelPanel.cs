@@ -156,7 +156,7 @@ internal static class AutoHideModelPanel
         ImGui.SetCursorPosX(
             ImGui.GetCursorPosX() +
             MathF.Max(0f, (ImGui.GetContentRegionAvail().X - ImGui.GetFrameHeight()) * 0.5f));
-        if (!ImGui.Checkbox($"##autoHideModel{id}", ref value))
+        if (!OmniControls.Checkbox($"##autoHideModel{id}", ref value))
         {
             return false;
         }
@@ -195,7 +195,7 @@ internal static class AutoHideModelPanel
         bool value,
         Action<bool> setValue)
     {
-        if (!ImGui.Checkbox($"{OmniLoc.Get(key)}##autoHideModel{id}", ref value))
+        if (!OmniControls.Checkbox($"{OmniLoc.Get(key)}##autoHideModel{id}", ref value))
         {
             return false;
         }

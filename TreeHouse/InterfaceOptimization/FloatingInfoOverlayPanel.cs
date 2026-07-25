@@ -13,21 +13,21 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
     public bool Draw()
     {
         var changed = false;
-        if (ImGui.CollapsingHeader(
+        if (OmniControls.CollapsingHeader(
                 OmniLoc.Get("Feature.FloatingInfoOverlay.General"),
                 ImGuiTreeNodeFlags.DefaultOpen))
         {
             changed |= DrawGeneralSettings();
         }
 
-        if (ImGui.CollapsingHeader(
+        if (OmniControls.CollapsingHeader(
                 OmniLoc.Get("Feature.FloatingInfoOverlay.ObjectTypes"),
                 ImGuiTreeNodeFlags.DefaultOpen))
         {
             changed |= DrawObjectTypes();
         }
 
-        if (ImGui.CollapsingHeader(
+        if (OmniControls.CollapsingHeader(
                 OmniLoc.Get("Feature.FloatingInfoOverlay.DisplayOptions"),
                 ImGuiTreeNodeFlags.DefaultOpen))
         {
@@ -163,7 +163,7 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
                 ImGui.SetNextItemWidth(Math.Max(
                     OmniTheme.Scale(80f),
                     ImGui.GetContentRegionAvail().X - OmniTheme.Scale(54f)));
-                ImGui.InputTextWithHint(
+                OmniControls.InputTextWithHint(
                     "##floatingInfoDataIdInput",
                     OmniLoc.Get("Feature.FloatingInfoOverlay.FilterInput"),
                     ref filterInput,
@@ -173,7 +173,9 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
                              !config.FilterDataIds.Contains(dataId);
                 using (ImRaii.Disabled(!canAdd))
                 {
-                    if (ImGui.SmallButton($"{OmniLoc.Get("Feature.FloatingInfoOverlay.Add")}##addDataId"))
+                    if (OmniControls.SmallButton(
+                            $"{OmniLoc.Get("Feature.FloatingInfoOverlay.Add")}##addDataId",
+                            false))
                     {
                         config.FilterDataIds.Add(dataId);
                         filterInput = string.Empty;
@@ -387,7 +389,9 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
             ImGui.TableNextColumn();
             ImGui.TextUnformatted($"0x{dataId:X8}");
             ImGui.TableNextColumn();
-            if (ImGui.SmallButton($"{OmniLoc.Get("Feature.FloatingInfoOverlay.Remove")}##remove{dataId}"))
+            if (OmniControls.SmallButton(
+                    $"{OmniLoc.Get("Feature.FloatingInfoOverlay.Remove")}##remove{dataId}",
+                    false))
             {
                 removeIndex = index;
             }
@@ -408,7 +412,7 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         bool value,
         Action<bool> setValue)
     {
-        if (!ImGui.Checkbox($"{OmniLoc.Get(key)}##floatingInfo{id}", ref value))
+        if (!OmniControls.Checkbox($"{OmniLoc.Get(key)}##floatingInfo{id}", ref value))
         {
             return false;
         }
@@ -425,13 +429,13 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         float maximum,
         string format)
     {
-        ImGui.SetNextItemWidth(-1f);
-        return ImGui.SliderFloat(
+        return OmniControls.SliderFloat(
             $"{OmniLoc.Get(key)}##floatingInfo{id}",
             ref value,
             minimum,
             maximum,
-            format);
+            format,
+            ImGui.GetContentRegionAvail().X);
     }
 
     private static bool DrawIntSlider(
@@ -441,12 +445,13 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         int minimum,
         int maximum)
     {
-        ImGui.SetNextItemWidth(-1f);
-        return ImGui.SliderInt(
+        return OmniControls.SliderInt(
             $"{OmniLoc.Get(key)}##floatingInfo{id}",
             ref value,
             minimum,
-            maximum);
+            maximum,
+            "%d",
+            ImGui.GetContentRegionAvail().X);
     }
 
     private static bool TryParseDataId(string text, out uint dataId)

@@ -5,7 +5,7 @@ using OmenTools.Extensions;
 using OmenTools.Info.Game.Data;
 using OmenTools.Interop.Game.AddonEvent;
 using OmenTools.OmenService;
-using IGameObject = OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds.IGameObject;
+using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IGameObject;
 
 namespace OmniToolbox.TreeHouse.InterfaceOperation;
 

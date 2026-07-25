@@ -8,7 +8,7 @@ internal static class RealItemIconPanel
     public static bool Draw(RealItemIconConfig config)
     {
         var facewearGlasses = config.FacewearGlasses;
-        if (!ImGui.Checkbox(
+        if (!OmniControls.Checkbox(
                 $"{OmniLoc.Get("Feature.RealItemIcon.FacewearGlasses")}##realItemIconFacewearGlasses",
                 ref facewearGlasses))
         {

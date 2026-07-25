@@ -21,7 +21,7 @@ using OmenTools.Interop.Game.AddonEvent;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using GrandCompany = FFXIVClientStructs.FFXIV.Client.UI.Agent.GrandCompany;
-using IGameObject = OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds.IGameObject;
+using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IGameObject;
 using NativeGameObject = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
 
 namespace OmniToolbox.TreeHouse.InterfaceOperation;

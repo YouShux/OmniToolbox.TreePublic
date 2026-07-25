@@ -9,7 +9,7 @@ internal static class ShieldOnHpPanel
     public static bool Draw(ShieldOnHpConfig config)
     {
         var showBar = config.ShowBar;
-        var shouldSave = ImGui.Checkbox(
+        var shouldSave = OmniControls.Checkbox(
             $"{OmniLoc.Get("Feature.ShieldOnHp.ShowBar")}##shieldOnHpShowBar",
             ref showBar);
         if (shouldSave)

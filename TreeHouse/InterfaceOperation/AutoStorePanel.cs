@@ -16,7 +16,7 @@ internal static class AutoStorePanel
         ImGui.SameLine(0f, OmniTheme.Scale(8f));
         using (ImRaii.Disabled(!isAvailable))
         {
-            if (ImGui.Button(OmniLoc.Get("Feature.AutoStore.List.Open")))
+            if (OmniControls.SmallButton(OmniLoc.Get("Feature.AutoStore.List.Open"), false))
             {
                 openList();
             }
@@ -32,10 +32,10 @@ internal static class AutoStorePanel
     private static bool DrawDefaultTarget(AutoStoreConfig config)
     {
         var changed = false;
-        ImGui.SetNextItemWidth(MathF.Min(OmniTheme.Scale(220f), ImGui.GetContentRegionAvail().X));
-        if (!ImGui.BeginCombo(
+        if (!OmniControls.BeginCombo(
                 $"{OmniLoc.Get("Feature.AutoStore.DefaultTarget")}##autoStoreDefaultTarget",
-                AutoStoreListOptions.GetTargetLabel(config.DefaultStoreTarget)))
+                AutoStoreListOptions.GetTargetLabel(config.DefaultStoreTarget),
+                MathF.Min(OmniTheme.Scale(220f), ImGui.GetContentRegionAvail().X)))
         {
             return false;
         }
@@ -64,10 +64,10 @@ internal static class AutoStorePanel
     private static bool DrawHotkey(AutoStoreConfig config, AutoStoreHotkey hotkey)
     {
         var changed = false;
-        ImGui.SetNextItemWidth(OmniTheme.Scale(90f));
-        if (ImGui.BeginCombo(
+        if (OmniControls.BeginCombo(
                 "##autoStoreListHotkeyModifier",
-                AutoStoreListOptions.GetModifierLabel(config.ListHotkeyModifier)))
+                AutoStoreListOptions.GetModifierLabel(config.ListHotkeyModifier),
+                OmniTheme.Scale(90f)))
         {
             foreach (var modifier in AutoStoreListOptions.Modifiers)
             {
@@ -86,9 +86,10 @@ internal static class AutoStorePanel
         ImGui.SameLine();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.AutoStore.Hotkey.Modifier"));
         ImGui.SameLine();
-        if (ImGui.Button(
+        if (OmniControls.SmallButton(
                 $"{(hotkey.IsCapturing ? OmniLoc.Get("Feature.AutoStore.Hotkey.Capturing") : AutoStoreHotkey.Format(config))}##autoStoreListHotkey",
-                new(OmniTheme.Scale(128f), 0f)))
+                false,
+                new(OmniTheme.Scale(128f), OmniTheme.SmallButtonSize().Y)))
         {
             hotkey.StartCapture();
         }
@@ -96,7 +97,7 @@ internal static class AutoStorePanel
         ImGui.SameLine();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.AutoStore.Hotkey.Key"));
         ImGui.SameLine();
-        if (ImGui.Button($"{OmniLoc.Get("Feature.AutoStore.Hotkey.Clear")}##autoStoreListHotkeyClear"))
+        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoStore.Hotkey.Clear")}##autoStoreListHotkeyClear", false))
         {
             changed |= config.ListHotkey != 0 || config.ListHotkeyModifier != AutoStoreHotkeyModifier.None;
             config.ListHotkey = 0;
@@ -112,7 +113,7 @@ internal static class AutoStorePanel
         var changed = false;
         var width = (int)MathF.Round(config.ListWindowSize.X);
         ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (ImGui.InputInt(
+        if (OmniControls.InputInt(
                 $"{OmniLoc.Get("Feature.AutoStore.List.Width")}##autoStoreListWidth",
                 ref width,
                 0,
@@ -125,7 +126,7 @@ internal static class AutoStorePanel
         ImGui.SameLine(0f, OmniTheme.Scale(18f));
         var height = (int)MathF.Round(config.ListWindowSize.Y);
         ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (ImGui.InputInt(
+        if (OmniControls.InputInt(
                 $"{OmniLoc.Get("Feature.AutoStore.List.Height")}##autoStoreListHeight",
                 ref height,
                 0,

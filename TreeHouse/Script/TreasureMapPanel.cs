@@ -90,7 +90,7 @@ internal static class TreasureMapPanel
                 ImGui.TextUnformatted(OmniLoc.Get("Feature.TreasureMap.PriceLimit"));
                 ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
                 var priceLimit = config.PriceLimit;
-                if (ImGui.InputInt("##treasureMapPriceLimit", ref priceLimit))
+                if (OmniControls.InputInt("##treasureMapPriceLimit", ref priceLimit))
                 {
                     config.PriceLimit = Math.Max(0, priceLimit);
                 }
@@ -100,7 +100,7 @@ internal static class TreasureMapPanel
                 ImGui.TableNextColumn();
                 ImGui.TextUnformatted(OmniLoc.Get("Feature.TreasureMap.ItemId"));
                 ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-                if (ImGui.InputInt("##treasureMapItemId", ref itemIdInput))
+                if (OmniControls.InputInt("##treasureMapItemId", ref itemIdInput))
                 {
                     itemIdInput = Math.Max(0, itemIdInput);
                 }
@@ -113,7 +113,7 @@ internal static class TreasureMapPanel
                            !config.EnableOneClickPurchase ||
                            itemIdInput == 0))
                 {
-                    if (ImGui.Button($"{OmniLoc.Get("Feature.TreasureMap.Start")}##treasureMapStart"))
+                    if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.TreasureMap.Start")}##treasureMapStart", false))
                     {
                         service.RequestStart((uint)itemIdInput, config.PriceLimit);
                     }
@@ -122,7 +122,7 @@ internal static class TreasureMapPanel
                 ImGui.SameLine();
                 using (ImRaii.Disabled(!service.IsBusy))
                 {
-                    if (ImGui.Button($"{OmniLoc.Get("Feature.TreasureMap.Stop")}##treasureMapStop"))
+                    if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.TreasureMap.Stop")}##treasureMapStop", false))
                     {
                         service.Cancel();
                     }
@@ -149,7 +149,7 @@ internal static class TreasureMapPanel
         ref bool value,
         string tooltipKey = "")
     {
-        var changed = ImGui.Checkbox($"{OmniLoc.Get(labelKey)}##treasureMap{id}", ref value);
+        var changed = OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##treasureMap{id}", ref value);
         if (tooltipKey.Length != 0 && ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
         {
             ImGui.SetTooltip(OmniLoc.Get(tooltipKey));

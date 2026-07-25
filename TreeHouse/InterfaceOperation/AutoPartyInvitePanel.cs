@@ -4,7 +4,6 @@ using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using TinyPinyin;
 
 namespace OmniToolbox.TreeHouse.InterfaceOperation;
 
@@ -80,13 +79,13 @@ internal static class AutoPartyInvitePanel
         var digitToggleMask = 0;
         AutoPartyInviteTrigger? toggledTrigger = null;
         var toggledTriggerEnabled = false;
-        if (ImGui.Button($"{OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Add")}##autoPartyInviteTriggerAdd"))
+        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Add")}##autoPartyInviteTriggerAdd", false))
         {
             changed |= AddCustomTrigger(config);
         }
 
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        ImGui.InputTextWithHint(
+        OmniControls.InputTextWithHint(
             "##autoPartyInviteTriggerInput",
             OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Hint"),
             ref customTriggerInput,
@@ -106,7 +105,6 @@ internal static class AutoPartyInvitePanel
             return changed;
         }
 
-        ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn(
             OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Enabled"),
             ImGuiTableColumnFlags.WidthFixed,
@@ -123,7 +121,7 @@ internal static class AutoPartyInvitePanel
             OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Action"),
             ImGuiTableColumnFlags.WidthFixed,
             OmniTheme.Scale(86f));
-        ImGui.TableHeadersRow();
+        OmniControls.ScrollableTableHeadersRow();
 
         changed |= DrawTriggerState(
             config,
@@ -177,7 +175,7 @@ internal static class AutoPartyInvitePanel
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             var enabled = enabledState;
-            if (ImGui.Checkbox("##enabled", ref enabled))
+            if (OmniControls.Checkbox("##enabled", ref enabled))
             {
                 digitToggleMask |= 1 << digit;
                 changed = true;
@@ -207,7 +205,7 @@ internal static class AutoPartyInvitePanel
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             var enabled = trigger.Enabled;
-            if (ImGui.Checkbox("##enabled", ref enabled))
+            if (OmniControls.Checkbox("##enabled", ref enabled))
             {
                 toggledTrigger = trigger;
                 toggledTriggerEnabled = enabled;
@@ -219,7 +217,7 @@ internal static class AutoPartyInvitePanel
             ImGui.TableNextColumn();
             ImGui.TextDisabled(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Type.Exact"));
             ImGui.TableNextColumn();
-            if (ImGui.Button($"{OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Delete")}##delete"))
+            if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Delete")}##delete", false))
             {
                 config.CustomTriggers.RemoveAt(index);
                 index--;
@@ -267,7 +265,7 @@ internal static class AutoPartyInvitePanel
             changed |= config.AllowedTerritoryIds.RemoveWhere(id => !validTerritoryIds!.Contains(id)) > 0;
         }
 
-        if (!ImGui.CollapsingHeader(
+        if (!OmniControls.CollapsingHeader(
                 string.Format(
                     OmniLoc.Get("Feature.AutoPartyInvite.Territory.Title"),
                     config.AllowedTerritoryIds.Count),
@@ -299,7 +297,7 @@ internal static class AutoPartyInvitePanel
                 ImGui.TableSetupColumn("##current", ImGuiTableColumnFlags.WidthStretch);
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
-                if (ImGui.Button($"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.SelectAll")}##selectAll"))
+                if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.SelectAll")}##selectAll", false))
                 {
                     for (var index = 0; index < territoryOptions.Count; index++)
                     {
@@ -308,7 +306,7 @@ internal static class AutoPartyInvitePanel
                 }
 
                 ImGui.TableNextColumn();
-                if (ImGui.Button($"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.Clear")}##clear"))
+                if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.Clear")}##clear", false))
                 {
                     changed |= config.AllowedTerritoryIds.Count > 0;
                     config.AllowedTerritoryIds.Clear();
@@ -317,7 +315,7 @@ internal static class AutoPartyInvitePanel
                 ImGui.TableNextColumn();
                 using (ImRaii.Disabled(currentTerritoryId == 0 || config.AllowedTerritoryIds.Contains(currentTerritoryId)))
                 {
-                    if (ImGui.Button($"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.AddCurrent")}##addCurrent"))
+                    if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.AddCurrent")}##addCurrent", false))
                     {
                         changed |= config.AllowedTerritoryIds.Add(currentTerritoryId);
                     }
@@ -335,7 +333,7 @@ internal static class AutoPartyInvitePanel
         }
 
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        ImGui.InputTextWithHint(
+        OmniControls.InputTextWithHint(
             "##autoPartyInviteTerritorySearch",
             OmniLoc.Get("Feature.AutoPartyInvite.Territory.SearchHint"),
             ref territorySearch,
@@ -369,7 +367,6 @@ internal static class AutoPartyInvitePanel
             return false;
         }
 
-        ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn("##selected", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFrameHeight());
         ImGui.TableSetupColumn(
             OmniLoc.Get("Feature.AutoPartyInvite.Territory.Column.Map"),
@@ -383,7 +380,7 @@ internal static class AutoPartyInvitePanel
             OmniLoc.Get("Feature.AutoPartyInvite.Territory.Column.Id"),
             ImGuiTableColumnFlags.WidthFixed,
             OmniTheme.Scale(74f));
-        ImGui.TableHeadersRow();
+        OmniControls.ScrollableTableHeadersRow();
 
         var query = territorySearch.Trim();
         var hasExactId = uint.TryParse(query, out var exactId);
@@ -457,7 +454,7 @@ internal static class AutoPartyInvitePanel
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             var selected = selectedState;
-            if (ImGui.Checkbox("##selected", ref selected))
+            if (OmniControls.Checkbox("##selected", ref selected))
             {
                 toggledTerritoryId = option.Id;
                 toggledTerritorySelected = selected;
@@ -479,7 +476,7 @@ internal static class AutoPartyInvitePanel
     private static bool DrawChannels(AutoPartyInviteConfig config)
     {
         var changed = EnsureChannelsInitialized(config);
-        if (!ImGui.CollapsingHeader(
+        if (!OmniControls.CollapsingHeader(
                 string.Format(
                     OmniLoc.Get("Feature.AutoPartyInvite.Channel.Title"),
                     config.EnabledChannels.Count),
@@ -493,7 +490,7 @@ internal static class AutoPartyInvitePanel
             return changed;
         }
 
-        if (ImGui.Button($"{OmniLoc.Get("Feature.AutoPartyInvite.Channel.SelectAll")}##channelSelectAll"))
+        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Channel.SelectAll")}##channelSelectAll", false))
         {
             for (var index = 0; index < AutoPartyInviteFeature.ChannelOptions.Length; index++)
             {
@@ -502,7 +499,7 @@ internal static class AutoPartyInvitePanel
         }
 
         ImGui.SameLine();
-        if (ImGui.Button($"{OmniLoc.Get("Feature.AutoPartyInvite.Channel.Clear")}##channelClear"))
+        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Channel.Clear")}##channelClear", false))
         {
             changed |= config.EnabledChannels.Count > 0;
             config.EnabledChannels.Clear();
@@ -529,7 +526,7 @@ internal static class AutoPartyInvitePanel
                     ImGui.TableSetColumnIndex(index % columnCount);
                     var channelId = (ushort)option.Type;
                     var enabled = config.EnabledChannels.Contains(channelId);
-                    if (ImGui.Checkbox($"{GetChannelLabel(option)}##autoPartyInviteChannel{channelId}", ref enabled))
+                    if (OmniControls.Checkbox($"{GetChannelLabel(option)}##autoPartyInviteChannel{channelId}", ref enabled))
                     {
                         if (enabled)
                         {
@@ -596,45 +593,22 @@ internal static class AutoPartyInvitePanel
             var zoneName = territory.PlaceNameZone.ValueNullable?.Name.ToString() ?? string.Empty;
             var contentName = territory.ContentFinderCondition.ValueNullable?.Name.ToString() ?? string.Empty;
             var location = BuildLocation(regionName, zoneName);
-            var searchText = string.Join(
-                '\n',
-                territory.RowId.ToString(),
-                name,
-                territory.Name.ToString(),
-                location,
-                regionName,
-                zoneName,
-                contentName);
             territoryOptions.Add(new(
                 territory.RowId,
                 name,
                 location,
-                $"{searchText}\n{PinyinHelper.GetPinyin(searchText, string.Empty)}\n{BuildPinyinInitials(searchText)}"));
+                OmniSearchText.Build(
+                    territory.RowId.ToString(),
+                    name,
+                    territory.Name.ToString(),
+                    location,
+                    regionName,
+                    zoneName,
+                    contentName)));
             validTerritoryIds.Add(territory.RowId);
         }
 
         territoryOptions.Sort(static (left, right) => left.Id.CompareTo(right.Id));
-    }
-
-    private static string BuildPinyinInitials(string text)
-    {
-        Span<char> buffer = text.Length <= 256 ? stackalloc char[text.Length] : new char[text.Length];
-        var length = 0;
-        foreach (var character in text)
-        {
-            if (char.IsWhiteSpace(character))
-            {
-                continue;
-            }
-
-            var pinyin = PinyinHelper.GetPinyin(character.ToString(), string.Empty);
-            if (pinyin.Length > 0)
-            {
-                buffer[length++] = char.ToLowerInvariant(pinyin[0]);
-            }
-        }
-
-        return length == 0 ? string.Empty : new string(buffer[..length]);
     }
 
     private static string GetTerritoryName(uint territoryId)

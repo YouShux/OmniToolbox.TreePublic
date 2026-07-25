@@ -125,7 +125,7 @@ internal sealed class AutoStoreListWindow(
     private void DrawMainPanel()
     {
         ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        if (ImGui.InputTextWithHint(
+        if (OmniControls.InputTextWithHint(
                 "##autoStoreListSearch",
                 OmniLoc.Get("Feature.AutoStore.List.Search"),
                 ref searchText,
@@ -142,7 +142,7 @@ internal sealed class AutoStoreListWindow(
         else
         {
             ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-            ImGui.InputTextWithHint(
+            OmniControls.InputTextWithHint(
                 "##autoStorePresetName",
                 OmniLoc.Get("Feature.AutoStore.List.PresetName"),
                 ref presetName,
@@ -158,12 +158,12 @@ internal sealed class AutoStoreListWindow(
 
     private void DrawSourcePresetCombo()
     {
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        if (!ImGui.BeginCombo(
+        if (!OmniControls.BeginCombo(
                 "##autoStoreSourcePreset",
                 selectedPreset is null
                     ? AutoStoreListOptions.GetSourceLabel(source)
-                    : GetPresetDisplayName(selectedPreset)))
+                    : GetPresetDisplayName(selectedPreset),
+                ImGui.GetContentRegionAvail().X))
         {
             return;
         }
@@ -244,7 +244,6 @@ internal sealed class AutoStoreListWindow(
             return;
         }
 
-        ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn("##autoStoreChecked", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(28f));
         ImGui.TableSetupColumn("##autoStoreItemName", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableSetupColumn("##autoStoreLevel", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(66f));
@@ -253,7 +252,7 @@ internal sealed class AutoStoreListWindow(
             OmniLoc.Get("Feature.AutoStore.List.Quantity"),
             ImGuiTableColumnFlags.WidthFixed,
             OmniTheme.Scale(100f));
-        ImGui.TableHeadersRow();
+        OmniControls.ScrollableTableHeadersRow();
 
         ImGuiListClipperPtr clipper;
         unsafe
@@ -318,7 +317,7 @@ internal sealed class AutoStoreListWindow(
             ImGui.TableNextColumn();
             var quantity = GetItemQuantity(item);
             ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-            if (ImGui.InputInt("##autoStoreQuantity", ref quantity, 1, 0))
+            if (OmniControls.InputInt("##autoStoreQuantity", ref quantity, 1, 0))
             {
                 itemQuantities[item.ItemId] = selectedPreset is null
                     ? Math.Clamp(quantity, 1, Math.Max(1, item.Quantity))

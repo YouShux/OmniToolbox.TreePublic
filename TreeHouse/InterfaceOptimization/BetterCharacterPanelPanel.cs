@@ -92,6 +92,6 @@ internal static class BetterCharacterPanelPanel
         out bool updatedValue)
     {
         updatedValue = value;
-        return ImGui.Checkbox($"{OmniLoc.Get(labelKey)}##betterCharacterPanel{id}", ref updatedValue);
+        return OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##betterCharacterPanel{id}", ref updatedValue);
     }
 }

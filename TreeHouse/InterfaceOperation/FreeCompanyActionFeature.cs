@@ -6,6 +6,7 @@ using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.PublicBridge;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 using OmniToolbox.Verification;
 using OmenTools.Interop.Game.AddonEvent;
 using OmenTools.OmenService;
@@ -51,9 +52,10 @@ public sealed class FreeCompanyActionFeature : TreeHouseFeatureBase
     {
         foreach (var action in Actions)
         {
-            if (ImGui.Button(
+            if (OmniControls.SmallButton(
                     $"{OmniLoc.Get(action.LabelKey)}##freeCompanyAction{action.Id}",
-                    new(ImGui.GetContentRegionAvail().X, 0f)))
+                    false,
+                    new(ImGui.GetContentRegionAvail().X, OmniTheme.SmallButtonSize().Y)))
             {
                 TryPurchaseAction(action.Id, out _);
             }

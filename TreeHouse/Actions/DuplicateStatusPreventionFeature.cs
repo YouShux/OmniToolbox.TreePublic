@@ -2,8 +2,8 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using OmenTools;
-using OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds;
-using OmenTools.Dalamud.Services.StatusList.Implementations;
+using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
+using OmenTools.Dalamud.Services.Game;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using OmniToolbox.Config;
@@ -34,7 +34,7 @@ public sealed unsafe class DuplicateStatusPreventionFeature : TreeHouseFeatureBa
         config.EnabledActions ??= [];
         foreach (var action in DuplicateStatusPreventionRules.OrderedActions)
         {
-            config.EnabledActions.TryAdd(action.Key, true);
+            config.EnabledActions.TryAdd(action.Key, action.Key != 3);
         }
 
         foreach (var actionId in new List<uint>(config.EnabledActions.Keys))

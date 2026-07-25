@@ -13,7 +13,7 @@ using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmenTools;
-using OmenTools.Dalamud.Services.ObjectTable.Abstractions.ObjectKinds;
+using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 

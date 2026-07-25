@@ -108,14 +108,14 @@ internal static class AutoGcSealPanel
         ImGui.TextUnformatted(OmniLoc.Get("Feature.AutoGcSeal.CustomExcludeId"));
         ImGui.SameLine();
         ImGui.SetNextItemWidth(OmniTheme.Scale(110f));
-        if (ImGui.InputInt("##autoGcSealCustomExclude", ref customItemIdInput) && customItemIdInput < 0)
+        if (OmniControls.InputInt("##autoGcSealCustomExclude", ref customItemIdInput) && customItemIdInput < 0)
         {
             customItemIdInput = 0;
         }
 
         var normalizedItemId = NormalizeItemId((uint)Math.Max(0, customItemIdInput));
         ImGui.SameLine();
-        if (ImGui.Button($"{OmniLoc.Get("Feature.AutoGcSeal.Add")}##autoGcSealAdd") &&
+        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoGcSeal.Add")}##autoGcSealAdd", false) &&
             normalizedItemId > 0 &&
             config.CustomExcludedItemIds.Add(normalizedItemId))
         {
@@ -141,13 +141,13 @@ internal static class AutoGcSealPanel
         ImGui.Spacing();
         using (ImRaii.Disabled(!enabled))
         {
-            if (ImGui.Button($"{OmniLoc.Get("Feature.AutoGcSeal.OpenSupply")}##autoGcSealOpenSupply"))
+            if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoGcSeal.OpenSupply")}##autoGcSealOpenSupply", false))
             {
                 openSupply();
             }
 
             ImGui.SameLine();
-            if (ImGui.Button($"{OmniLoc.Get("Feature.AutoGcSeal.OpenExchange")}##autoGcSealOpenExchange"))
+            if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoGcSeal.OpenExchange")}##autoGcSealOpenExchange", false))
             {
                 openExchange();
             }
@@ -195,7 +195,7 @@ internal static class AutoGcSealPanel
             }
 
             ImGui.SameLine();
-            if (ImGui.SmallButton(OmniLoc.Get("Feature.AutoGcSeal.Delete")))
+            if (OmniControls.SmallButton(OmniLoc.Get("Feature.AutoGcSeal.Delete"), false))
             {
                 removeItemId = ids[index];
             }
@@ -212,7 +212,7 @@ internal static class AutoGcSealPanel
     private static bool DrawCheckbox(string labelKey, string id, bool current, out bool value)
     {
         value = current;
-        return ImGui.Checkbox($"{OmniLoc.Get(labelKey)}##autoGcSeal{id}", ref value);
+        return OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##autoGcSeal{id}", ref value);
     }
 
     private static uint NormalizeItemId(uint itemId) =>
@@ -222,7 +222,7 @@ internal static class AutoGcSealPanel
     {
         var input = (int)Math.Min(int.MaxValue, current);
         ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (!ImGui.InputInt($"{OmniLoc.Get(labelKey)}##autoGcSeal{id}", ref input))
+        if (!OmniControls.InputInt($"{OmniLoc.Get(labelKey)}##autoGcSeal{id}", ref input))
         {
             value = current;
             return false;

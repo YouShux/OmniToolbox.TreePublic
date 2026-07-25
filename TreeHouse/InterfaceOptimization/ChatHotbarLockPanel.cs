@@ -10,7 +10,7 @@ internal static class ChatHotbarLockPanel
     {
         var changed = false;
         var showChatLock = config.ShowChatLock;
-        if (ImGui.Checkbox(
+        if (OmniControls.Checkbox(
                 $"{OmniLoc.Get("Feature.ChatHotbarLock.ShowChatLock")}##chatHotbarLockShowChatLock",
                 ref showChatLock))
         {
@@ -26,7 +26,7 @@ internal static class ChatHotbarLockPanel
         ImGuiOm.HelpMarker(OmniLoc.Get("Feature.ChatHotbarLock.ShowChatLock.Help"));
 
         var hideLocks = config.HideLocks;
-        if (ImGui.Checkbox(
+        if (OmniControls.Checkbox(
                 $"{OmniLoc.Get("Feature.ChatHotbarLock.HideLocks")}##chatHotbarLockHideLocks",
                 ref hideLocks))
         {

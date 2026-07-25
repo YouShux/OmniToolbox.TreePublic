@@ -27,7 +27,7 @@ internal static class CoordinateNearestAetherytePanel
             OmniLoc.Get("Feature.CoordinateNearestAetheryte.IgnoredCount"),
             ignoredCount));
         ImGui.SameLine(0f, OmniTheme.Scale(20f));
-        if (ImGui.Button(OmniLoc.Get("Feature.CoordinateNearestAetheryte.ClearIgnored")))
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.CoordinateNearestAetheryte.ClearIgnored"), false))
         {
             changed |= config.IgnoredAetheryteIds.Count > 0;
             config.IgnoredAetheryteIds.Clear();
@@ -48,7 +48,6 @@ internal static class CoordinateNearestAetherytePanel
             return changed;
         }
 
-        ImGui.TableSetupScrollFreeze(0, 1);
         ImGui.TableSetupColumn(
             OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Id"),
             ImGuiTableColumnFlags.WidthFixed,
@@ -63,7 +62,7 @@ internal static class CoordinateNearestAetherytePanel
             OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Action"),
             ImGuiTableColumnFlags.WidthFixed,
             OmniTheme.Scale(86f));
-        ImGui.TableHeadersRow();
+        OmniControls.ScrollableTableHeadersRow();
 
         for (var pass = 0; pass < 2; pass++)
         {
@@ -98,10 +97,11 @@ internal static class CoordinateNearestAetherytePanel
                 }
 
                 ImGui.TableNextColumn();
-                if (ImGui.Button(
+                if (OmniControls.SmallButton(
                         $"{OmniLoc.Get(ignored
                             ? "Feature.CoordinateNearestAetheryte.Restore"
-                            : "Feature.CoordinateNearestAetheryte.Exclude")}##coordinateNearestAetheryte{aetheryte.Id}"))
+                            : "Feature.CoordinateNearestAetheryte.Exclude")}##coordinateNearestAetheryte{aetheryte.Id}",
+                        false))
                 {
                     if (ignored)
                     {

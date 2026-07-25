@@ -157,7 +157,7 @@ internal sealed class ChatLogReplayWindow
     private void DrawReplayControls()
     {
         ImGui.SetNextItemWidth(MathF.Min(OmniTheme.Scale(360f), ImGui.GetContentRegionAvail().X));
-        if (ImGui.InputText(
+        if (OmniControls.InputText(
                 $"{OmniLoc.Get("Feature.ChatLogReplay.Search")}##chatLogReplaySearch",
                 ref searchText,
                 128))
@@ -177,7 +177,7 @@ internal sealed class ChatLogReplayWindow
         using (ImRaii.Disabled(!anonymousMode))
         {
             ImGui.SetNextItemWidth(OmniTheme.Scale(132f));
-            if (ImGui.InputText("##chatLogReplayAnonymousPrefix", ref anonymousPrefix, 24))
+            if (OmniControls.InputText("##chatLogReplayAnonymousPrefix", ref anonymousPrefix, 24))
             {
                 renderer.RebuildAnonymous(GetAnonymousPrefix());
             }

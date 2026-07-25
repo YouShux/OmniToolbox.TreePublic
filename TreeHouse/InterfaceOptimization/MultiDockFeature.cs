@@ -1,6 +1,10 @@
+using System.Collections;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using Dalamud.Game.Text;
+using Dalamud.Interface.Windowing;
 using Dalamud.Interface.Textures;
 using Dalamud.Plugin;
 using OmniToolbox.Config;
@@ -9,6 +13,8 @@ using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools;
+using OmenTools.Dalamud.Helpers;
+using OmenTools.Extensions;
 using OmenTools.OmenService;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
@@ -17,6 +23,8 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
 {
     private const string PluginDockWindowName = "插件/窗口收纳###OmniToolbox.MultiDock.Plugin";
     private const string CommandDockWindowName = "指令收纳###OmniToolbox.MultiDock.Command";
+    private const string PluginDockWindowKey = "###OmniToolbox.MultiDock.Plugin";
+    private const string CommandDockWindowKey = "###OmniToolbox.MultiDock.Command";
 
     private readonly MultiDockConfig config;
     private readonly Action saveConfig;
@@ -25,6 +33,8 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
     private readonly List<MultiDockItemConfig> commandItems = [];
     private readonly Dictionary<string, ISharedImmediateTexture?> fileTextures = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> failedTexturePaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> appliedHiddenWindows = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> runtimeClosedPluginWindows = new(StringComparer.OrdinalIgnoreCase);
     private readonly DockRuntimeState pluginState = new();
     private readonly DockRuntimeState commandState = new();
     private FeatureLifetime? runtimeLifetime;
@@ -43,14 +53,14 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         this.config = config;
         this.saveConfig = saveConfig;
         NormalizeConfig();
+        appliedHiddenWindows.UnionWith(config.HiddenWindows);
         RefreshItemCaches();
         panel = new(
             config,
             iconBrowser,
             saveConfig,
             OnItemsChanged,
-            InvalidateTextures,
-            NormalizeConfig);
+            InvalidateTextures);
     }
 
     public override bool HasSettings => true;
@@ -128,6 +138,17 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         }
         finally
         {
+            foreach (var window in config.HiddenWindows)
+            {
+                SetImGuiWindowHidden(window, false);
+            }
+
+            foreach (var window in runtimeClosedPluginWindows)
+            {
+                SetImGuiWindowHidden(window, false);
+            }
+
+            runtimeClosedPluginWindows.Clear();
             runtimeLifetime = null;
             pluginState.Reset();
             commandState.Reset();
@@ -137,6 +158,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
 
     private void Draw()
     {
+        ApplyHiddenWindows();
         if (config.PluginDock.Visible)
         {
             DrawDock(PluginDockWindowName, config.PluginDock, pluginItems, pluginState, MultiDockKind.Plugin);
@@ -397,6 +419,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
             return;
         }
 
+        var hasMacro = false;
         for (var i = 0; i < item.ContextMenuMacros.Count; i++)
         {
             if (item.ContextMenuMacros[i].Command.Length == 0)
@@ -410,9 +433,23 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
             {
                 ExecuteCommand(item.ContextMenuMacros[i].Command);
             }
+
+            hasMacro = true;
         }
 
-        if (item.ContextMenuMacros.Count == 0)
+        if (item.ClickCommand.Length > 0)
+        {
+            if (hasMacro)
+            {
+                ImGui.Separator();
+            }
+
+            if (ImGui.MenuItem(OmniLoc.Get("Feature.MultiDock.ClickCommand")))
+            {
+                ExecuteCommand(item.ClickCommand);
+            }
+        }
+        else if (!hasMacro)
         {
             ImGui.TextDisabled(OmniLoc.Get("Feature.MultiDock.NoContextMacros"));
         }
@@ -431,10 +468,10 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         switch (item.Type)
         {
             case MultiDockItemType.Plugin:
-                OpenPlugin(item);
+                ActivatePluginItem(item);
                 break;
             case MultiDockItemType.ImGuiWindow:
-                ImGui.SetWindowFocus(item.WindowName);
+                ActivateWindowItem(item);
                 break;
             case MultiDockItemType.Command:
                 ExecuteCommand(item.Command);
@@ -442,37 +479,293 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         }
     }
 
-    private static void OpenPlugin(MultiDockItemConfig item)
+    private void ActivatePluginItem(MultiDockItemConfig item)
+    {
+        var plugin = FindPlugin(item.PluginInternalName);
+        if (plugin is null)
+        {
+            return;
+        }
+
+        if (TryActivatePluginWindowSystem(plugin, item.WindowName, item.PreferConfigUi))
+        {
+            return;
+        }
+
+        var targetWindow = item.WindowName.Length > 0 ? item.WindowName : FindPluginWindowName(plugin);
+        var targetKey = NormalizeWindowKey(targetWindow);
+        if (targetKey.Length > 0)
+        {
+            var targetKnown = TryGetImGuiWindowState(targetKey, out var targetOpen);
+            if (runtimeClosedPluginWindows.Remove(targetKey))
+            {
+                SetImGuiWindowHidden(targetKey, false);
+                if (targetKnown)
+                {
+                    ImGui.SetWindowFocus(targetWindow);
+                    return;
+                }
+            }
+            else if (targetOpen)
+            {
+                runtimeClosedPluginWindows.Add(targetKey);
+                SetImGuiWindowHidden(targetKey, true);
+                return;
+            }
+        }
+
+        OpenPlugin(plugin, item.PreferConfigUi);
+    }
+
+    private void ActivateWindowItem(MultiDockItemConfig item)
+    {
+        var targetKey = NormalizeWindowKey(item.WindowName);
+        if (targetKey.Length == 0 || IsOwnDockWindowKey(targetKey))
+        {
+            return;
+        }
+
+        if (config.HiddenWindows.Remove(targetKey))
+        {
+            appliedHiddenWindows.Remove(targetKey);
+            var plugin = FindPlugin(item.LinkedPluginInternalName);
+            if (plugin is not null)
+            {
+                OpenPlugin(plugin, item.PreferConfigUi);
+            }
+
+            SetImGuiWindowHidden(targetKey, false);
+            ImGui.SetWindowFocus(item.WindowName);
+        }
+        else
+        {
+            config.HiddenWindows.Add(targetKey);
+            appliedHiddenWindows.Add(targetKey);
+            SetImGuiWindowHidden(targetKey, true);
+        }
+
+        saveConfig();
+    }
+
+    private static IExposedPlugin? FindPlugin(string internalName)
     {
         foreach (var plugin in DalamudServices.PluginInterface.InstalledPlugins)
         {
-            if (!plugin.IsLoaded ||
-                !plugin.InternalName.Equals(item.PluginInternalName, StringComparison.OrdinalIgnoreCase))
+            if (plugin.IsLoaded &&
+                plugin.InternalName.Equals(internalName, StringComparison.OrdinalIgnoreCase))
             {
-                continue;
+                return plugin;
+            }
+        }
+
+        return null;
+    }
+
+    private bool TryActivatePluginWindowSystem(
+        IExposedPlugin plugin,
+        string configuredWindowName,
+        bool preferConfigUi)
+    {
+        var windowSystems = FindPluginWindowSystems(plugin);
+        if (windowSystems.Count == 0)
+        {
+            return false;
+        }
+
+        var targetKey = NormalizeWindowKey(configuredWindowName);
+        IWindow? firstWindow = null;
+        IWindow? openWindow = null;
+        var windowCount = 0;
+        var seenWindows = new HashSet<IWindow>(ReferenceEqualityComparer.Instance);
+        for (var i = 0; i < windowSystems.Count; i++)
+        {
+            foreach (var window in windowSystems[i].Windows)
+            {
+                if (!seenWindows.Add(window))
+                {
+                    continue;
+                }
+
+                windowCount++;
+                firstWindow ??= window;
+                var windowKey = NormalizeWindowKey(window.WindowName);
+                var wasRuntimeClosed = runtimeClosedPluginWindows.Remove(windowKey);
+                if (wasRuntimeClosed)
+                {
+                    SetImGuiWindowHidden(windowKey, false);
+                }
+
+                if (targetKey.Length > 0 && windowKey.Equals(targetKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    window.IsOpen = wasRuntimeClosed || !window.IsOpen;
+                    window.RequestFocus = window.IsOpen;
+                    return true;
+                }
+
+                if (targetKey.Length == 0 && wasRuntimeClosed)
+                {
+                    window.IsOpen = true;
+                    window.RequestFocus = true;
+                    return true;
+                }
+
+                if (targetKey.Length == 0 && window.IsOpen)
+                {
+                    openWindow ??= window;
+                }
+            }
+        }
+
+        if (openWindow is not null)
+        {
+            openWindow.IsOpen = false;
+        }
+        else if (windowCount == 1 && firstWindow is not null)
+        {
+            firstWindow.IsOpen = true;
+            firstWindow.RequestFocus = true;
+        }
+        else
+        {
+            OpenPlugin(plugin, preferConfigUi);
+        }
+
+        return true;
+    }
+
+    private static List<IWindowSystem> FindPluginWindowSystems(IExposedPlugin plugin)
+    {
+        object? pluginInstance = null;
+        try
+        {
+            if (DalamudReflector.GetPluginManager().GetFieldOrProperty("InstalledPlugins") is not IEnumerable installedPlugins)
+            {
+                return [];
             }
 
-            try
+            foreach (var installedPlugin in installedPlugins)
             {
-                if (item.PreferConfigUi && plugin.HasConfigUi)
+                if (installedPlugin is null ||
+                    (!(installedPlugin.GetFieldOrProperty<string>("InternalName") ?? string.Empty)
+                        .Equals(plugin.InternalName, StringComparison.OrdinalIgnoreCase) &&
+                     !(installedPlugin.GetFieldOrProperty<string>("Name") ?? string.Empty)
+                         .Equals(plugin.Name, StringComparison.OrdinalIgnoreCase)))
                 {
-                    plugin.OpenConfigUi();
+                    continue;
                 }
-                else if (plugin.HasMainUi)
+
+                pluginInstance = installedPlugin.GetFieldOrProperty("instance") ??
+                                 installedPlugin.GetFieldOrProperty("Instance");
+                for (var type = installedPlugin.GetType().BaseType;
+                     pluginInstance is null && type is not null;
+                     type = type.BaseType)
                 {
-                    plugin.OpenMainUi();
+                    pluginInstance = type.GetField(
+                                             "instance",
+                                             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
+                                             BindingFlags.DeclaredOnly)
+                                         ?.GetValue(installedPlugin) ??
+                                     type.GetProperty(
+                                             "Instance",
+                                             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
+                                             BindingFlags.DeclaredOnly)
+                                         ?.GetValue(installedPlugin);
                 }
-                else if (plugin.HasConfigUi)
-                {
-                    plugin.OpenConfigUi();
-                }
+
+                break;
             }
-            catch (Exception ex)
+        }
+        catch (Exception ex)
+        {
+            DalamudServices.PluginLog.Debug(ex, "MultiDock failed to inspect plugin {PluginName}.", plugin.InternalName);
+            return [];
+        }
+
+        if (pluginInstance is null)
+        {
+            return [];
+        }
+
+        var result = new List<IWindowSystem>();
+        var seen = new HashSet<IWindowSystem>(ReferenceEqualityComparer.Instance);
+        for (var type = pluginInstance.GetType(); type is not null; type = type.BaseType)
+        {
+            foreach (var field in type.GetFields(
+                         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
+                         BindingFlags.DeclaredOnly))
             {
-                DalamudServices.PluginLog.Error(ex, "MultiDock failed to open plugin {PluginName}.", item.PluginInternalName);
+                if (!typeof(IWindowSystem).IsAssignableFrom(field.FieldType))
+                {
+                    continue;
+                }
+
+                IWindowSystem? windowSystem;
+                try
+                {
+                    windowSystem = field.GetValue(pluginInstance) as IWindowSystem;
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (windowSystem is not null && seen.Add(windowSystem))
+                {
+                    result.Add(windowSystem);
+                }
             }
 
-            return;
+            foreach (var property in type.GetProperties(
+                         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic |
+                         BindingFlags.DeclaredOnly))
+            {
+                if (property.GetIndexParameters().Length != 0 ||
+                    property.GetGetMethod(true) is null ||
+                    !typeof(IWindowSystem).IsAssignableFrom(property.PropertyType))
+                {
+                    continue;
+                }
+
+                IWindowSystem? windowSystem;
+                try
+                {
+                    windowSystem = property.GetValue(pluginInstance) as IWindowSystem;
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (windowSystem is not null && seen.Add(windowSystem))
+                {
+                    result.Add(windowSystem);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static void OpenPlugin(IExposedPlugin plugin, bool preferConfigUi)
+    {
+        try
+        {
+            if (preferConfigUi && plugin.HasConfigUi)
+            {
+                plugin.OpenConfigUi();
+            }
+            else if (plugin.HasMainUi)
+            {
+                plugin.OpenMainUi();
+            }
+            else if (plugin.HasConfigUi)
+            {
+                plugin.OpenConfigUi();
+            }
+        }
+        catch (Exception ex)
+        {
+            DalamudServices.PluginLog.Error(ex, "MultiDock failed to open plugin {PluginName}.", plugin.InternalName);
         }
     }
 
@@ -485,13 +778,183 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
 
         try
         {
-            ChatManager.Instance().SendMessage(normalized);
+            if (!DalamudServices.CommandManager.ProcessCommand(normalized))
+            {
+                ChatManager.Instance().SendCommand(normalized);
+            }
         }
         catch (Exception ex)
         {
             DalamudServices.PluginLog.Error(ex, "MultiDock command execution failed: {Command}", normalized);
         }
     }
+
+    private unsafe void ApplyHiddenWindows()
+    {
+        if (config.HiddenWindows.Count == 0 && runtimeClosedPluginWindows.Count == 0)
+        {
+            return;
+        }
+
+        var context = ImGuiNative.GetCurrentContext();
+        if (context == null)
+        {
+            return;
+        }
+
+        var contextPtr = new ImGuiContextPtr(context);
+        ref var windows = ref contextPtr.Windows;
+        for (var i = 0; i < windows.Size; i++)
+        {
+            var window = windows[i];
+            if (window.Handle == null || window.Name == null)
+            {
+                continue;
+            }
+
+            var key = NormalizeWindowKey(Marshal.PtrToStringUTF8((IntPtr)window.Name));
+            if (config.HiddenWindows.Contains(key) || runtimeClosedPluginWindows.Contains(key))
+            {
+                SetImGuiWindowHidden(window, true);
+            }
+        }
+    }
+
+    private static unsafe void SetImGuiWindowHidden(string windowName, bool hidden)
+    {
+        var key = NormalizeWindowKey(windowName);
+        var context = ImGuiNative.GetCurrentContext();
+        if (key.Length == 0 || context == null)
+        {
+            return;
+        }
+
+        var contextPtr = new ImGuiContextPtr(context);
+        ref var windows = ref contextPtr.Windows;
+        for (var i = 0; i < windows.Size; i++)
+        {
+            var window = windows[i];
+            if (window.Handle == null || window.Name == null ||
+                !NormalizeWindowKey(Marshal.PtrToStringUTF8((IntPtr)window.Name))
+                    .Equals(key, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            SetImGuiWindowHidden(window, hidden);
+        }
+    }
+
+    private static unsafe void SetImGuiWindowHidden(ImGuiWindowPtr window, bool hidden)
+    {
+        if (hidden)
+        {
+            const sbyte hiddenFrames = 2;
+            window.Hidden = true;
+            window.SkipItems = true;
+            window.HiddenFramesCanSkipItems = hiddenFrames;
+            window.HiddenFramesCannotSkipItems = hiddenFrames;
+            window.HiddenFramesForRenderOnly = hiddenFrames;
+            ref var drawList = ref window.DrawList;
+            drawList.CmdBuffer.Clear();
+            drawList.IdxBuffer.Clear();
+            drawList.VtxBuffer.Clear();
+            return;
+        }
+
+        window.Hidden = false;
+        window.SkipItems = false;
+        window.HiddenFramesCanSkipItems = 0;
+        window.HiddenFramesCannotSkipItems = 0;
+        window.HiddenFramesForRenderOnly = 0;
+    }
+
+    private static unsafe bool TryGetImGuiWindowState(string windowName, out bool open)
+    {
+        open = false;
+        var key = NormalizeWindowKey(windowName);
+        var context = ImGuiNative.GetCurrentContext();
+        if (key.Length == 0 || context == null)
+        {
+            return false;
+        }
+
+        var contextPtr = new ImGuiContextPtr(context);
+        ref var windows = ref contextPtr.Windows;
+        for (var i = 0; i < windows.Size; i++)
+        {
+            var window = windows[i];
+            if (window.Handle != null && window.Name != null &&
+                NormalizeWindowKey(Marshal.PtrToStringUTF8((IntPtr)window.Name))
+                    .Equals(key, StringComparison.OrdinalIgnoreCase))
+            {
+                open = window.WasActive && !window.Hidden;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static unsafe string FindPluginWindowName(IExposedPlugin plugin)
+    {
+        var context = ImGuiNative.GetCurrentContext();
+        if (context == null)
+        {
+            return string.Empty;
+        }
+
+        var result = string.Empty;
+        var resultDisplayNameLength = int.MaxValue;
+        var contextPtr = new ImGuiContextPtr(context);
+        ref var windows = ref contextPtr.Windows;
+        for (var i = 0; i < windows.Size; i++)
+        {
+            var window = windows[i];
+            if (window.Handle == null || window.Name == null)
+            {
+                continue;
+            }
+
+            var name = Marshal.PtrToStringUTF8((IntPtr)window.Name) ?? string.Empty;
+            var key = NormalizeWindowKey(name);
+            if (IsOwnDockWindowKey(key))
+            {
+                continue;
+            }
+
+            var separator = name.IndexOf("###", StringComparison.Ordinal);
+            var displayName = (separator >= 0 ? name[..separator] : name).Trim();
+            if ((plugin.Name.Length == 0 ||
+                 (!displayName.Contains(plugin.Name, StringComparison.OrdinalIgnoreCase) &&
+                  !key.Contains(plugin.Name, StringComparison.OrdinalIgnoreCase))) &&
+                (plugin.InternalName.Length == 0 ||
+                 (!displayName.Contains(plugin.InternalName, StringComparison.OrdinalIgnoreCase) &&
+                  !key.Contains(plugin.InternalName, StringComparison.OrdinalIgnoreCase))))
+            {
+                continue;
+            }
+
+            if (displayName.Length < resultDisplayNameLength)
+            {
+                result = name;
+                resultDisplayNameLength = displayName.Length;
+            }
+        }
+
+        return result;
+    }
+
+    internal static string NormalizeWindowKey(string? windowName)
+    {
+        var value = (windowName ?? string.Empty).Trim();
+        var separator = value.IndexOf("###", StringComparison.Ordinal);
+        return separator >= 0 ? value[separator..] : value;
+    }
+
+    private static bool IsOwnDockWindowKey(string key) =>
+        key.Equals(PluginDockWindowKey, StringComparison.OrdinalIgnoreCase) ||
+        key.Equals(CommandDockWindowKey, StringComparison.OrdinalIgnoreCase);
 
     private void HandleDragging(
         MultiDockBarConfig dock,
@@ -653,6 +1116,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         NormalizeDock(config.CommandDock, new(520f, 260f));
 
         var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var windowKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < config.Items.Count;)
         {
             if (!NormalizeItem(config.Items[i], out var key) || !keys.Add(key))
@@ -661,8 +1125,25 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
                 continue;
             }
 
+            if (config.Items[i].Type == MultiDockItemType.ImGuiWindow)
+            {
+                windowKeys.Add(NormalizeWindowKey(config.Items[i].WindowName));
+            }
+
             i++;
         }
+
+        var hiddenWindows = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var window in config.HiddenWindows ?? [])
+        {
+            var key = NormalizeWindowKey(window);
+            if (windowKeys.Contains(key) && !IsOwnDockWindowKey(key))
+            {
+                hiddenWindows.Add(key);
+            }
+        }
+
+        config.HiddenWindows = hiddenWindows;
     }
 
     private static void NormalizeDock(MultiDockBarConfig dock, Vector2 defaultPosition)
@@ -695,6 +1176,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         item.WindowName = (item.WindowName ?? string.Empty).Trim();
         item.Command = (item.Command ?? string.Empty).Trim();
         item.ClickCommand = TryNormalizeCommand(item.ClickCommand, out var clickCommand) ? clickCommand : string.Empty;
+        item.LinkedPluginInternalName = (item.LinkedPluginInternalName ?? string.Empty).Trim();
         item.Icon ??= new();
         NormalizeIcon(item.Icon);
         item.ContextMenuMacros ??= [];
@@ -718,8 +1200,14 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
                 key = $"plugin:{item.PluginInternalName}";
                 return true;
             case MultiDockItemType.ImGuiWindow when item.WindowName.Length > 0:
-                key = $"window:{item.WindowName}";
-                return true;
+                var windowKey = NormalizeWindowKey(item.WindowName);
+                if (windowKey.Length > 0 && !IsOwnDockWindowKey(windowKey))
+                {
+                    key = $"window:{windowKey}";
+                    return true;
+                }
+
+                return false;
             case MultiDockItemType.Command when TryNormalizeCommand(item.Command, out var command):
                 item.Command = command;
                 key = $"command:{command}";
@@ -737,6 +1225,23 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
 
     private void OnItemsChanged()
     {
+        foreach (var window in runtimeClosedPluginWindows)
+        {
+            SetImGuiWindowHidden(window, false);
+        }
+
+        runtimeClosedPluginWindows.Clear();
+        NormalizeConfig();
+        foreach (var window in appliedHiddenWindows)
+        {
+            if (!config.HiddenWindows.Contains(window))
+            {
+                SetImGuiWindowHidden(window, false);
+            }
+        }
+
+        appliedHiddenWindows.Clear();
+        appliedHiddenWindows.UnionWith(config.HiddenWindows);
         RefreshItemCaches();
         InvalidateTextures();
     }
