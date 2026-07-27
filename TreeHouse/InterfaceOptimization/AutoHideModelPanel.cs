@@ -35,21 +35,21 @@ internal static class AutoHideModelPanel
         using var table = ImRaii.Table(
             "##autoHideModelSettings",
             8,
-            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchSame,
+            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg,
             new Vector2(ImGui.GetContentRegionAvail().X, 0f));
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthStretch, 1.1f);
-        ImGui.TableSetupColumn("##hideAll");
-        ImGui.TableSetupColumn("##combat");
-        ImGui.TableSetupColumn("##party");
-        ImGui.TableSetupColumn("##friend");
-        ImGui.TableSetupColumn("##company");
-        ImGui.TableSetupColumn("##dead");
-        ImGui.TableSetupColumn("##npc");
+        ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(78f));
+        ImGui.TableSetupColumn("##hideAll", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
+        ImGui.TableSetupColumn("##combat", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
+        ImGui.TableSetupColumn("##party", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
+        ImGui.TableSetupColumn("##friend", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
+        ImGui.TableSetupColumn("##company", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
+        ImGui.TableSetupColumn("##dead", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
+        ImGui.TableSetupColumn("##npc", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
         ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
         DrawHeader(string.Empty);
         DrawHeader(OmniLoc.Get("Feature.AutoHideModel.HideAll"));

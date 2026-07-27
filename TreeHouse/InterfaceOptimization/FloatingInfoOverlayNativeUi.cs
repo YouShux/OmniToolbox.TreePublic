@@ -1,3 +1,4 @@
+using System.Drawing;
 using System.Globalization;
 using Lumina.Excel.Sheets;
 using OmniToolbox.Config;
@@ -5,6 +6,7 @@ using OmniToolbox.Host;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools.Interop.Game.Lumina;
+using OmenTools.Extensions;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
@@ -185,21 +187,27 @@ internal sealed class FloatingInfoOverlayNativeUi(
         ClampToViewport(ref minimum, ref maximum, OmniTheme.Scale(4f) * overlayScale);
 
         var opacity = Math.Clamp(config.Opacity, 0.1f, 1f);
-        var tokens = OmniTheme.Tokens;
         drawList.AddRectFilledMultiColor(
             minimum,
             maximum,
-            Color(tokens.Surface, opacity * 0.94f),
-            Color(tokens.Surface, opacity * 0.94f),
-            Color(tokens.Background, opacity * 0.97f),
-            Color(tokens.Background, opacity * 0.97f));
+            OmniTheme.Color(KnownColor.DarkSlateBlue.ToVector4() with { W = opacity * 0.94f }),
+            OmniTheme.Color(KnownColor.DarkSlateBlue.ToVector4() with { W = opacity * 0.94f }),
+            OmniTheme.Color(KnownColor.Black.ToVector4() with { W = opacity * 0.97f }),
+            OmniTheme.Color(KnownColor.Black.ToVector4() with { W = opacity * 0.97f }));
+        drawList.AddRect(
+            minimum - Vector2.One * OmniTheme.Scale(1f) * overlayScale,
+            maximum + Vector2.One * OmniTheme.Scale(1f) * overlayScale,
+            OmniTheme.Color(KnownColor.DimGray.ToVector4() with { W = opacity * 0.26f }),
+            OmniTheme.Scale(4f) * overlayScale,
+            ImDrawFlags.None,
+            OmniTheme.Scale(2f) * overlayScale);
         drawList.AddRect(
             minimum,
             maximum,
-            Color(tokens.Border, opacity * 0.62f),
-            OmniTheme.Scale(tokens.BorderRadius) * overlayScale,
+            OmniTheme.Color(KnownColor.LightGray.ToVector4() with { W = opacity * 0.44f }),
+            OmniTheme.Scale(4f) * overlayScale,
             ImDrawFlags.None,
-            OmniTheme.BorderThickness());
+            OmniTheme.Scale(1.5f) * overlayScale);
 
         var currentPosition = minimum + padding;
         var mousePosition = ImGui.GetMousePos();
@@ -214,8 +222,8 @@ internal sealed class FloatingInfoOverlayNativeUi(
                 drawList.AddRectFilled(
                     lineMinimum,
                     lineMaximum,
-                    Color(tokens.Primary, opacity * 0.22f),
-                    OmniTheme.Scale(2f));
+                    OmniTheme.Color(KnownColor.Orange.ToVector4() with { W = opacity * 0.16f }),
+                    OmniTheme.Scale(2f) * overlayScale);
             }
 
             drawList.AddText(
@@ -522,26 +530,111 @@ internal sealed class FloatingInfoOverlayNativeUi(
         var fillMaximum = new Vector2(
             barMinimum.X + (barMaximum.X - barMinimum.X) * progress,
             barMaximum.Y);
-        var tokens = OmniTheme.Tokens;
         drawList.AddRectFilled(
             barMinimum,
             barMaximum,
-            Color(tokens.Surface, opacity * 0.86f),
+            OmniTheme.Color(KnownColor.Black.ToVector4() with { W = opacity * 0.86f }),
             OmniTheme.Scale(3f));
         if (fillMaximum.X > barMinimum.X)
         {
             drawList.AddRectFilled(
                 barMinimum,
                 fillMaximum,
-                Color(tokens.Warning, opacity),
+                OmniTheme.Color(KnownColor.Orange.ToVector4() with { W = opacity }),
                 OmniTheme.Scale(3f));
+            drawList.AddRectFilled(
+                barMinimum,
+                new Vector2(fillMaximum.X, barMinimum.Y + height * 0.36f),
+                OmniTheme.Color(KnownColor.Gold.ToVector4() with { W = opacity * 0.44f }),
+                OmniTheme.Scale(3f));
+            DrawCastProgressShimmer(drawList, barMinimum, fillMaximum, height, opacity);
         }
 
         drawList.AddRect(
             barMinimum,
             barMaximum,
-            Color(tokens.Border, opacity * 0.62f),
+            OmniTheme.Color(KnownColor.Goldenrod.ToVector4() with { W = opacity * 0.62f }),
             OmniTheme.Scale(3f));
+    }
+
+    private static void DrawCastProgressShimmer(
+        ImDrawListPtr drawList,
+        Vector2 barMinimum,
+        Vector2 fillMaximum,
+        float height,
+        float opacity)
+    {
+        var fillWidth = fillMaximum.X - barMinimum.X;
+        if (fillWidth <= height * 1.5f)
+        {
+            return;
+        }
+
+        var shimmerWidth = Math.Min(
+            Math.Max(height * 7.5f, OmniTheme.Scale(28f)),
+            fillWidth * 0.58f);
+        var centerX = barMinimum.X - shimmerWidth +
+                      (fillWidth + shimmerWidth * 2f) * (float)(ImGui.GetTime() * 0.95 % 1.0);
+        var left = centerX - shimmerWidth * 0.5f;
+        var right = centerX + shimmerWidth * 0.5f;
+        if (right <= barMinimum.X || left >= fillMaximum.X)
+        {
+            return;
+        }
+
+        var transparent = OmniTheme.Color(KnownColor.Gold.ToVector4() with { W = 0f });
+        var highlight = OmniTheme.Color(
+            KnownColor.LightGoldenrodYellow.ToVector4() with { W = opacity * 0.68f });
+        var shimmerHeight = Math.Max(OmniTheme.Scale(1f), height * 0.5f);
+        var shimmerMinimumY = barMinimum.Y + (height - shimmerHeight) * 0.5f;
+        var shimmerMaximumY = shimmerMinimumY + shimmerHeight;
+        DrawShimmerHalf(
+            drawList,
+            barMinimum.X,
+            fillMaximum.X,
+            left,
+            centerX,
+            shimmerMinimumY,
+            shimmerMaximumY,
+            transparent,
+            highlight);
+        DrawShimmerHalf(
+            drawList,
+            barMinimum.X,
+            fillMaximum.X,
+            centerX,
+            right,
+            shimmerMinimumY,
+            shimmerMaximumY,
+            highlight,
+            transparent);
+    }
+
+    private static void DrawShimmerHalf(
+        ImDrawListPtr drawList,
+        float clipMinimumX,
+        float clipMaximumX,
+        float left,
+        float right,
+        float minimumY,
+        float maximumY,
+        uint leftColor,
+        uint rightColor)
+    {
+        left = Math.Clamp(left, clipMinimumX, clipMaximumX);
+        right = Math.Clamp(right, clipMinimumX, clipMaximumX);
+        if (right <= left)
+        {
+            return;
+        }
+
+        drawList.AddRectFilledMultiColor(
+            new Vector2(left, minimumY),
+            new Vector2(right, maximumY),
+            leftColor,
+            rightColor,
+            rightColor,
+            leftColor);
     }
 
     private void CleanupPages()

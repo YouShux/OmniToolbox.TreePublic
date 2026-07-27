@@ -25,6 +25,7 @@ internal static class DuplicateStatusPreventionPanel
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         OmenTools.ImGuiOm.ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DuplicateStatusPrevention.OverlapThreshold.Help"));
+        ImGui.Spacing();
 
         var enabledCount = 0;
         foreach (var enabled in config.EnabledActions.Values)
@@ -35,21 +36,26 @@ internal static class DuplicateStatusPreventionPanel
             }
         }
 
-        using var node = ImRaii.TreeNode(string.Format(
+        ImGui.TextUnformatted(string.Format(
             OmniLoc.Get("Feature.DuplicateStatusPrevention.ActionCount"),
             enabledCount,
             config.EnabledActions.Count));
-        if (!node)
-        {
-            return changed;
-        }
 
-        var rowHeight = MathF.Max(ImGui.GetFrameHeightWithSpacing(), OmniTheme.Scale(30f));
+        var rowHeight = MathF.Max(ImGui.GetFrameHeightWithSpacing(), OmniTheme.Scale(34f));
+        var visibleRows = Math.Clamp(config.EnabledActions.Count, 1, 8);
+        using var cellPadding = ImRaii.PushStyle(
+            ImGuiStyleVar.CellPadding,
+            new Vector2(ImGui.GetStyle().CellPadding.X, OmniTheme.Scale(3f)));
+        using var framePadding = ImRaii.PushStyle(
+            ImGuiStyleVar.FramePadding,
+            new Vector2(ImGui.GetStyle().FramePadding.X, OmniTheme.Scale(3f)));
         using var table = ImRaii.Table(
             "##duplicateStatusActions",
             2,
             ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY,
-            new Vector2(ImGui.GetContentRegionAvail().X, rowHeight * 9f + ImGui.GetStyle().ItemSpacing.Y));
+            new Vector2(
+                ImGui.GetContentRegionAvail().X,
+                rowHeight * (visibleRows + 1) + ImGui.GetStyle().ItemSpacing.Y));
         if (!table)
         {
             return changed;
@@ -99,7 +105,9 @@ internal static class DuplicateStatusPreventionPanel
 
     private static void DrawAction(LuminaAction action)
     {
-        var iconSize = new Vector2(OmniTheme.Scale(24f));
+        var iconSize = new Vector2(MathF.Max(
+            OmniTheme.Scale(24f),
+            ImGui.GetTextLineHeightWithSpacing() + OmniTheme.Scale(6f)));
         if (ImageHelper.GetGameIcon(action.Icon) is { } icon)
         {
             ImGui.Image(icon.Handle, iconSize);

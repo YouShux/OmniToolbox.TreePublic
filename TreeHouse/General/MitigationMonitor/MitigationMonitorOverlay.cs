@@ -1,16 +1,19 @@
+using System.Drawing;
 using Dalamud.Interface;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools;
-using OmenTools.ImGuiOm;
+using OmenTools.Extensions;
 using OmenTools.OmenService;
 
 namespace OmniToolbox.TreeHouse.General;
 
 internal sealed class MitigationMonitorOverlay
 {
+    internal const float MinimumWidth = 390f;
+
     private readonly MitigationMonitorConfig config;
     private readonly MitigationHistoryMenu historyMenu;
     private readonly MitigationRecordTable recordTable;
@@ -20,6 +23,9 @@ internal sealed class MitigationMonitorOverlay
     private bool restoreLayoutNextDraw;
     private bool geometryDirty;
     private bool collapsedIconDragged;
+    private DateTime? expansionStartUtc;
+    private Vector2 expansionFromPosition;
+    private Vector2 expansionFromSize;
 
     public MitigationMonitorOverlay(
         MitigationMonitorConfig config,
@@ -49,10 +55,37 @@ internal sealed class MitigationMonitorOverlay
         }
 
         var scaleChanged = MathF.Abs(lastScale - OmniTheme.ScaleValue) > 0.001f;
-        ImGui.SetNextWindowPos(config.Position, restoreLayoutNextDraw ? ImGuiCond.Always : ImGuiCond.FirstUseEver);
+        var targetPosition = config.Position;
+        var targetSize = OmniTheme.Scale(config.Size);
+        var animatingExpansion = false;
+        var positionCondition = restoreLayoutNextDraw ? ImGuiCond.Always : ImGuiCond.FirstUseEver;
+        var sizeCondition = restoreLayoutNextDraw || scaleChanged ? ImGuiCond.Always : ImGuiCond.FirstUseEver;
+        if (expansionStartUtc.HasValue)
+        {
+            var progress = Math.Clamp((float)(DateTime.UtcNow - expansionStartUtc.Value).TotalSeconds / 0.15f, 0f, 1f);
+            if (progress < 1f)
+            {
+                var eased = progress * progress * (3f - 2f * progress);
+                targetPosition = Vector2.Lerp(expansionFromPosition, targetPosition, eased);
+                targetSize = Vector2.Lerp(expansionFromSize, targetSize, eased);
+                animatingExpansion = true;
+            }
+            else
+            {
+                expansionStartUtc = null;
+            }
+
+            positionCondition = ImGuiCond.Always;
+            sizeCondition = ImGuiCond.Always;
+        }
+
+        ImGui.SetNextWindowPos(targetPosition, positionCondition);
         ImGui.SetNextWindowSize(
-            OmniTheme.Scale(config.Size),
-            restoreLayoutNextDraw || scaleChanged ? ImGuiCond.Always : ImGuiCond.FirstUseEver);
+            targetSize,
+            sizeCondition);
+        ImGui.SetNextWindowSizeConstraints(
+            OmniTheme.Scale(new Vector2(MinimumWidth, 160f)),
+            OmniTheme.Scale(new Vector2(900f, 720f)));
         restoreLayoutNextDraw = false;
         lastScale = OmniTheme.ScaleValue;
 
@@ -64,20 +97,27 @@ internal sealed class MitigationMonitorOverlay
             flags |= ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize;
         }
 
-        var tokens = OmniTheme.Tokens;
         using var styles = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, OmniTheme.Scale(new Vector2(6f)))
             .Push(ImGuiStyleVar.WindowRounding, OmniTheme.Scale(8f))
             .Push(ImGuiStyleVar.WindowBorderSize, OmniTheme.BorderThickness());
-        using var colors = ImRaii.PushColor(ImGuiCol.WindowBg, tokens.Background with { W = config.Opacity })
-            .Push(ImGuiCol.Border, tokens.Border)
-            .Push(ImGuiCol.TableHeaderBg, tokens.Primary with { W = config.Opacity });
+        using var colors = ImRaii.PushColor(
+                ImGuiCol.WindowBg,
+                KnownColor.Black.ToVector4() with { W = config.Opacity * 0.93f })
+            .Push(ImGuiCol.Border, KnownColor.LightSlateGray.ToVector4() with { W = 0.42f });
 
         if (ImGui.Begin($"{OmniLoc.Get("Feature.MitigationMonitor.Title")}###OmniMitigationMonitor", flags))
         {
-            DrawToolbar();
-            recordTable.Draw(historyMenu.ActiveHistoryKey);
+            recordTable.Draw(
+                historyMenu.ActiveHistoryKey,
+                historyMenu.Open,
+                Collapse,
+                ToggleLock,
+                () => openSettingsAction?.Invoke());
             historyMenu.Draw();
-            UpdateWindowGeometry();
+            if (!animatingExpansion)
+            {
+                UpdateWindowGeometry();
+            }
         }
 
         ImGui.End();
@@ -95,6 +135,7 @@ internal sealed class MitigationMonitorOverlay
         recordTable.ResetRuntime();
         geometryDirty = false;
         collapsedIconDragged = false;
+        expansionStartUtc = null;
     }
 
     public void RequestLayoutRestore()
@@ -103,66 +144,18 @@ internal sealed class MitigationMonitorOverlay
         lastScale = 0f;
     }
 
-    private void DrawToolbar()
+    private void Collapse(Vector2 buttonPosition)
     {
-        var start = ImGui.GetCursorScreenPos();
-        var height = OmniTheme.Scale(24f);
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Title"));
-        var buttonSize = new Vector2(OmniTheme.Scale(22f), height);
-        var spacing = OmniTheme.Scale(3f);
-        var controlsWidth = buttonSize.X * 4f + spacing * 3f;
-        ImGui.SetCursorScreenPos(new(
-            MathF.Max(start.X, start.X + ImGui.GetContentRegionAvail().X - controlsWidth),
-            start.Y));
+        config.CollapsedPosition = buttonPosition;
+        expansionStartUtc = null;
+        config.Collapsed = true;
+        saveConfig();
+    }
 
-        if (ImGuiOm.ButtonIcon(
-                "##MitigationHistory",
-                FontAwesomeIcon.History,
-                buttonSize,
-                OmniLoc.Get("Feature.MitigationMonitor.History.Title")))
-        {
-            historyMenu.Open();
-        }
-
-        ImGui.SameLine(0f, spacing);
-        if (ImGuiOm.ButtonIcon(
-                "##MitigationCollapse",
-                FontAwesomeIcon.ChevronCircleUp,
-                buttonSize,
-                OmniLoc.Get("Feature.MitigationMonitor.Collapse")))
-        {
-            config.CollapsedPosition = ImGui.GetWindowPos() + new Vector2(
-                MathF.Max(0f, ImGui.GetWindowSize().X - OmniTheme.Scale(108f)),
-                OmniTheme.Scale(6f));
-            config.Collapsed = true;
-            saveConfig();
-        }
-
-        ImGui.SameLine(0f, spacing);
-        if (ImGuiOm.ButtonIcon(
-                "##MitigationLock",
-                config.Locked ? FontAwesomeIcon.Lock : FontAwesomeIcon.LockOpen,
-                buttonSize,
-                OmniLoc.Get(config.Locked
-                    ? "Feature.MitigationMonitor.Unlock"
-                    : "Feature.MitigationMonitor.Lock")))
-        {
-            config.Locked = !config.Locked;
-            saveConfig();
-        }
-
-        ImGui.SameLine(0f, spacing);
-        if (ImGuiOm.ButtonIcon(
-                "##MitigationSettings",
-                FontAwesomeIcon.Cog,
-                buttonSize,
-                OmniLoc.Get("Feature.MitigationMonitor.Settings")))
-        {
-            openSettingsAction?.Invoke();
-        }
-
-        ImGui.SetCursorScreenPos(new(start.X, start.Y + height + OmniTheme.Scale(3f)));
+    private void ToggleLock()
+    {
+        config.Locked = !config.Locked;
+        saveConfig();
     }
 
     private void DrawCollapsedIcon()
@@ -183,8 +176,8 @@ internal sealed class MitigationMonitorOverlay
             .Push(ImGuiStyleVar.WindowBorderSize, OmniTheme.BorderThickness());
         using var colors = ImRaii.PushColor(
                 ImGuiCol.WindowBg,
-                OmniTheme.Tokens.Background with { W = config.Opacity })
-            .Push(ImGuiCol.Border, OmniTheme.Tokens.Border);
+                KnownColor.Black.ToVector4() with { W = config.Opacity * 0.93f })
+            .Push(ImGuiCol.Border, KnownColor.LightSlateGray.ToVector4() with { W = 0.42f });
 
         if (ImGui.Begin("###OmniMitigationMonitorCollapsed", flags))
         {
@@ -207,6 +200,9 @@ internal sealed class MitigationMonitorOverlay
                 }
                 else if (ImGui.IsItemHovered())
                 {
+                    expansionFromPosition = ImGui.GetWindowPos();
+                    expansionFromSize = OmniTheme.Scale(new Vector2(34f));
+                    expansionStartUtc = DateTime.UtcNow;
                     config.Collapsed = false;
                     restoreLayoutNextDraw = true;
                     saveConfig();
@@ -234,7 +230,7 @@ internal sealed class MitigationMonitorOverlay
             min + new Vector2(
                 MathF.Max(0f, (size.X - textSize.X) * 0.5f),
                 MathF.Max(0f, (size.Y - textSize.Y) * 0.5f)),
-            OmniTheme.Color(OmniTheme.Tokens.Text),
+            OmniTheme.Color(KnownColor.White.ToVector4()),
             text);
     }
 
@@ -256,7 +252,7 @@ internal sealed class MitigationMonitorOverlay
         if (Vector2.DistanceSquared(size, config.Size) > 0.25f)
         {
             config.Size = new(
-                Math.Clamp(size.X, 320f, 900f),
+                Math.Clamp(size.X, MinimumWidth, 900f),
                 Math.Clamp(size.Y, 160f, 720f));
             geometryDirty = true;
         }

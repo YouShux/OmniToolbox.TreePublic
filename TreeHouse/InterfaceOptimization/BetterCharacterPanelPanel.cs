@@ -10,14 +10,25 @@ internal static class BetterCharacterPanelPanel
     public static bool Draw(BetterCharacterPanelConfig config)
     {
         var changed = false;
+        var style = ImGui.GetStyle();
+        using var cellPadding = ImRaii.PushStyle(
+            ImGuiStyleVar.CellPadding,
+            new Vector2(Math.Clamp(style.CellPadding.X * 0.9f, 5f, 11f), style.CellPadding.Y));
+        using var itemSpacing = ImRaii.PushStyle(
+            ImGuiStyleVar.ItemSpacing,
+            new Vector2(Math.Clamp(style.ItemSpacing.X, 9f, 17f), style.ItemSpacing.Y));
         using (var table = ImRaii.Table(
                    "##betterCharacterPanelOptions",
                    4,
-                   ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX,
+                   ImGuiTableFlags.SizingStretchProp,
                    new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
         {
             if (table)
             {
+                ImGui.TableSetupColumn("##c0", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##c1", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##c2", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##c3", ImGuiTableColumnFlags.WidthStretch, 1.25f);
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 if (DrawCheckbox(
@@ -63,25 +74,25 @@ internal static class BetterCharacterPanelPanel
                     config.AdjustEquipmentPositions = adjustEquipmentPositions;
                     changed = true;
                 }
+
+                ImGui.Spacing();
+                ImGui.Indent(OmniTheme.Scale(26f));
+                using (ImRaii.Disabled(!config.AdjustEquipmentPositions))
+                {
+                    if (DrawCheckbox(
+                            "Feature.BetterCharacterPanel.SoulstoneAboveOffhand",
+                            "soulstoneAboveOffhand",
+                            config.SoulstoneAboveOffhand,
+                            out var soulstoneAboveOffhand))
+                    {
+                        config.SoulstoneAboveOffhand = soulstoneAboveOffhand;
+                        changed = true;
+                    }
+                }
+
+                ImGui.Unindent(OmniTheme.Scale(26f));
             }
         }
-
-        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
-        ImGui.Indent(OmniTheme.Scale(18f));
-        using (ImRaii.Disabled(!config.AdjustEquipmentPositions))
-        {
-            if (DrawCheckbox(
-                    "Feature.BetterCharacterPanel.SoulstoneAboveOffhand",
-                    "soulstoneAboveOffhand",
-                    config.SoulstoneAboveOffhand,
-                    out var soulstoneAboveOffhand))
-            {
-                config.SoulstoneAboveOffhand = soulstoneAboveOffhand;
-                changed = true;
-            }
-        }
-
-        ImGui.Unindent(OmniTheme.Scale(18f));
         return changed;
     }
 

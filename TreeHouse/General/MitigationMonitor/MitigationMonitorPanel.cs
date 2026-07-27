@@ -1,6 +1,9 @@
+using Dalamud.Interface.Textures;
 using OmniToolbox.Config;
+using OmniToolbox.Host;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
+using OmenTools.Extensions;
 
 namespace OmniToolbox.TreeHouse.General;
 
@@ -13,87 +16,62 @@ internal static class MitigationMonitorPanel
     {
         var changed = false;
         changed |= hotkey.DrawSettings();
-        using (var table = ImRaii.Table(
-                   "##mitigationMonitorSettings",
-                   2,
-                   ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+
+        var opacity = config.Opacity * 100f;
+        if (OmniControls.SliderFloat(
+                $"{OmniLoc.Get("Feature.MitigationMonitor.Opacity")}##mitigationOpacity",
+                ref opacity,
+                0f,
+                100f,
+                "%.0f%%",
+                OmniTheme.Scale(150f)))
         {
-            if (table)
-            {
-                ImGui.TableSetupColumn("##label", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(120f));
-                ImGui.TableSetupColumn("##value", ImGuiTableColumnFlags.WidthStretch);
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Opacity"));
-                ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-                var opacity = config.Opacity * 100f;
-                if (OmniControls.SliderFloat("##mitigationOpacity", ref opacity, 0f, 100f, "%.0f%%", ImGui.GetContentRegionAvail().X))
-                {
-                    config.Opacity = opacity / 100f;
-                }
-
-                changed |= ImGui.IsItemDeactivatedAfterEdit();
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.ReplaySaveCount"));
-                ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-                var replaySaveCount = config.ReplaySaveCount;
-                if (OmniControls.InputInt("##mitigationReplaySaveCount", ref replaySaveCount, 1, 10))
-                {
-                    feature.SetReplaySaveCount(replaySaveCount);
-                }
-
-                changed |= ImGui.IsItemDeactivatedAfterEdit();
-            }
+            config.Opacity = opacity / 100f;
         }
 
-        var showDotDamage = config.ShowDotDamage;
-        if (OmniControls.Checkbox(
-                OmniLoc.Get("Feature.MitigationMonitor.ShowDotDamage"),
-                ref showDotDamage))
+        changed |= ImGui.IsItemDeactivatedAfterEdit();
+        ImGui.SameLine();
+        var replaySaveCount = config.ReplaySaveCount;
+        if (OmniControls.InputInt(
+                $"{OmniLoc.Get("Feature.MitigationMonitor.ReplaySaveCount")}##mitigationReplaySaveCount",
+                ref replaySaveCount,
+                OmniTheme.Scale(96f),
+                1,
+                10))
         {
-            config.ShowDotDamage = showDotDamage;
-            changed = true;
+            feature.SetReplaySaveCount(replaySaveCount);
         }
 
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.TargetDisplayMode"));
-        using (var table = ImRaii.Table(
-                   "##mitigationTargetDisplayMode",
-                   5,
-                   ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX))
-        {
-            if (table)
-            {
-                changed |= DrawTargetMode(
-                    config,
-                    MitigationTargetDisplayMode.CharacterName,
-                    "Feature.MitigationMonitor.TargetMode.CharacterName");
-                changed |= DrawTargetMode(
-                    config,
-                    MitigationTargetDisplayMode.JobName,
-                    "Feature.MitigationMonitor.TargetMode.JobName");
-                changed |= DrawTargetMode(
-                    config,
-                    MitigationTargetDisplayMode.JobIcon,
-                    "Feature.MitigationMonitor.TargetMode.JobIcon");
-                changed |= DrawTargetMode(
-                    config,
-                    MitigationTargetDisplayMode.JobIconV2,
-                    "Feature.MitigationMonitor.TargetMode.JobIconV2");
-                changed |= DrawTargetMode(
-                    config,
-                    MitigationTargetDisplayMode.JobIconV3,
-                    "Feature.MitigationMonitor.TargetMode.JobIconV3");
-            }
-        }
-
+        changed |= ImGui.IsItemDeactivatedAfterEdit();
+        ImGui.SameLine();
         if (OmniControls.SmallButton(OmniLoc.Get("Feature.MitigationMonitor.Clear"), false))
         {
             feature.ClearRecords();
+        }
+
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.TargetDisplayMode"));
+        ImGui.SameLine();
+        changed |= DrawTargetMode(
+            config,
+            MitigationTargetDisplayMode.CharacterName,
+            "Feature.MitigationMonitor.TargetMode.CharacterName");
+        ImGui.SameLine();
+        changed |= DrawTargetMode(
+            config,
+            MitigationTargetDisplayMode.JobName,
+            "Feature.MitigationMonitor.TargetMode.JobName");
+        ImGui.SameLine();
+        changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIcon, 62028, "Feature.MitigationMonitor.TargetMode.JobIcon");
+        ImGui.SameLine();
+        changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIconV2, 62128, "Feature.MitigationMonitor.TargetMode.JobIconV2");
+        ImGui.SameLine();
+        changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIconV3, 62409, "Feature.MitigationMonitor.TargetMode.JobIconV3");
+        ImGui.SameLine();
+        var showDotDamage = config.ShowDotDamage;
+        if (OmniControls.Checkbox(OmniLoc.Get("Feature.MitigationMonitor.ShowDotDamage"), ref showDotDamage))
+        {
+            config.ShowDotDamage = showDotDamage;
+            changed = true;
         }
 
         ImGui.SameLine();
@@ -111,13 +89,40 @@ internal static class MitigationMonitorPanel
         MitigationTargetDisplayMode mode,
         string labelKey)
     {
-        ImGui.TableNextColumn();
-        if (!ImGui.RadioButton(OmniLoc.Get(labelKey), config.TargetDisplayMode == mode))
+        if (!OmniControls.SmallButton(OmniLoc.Get(labelKey), config.TargetDisplayMode == mode))
         {
             return false;
         }
 
         config.TargetDisplayMode = mode;
         return true;
+    }
+
+    private static bool DrawTargetIconMode(
+        MitigationMonitorConfig config,
+        MitigationTargetDisplayMode mode,
+        uint iconId,
+        string tooltipKey)
+    {
+        var size = OmniTheme.Scale(new Vector2(30f, 26f));
+        var clicked = OmniControls.SmallButton($"##MitigationTargetDisplay{(int)mode}", config.TargetDisplayMode == mode, size);
+        var texture = DalamudServices.TextureProvider.GetFromGameIcon(new GameIconLookup(iconId)).GetWrapOrDefault();
+        if (texture is not null)
+        {
+            var min = ImGui.GetItemRectMin() + OmniTheme.Scale(new Vector2(5f, 3f));
+            ImGui.GetWindowDrawList().AddImage(texture.Handle, min, min + OmniTheme.Scale(new Vector2(20f)));
+        }
+
+        if (ImGui.IsItemHovered())
+        {
+            ImGui.SetTooltip(OmniLoc.Get(tooltipKey));
+        }
+
+        if (clicked)
+        {
+            config.TargetDisplayMode = mode;
+        }
+
+        return clicked;
     }
 }

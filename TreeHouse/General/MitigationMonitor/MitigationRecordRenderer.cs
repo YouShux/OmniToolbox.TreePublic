@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Globalization;
+using Dalamud.Interface;
 using Dalamud.Interface.Textures;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
@@ -30,72 +31,129 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 
     private readonly Dictionary<uint, ISharedImmediateTexture> iconTextures = [];
 
-    public float StatusColumnWidth { get; set; } = 92f;
+    public float CalculateRowHeight(MitigationRecord record, float statusWidth) =>
+        MathF.Max(OmniTheme.Scale(40f), CalculateStatusHeight(record, statusWidth));
 
-    public void Draw(MitigationRecord record, int index)
+    public void Draw(
+        MitigationRecord record,
+        int index,
+        Vector2 rowMin,
+        float width,
+        float rowHeight,
+        MitigationTableLayout layout,
+        bool hovered,
+        bool pressed)
     {
-        var rowHeight = MathF.Max(OmniTheme.Scale(40f), CalculateStatusHeight(record));
-        ImGui.TableNextRow(ImGuiTableRowFlags.None, rowHeight);
-        ImGui.TableSetColumnIndex(0);
-        var rowStart = ImGui.GetCursorScreenPos();
-        if (ImGui.Selectable(
-                $"##MitigationRecord{index}",
-                false,
-                ImGuiSelectableFlags.SpanAllColumns | ImGuiSelectableFlags.AllowItemOverlap,
-                new Vector2(0f, rowHeight)))
+        var rowColor = record.Kind == MitigationRecordKind.Wipe
+            ? KnownColor.DarkGoldenrod.ToVector4() with { W = 0.30f }
+            : KnownColor.White.ToVector4() with { W = index % 2 == 0 ? 0.035f : 0.075f };
+        if (hovered)
         {
-            ImGui.SetClipboardText(MitigationRecordCopyText.Build(record));
+            rowColor.W += 0.07f;
         }
 
-        ImGui.SetCursorScreenPos(rowStart);
-        DrawCenteredText(MitigationText.FormatElapsed(record.Elapsed), rowHeight);
-        ImGui.TableSetColumnIndex(1);
-        DrawAction(record, rowHeight);
-        ImGui.TableSetColumnIndex(2);
-        DrawTarget(record, rowHeight);
-        ImGui.TableSetColumnIndex(3);
-        DrawDamage(record, rowHeight);
-        ImGui.TableSetColumnIndex(4);
-        DrawCenteredText(
-            record.Kind == MitigationRecordKind.Wipe ? "-" : $"{record.MitigationPercent:0.#}%",
+        if (pressed)
+        {
+            rowColor = KnownColor.SteelBlue.ToVector4() with { W = 0.24f };
+        }
+
+        ImGui.GetWindowDrawList().AddRectFilled(
+            rowMin,
+            rowMin + new Vector2(width, rowHeight),
+            OmniTheme.Color(rowColor));
+
+        var offset = pressed ? new Vector2(0f, OmniTheme.Scale(1f)) : Vector2.Zero;
+        var x = rowMin.X;
+        DrawText(MitigationText.FormatElapsed(record.Elapsed), new(x, rowMin.Y), layout.Time, rowHeight, null, true, offset);
+        x += layout.Time;
+        DrawAction(record, new(x, rowMin.Y), layout.Action, rowHeight, offset);
+        x += layout.Action;
+        DrawTarget(record, new(x, rowMin.Y), layout.Target, rowHeight, offset);
+        x += layout.Target;
+        DrawDamage(record, new(x, rowMin.Y), layout.Damage, rowHeight, offset);
+        x += layout.Damage;
+        DrawText(
+            record.Kind == MitigationRecordKind.Wipe ? "—" : $"{record.MitigationPercent:0.#}%",
+            new(x, rowMin.Y),
+            layout.Mitigation,
             rowHeight,
-            KnownColor.LightSkyBlue.ToVector4());
-        ImGui.TableSetColumnIndex(5);
-        DrawStatuses(record, rowHeight);
+            KnownColor.LightSkyBlue.ToVector4(),
+            true,
+            offset);
+        x += layout.Mitigation;
+        DrawStatuses(record, new(x, rowMin.Y), layout.Status, rowHeight, offset);
     }
 
     public void ResetRuntime() => iconTextures.Clear();
 
-    private static void DrawCenteredText(string text, float rowHeight, Vector4? color = null)
+    private static void DrawText(
+        string text,
+        Vector2 min,
+        float width,
+        float rowHeight,
+        Vector4? color = null,
+        bool centered = false,
+        Vector2 offset = default)
     {
-        var cursor = ImGui.GetCursorPos();
-        var textSize = ImGui.CalcTextSize(text);
-        ImGui.SetCursorPos(new(
-            cursor.X + MathF.Max(0f, (ImGui.GetContentRegionAvail().X - textSize.X) * 0.5f),
-            cursor.Y + MathF.Max(0f, (rowHeight - textSize.Y) * 0.5f)));
-        if (color.HasValue)
-        {
-            ImGui.TextColored(color.Value, text);
-        }
-        else
-        {
-            ImGui.TextUnformatted(text);
-        }
+        var display = FitText(text, MathF.Max(OmniTheme.Scale(4f), width - OmniTheme.Scale(8f)));
+        var textSize = ImGui.CalcTextSize(display);
+        ImGui.GetWindowDrawList().AddText(
+            min + offset + new Vector2(
+                centered ? MathF.Max(0f, (width - textSize.X) * 0.5f) : OmniTheme.Scale(4f),
+                MathF.Max(0f, (rowHeight - textSize.Y) * 0.5f)),
+            OmniTheme.Color(color ?? KnownColor.White.ToVector4()),
+            display);
     }
 
-    private static void DrawAction(MitigationRecord record, float rowHeight)
+    private static void DrawAction(
+        MitigationRecord record,
+        Vector2 min,
+        float width,
+        float rowHeight,
+        Vector2 offset)
     {
-        DrawCenteredText(record.ActionName, rowHeight, record.Kind switch
+        var color = record.Kind switch
         {
             MitigationRecordKind.Defeated => KnownColor.LightPink.ToVector4(),
             MitigationRecordKind.Wipe => KnownColor.Orange.ToVector4(),
             _ when record.SourceKind == DamageSourceKind.Dot => KnownColor.Coral.ToVector4(),
             _ when record.SourceKind == DamageSourceKind.AutoAttack => KnownColor.Wheat.ToVector4(),
             _ => KnownColor.White.ToVector4()
-        });
+        };
+        if (record.Kind == MitigationRecordKind.Damage)
+        {
+            DrawText(record.ActionName, min, width, rowHeight, color, true, offset);
+            return;
+        }
+
+        var icon = record.Kind == MitigationRecordKind.Defeated ? FontAwesomeIcon.Skull : FontAwesomeIcon.HandPaper;
+        var iconWidth = OmniTheme.Scale(17f);
+        var spacing = OmniTheme.Scale(5f);
+        var display = FitText(record.ActionName, MathF.Max(OmniTheme.Scale(4f), width - iconWidth - OmniTheme.Scale(12f)));
+        var textSize = ImGui.CalcTextSize(display);
+        var startX = min.X + MathF.Max(0f, (width - iconWidth - spacing - textSize.X) * 0.5f);
+        using (DalamudServices.PluginInterface.UiBuilder.IconFontHandle.Push())
+        {
+            var iconText = icon.ToIconString();
+            var iconSize = ImGui.CalcTextSize(iconText);
+            ImGui.GetWindowDrawList().AddText(
+                new Vector2(startX + MathF.Max(0f, (iconWidth - iconSize.X) * 0.5f), min.Y + MathF.Max(0f, (rowHeight - iconSize.Y) * 0.5f)) + offset,
+                OmniTheme.Color(color),
+                iconText);
+        }
+
+        ImGui.GetWindowDrawList().AddText(
+            new Vector2(startX + iconWidth + spacing, min.Y + MathF.Max(0f, (rowHeight - textSize.Y) * 0.5f)) + offset,
+            OmniTheme.Color(color),
+            display);
     }
 
-    private void DrawTarget(MitigationRecord record, float rowHeight)
+    private void DrawTarget(
+        MitigationRecord record,
+        Vector2 min,
+        float width,
+        float rowHeight,
+        Vector2 offset)
     {
         if (record.Kind == MitigationRecordKind.Wipe)
         {
@@ -105,32 +163,43 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         var iconId = GetTargetIconId(record.TargetJobRowId, config.TargetDisplayMode);
         if (iconId == 0)
         {
-            DrawCenteredText(config.TargetDisplayMode == MitigationTargetDisplayMode.JobName &&
-                             !string.IsNullOrWhiteSpace(record.TargetJobName)
-                ? record.TargetJobName
-                : MitigationText.BuildTargetName(string.Empty, record.TargetName), rowHeight);
+            DrawText(
+                config.TargetDisplayMode == MitigationTargetDisplayMode.JobName && !string.IsNullOrWhiteSpace(record.TargetJobName)
+                    ? record.TargetJobName
+                    : MitigationText.BuildTargetName(string.Empty, record.TargetName),
+                min,
+                width,
+                rowHeight,
+                null,
+                true,
+                offset);
         }
         else if (GetIconHandle(iconId) is { } handle)
         {
             var size = OmniTheme.Scale(new Vector2(24f));
-            var cursor = ImGui.GetCursorPos();
-            ImGui.SetCursorPos(new(
-                cursor.X + MathF.Max(0f, (ImGui.GetContentRegionAvail().X - size.X) * 0.5f),
-                cursor.Y + MathF.Max(0f, (rowHeight - size.Y) * 0.5f)));
-            ImGui.Image(handle, size);
+            var iconMin = min + offset + new Vector2(
+                MathF.Max(0f, (width - size.X) * 0.5f),
+                MathF.Max(0f, (rowHeight - size.Y) * 0.5f));
+            ImGui.GetWindowDrawList().AddImage(handle, iconMin, iconMin + size);
         }
 
-        if (ImGui.IsItemHovered() && !string.IsNullOrWhiteSpace(record.TargetName))
+        if (!string.IsNullOrWhiteSpace(record.TargetName) &&
+            ImGui.IsMouseHoveringRect(min, min + new Vector2(width, rowHeight)))
         {
             ImGui.SetTooltip(record.TargetName);
         }
     }
 
-    private void DrawDamage(MitigationRecord record, float rowHeight)
+    private void DrawDamage(
+        MitigationRecord record,
+        Vector2 min,
+        float width,
+        float rowHeight,
+        Vector2 offset)
     {
         if (record.Kind == MitigationRecordKind.Wipe)
         {
-            DrawCenteredText("-", rowHeight);
+            DrawText("—", min, width, rowHeight, null, true, offset);
             return;
         }
 
@@ -145,34 +214,29 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             : record.Invulnerable
                 ? OmniLoc.Get("Feature.MitigationMonitor.Damage.Invulnerable")
                 : record.Damage.ToString("N0", CultureInfo.InvariantCulture);
-        var textSize = ImGui.CalcTextSize(text);
         var iconSize = OmniTheme.Scale(new Vector2(18f));
-        var iconHandle = GetIconHandle(iconId);
-        var spacing = iconHandle.HasValue ? OmniTheme.Scale(4f) : 0f;
-        var contentWidth = textSize.X + (iconHandle.HasValue ? iconSize.X + spacing : 0f);
-        var start = ImGui.GetCursorScreenPos() + new Vector2(
-            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - contentWidth) * 0.5f),
-            0f);
-        if (iconHandle.HasValue)
+        var spacing = OmniTheme.Scale(4f);
+        var display = FitText(text, MathF.Max(OmniTheme.Scale(10f), width - iconSize.X - OmniTheme.Scale(8f)));
+        var textSize = ImGui.CalcTextSize(display);
+        var startX = min.X + MathF.Max(0f, (width - iconSize.X - spacing - textSize.X) * 0.5f);
+        if (GetIconHandle(iconId) is { } handle)
         {
-            var iconMin = start + new Vector2(0f, MathF.Max(0f, (rowHeight - iconSize.Y) * 0.5f));
-            ImGui.GetWindowDrawList().AddImage(iconHandle.Value, iconMin, iconMin + iconSize);
+            var iconMin = new Vector2(startX, min.Y + MathF.Max(0f, (rowHeight - iconSize.Y) * 0.5f)) + offset;
+            ImGui.GetWindowDrawList().AddImage(handle, iconMin, iconMin + iconSize);
         }
 
         ImGui.GetWindowDrawList().AddText(
-            start + new Vector2(
-                iconHandle.HasValue ? iconSize.X + spacing : 0f,
-                MathF.Max(0f, (rowHeight - textSize.Y) * 0.5f)),
+            new Vector2(startX + iconSize.X + spacing, min.Y + MathF.Max(0f, (rowHeight - textSize.Y) * 0.5f)) + offset,
             OmniTheme.Color(record.DamageKind switch
             {
                 DamageKind.Physical => KnownColor.SandyBrown.ToVector4(),
                 DamageKind.Magical => KnownColor.CornflowerBlue.ToVector4(),
                 _ => KnownColor.MediumPurple.ToVector4()
             }),
-            text);
+            display);
     }
 
-    private float CalculateStatusHeight(MitigationRecord record)
+    private float CalculateStatusHeight(MitigationRecord record, float statusWidth)
     {
         if (record.Statuses.Length == 0)
         {
@@ -181,7 +245,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 
         var iconWidth = OmniTheme.Scale(26f);
         var lineHeight = OmniTheme.Scale(28f + StatusIconTextGap) + ImGui.GetFontSize() * StatusMeasureTextScale;
-        var availableWidth = MathF.Max(iconWidth, StatusColumnWidth - OmniTheme.Scale(8f));
+        var availableWidth = MathF.Max(iconWidth, statusWidth - OmniTheme.Scale(8f));
         var lineCount = 1;
         var usedWidth = 0f;
         foreach (var status in record.Statuses)
@@ -197,20 +261,21 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             usedWidth += slotWidth + OmniTheme.Scale(StatusItemGap);
         }
 
-        return lineCount == 1
-            ? lineHeight
-            : lineCount * lineHeight +
-              (lineCount - 1) * OmniTheme.Scale(StatusWrappedRowGap) +
-              OmniTheme.Scale(4f);
+        return lineCount * lineHeight + (lineCount - 1) * OmniTheme.Scale(StatusWrappedRowGap) + OmniTheme.Scale(4f);
     }
 
-    private void DrawStatuses(MitigationRecord record, float rowHeight)
+    private void DrawStatuses(
+        MitigationRecord record,
+        Vector2 min,
+        float width,
+        float rowHeight,
+        Vector2 offset)
     {
         if (record.Statuses.Length == 0)
         {
             if (record.Kind != MitigationRecordKind.Wipe)
             {
-                DrawCenteredText("-", rowHeight);
+                DrawText("—", min, width, rowHeight, null, true, offset);
             }
 
             return;
@@ -219,22 +284,21 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         var iconSize = OmniTheme.Scale(new Vector2(26f, 28f));
         var smallFontSize = ImGui.GetFontSize() * StatusDrawTextScale;
         var lineHeight = iconSize.Y + OmniTheme.Scale(StatusIconTextGap) + smallFontSize;
-        var start = ImGui.GetCursorScreenPos();
-        var x = start.X + OmniTheme.Scale(4f);
-        var y = start.Y + MathF.Max(0f, (rowHeight - CalculateStatusHeight(record)) * 0.5f);
-        var right = start.X + MathF.Max(iconSize.X, StatusColumnWidth - OmniTheme.Scale(4f));
+        var x = min.X + OmniTheme.Scale(4f);
+        var y = min.Y + MathF.Max(0f, (rowHeight - CalculateStatusHeight(record, width)) * 0.5f);
+        var right = min.X + MathF.Max(iconSize.X, width - OmniTheme.Scale(4f));
         foreach (var status in record.Statuses)
         {
             var seconds = MathF.Ceiling(status.RemainingSeconds).ToString("0", CultureInfo.InvariantCulture);
             var textSize = ImGui.CalcTextSize(seconds) * StatusMeasureTextScale;
             var slotWidth = MathF.Max(iconSize.X, textSize.X);
-            if (x > start.X + OmniTheme.Scale(4f) && x + slotWidth > right)
+            if (x > min.X + OmniTheme.Scale(4f) && x + slotWidth > right)
             {
-                x = start.X + OmniTheme.Scale(4f);
+                x = min.X + OmniTheme.Scale(4f);
                 y += lineHeight + OmniTheme.Scale(StatusWrappedRowGap);
             }
 
-            var iconMin = new Vector2(x + (slotWidth - iconSize.X) * 0.5f, y);
+            var iconMin = new Vector2(x + (slotWidth - iconSize.X) * 0.5f, y) + offset;
             var iconMax = iconMin + iconSize;
             if (GetIconHandle(status.IconId) is { } handle)
             {
@@ -246,16 +310,14 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                 ImGui.GetWindowDrawList().AddRectFilled(
                     iconMin,
                     iconMax,
-                    OmniTheme.Color(OmniTheme.Tokens.Shadow with { W = 0.56f }),
+                    OmniTheme.Color(KnownColor.Black.ToVector4() with { W = 0.56f }),
                     OmniTheme.Scale(2f));
             }
 
             ImGui.GetWindowDrawList().AddText(
                 ImGui.GetFont(),
                 smallFontSize,
-                new Vector2(
-                    x + (slotWidth - textSize.X) * 0.5f,
-                    iconMax.Y + OmniTheme.Scale(StatusIconTextGap)),
+                new Vector2(x + (slotWidth - textSize.X) * 0.5f, iconMax.Y + OmniTheme.Scale(StatusIconTextGap)),
                 OmniTheme.Color(status.Category switch
                 {
                     MitigationStatusCategory.Mitigation => KnownColor.LightSkyBlue.ToVector4(),
@@ -270,8 +332,6 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 
             x += slotWidth + OmniTheme.Scale(StatusItemGap);
         }
-
-        ImGui.Dummy(new Vector2(StatusColumnWidth, rowHeight));
     }
 
     private ImTextureID? GetIconHandle(uint iconId)
@@ -287,8 +347,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             iconTextures[iconId] = texture;
         }
 
-        var wrap = texture.GetWrapOrDefault();
-        return wrap == null ? null : wrap.Handle;
+        return texture.GetWrapOrDefault()?.Handle;
     }
 
     private static uint GetTargetIconId(uint jobRowId, MitigationTargetDisplayMode mode)
@@ -310,10 +369,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
     private static string BuildStatusTooltip(ActiveMitigation status)
     {
         var stackText = status.StackCount > 1
-            ? string.Format(
-                CultureInfo.CurrentCulture,
-                OmniLoc.Get("Feature.MitigationMonitor.Status.Stack"),
-                status.StackCount)
+            ? string.Format(CultureInfo.CurrentCulture, OmniLoc.Get("Feature.MitigationMonitor.Status.Stack"), status.StackCount)
             : string.Empty;
         return status.Category switch
         {
@@ -335,4 +391,25 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         };
     }
 
+    internal static string FitText(string text, float width)
+    {
+        if (string.IsNullOrEmpty(text) || ImGui.CalcTextSize(text).X <= width)
+        {
+            return text;
+        }
+
+        const string ellipsis = "...";
+        var available = MathF.Max(0f, width - ImGui.CalcTextSize(ellipsis).X);
+        var info = new StringInfo(text);
+        for (var length = info.LengthInTextElements - 1; length > 0; length--)
+        {
+            var candidate = info.SubstringByTextElements(0, length);
+            if (ImGui.CalcTextSize(candidate).X <= available)
+            {
+                return candidate + ellipsis;
+            }
+        }
+
+        return ellipsis;
+    }
 }

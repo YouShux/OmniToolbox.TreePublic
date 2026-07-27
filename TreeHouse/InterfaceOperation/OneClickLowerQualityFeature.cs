@@ -109,7 +109,7 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
             return;
         }
 
-        var itemId = ContextMenuItemManager.Instance().CurrentItemID;
+        var itemId = NormalizeItemId(ContextMenuItemManager.Instance().CurrentItemID);
         if (itemId == 0)
         {
             return;
@@ -310,7 +310,7 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
         for (var index = 0; index < container->Size; index++)
         {
             var slot = container->GetInventorySlot(index);
-            if (slot != null && slot->GetBaseItemId() == targetItemId && NeedsLowerQuality(slot))
+            if (slot != null && NormalizeItemId(slot->ItemId) == targetItemId && NeedsLowerQuality(slot))
             {
                 pendingSlots.Enqueue(new(inventoryType, (ushort)index));
             }
@@ -333,7 +333,7 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
         }
 
         slot = container->GetInventorySlot(currentSlot.Slot);
-        return slot != null && slot->GetBaseItemId() == targetItemId && NeedsLowerQuality(slot);
+        return slot != null && NormalizeItemId(slot->ItemId) == targetItemId && NeedsLowerQuality(slot);
     }
 
     private static bool TryGetLowerQualityDialog(out AddonSelectYesno* addon)
@@ -353,6 +353,9 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
 
     private static bool NeedsLowerQuality(InventoryItem* slot) =>
         slot->IsHighQuality() || slot->IsCollectable();
+
+    private static uint NormalizeItemId(uint itemId) =>
+        itemId < 2_000_000 ? itemId % 500_000 : itemId;
 
     private readonly record struct InventorySlot(InventoryType Container, ushort Slot);
 }

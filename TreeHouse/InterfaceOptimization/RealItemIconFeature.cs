@@ -1,13 +1,11 @@
 using OmniToolbox.Config;
 using OmniToolbox.Items;
-using OmniToolbox.Verification;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 
 public sealed class RealItemIconFeature(
     RealItemIconConfig config,
-    PlayerInventoryService inventoryService,
-    FeatureGate featureGate) : TreeHouseFeatureBase(new(
+    PlayerInventoryService inventoryService) : TreeHouseFeatureBase(new(
     "real-item-icon",
     "Feature.RealItemIcon.Title",
     "Feature.RealItemIcon.Description",
@@ -31,12 +29,7 @@ public sealed class RealItemIconFeature(
 
     protected override void OnEnable()
     {
-        if (!featureGate.CanUsePrivateFeature(out var reason))
-        {
-            throw new InvalidOperationException(reason);
-        }
-
-        nativeUi = new(config, inventoryService, featureGate);
+        nativeUi = new(config, inventoryService);
     }
 
     protected override void OnDisable()

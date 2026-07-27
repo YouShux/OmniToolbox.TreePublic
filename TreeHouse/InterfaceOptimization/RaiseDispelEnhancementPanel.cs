@@ -9,14 +9,29 @@ internal static class RaiseDispelEnhancementPanel
     public static bool Draw(RaiseDispelEnhancementConfig config)
     {
         var changed = false;
+        var style = ImGui.GetStyle();
+        using (var spacing = ImRaii.PushStyle(
+                   ImGuiStyleVar.CellPadding,
+                   new Vector2(
+                       Math.Clamp(style.CellPadding.X * 0.9f, OmniTheme.Scale(5f), OmniTheme.Scale(11f)),
+                       style.CellPadding.Y))
+               .Push(
+                   ImGuiStyleVar.ItemSpacing,
+                   new Vector2(
+                       Math.Clamp(style.ItemSpacing.X, OmniTheme.Scale(9f), OmniTheme.Scale(17f)),
+                       style.ItemSpacing.Y)))
         using (var table = ImRaii.Table(
                    "##raiseDispelEnhancementOptions",
                    4,
-                   ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
+                   ImGuiTableFlags.SizingStretchProp,
                    new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
         {
             if (table)
             {
+                ImGui.TableSetupColumn("##raiseDispelEnhancementOptions0", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##raiseDispelEnhancementOptions1", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##raiseDispelEnhancementOptions2", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##raiseDispelEnhancementOptions3", ImGuiTableColumnFlags.WidthStretch, 1.25f);
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 changed |= DrawCheckbox(

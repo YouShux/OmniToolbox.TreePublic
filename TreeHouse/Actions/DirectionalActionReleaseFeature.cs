@@ -5,7 +5,6 @@ using OmenTools.Info.Game.Packets.Upstream;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
 using OmniToolbox.Config;
-using OmniToolbox.Verification;
 
 namespace OmniToolbox.TreeHouse.Actions;
 
@@ -19,9 +18,8 @@ public sealed unsafe class DirectionalActionReleaseFeature : TreeHouseFeatureBas
     ];
 
     private readonly DirectionalActionReleaseConfig config;
-    private readonly FeatureGate featureGate;
 
-    public DirectionalActionReleaseFeature(DirectionalActionReleaseConfig config, FeatureGate featureGate) : base(new(
+    public DirectionalActionReleaseFeature(DirectionalActionReleaseConfig config) : base(new(
         "directional-action-release",
         "Feature.DirectionalActionRelease.Title",
         "Feature.DirectionalActionRelease.Description",
@@ -29,7 +27,6 @@ public sealed unsafe class DirectionalActionReleaseFeature : TreeHouseFeatureBas
         true))
     {
         this.config = config;
-        this.featureGate = featureGate;
         NormalizeConfig(config);
     }
 
@@ -61,11 +58,6 @@ public sealed unsafe class DirectionalActionReleaseFeature : TreeHouseFeatureBas
 
     protected override void OnEnable()
     {
-        if (!featureGate.CanUsePrivateFeature(out var reason))
-        {
-            throw new InvalidOperationException(reason);
-        }
-
         var manager = UseActionManager.Instance();
         if (!manager.RegPreUseAction(OnPreUseAction))
         {
@@ -105,7 +97,7 @@ public sealed unsafe class DirectionalActionReleaseFeature : TreeHouseFeatureBas
 
     private void Align(ActionType actionType, uint actionId)
     {
-        if (actionType != ActionType.Action || !featureGate.CanUsePrivateFeature(out _))
+        if (actionType != ActionType.Action)
         {
             return;
         }

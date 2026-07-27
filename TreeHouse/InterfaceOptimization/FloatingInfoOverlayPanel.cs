@@ -126,16 +126,17 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
         using (var table = ImRaii.Table(
                    "##floatingInfoFilters",
-                   4,
+                   5,
                    ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
                    new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
         {
             if (table)
             {
-                ImGui.TableSetupColumn("##onlyCasting", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##onlyCasting", ImGuiTableColumnFlags.WidthStretch, 1.05f);
                 ImGui.TableSetupColumn("##enableFilter", ImGuiTableColumnFlags.WidthStretch, 1.2f);
                 ImGui.TableSetupColumn("##whitelist", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##filterInput", ImGuiTableColumnFlags.WidthStretch, 1.5f);
+                ImGui.TableSetupColumn("##filterInput", ImGuiTableColumnFlags.WidthStretch, 1.4f);
+                ImGui.TableSetupColumn("##add", ImGuiTableColumnFlags.WidthStretch, 0.6f);
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 changed |= DrawCheckbox(
@@ -160,22 +161,21 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
                 }
 
                 ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(Math.Max(
-                    OmniTheme.Scale(80f),
-                    ImGui.GetContentRegionAvail().X - OmniTheme.Scale(54f)));
+                ImGui.SetNextItemWidth(-1f);
                 OmniControls.InputTextWithHint(
                     "##floatingInfoDataIdInput",
                     OmniLoc.Get("Feature.FloatingInfoOverlay.FilterInput"),
                     ref filterInput,
                     32);
-                ImGui.SameLine();
+                ImGui.TableNextColumn();
                 var canAdd = TryParseDataId(filterInput, out var dataId) &&
                              !config.FilterDataIds.Contains(dataId);
                 using (ImRaii.Disabled(!canAdd))
                 {
                     if (OmniControls.SmallButton(
                             $"{OmniLoc.Get("Feature.FloatingInfoOverlay.Add")}##addDataId",
-                            false))
+                            false,
+                            new Vector2(-1f, 0f)))
                     {
                         config.FilterDataIds.Add(dataId);
                         filterInput = string.Empty;

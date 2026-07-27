@@ -13,7 +13,6 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.OmenService;
 using OmniToolbox.Config;
-using OmniToolbox.Verification;
 
 namespace OmniToolbox.TreeHouse.InterfaceOperation;
 
@@ -65,7 +64,6 @@ public sealed unsafe class AutoPartyInviteFeature : TreeHouseFeatureBase
     ];
 
     private readonly AutoPartyInviteConfig config;
-    private readonly FeatureGate featureGate;
     private readonly Queue<PendingInvite> pendingInvites = [];
     private Hook<AddMsgSourceEntryDelegate>? messageSourceHook;
 
@@ -77,7 +75,7 @@ public sealed unsafe class AutoPartyInviteFeature : TreeHouseFeatureBase
         }
     }
 
-    public AutoPartyInviteFeature(AutoPartyInviteConfig config, FeatureGate featureGate) : base(new(
+    public AutoPartyInviteFeature(AutoPartyInviteConfig config) : base(new(
         "auto-party-invite",
         "Feature.AutoPartyInvite.Title",
         "Feature.AutoPartyInvite.Description",
@@ -85,7 +83,6 @@ public sealed unsafe class AutoPartyInviteFeature : TreeHouseFeatureBase
         true))
     {
         this.config = config;
-        this.featureGate = featureGate;
         AutoPartyInvitePanel.NormalizeConfig(config);
     }
 
@@ -95,11 +92,6 @@ public sealed unsafe class AutoPartyInviteFeature : TreeHouseFeatureBase
 
     protected override void OnEnable()
     {
-        if (!featureGate.CanUsePrivateFeature(out var reason))
-        {
-            throw new InvalidOperationException(reason);
-        }
-
         Hook<AddMsgSourceEntryDelegate>? hook = null;
         try
         {
@@ -167,7 +159,6 @@ public sealed unsafe class AutoPartyInviteFeature : TreeHouseFeatureBase
     {
         var services = DService.Instance();
         if (!IsEnabled ||
-            !featureGate.CanUsePrivateFeature(out _) ||
             !services.ClientState.IsLoggedIn ||
             contentId == 0 ||
             contentId == services.PlayerState.ContentId ||
@@ -227,7 +218,6 @@ public sealed unsafe class AutoPartyInviteFeature : TreeHouseFeatureBase
     private void ExecuteInvite(PendingInvite invite)
     {
         if (!IsEnabled ||
-            !featureGate.CanUsePrivateFeature(out _) ||
             !IsInAllowedTerritory() ||
             !IsAllowedChannel(invite.ChatType) ||
             !CanInvite(invite.ContentId))

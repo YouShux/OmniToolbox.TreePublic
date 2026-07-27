@@ -11,7 +11,6 @@ using OmniToolbox.Host;
 using OmniToolbox.Items;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
-using OmniToolbox.Verification;
 using OmenTools;
 using OmenTools.Info.Game.Enums;
 using OmenTools.Interop.Game.ExecuteCommand.Implementations;
@@ -30,7 +29,6 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
     private readonly ArmoireRecordConfig config;
     private readonly PlayerInventoryService inventoryService;
     private readonly IAutoStoreService autoStoreService;
-    private readonly FeatureGate featureGate;
     private readonly Queue<uint> storeQueue = [];
     private readonly HashSet<uint> storeRows = [];
     private readonly Dictionary<ArmoireRecordScanKey, ScanAggregate> aggregates = [];
@@ -48,8 +46,7 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
     public ArmoireRecordFeature(
         ArmoireRecordConfig config,
         PlayerInventoryService inventoryService,
-        IAutoStoreService autoStoreService,
-        FeatureGate featureGate)
+        IAutoStoreService autoStoreService)
         : base(new(
             "armoire-record",
             "Feature.ArmoireRecord.Title",
@@ -60,7 +57,6 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
         this.config = config;
         this.inventoryService = inventoryService;
         this.autoStoreService = autoStoreService;
-        this.featureGate = featureGate;
     }
 
     public bool IsStoring => isStoring;
@@ -105,11 +101,6 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
 
     protected override void OnEnable()
     {
-        if (!featureGate.CanUsePrivateFeature(out var reason))
-        {
-            throw new InvalidOperationException(reason);
-        }
-
         var lifetime = new FeatureLifetime();
         try
         {
@@ -556,7 +547,11 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
         return true;
     }
 
-    private static void CloseCabinetInterface() => AutoStoreNativeUi.CloseArmoire();
+    private static void CloseCabinetInterface()
+    {
+        AddonWindowControl.Close("CabinetWithdraw");
+        AddonWindowControl.Close(CabinetAddonName);
+    }
 
     private static bool IsDirectStoreLocation(ItemInventoryLocation location) =>
         location is ItemInventoryLocation.Inventory or ItemInventoryLocation.Armory;

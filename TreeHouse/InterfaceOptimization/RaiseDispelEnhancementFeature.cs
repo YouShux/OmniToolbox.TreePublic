@@ -210,10 +210,34 @@ public sealed unsafe class RaiseDispelEnhancementFeature(RaiseDispelEnhancementC
 
         try
         {
-            var drawList = ImGui.GetForegroundDrawList();
-            foreach (var pair in states)
+            const ImGuiWindowFlags flags =
+                ImGuiWindowFlags.NoDecoration |
+                ImGuiWindowFlags.NoSavedSettings |
+                ImGuiWindowFlags.NoMove |
+                ImGuiWindowFlags.NoMouseInputs |
+                ImGuiWindowFlags.NoFocusOnAppearing |
+                ImGuiWindowFlags.NoBackground |
+                ImGuiWindowFlags.NoNav;
+            ImGuiHelpers.ForceNextWindowMainViewport();
+            ImGui.SetNextWindowPos(ImGui.GetMainViewport().Pos);
+            ImGui.SetNextWindowSize(ImGui.GetMainViewport().Size);
+            var windowOpen = ImGui.Begin("##omniRaiseDispelEnhancementOverlay", flags);
+            try
             {
-                DrawActor(drawList, pair.Key, pair.Value);
+                if (!windowOpen)
+                {
+                    return;
+                }
+
+                var drawList = ImGui.GetWindowDrawList();
+                foreach (var pair in states)
+                {
+                    DrawActor(drawList, pair.Key, pair.Value);
+                }
+            }
+            finally
+            {
+                ImGui.End();
             }
         }
         catch (Exception ex)

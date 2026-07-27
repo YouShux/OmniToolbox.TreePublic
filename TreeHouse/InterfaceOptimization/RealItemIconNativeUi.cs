@@ -14,7 +14,6 @@ using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Items;
 using OmniToolbox.Lifecycle;
-using OmniToolbox.Verification;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 
@@ -59,7 +58,6 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
     ];
 
     private readonly RealItemIconConfig config;
-    private readonly FeatureGate featureGate;
     private readonly RealItemIconReplacementResolver resolver = new();
     private readonly RealItemIconInventoryIndex inventoryIndex;
     private readonly AddonEventRegistry addonEvents;
@@ -70,11 +68,9 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
 
     public RealItemIconNativeUi(
         RealItemIconConfig config,
-        PlayerInventoryService inventoryService,
-        FeatureGate featureGate)
+        PlayerInventoryService inventoryService)
     {
         this.config = config;
-        this.featureGate = featureGate;
         inventoryIndex = new(inventoryService);
         addonEvents = new(DalamudServices.AddonLifecycle);
         try
@@ -126,9 +122,7 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         }
     }
 
-    private bool CanApply =>
-        config.FacewearGlasses &&
-        featureGate.CanUsePrivateFeature(out _);
+    private bool CanApply => config.FacewearGlasses;
 
     private void OnGlassesAddon(AddonEvent eventType, AddonArgs args)
     {

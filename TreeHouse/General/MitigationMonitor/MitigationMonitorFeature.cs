@@ -113,7 +113,7 @@ public sealed class MitigationMonitorFeature : TreeHouseFeatureBase
     private void NormalizeConfig()
     {
         config.Size = new(
-            Math.Clamp(config.Size.X <= 0f ? 460f : config.Size.X, 320f, 900f),
+            Math.Clamp(config.Size.X <= 0f ? 460f : config.Size.X, MitigationMonitorOverlay.MinimumWidth, 900f),
             Math.Clamp(config.Size.Y <= 0f ? 300f : config.Size.Y, 160f, 720f));
         if (config.CollapsedPosition == Vector2.Zero)
         {

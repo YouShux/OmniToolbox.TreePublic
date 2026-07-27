@@ -128,7 +128,8 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             itemId == 0 ||
             !LuminaGetter.TryGetRow<Item>(itemId, out var item) ||
             item.Desynth == 0 ||
-            item.ClassJobRepair.RowId == 0)
+            item.ClassJobRepair.RowId == 0 ||
+            !IsDesynthesisEquipment(item))
         {
             return;
         }
@@ -281,7 +282,8 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         nodes.Skill.Node->SetText($"{level.Recommended}/{level.Current}");
 
         var isLocked = config.LockGearsetItems && gearsetItemIds.Contains(GetGearsetItemId(inventoryItem));
-        if (config.LockCustomItems && customLockItemIds.Contains(inventoryItem->ItemId))
+        if (config.LockCustomItems &&
+            customLockItemIds.Contains(DesynthesisEnhancementState.NormalizeItemId(inventoryItem->ItemId)))
         {
             isLocked = true;
         }
@@ -296,6 +298,10 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         nodes.Lock.Node->SetText(string.Empty);
         lockVisuals.Apply(renderer, false);
     }
+
+    private static bool IsDesynthesisEquipment(Item item) =>
+        item.EquipSlotCategory.RowId != 0 &&
+        item.ItemUICategory.Value.Name.ExtractText() is not "灵魂水晶" and not "靈魂水晶";
 
     private void OnSalvageSetup(AddonEvent _, AddonArgs args)
     {
