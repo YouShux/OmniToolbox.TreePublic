@@ -12,7 +12,11 @@ public sealed class DisplayIdInformationFeature(
     "display-id-information",
     "Feature.DisplayIdInformation.Title",
     "Feature.DisplayIdInformation.Description",
-    TreeHouseCategory.Utility))
+    TreeHouseCategory.Utility,
+    Commands:
+    [
+        new("Feature.DisplayIdInformation.CommandDescription", "/omni 图标浏览器")
+    ]))
 {
     private FeatureLifetime? runtimeLifetime;
     private DisplayIdInformationNativeUi? nativeUi;

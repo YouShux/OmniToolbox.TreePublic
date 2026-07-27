@@ -35,7 +35,11 @@ public sealed class FoodReminderFeature : TreeHouseFeatureBase
             "food-reminder",
             "Feature.FoodReminder.Title",
             "Feature.FoodReminder.Description",
-            TreeHouseCategory.General))
+            TreeHouseCategory.General,
+            Commands:
+            [
+                new("Feature.FoodReminder.CommandDescription", "/omni 食物检查")
+            ]))
     {
         this.config = config;
         this.saveConfig = saveConfig;

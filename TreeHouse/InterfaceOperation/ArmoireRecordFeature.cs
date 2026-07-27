@@ -52,7 +52,11 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
             "Feature.ArmoireRecord.Title",
             "Feature.ArmoireRecord.Description",
             TreeHouseCategory.InterfaceOperation,
-            true))
+            true,
+            Commands:
+            [
+                new("Feature.ArmoireRecord.CommandDescription", "/omni 收藏柜记录")
+            ]))
     {
         this.config = config;
         this.inventoryService = inventoryService;

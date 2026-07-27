@@ -24,7 +24,11 @@ public sealed unsafe class ChatFrameOptimizationFeature(
         "Feature.ChatFrameOptimization.Title",
         "Feature.ChatFrameOptimization.Description",
         TreeHouseCategory.InterfaceOptimization,
-        true))
+        true,
+        Commands:
+        [
+            new("Feature.ChatFrameOptimization.CommandDescription", "/omni 日志回放")
+        ]))
 {
     private static readonly CompSig ScrollToBottomSignature = new(
         "E8 ?? ?? ?? ?? 48 8B 43 10 33 D2");

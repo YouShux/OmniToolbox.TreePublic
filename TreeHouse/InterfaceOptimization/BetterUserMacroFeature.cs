@@ -26,7 +26,11 @@ public sealed unsafe class BetterUserMacroFeature(BetterUserMacroConfig config) 
     "better-user-macro",
     "Feature.BetterUserMacro.Title",
     "Feature.BetterUserMacro.Description",
-    TreeHouseCategory.InterfaceOptimization))
+    TreeHouseCategory.InterfaceOptimization,
+    Commands:
+    [
+        new("Feature.BetterUserMacro.CustomIcons.Help", "/omni 宏图标 <图标ID>")
+    ]))
 {
     private const uint MacroPageCount = 2;
     private const uint MacroSlotsPerPage = 100;

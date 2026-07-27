@@ -21,7 +21,6 @@ internal static class FoodReminderPanel
         changed |= DrawThreshold(config);
         changed |= DrawPartyMessage(config, sendTestReminder);
         changed |= DrawTerritorySelector(config);
-        ImGui.TextDisabled(OmniLoc.Get("Feature.FoodReminder.CommandDescription"));
         return changed;
     }
 
