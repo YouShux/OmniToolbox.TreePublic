@@ -132,15 +132,12 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         var display = FitText(record.ActionName, MathF.Max(OmniTheme.Scale(4f), width - iconWidth - OmniTheme.Scale(12f)));
         var textSize = ImGui.CalcTextSize(display);
         var startX = min.X + MathF.Max(0f, (width - iconWidth - spacing - textSize.X) * 0.5f);
-        using (DalamudServices.PluginInterface.UiBuilder.IconFontHandle.Push())
-        {
-            var iconText = icon.ToIconString();
-            var iconSize = ImGui.CalcTextSize(iconText);
-            ImGui.GetWindowDrawList().AddText(
-                new Vector2(startX + MathF.Max(0f, (iconWidth - iconSize.X) * 0.5f), min.Y + MathF.Max(0f, (rowHeight - iconSize.Y) * 0.5f)) + offset,
-                OmniTheme.Color(color),
-                iconText);
-        }
+        var iconText = icon.ToIconString();
+        var iconSize = ImGui.CalcTextSize(iconText);
+        ImGui.GetWindowDrawList().AddText(
+            new Vector2(startX + MathF.Max(0f, (iconWidth - iconSize.X) * 0.5f), min.Y + MathF.Max(0f, (rowHeight - iconSize.Y) * 0.5f)) + offset,
+            OmniTheme.Color(color),
+            iconText);
 
         ImGui.GetWindowDrawList().AddText(
             new Vector2(startX + iconWidth + spacing, min.Y + MathF.Max(0f, (rowHeight - textSize.Y) * 0.5f)) + offset,
@@ -248,17 +245,19 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         var availableWidth = MathF.Max(iconWidth, statusWidth - OmniTheme.Scale(8f));
         var lineCount = 1;
         var usedWidth = 0f;
+        var gap = OmniTheme.Scale(StatusItemGap);
         foreach (var status in record.Statuses)
         {
-            var slotWidth = MathF.Max(iconWidth, ImGui.CalcTextSize(MathF.Ceiling(status.RemainingSeconds).ToString(
-                "0", CultureInfo.InvariantCulture)).X * StatusMeasureTextScale);
-            if (usedWidth > 0f && usedWidth + slotWidth > availableWidth)
+            var slotWidth = GetStatusSlotWidth(status, iconWidth);
+            var nextWidth = usedWidth == 0f ? slotWidth : usedWidth + gap + slotWidth;
+            if (usedWidth > 0f && nextWidth > availableWidth)
             {
                 lineCount++;
-                usedWidth = 0f;
+                usedWidth = slotWidth;
+                continue;
             }
 
-            usedWidth += slotWidth + OmniTheme.Scale(StatusItemGap);
+            usedWidth = nextWidth;
         }
 
         return lineCount * lineHeight + (lineCount - 1) * OmniTheme.Scale(StatusWrappedRowGap) + OmniTheme.Scale(4f);
@@ -285,55 +284,79 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         var iconSize = OmniTheme.StatusIconSize(iconSlotSize.Y);
         var smallFontSize = ImGui.GetFontSize() * StatusDrawTextScale;
         var lineHeight = iconSlotSize.Y + OmniTheme.Scale(StatusIconTextGap) + smallFontSize;
-        var x = min.X + OmniTheme.Scale(4f);
         var y = min.Y + MathF.Max(0f, (rowHeight - CalculateStatusHeight(record, width)) * 0.5f);
-        var right = min.X + MathF.Max(iconSlotSize.X, width - OmniTheme.Scale(4f));
-        foreach (var status in record.Statuses)
+        var availableWidth = MathF.Max(iconSlotSize.X, width - OmniTheme.Scale(8f));
+        var gap = OmniTheme.Scale(StatusItemGap);
+        var statusIndex = 0;
+        while (statusIndex < record.Statuses.Length)
         {
-            var seconds = MathF.Ceiling(status.RemainingSeconds).ToString("0", CultureInfo.InvariantCulture);
-            var textSize = ImGui.CalcTextSize(seconds) * StatusMeasureTextScale;
-            var slotWidth = MathF.Max(iconSlotSize.X, textSize.X);
-            if (x > min.X + OmniTheme.Scale(4f) && x + slotWidth > right)
+            var lineStart = statusIndex;
+            var lineWidth = 0f;
+            while (statusIndex < record.Statuses.Length)
             {
-                x = min.X + OmniTheme.Scale(4f);
-                y += lineHeight + OmniTheme.Scale(StatusWrappedRowGap);
-            }
-
-            var iconMin = new Vector2(x + (slotWidth - iconSize.X) * 0.5f, y) + offset;
-            var iconMax = iconMin + iconSize;
-            if (GetIconHandle(status.IconId) is { } handle)
-            {
-                ImGui.GetWindowDrawList().AddImage(handle, iconMin, iconMax);
-            }
-
-            if (!status.Useful)
-            {
-                ImGui.GetWindowDrawList().AddRectFilled(
-                    iconMin,
-                    iconMax,
-                    OmniTheme.Color(KnownColor.Black.ToVector4() with { W = 0.56f }),
-                    OmniTheme.Scale(2f));
-            }
-
-            ImGui.GetWindowDrawList().AddText(
-                ImGui.GetFont(),
-                smallFontSize,
-                new Vector2(x + (slotWidth - textSize.X) * 0.5f, iconMax.Y + OmniTheme.Scale(StatusIconTextGap)),
-                OmniTheme.Color(status.Category switch
+                var slotWidth = GetStatusSlotWidth(record.Statuses[statusIndex], iconSlotSize.X);
+                var nextWidth = lineWidth == 0f ? slotWidth : lineWidth + gap + slotWidth;
+                if (lineWidth > 0f && nextWidth > availableWidth)
                 {
-                    MitigationStatusCategory.Mitigation => KnownColor.LightSkyBlue.ToVector4(),
-                    MitigationStatusCategory.Shield => KnownColor.Gold.ToVector4(),
-                    _ => KnownColor.White.ToVector4()
-                }),
-                seconds);
-            if (ImGui.IsMouseHoveringRect(iconMin, iconMax))
-            {
-                ImGui.SetTooltip(BuildStatusTooltip(status));
+                    break;
+                }
+
+                lineWidth = nextWidth;
+                statusIndex++;
             }
 
-            x += slotWidth + OmniTheme.Scale(StatusItemGap);
+            var x = min.X + MathF.Max(OmniTheme.Scale(4f), (width - lineWidth) * 0.5f);
+            for (var index = lineStart; index < statusIndex; index++)
+            {
+                var status = record.Statuses[index];
+                var seconds = MathF.Ceiling(status.RemainingSeconds).ToString("0", CultureInfo.InvariantCulture);
+                var textSize = ImGui.CalcTextSize(seconds) * StatusDrawTextScale;
+                var slotWidth = GetStatusSlotWidth(status, iconSlotSize.X);
+                var iconMin = new Vector2(x + (slotWidth - iconSize.X) * 0.5f, y) + offset;
+                var iconMax = iconMin + iconSize;
+                if (GetIconHandle(status.IconId) is { } handle)
+                {
+                    ImGui.GetWindowDrawList().AddImage(handle, iconMin, iconMax);
+                }
+
+                if (!status.Useful)
+                {
+                    ImGui.GetWindowDrawList().AddRectFilled(
+                        iconMin,
+                        iconMax,
+                        OmniTheme.Color(KnownColor.Black.ToVector4() with { W = 0.56f }),
+                        OmniTheme.Scale(2f));
+                }
+
+                ImGui.GetWindowDrawList().AddText(
+                    ImGui.GetFont(),
+                    smallFontSize,
+                    new Vector2(x + (slotWidth - textSize.X) * 0.5f, iconMax.Y + OmniTheme.Scale(StatusIconTextGap)),
+                    OmniTheme.Color(status.Category switch
+                    {
+                        MitigationStatusCategory.Mitigation => KnownColor.LightSkyBlue.ToVector4(),
+                        MitigationStatusCategory.Shield => KnownColor.Gold.ToVector4(),
+                        _ => KnownColor.White.ToVector4()
+                    }),
+                    seconds);
+                if (ImGui.IsMouseHoveringRect(iconMin, iconMax))
+                {
+                    ImGui.SetTooltip(BuildStatusTooltip(status));
+                }
+
+                x += slotWidth + gap;
+            }
+
+            y += lineHeight + OmniTheme.Scale(StatusWrappedRowGap);
         }
     }
+
+    private static float GetStatusSlotWidth(ActiveMitigation status, float iconWidth) =>
+        MathF.Max(
+            iconWidth,
+            ImGui.CalcTextSize(MathF.Ceiling(status.RemainingSeconds).ToString(
+                "0",
+                CultureInfo.InvariantCulture)).X * StatusMeasureTextScale);
 
     private ImTextureID? GetIconHandle(uint iconId)
     {

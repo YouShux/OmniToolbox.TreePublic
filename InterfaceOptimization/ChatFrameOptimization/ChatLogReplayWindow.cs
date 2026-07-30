@@ -1,8 +1,6 @@
 using System.Globalization;
-using Dalamud.Interface;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools.ImGuiOm;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 
@@ -80,9 +78,9 @@ internal sealed class ChatLogReplayWindow
         using (var filePane = ImRaii.Child(
                    "##chatLogReplayFiles",
                    new Vector2(Math.Clamp(
-                       OmniTheme.Scale(250f),
-                       OmniTheme.Scale(210f),
-                       OmniTheme.Scale(330f)), 0f),
+                       250f * scale,
+                       210f,
+                       330f), 0f),
                    true))
         {
             if (filePane)
@@ -107,9 +105,7 @@ internal sealed class ChatLogReplayWindow
 
     private void DrawToolbar()
     {
-        if (ImGuiOm.ButtonIconWithText(
-                FontAwesomeIcon.SyncAlt,
-                OmniLoc.Get("Feature.ChatLogReplay.Refresh")))
+        if (ImGui.Button(OmniLoc.Get("Feature.ChatLogReplay.Refresh")))
         {
             RequestRefresh();
         }
@@ -156,8 +152,8 @@ internal sealed class ChatLogReplayWindow
 
     private void DrawReplayControls()
     {
-        ImGui.SetNextItemWidth(MathF.Min(OmniTheme.Scale(360f), ImGui.GetContentRegionAvail().X));
-        if (OmniControls.InputText(
+        ImGui.SetNextItemWidth(MathF.Min(360f, ImGui.GetContentRegionAvail().X));
+        if (ImGui.InputText(
                 $"{OmniLoc.Get("Feature.ChatLogReplay.Search")}##chatLogReplaySearch",
                 ref searchText,
                 128))
@@ -176,8 +172,8 @@ internal sealed class ChatLogReplayWindow
         ImGui.SameLine();
         using (ImRaii.Disabled(!anonymousMode))
         {
-            ImGui.SetNextItemWidth(OmniTheme.Scale(132f));
-            if (OmniControls.InputText("##chatLogReplayAnonymousPrefix", ref anonymousPrefix, 24))
+            ImGui.SetNextItemWidth(132f);
+            if (ImGui.InputText("##chatLogReplayAnonymousPrefix", ref anonymousPrefix, 24))
             {
                 renderer.RebuildAnonymous(GetAnonymousPrefix());
             }
@@ -249,9 +245,8 @@ internal sealed class ChatLogReplayWindow
     private void DrawReplayBody()
     {
         ImGui.Spacing();
-        var tokens = OmniTheme.Tokens;
-        ImGui.PushStyleColor(ImGuiCol.ChildBg, tokens.Surface);
-        ImGui.PushStyleColor(ImGuiCol.Border, tokens.Border);
+        ImGui.PushStyleColor(ImGuiCol.ChildBg, new Vector4(0.31f, 0.31f, 0.31f, 1f));
+        ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.10f, 0.10f, 0.10f, 0.55f));
         using (var body = ImRaii.Child(
                    "##chatLogReplayBody",
                    Vector2.Zero,

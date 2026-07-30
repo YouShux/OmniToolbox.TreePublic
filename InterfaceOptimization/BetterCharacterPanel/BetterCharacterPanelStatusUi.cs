@@ -457,12 +457,19 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
         }
 
         var collision = parent->Component->UldManager.RootNode;
-        var valueTemplate = collision == null ? null : (AtkTextNode*)collision->PrevSiblingNode;
-        var labelTemplate = valueTemplate == null ? null : (AtkTextNode*)valueTemplate->AtkResNode.PrevSiblingNode;
-        if (collision == null || valueTemplate == null || labelTemplate == null)
+        var valueTemplateNode = collision == null ? null : collision->PrevSiblingNode;
+        var labelTemplateNode = valueTemplateNode == null ? null : valueTemplateNode->PrevSiblingNode;
+        if (collision == null
+            || valueTemplateNode == null
+            || valueTemplateNode->GetNodeType() is not NodeType.Text
+            || labelTemplateNode == null
+            || labelTemplateNode->GetNodeType() is not NodeType.Text)
         {
             return null;
         }
+
+        var valueTemplate = (AtkTextNode*)valueTemplateNode;
+        var labelTemplate = (AtkTextNode*)labelTemplateNode;
 
         if (!hideOriginal)
         {
@@ -477,11 +484,10 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
 
         var rowY = parent->AtkResNode.Height - 24f;
         var label = CreateTextNode(labelTemplate, rowY, copyColor ? null : SecondaryTextColor);
+        label.AttachNode(labelTemplate, NodePosition.AfterTarget);
         label.String = OmniLoc.Get(labelKey);
-        label.AttachNode(collision, NodePosition.AfterTarget);
         var value = CreateTextNode(valueTemplate, rowY, copyColor ? null : SecondaryTextColor);
-        value.String = string.Empty;
-        value.AttachNode(collision, NodePosition.AfterTarget);
+        value.AttachNode(labelTemplate, NodePosition.AfterTarget);
         injectedNodes.Add(label);
         injectedNodes.Add(value);
         CollisionNode? tooltipNode = null;
@@ -493,7 +499,7 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
                 Size = new(parent->AtkResNode.Width, valueTemplate->AtkResNode.Height),
                 TextTooltip = BetterCharacterPanelState.BuildTooltip(entry, default)
             };
-            tooltipNode.AttachNode(collision, NodePosition.AfterTarget);
+            tooltipNode.AttachNode(label.Node, NodePosition.AfterTarget);
             injectedNodes.Add(tooltipNode);
         }
 

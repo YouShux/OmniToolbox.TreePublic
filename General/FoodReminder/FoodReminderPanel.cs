@@ -1,18 +1,12 @@
-using Lumina.Excel.Sheets;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools;
 
 namespace OmniToolbox.TreeHouse.General;
 
 internal static class FoodReminderPanel
 {
-    private static readonly List<TerritoryOption> TerritoryOptions = [];
-    private static readonly HashSet<uint> TerritoryOptionIds = [];
-    private static readonly List<TerritoryOption> VisibleTerritoryOptions = [];
-    private static string territorySearch = string.Empty;
-    private static bool territoryOptionsLoaded;
+    private static readonly TerritorySelector TerritorySelector = new("foodReminderTerritory");
 
     public static bool Draw(FoodReminderConfig config, System.Action sendTestReminder)
     {
@@ -46,24 +40,30 @@ internal static class FoodReminderPanel
     private static bool DrawReminderSettings(FoodReminderConfig config)
     {
         var changed = false;
+        using var rowStyle = ImRaii.PushStyle(
+            ImGuiStyleVar.FramePadding,
+            new Vector2(
+                ImGui.GetStyle().FramePadding.X,
+                MathF.Max(0f, (OmniTheme.CheckboxSize() - ImGui.GetTextLineHeight()) * 0.5f)));
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.TargetNameMode"));
         ImGui.SameLine();
         var characterName = config.TargetNameMode == 0;
-        if (ImGui.RadioButton(
+        if (OmniControls.Checkbox(
                 OmniLoc.Get("Feature.FoodReminder.TargetNameMode.CharacterName"),
-                characterName))
+                ref characterName))
         {
-            config.TargetNameMode = 0;
+            config.TargetNameMode = characterName ? 0 : 1;
             changed = true;
         }
 
         ImGui.SameLine();
-        if (ImGui.RadioButton(
+        var jobName = config.TargetNameMode == 1;
+        if (OmniControls.Checkbox(
                 OmniLoc.Get("Feature.FoodReminder.TargetNameMode.JobName"),
-                !characterName))
+                ref jobName))
         {
-            config.TargetNameMode = 1;
+            config.TargetNameMode = jobName ? 1 : 0;
             changed = true;
         }
 
@@ -72,8 +72,6 @@ internal static class FoodReminderPanel
         ImGui.SameLine(0f, OmniTheme.Scale(22f));
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Threshold"));
-        ImGui.SameLine(0f, OmniTheme.Scale(4f));
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.Threshold.Help"));
         ImGui.SameLine();
         ImGui.SetNextItemWidth(OmniTheme.Scale(110f));
         var threshold = config.ThresholdSeconds;
@@ -87,6 +85,8 @@ internal static class FoodReminderPanel
         ImGui.SameLine();
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Seconds"));
+        ImGui.SameLine(0f, OmniTheme.Scale(4f));
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.Threshold.Help"));
         return changed;
     }
 
@@ -124,247 +124,8 @@ internal static class FoodReminderPanel
         return changed;
     }
 
-    private static bool DrawTerritorySelector(FoodReminderConfig config)
-    {
-        EnsureTerritoryOptions();
-        var changed = false;
-        var currentTerritory = DService.Instance().ClientState.TerritoryType;
-        if (TerritoryOptionIds.Count > 0)
-        {
-            changed |= config.AllowedTerritoryIds.RemoveWhere(id => !TerritoryOptionIds.Contains(id)) > 0;
-        }
-
-        var header = $"{OmniLoc.Get("Feature.FoodReminder.TerritorySelector")} ({config.AllowedTerritoryIds.Count})";
-        if (!OmniControls.CollapsingHeader(header, ImGuiTreeNodeFlags.DefaultOpen))
-        {
-            if (config.AllowedTerritoryIds.Count == 0)
-            {
-                ImGui.TextDisabled(OmniLoc.Get("Feature.FoodReminder.TerritorySelector.Empty"));
-            }
-
-            return changed;
-        }
-
-        using (ImRaii.Disabled(currentTerritory == 0 || config.AllowedTerritoryIds.Contains(currentTerritory)))
-        {
-            if (OmniControls.SmallButton(OmniLoc.Get("Feature.FoodReminder.AddCurrent"), false) &&
-                currentTerritory != 0)
-            {
-                changed |= config.AllowedTerritoryIds.Add(currentTerritory);
-            }
-        }
-
-        ImGui.SameLine();
-        ImGui.TextDisabled(currentTerritory == 0
-            ? OmniLoc.Get("Feature.FoodReminder.NotLoggedIn")
-            : string.Format(
-                OmniLoc.Get("Feature.FoodReminder.CurrentMap"),
-                GetTerritoryName(currentTerritory),
-                currentTerritory));
-
-        OmniControls.InputTextWithHint(
-            "##foodReminderTerritorySearch",
-            OmniLoc.Get("Feature.FoodReminder.Search"),
-            ref territorySearch,
-            128,
-            ImGui.GetContentRegionAvail().X);
-        changed |= DrawTerritoryTable(config);
-
-        if (config.AllowedTerritoryIds.Count == 0)
-        {
-            ImGui.TextDisabled(OmniLoc.Get("Feature.FoodReminder.TerritorySelector.Empty"));
-        }
-
-        return changed;
-    }
-
-    private static bool DrawTerritoryTable(FoodReminderConfig config)
-    {
-        var query = territorySearch.Trim();
-        var rows = GetVisibleTerritories(config.AllowedTerritoryIds, query);
-        if (rows.Count == 0)
-        {
-            ImGui.TextDisabled(OmniLoc.Get("Feature.FoodReminder.NoMatches"));
-            return false;
-        }
-
-        var tableHeight = MathF.Min(
-            OmniTheme.Scale(360f),
-            MathF.Max(OmniTheme.Scale(180f), ImGui.GetTextLineHeightWithSpacing() * 12f + ImGui.GetFrameHeightWithSpacing()));
-        using var table = ImRaii.Table(
-            "##foodReminderTerritoryTable",
-            4,
-            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingStretchProp,
-            new Vector2(0f, tableHeight));
-        if (!table)
-        {
-            return false;
-        }
-
-        ImGui.TableSetupColumn("##foodReminderTerritoryCheck", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFrameHeight());
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.FoodReminder.Column.Map"), ImGuiTableColumnFlags.WidthStretch, 1.35f);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.FoodReminder.Column.Region"), ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.FoodReminder.Column.Id"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(74f));
-        var changed = false;
-        ImGui.TableSetupScrollFreeze(0, 1);
-        OmniControls.BeginTableHeaderRow();
-        ImGui.TableNextColumn();
-        ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
-        var selectAll = TerritoryOptions.Count > 0 &&
-                        config.AllowedTerritoryIds.Count == TerritoryOptions.Count;
-        OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), OmniTheme.SmallButtonSize().Y);
-        if (OmniControls.Checkbox("##foodReminderSelectAllTerritories", ref selectAll))
-        {
-            if (selectAll)
-            {
-                foreach (var option in TerritoryOptions)
-                {
-                    config.AllowedTerritoryIds.Add(option.Id);
-                }
-            }
-            else
-            {
-                config.AllowedTerritoryIds.Clear();
-            }
-
-            changed = true;
-        }
-
-        OmniControls.TableHeader(OmniLoc.Get("Feature.FoodReminder.Column.Map"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.FoodReminder.Column.Region"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.FoodReminder.Column.Id"));
-
-        foreach (var option in rows)
-        {
-            ImGui.PushID((int)option.Id);
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            var selected = config.AllowedTerritoryIds.Contains(option.Id);
-            if (OmniControls.Checkbox("##selected", ref selected))
-            {
-                changed |= selected
-                    ? config.AllowedTerritoryIds.Add(option.Id)
-                    : config.AllowedTerritoryIds.Remove(option.Id);
-            }
-
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted(option.Name);
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextDisabled(option.Region);
-            ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted(option.Id.ToString());
-            ImGui.PopID();
-        }
-
-        return changed;
-    }
-
-    private static IReadOnlyList<TerritoryOption> GetVisibleTerritories(HashSet<uint> selected, string query)
-    {
-        VisibleTerritoryOptions.Clear();
-        var exactId = uint.TryParse(query, out var parsedId) ? parsedId : 0;
-        foreach (var option in TerritoryOptions)
-        {
-            if (exactId != 0
-                ? option.Id != exactId
-                : query.Length > 0 && !option.SearchText.Contains(query, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            VisibleTerritoryOptions.Add(option);
-        }
-
-        VisibleTerritoryOptions.Sort((left, right) =>
-        {
-            var selectedComparison = selected.Contains(right.Id).CompareTo(selected.Contains(left.Id));
-            return selectedComparison != 0 ? selectedComparison : left.Id.CompareTo(right.Id);
-        });
-        return VisibleTerritoryOptions;
-    }
-
-    private static void EnsureTerritoryOptions()
-    {
-        if (territoryOptionsLoaded)
-        {
-            return;
-        }
-
-        territoryOptionsLoaded = true;
-        var sheet = DService.Instance().Data.GetExcelSheet<TerritoryType>();
-        if (sheet is null)
-        {
-            return;
-        }
-
-        foreach (var territory in sheet)
-        {
-            if (territory.RowId == 0)
-            {
-                continue;
-            }
-
-            var name = territory.PlaceName.ValueNullable?.Name.ToString().Trim();
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                name = territory.Name.ToString().Trim();
-            }
-
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                continue;
-            }
-
-            var region = BuildRegionText(
-                territory.PlaceNameRegion.ValueNullable?.Name.ToString(),
-                territory.PlaceNameZone.ValueNullable?.Name.ToString());
-            var contentName = territory.ContentFinderCondition.ValueNullable?.Name.ToString() ?? string.Empty;
-            TerritoryOptions.Add(new(
-                territory.RowId,
-                name,
-                region,
-                OmniSearchText.Build(
-                    territory.RowId.ToString(),
-                    name,
-                    territory.Name.ToString(),
-                    region,
-                    contentName)));
-            TerritoryOptionIds.Add(territory.RowId);
-        }
-
-        TerritoryOptions.Sort(static (left, right) => left.Id.CompareTo(right.Id));
-    }
-
-    private static string GetTerritoryName(uint id)
-    {
-        EnsureTerritoryOptions();
-        foreach (var option in TerritoryOptions)
-        {
-            if (option.Id == id)
-            {
-                return option.Name;
-            }
-        }
-
-        return string.Format(OmniLoc.Get("Feature.FoodReminder.TerritoryFallback"), id);
-    }
-
-    private static string BuildRegionText(string? region, string? zone)
-    {
-        region = region?.Trim() ?? string.Empty;
-        zone = zone?.Trim() ?? string.Empty;
-        if (region.Length == 0)
-        {
-            return zone;
-        }
-
-        return zone.Length == 0 || string.Equals(region, zone, StringComparison.Ordinal)
-            ? region
-            : $"{region} / {zone}";
-    }
-
-    private readonly record struct TerritoryOption(uint Id, string Name, string Region, string SearchText);
+    private static bool DrawTerritorySelector(FoodReminderConfig config) =>
+        TerritorySelector.Draw(
+            config.AllowedTerritoryIds,
+            OmniLoc.Get("Feature.FoodReminder.TerritorySelector.Empty"));
 }

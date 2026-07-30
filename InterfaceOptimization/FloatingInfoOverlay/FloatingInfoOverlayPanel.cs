@@ -337,18 +337,21 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         var style = ImGui.GetStyle();
         var removeLabel = OmniLoc.Get("Feature.FloatingInfoOverlay.Remove");
         var removeButtonSize = OmniControls.CompactButtonSize(removeLabel);
+        var rowHeight = removeButtonSize.Y + style.CellPadding.Y * 2f;
+        var scrollable = config.FilterDataIds.Count > VisibleFilterRows;
         var tableHeight = MathF.Max(
                               OmniTheme.SmallButtonSize().Y,
                               ImGui.GetTextLineHeight() + style.CellPadding.Y * 2f) +
-                          VisibleFilterRows * (removeButtonSize.Y + style.CellPadding.Y * 2f) +
-                          OmniTheme.Scale(2f);
+                          Math.Clamp(config.FilterDataIds.Count, 1, VisibleFilterRows) *
+                          rowHeight +
+                          style.ItemSpacing.Y;
         using var table = ImRaii.Table(
             "##floatingInfoDataIds",
             4,
             ImGuiTableFlags.SizingStretchSame |
             ImGuiTableFlags.Borders |
             ImGuiTableFlags.RowBg |
-            ImGuiTableFlags.ScrollY,
+            (scrollable ? ImGuiTableFlags.ScrollY : ImGuiTableFlags.None),
             new Vector2(ImGui.GetContentRegionAvail().X, tableHeight));
         if (!table)
         {
@@ -362,7 +365,11 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
             "##action",
             ImGuiTableColumnFlags.WidthFixed,
             removeButtonSize.X + style.CellPadding.X * 2f);
-        ImGui.TableSetupScrollFreeze(0, 1);
+        if (scrollable)
+        {
+            ImGui.TableSetupScrollFreeze(0, 1);
+        }
+
         OmniControls.BeginTableHeaderRow();
         OmniControls.TableHeader(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowDataId"));
         OmniControls.TableHeader(OmniLoc.Get("Feature.FloatingInfoOverlay.DecimalId"));
@@ -370,11 +377,13 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         OmniControls.TableHeader(OmniLoc.Get("Feature.FloatingInfoOverlay.Action"));
         if (config.FilterDataIds.Count == 0)
         {
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            OmniControls.TableTextCentered(
-                OmniLoc.Get("Feature.FloatingInfoOverlay.FilterEmpty"),
-                color: ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
+            ImGui.TableNextRow(ImGuiTableRowFlags.None, rowHeight);
+            for (var column = 0; column < 4; column++)
+            {
+                ImGui.TableNextColumn();
+                OmniControls.TableTextCentered("-");
+            }
+
             return false;
         }
 
@@ -382,9 +391,9 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         for (var index = 0; index < config.FilterDataIds.Count; index++)
         {
             var dataId = config.FilterDataIds[index];
-            ImGui.TableNextRow();
+            ImGui.TableNextRow(ImGuiTableRowFlags.None, rowHeight);
             ImGui.TableNextColumn();
-            OmniControls.TableTextCentered(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowDataId"));
+            OmniControls.TableTextCentered(dataId.ToString(CultureInfo.InvariantCulture));
             ImGui.TableNextColumn();
             OmniControls.TableTextCentered(dataId.ToString(CultureInfo.InvariantCulture));
             ImGui.TableNextColumn();

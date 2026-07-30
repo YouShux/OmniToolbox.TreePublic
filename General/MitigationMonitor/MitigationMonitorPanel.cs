@@ -35,9 +35,7 @@ internal static class MitigationMonitorPanel
         if (OmniControls.InputInt(
                 $"{OmniLoc.Get("Feature.MitigationMonitor.ReplaySaveCount")}##mitigationReplaySaveCount",
                 ref replaySaveCount,
-                OmniTheme.Scale(96f),
-                1,
-                10))
+                OmniTheme.Scale(96f)))
         {
             feature.SetReplaySaveCount(replaySaveCount);
         }
@@ -72,13 +70,6 @@ internal static class MitigationMonitorPanel
         if (OmniControls.Checkbox(OmniLoc.Get("Feature.MitigationMonitor.ShowDotDamage"), ref showDotDamage))
         {
             config.ShowDotDamage = showDotDamage;
-            changed = true;
-        }
-
-        ImGui.SameLine();
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.MitigationMonitor.ResetLayout"), false))
-        {
-            feature.ResetLayout();
             changed = true;
         }
 

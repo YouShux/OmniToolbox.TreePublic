@@ -1,7 +1,6 @@
 using System.Drawing;
 using Dalamud.Interface;
 using OmniToolbox.Config;
-using OmniToolbox.Host;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools;
@@ -12,7 +11,7 @@ namespace OmniToolbox.TreeHouse.General;
 
 internal sealed class MitigationMonitorOverlay
 {
-    internal const float MinimumWidth = 320f;
+    internal const float MinimumWidth = 420f;
 
     private readonly MitigationMonitorConfig config;
     private readonly MitigationHistoryMenu historyMenu;
@@ -48,6 +47,7 @@ internal sealed class MitigationMonitorOverlay
             return;
         }
 
+        using var font = FontManager.Instance().UIFont.Push();
         if (config.Collapsed)
         {
             DrawCollapsedIcon();
@@ -223,7 +223,6 @@ internal sealed class MitigationMonitorOverlay
 
     private static void DrawCenteredIcon(FontAwesomeIcon icon, Vector2 min, Vector2 size)
     {
-        using var font = DalamudServices.PluginInterface.UiBuilder.IconFontHandle.Push();
         var text = icon.ToIconString();
         var textSize = ImGui.CalcTextSize(text);
         ImGui.GetWindowDrawList().AddText(

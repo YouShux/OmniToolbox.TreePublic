@@ -10,6 +10,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit;
 using KamiToolKit.Classes;
 using KamiToolKit.Controllers;
+using KamiToolKit.Extensions;
 using KamiToolKit.Nodes;
 using KamiToolKit.Premade.Node.Simple;
 using OmniToolbox.Config;
@@ -522,7 +523,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
         }
 
         listNode->SetWidth((ushort)(listNode->Width + GearSetReorderExtraWidth));
-        gearSetList->SetSize((ushort)(width + GearSetReorderExtraWidth), height);
+        gearSetList->Size = new(width + GearSetReorderExtraWidth, height);
         adjustedGearSetList = gearSetList;
         gearSetListAdjusted = true;
     }
@@ -553,7 +554,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
             return;
         }
 
-        gearSetList->SetSize(gearSetListSnapshot.Width, gearSetListSnapshot.Height);
+        gearSetList->Size = new(gearSetListSnapshot.Width, gearSetListSnapshot.Height);
         var helpButton = (AtkResNode*)gearSetListSnapshot.HelpButton;
         if (helpButton != null)
         {

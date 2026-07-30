@@ -12,7 +12,9 @@ internal sealed class ItemPreviewPanel(ItemConfig config)
         OmniControls.SectionLabel(OmniLoc.Get("Settings.Tooltip.Title"));
         ImGui.Spacing();
         tooltipChanged = DrawSupplementSettings();
-        ImGui.Dummy(new Vector2(0f, OmniTheme.ContentGap()));
+        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
+        ImGui.Separator();
+        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
         OmniControls.SectionLabel(OmniLoc.Get("Settings.ImagePreview.Title"));
         ImGui.Spacing();
         return DrawImageSettings(out imageContentChanged) || tooltipChanged;
@@ -22,7 +24,7 @@ internal sealed class ItemPreviewPanel(ItemConfig config)
     {
         using var table = ImRaii.Table(
             "##itemSupplementPreviewSettingsTable",
-            3,
+            4,
             ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
             new Vector2(ImGui.GetContentRegionAvail().X, 0f));
         if (!table)
@@ -30,9 +32,10 @@ internal sealed class ItemPreviewPanel(ItemConfig config)
             return false;
         }
 
-        ImGui.TableSetupColumn("##supplement1", ImGuiTableColumnFlags.WidthStretch, 1.15f);
-        ImGui.TableSetupColumn("##supplement2", ImGuiTableColumnFlags.WidthStretch, 0.9f);
-        ImGui.TableSetupColumn("##supplement3", ImGuiTableColumnFlags.WidthStretch, 1.15f);
+        ImGui.TableSetupColumn("##supplement1", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##supplement2", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##supplement3", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##supplement4", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var changed = false;

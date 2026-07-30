@@ -1,7 +1,6 @@
 using System.Drawing;
 using Dalamud.Interface;
 using OmniToolbox.Config;
-using OmniToolbox.Host;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools;
@@ -12,8 +11,9 @@ namespace OmniToolbox.TreeHouse.General;
 internal sealed class MitigationRecordTable
 {
     private const float HeaderHeight = 28f;
+    private const float HeaderControlIconScale = 0.82f;
     private const float StatusLabelMinimumWidth = 40f;
-    private static readonly float[] ColumnMinimumWidths = [44f, 70f, 38f, 42f, 34f];
+    private static readonly float[] ColumnMinimumWidths = [44f, 70f, 60f, 42f, 34f];
 
     private readonly MitigationMonitorConfig config;
     private readonly MitigationCombatLog combatLog;
@@ -317,11 +317,7 @@ internal sealed class MitigationRecordTable
         }
 
         var caret = FontAwesomeIcon.CaretDown.ToIconString();
-        Vector2 caretSize;
-        using (DalamudServices.PluginInterface.UiBuilder.IconFontHandle.Push())
-        {
-            caretSize = ImGui.CalcTextSize(caret);
-        }
+        var caretSize = ImGui.CalcTextSize(caret);
 
         var display = MitigationRecordRenderer.FitText(
             label,
@@ -343,13 +339,10 @@ internal sealed class MitigationRecordTable
             new Vector2(startX, textY),
             OmniTheme.Color(active ? KnownColor.LightSkyBlue.ToVector4() : KnownColor.White.ToVector4()),
             display);
-        using (DalamudServices.PluginInterface.UiBuilder.IconFontHandle.Push())
-        {
-            ImGui.GetWindowDrawList().AddText(
-                new Vector2(startX + textSize.X + OmniTheme.Scale(4f), min.Y + MathF.Max(OmniTheme.Scale(1f), (OmniTheme.Scale(HeaderHeight) - caretSize.Y) * 0.5f)),
-                OmniTheme.Color(KnownColor.White.ToVector4() with { W = ImGui.IsItemHovered() || active ? 1f : 0.72f }),
-                caret);
-        }
+        ImGui.GetWindowDrawList().AddText(
+            new Vector2(startX + textSize.X + OmniTheme.Scale(4f), min.Y + MathF.Max(OmniTheme.Scale(1f), (OmniTheme.Scale(HeaderHeight) - caretSize.Y) * 0.5f)),
+            OmniTheme.Color(KnownColor.White.ToVector4() with { W = ImGui.IsItemHovered() || active ? 1f : 0.72f }),
+            caret);
 
         if (ImGui.IsItemClicked())
         {
@@ -406,20 +399,19 @@ internal sealed class MitigationRecordTable
             action();
         }
 
-        using (DalamudServices.PluginInterface.UiBuilder.IconFontHandle.Push())
-        {
-            var text = icon.ToIconString();
-            var textSize = ImGui.CalcTextSize(text);
-            ImGui.GetWindowDrawList().AddText(
-                position + new Vector2(
-                    MathF.Max(0f, (size.X - textSize.X) * 0.5f),
-                    MathF.Max(0f, (size.Y - textSize.Y) * 0.5f)),
-                OmniTheme.Color((ImGui.IsItemActive() ? KnownColor.LightSkyBlue : KnownColor.White).ToVector4() with
-                {
-                    W = ImGui.IsItemHovered() || ImGui.IsItemActive() ? 1f : 0.90f
-                }),
-                text);
-        }
+        var text = icon.ToIconString();
+        var textSize = ImGui.CalcTextSize(text) * HeaderControlIconScale;
+        ImGui.GetWindowDrawList().AddText(
+            ImGui.GetFont(),
+            ImGui.GetFontSize() * HeaderControlIconScale,
+            position + new Vector2(
+                MathF.Max(0f, (size.X - textSize.X) * 0.5f),
+                MathF.Max(0f, (size.Y - textSize.Y) * 0.5f)),
+            OmniTheme.Color((ImGui.IsItemActive() ? KnownColor.LightSkyBlue : KnownColor.White).ToVector4() with
+            {
+                W = ImGui.IsItemHovered() || ImGui.IsItemActive() ? 1f : 0.90f
+            }),
+            text);
 
         if (ImGui.IsItemHovered())
         {

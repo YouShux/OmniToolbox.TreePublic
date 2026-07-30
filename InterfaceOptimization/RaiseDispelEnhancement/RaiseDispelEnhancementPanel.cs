@@ -137,11 +137,7 @@ internal static class RaiseDispelEnhancementPanel
         Action<uint> setter)
     {
         var color = ImGui.ColorConvertU32ToFloat4(current);
-        ImGui.SetNextItemWidth(OmniTheme.Scale(26f));
-        if (!ImGui.ColorEdit4(
-                $"##raiseDispel{id}",
-                ref color,
-                ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.AlphaBar))
+        if (!OmniControls.ColorEdit($"##raiseDispel{id}", ref color))
         {
             ImGui.SameLine(0f, OmniTheme.Scale(8f));
             ImGui.TextUnformatted(OmniLoc.Get(labelKey));

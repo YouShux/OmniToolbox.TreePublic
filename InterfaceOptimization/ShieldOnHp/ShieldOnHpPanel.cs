@@ -1,5 +1,6 @@
 using OmniToolbox.Config;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 using OmenTools.ImGuiOm;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
@@ -18,13 +19,14 @@ internal static class ShieldOnHpPanel
         }
 
         ImGuiOm.HelpMarker(OmniLoc.Get("Feature.ShieldOnHp.ShowBar.Help"));
+        ImGui.SameLine(0f, OmniTheme.ContentGap());
         using (ImRaii.Disabled(!config.ShowBar))
         {
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(OmniLoc.Get("Feature.ShieldOnHp.Color"));
+            ImGui.SameLine();
             var color = config.Color;
-            if (ImGui.ColorEdit3(
-                    $"{OmniLoc.Get("Feature.ShieldOnHp.Color")}##shieldOnHpColor",
-                    ref color,
-                    ImGuiColorEditFlags.NoInputs | ImGuiColorEditFlags.PickerHueBar))
+            if (OmniControls.ColorEdit("##shieldOnHpColor", ref color))
             {
                 config.Color = color;
             }

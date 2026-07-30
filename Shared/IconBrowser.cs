@@ -568,29 +568,27 @@ public sealed class IconBrowser
 
         var columns = Math.Max(1, (int)((contentWidth + spacing.X) / (iconSize + spacing.X)));
         var rows = icons.Count == 0 ? 0 : (icons.Count - 1) / columns + 1;
-        var rowHeight = iconSize + spacing.Y;
-        var totalHeight = rows == 0 ? 0f : rows * rowHeight - spacing.Y;
-        var start = ImGui.GetCursorScreenPos();
-        var firstRow = Math.Max(0, (int)MathF.Floor(ImGui.GetScrollY() / rowHeight) - 1);
-        var lastRow = Math.Min(
-            rows - 1,
-            (int)MathF.Ceiling((ImGui.GetScrollY() + ImGui.GetWindowHeight()) / rowHeight) + 1);
-        ImGui.Dummy(new Vector2(1f, totalHeight));
-        for (var row = firstRow; row <= lastRow; row++)
+        var clipper = ImGui.ImGuiListClipper();
+        clipper.Begin(rows, iconSize + spacing.Y);
+        while (clipper.Step())
         {
-            var startIndex = row * columns;
-            var endIndex = Math.Min(startIndex + columns, icons.Count);
-            for (var index = startIndex; index < endIndex; index++)
+            for (var row = Math.Max(0, clipper.DisplayStart); row < Math.Min(rows, clipper.DisplayEnd); row++)
             {
-                ImGui.SetCursorScreenPos(
-                    start + new Vector2(
-                        (index - startIndex) * (iconSize + spacing.X),
-                        row * rowHeight));
-                DrawGameIcon(icons[index], iconSize, statusIcons, ref textureRequestBudget);
+                var startIndex = row * columns;
+                var endIndex = Math.Min(startIndex + columns, icons.Count);
+                for (var index = startIndex; index < endIndex; index++)
+                {
+                    DrawGameIcon(icons[index], iconSize, statusIcons, ref textureRequestBudget);
+                    if (index < endIndex - 1)
+                    {
+                        ImGui.SameLine();
+                    }
+                }
             }
         }
 
-        ImGui.SetCursorScreenPos(start + new Vector2(0f, totalHeight));
+        clipper.End();
+        clipper.Destroy();
         ImGui.EndChild();
     }
 
@@ -599,9 +597,13 @@ public sealed class IconBrowser
         gameIconTextures.TryGetValue(icon, out var sharedTexture);
         if (sharedTexture is null && textureRequestBudget > 0)
         {
-            sharedTexture = DalamudServices.TextureProvider.GetFromGameIcon(new GameIconLookup((uint)icon));
-            gameIconTextures.Add(icon, sharedTexture);
             textureRequestBudget--;
+            if (DalamudServices.TextureProvider.TryGetFromGameIcon(
+                    new GameIconLookup((uint)icon),
+                    out sharedTexture))
+            {
+                gameIconTextures.Add(icon, sharedTexture);
+            }
         }
 
         var texture = sharedTexture?.GetWrapOrDefault();

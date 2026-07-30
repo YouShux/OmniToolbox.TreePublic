@@ -74,6 +74,8 @@ internal static class DuplicateStatusPreventionRules
         new(173, new([new(148, StatusDetectionTarget.Target)])),
         new(3603, new([new(148, StatusDetectionTarget.Target)])),
         new(24287, new([new(148, StatusDetectionTarget.Target)])),
+        new(41634, new([new(148, StatusDetectionTarget.Target)])),
+        new(49070, new([new(148, StatusDetectionTarget.Target)])),
         new(7523, new([new(148, StatusDetectionTarget.Target)])),
         new(18317, new([new(148, StatusDetectionTarget.Target)])),
         new(29057, new([new(1342, StatusDetectionTarget.Self)])),

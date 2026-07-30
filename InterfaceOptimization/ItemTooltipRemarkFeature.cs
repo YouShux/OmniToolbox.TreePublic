@@ -24,7 +24,6 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
     private int editingItemId;
     private string editingText = string.Empty;
     private bool focusTextInput;
-    private bool colorPickerOpen;
     private bool editorRequested;
     private TooltipManager? tooltipManager;
 
@@ -125,11 +124,7 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.Color"));
         ImGui.SameLine();
         var colorId = config.ColorKey;
-        if (UIColorPicker.Draw(
-                "itemTooltipRemark",
-                OmniLoc.Get("Feature.ItemTooltipRemark.ColorPicker.Title"),
-                ref colorPickerOpen,
-                ref colorId))
+        if (UIColorPicker.Draw("itemTooltipRemark", ref colorId))
         {
             config.ColorKey = colorId;
             tooltipManager?.TriggerItemDetailUpdate();

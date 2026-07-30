@@ -25,7 +25,9 @@ internal sealed class ItemQueryPanel
     public bool Draw()
     {
         var changed = DrawLocationSettings();
-        ImGui.Dummy(new Vector2(0f, OmniTheme.ContentGap()));
+        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
+        ImGui.Separator();
+        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
         changed |= DrawTooltipSettings();
         return changed;
     }

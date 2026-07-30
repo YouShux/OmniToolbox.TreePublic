@@ -1,6 +1,3 @@
-using Lumina.Excel.Sheets;
-using OmenTools;
-using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
@@ -14,10 +11,8 @@ internal static class AutoPartyInvitePanel
         "000", "111", "222", "333", "444", "555", "666", "777", "888", "999"
     ];
 
+    private static readonly TerritorySelector TerritorySelector = new("autoPartyInviteTerritory");
     private static string customTriggerInput = string.Empty;
-    private static string territorySearch = string.Empty;
-    private static List<TerritoryOption>? territoryOptions;
-    private static HashSet<uint>? validTerritoryIds;
 
     public static bool Draw(AutoPartyInviteConfig config)
     {
@@ -79,27 +74,35 @@ internal static class AutoPartyInvitePanel
         var digitToggleMask = 0;
         AutoPartyInviteTrigger? toggledTrigger = null;
         var toggledTriggerEnabled = false;
-        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Add")}##autoPartyInviteTriggerAdd", false))
-        {
-            changed |= AddCustomTrigger(config);
-        }
-
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
+        var addLabel = OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Add");
+        var addButtonSize = OmniControls.CompactButtonSize(addLabel);
+        ImGui.SetNextItemWidth(MathF.Max(
+            1f,
+            ImGui.GetContentRegionAvail().X - addButtonSize.X - ImGui.GetStyle().ItemSpacing.X -
+            OmniTheme.BorderThickness() -
+            OmniTheme.Scale(MathF.Max(0f, OmniTheme.Tokens.ShadowOffset))));
         OmniControls.InputTextWithHint(
             "##autoPartyInviteTriggerInput",
             OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Hint"),
             ref customTriggerInput,
             128);
+        ImGui.SameLine();
+        if (OmniControls.SmallButton(
+                $"{addLabel}##autoPartyInviteTriggerAdd",
+                false,
+                addButtonSize))
+        {
+            changed |= AddCustomTrigger(config);
+        }
 
         ImGui.Spacing();
-        var rowCount = 10 + config.CustomTriggers.Count;
         using var table = ImRaii.Table(
             "##autoPartyInviteTriggers",
             4,
             ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY,
             new Vector2(
                 ImGui.GetContentRegionAvail().X,
-                ImGui.GetFrameHeightWithSpacing() * (Math.Clamp(rowCount, 1, 6) + 1.35f)));
+                ImGui.GetFrameHeightWithSpacing() * 6.35f));
         if (!table)
         {
             return changed;
@@ -256,222 +259,10 @@ internal static class AutoPartyInvitePanel
         return true;
     }
 
-    private static bool DrawTerritories(AutoPartyInviteConfig config)
-    {
-        EnsureTerritoryOptions();
-        var changed = false;
-        if (territoryOptions!.Count > 0)
-        {
-            changed |= config.AllowedTerritoryIds.RemoveWhere(id => !validTerritoryIds!.Contains(id)) > 0;
-        }
-
-        if (!OmniControls.CollapsingHeader(
-                string.Format(
-                    OmniLoc.Get("Feature.AutoPartyInvite.Territory.Title"),
-                    config.AllowedTerritoryIds.Count),
-                ImGuiTreeNodeFlags.DefaultOpen | ImGuiTreeNodeFlags.SpanAvailWidth))
-        {
-            if (config.AllowedTerritoryIds.Count == 0)
-            {
-                ImGui.TextDisabled(OmniLoc.Get("Feature.AutoPartyInvite.Territory.EmptySelection"));
-            }
-
-            return changed;
-        }
-
-        var services = DService.Instance();
-        var currentTerritoryId = services.ClientState.IsLoggedIn
-            ? (uint)services.ClientState.TerritoryType
-            : 0;
-        using (var controls = ImRaii.Table(
-                   "##autoPartyInviteTerritoryControls",
-                   4,
-                   ImGuiTableFlags.SizingStretchProp,
-                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
-        {
-            if (controls)
-            {
-                ImGui.TableSetupColumn("##selectAll", ImGuiTableColumnFlags.WidthFixed);
-                ImGui.TableSetupColumn("##clear", ImGuiTableColumnFlags.WidthFixed);
-                ImGui.TableSetupColumn("##addCurrent", ImGuiTableColumnFlags.WidthFixed);
-                ImGui.TableSetupColumn("##current", ImGuiTableColumnFlags.WidthStretch);
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.SelectAll")}##selectAll", false))
-                {
-                    for (var index = 0; index < territoryOptions.Count; index++)
-                    {
-                        changed |= config.AllowedTerritoryIds.Add(territoryOptions[index].Id);
-                    }
-                }
-
-                ImGui.TableNextColumn();
-                if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.Clear")}##clear", false))
-                {
-                    changed |= config.AllowedTerritoryIds.Count > 0;
-                    config.AllowedTerritoryIds.Clear();
-                }
-
-                ImGui.TableNextColumn();
-                using (ImRaii.Disabled(currentTerritoryId == 0 || config.AllowedTerritoryIds.Contains(currentTerritoryId)))
-                {
-                    if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.AddCurrent")}##addCurrent", false))
-                    {
-                        changed |= config.AllowedTerritoryIds.Add(currentTerritoryId);
-                    }
-                }
-
-                ImGui.TableNextColumn();
-                ImGui.AlignTextToFramePadding();
-                ImGui.TextDisabled(currentTerritoryId == 0
-                    ? OmniLoc.Get("Feature.AutoPartyInvite.Territory.LoggedOut")
-                    : string.Format(
-                        OmniLoc.Get("Feature.AutoPartyInvite.Territory.Current"),
-                        GetTerritoryName(currentTerritoryId),
-                        currentTerritoryId));
-            }
-        }
-
-        ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
-        OmniControls.InputTextWithHint(
-            "##autoPartyInviteTerritorySearch",
-            OmniLoc.Get("Feature.AutoPartyInvite.Territory.SearchHint"),
-            ref territorySearch,
-            128);
-
-        changed |= DrawTerritoryTable(config);
-        if (config.AllowedTerritoryIds.Count == 0)
-        {
-            ImGui.TextDisabled(OmniLoc.Get("Feature.AutoPartyInvite.Territory.EmptySelection"));
-        }
-
-        return changed;
-    }
-
-    private static bool DrawTerritoryTable(AutoPartyInviteConfig config)
-    {
-        var changed = false;
-        using var table = ImRaii.Table(
-            "##autoPartyInviteTerritories",
-            4,
-            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY,
-            new Vector2(
-                ImGui.GetContentRegionAvail().X,
-                MathF.Min(
-                    OmniTheme.Scale(360f),
-                    MathF.Max(
-                        OmniTheme.Scale(180f),
-                        ImGui.GetTextLineHeightWithSpacing() * 12f + ImGui.GetFrameHeightWithSpacing()))));
-        if (!table)
-        {
-            return false;
-        }
-
-        ImGui.TableSetupColumn("##selected", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFrameHeight());
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.AutoPartyInvite.Territory.Column.Map"),
-            ImGuiTableColumnFlags.WidthStretch,
-            1.35f);
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.AutoPartyInvite.Territory.Column.Region"),
-            ImGuiTableColumnFlags.WidthStretch,
-            1f);
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.AutoPartyInvite.Territory.Column.Id"),
-            ImGuiTableColumnFlags.WidthFixed,
-            OmniTheme.Scale(74f));
-        OmniControls.ScrollableTableHeadersRow();
-
-        var query = territorySearch.Trim();
-        var hasExactId = uint.TryParse(query, out var exactId);
-        var anyVisible = false;
-        var toggledTerritoryId = 0u;
-        var toggledTerritorySelected = false;
-        changed |= DrawTerritoryRows(
-            config,
-            true,
-            query,
-            hasExactId,
-            exactId,
-            ref anyVisible,
-            ref toggledTerritoryId,
-            ref toggledTerritorySelected);
-        changed |= DrawTerritoryRows(
-            config,
-            false,
-            query,
-            hasExactId,
-            exactId,
-            ref anyVisible,
-            ref toggledTerritoryId,
-            ref toggledTerritorySelected);
-        if (toggledTerritoryId != 0)
-        {
-            if (toggledTerritorySelected)
-            {
-                config.AllowedTerritoryIds.Add(toggledTerritoryId);
-            }
-            else
-            {
-                config.AllowedTerritoryIds.Remove(toggledTerritoryId);
-            }
-        }
-
-        if (!anyVisible)
-        {
-            ImGui.TableNextRow();
-            ImGui.TableSetColumnIndex(1);
-            ImGui.TextDisabled(OmniLoc.Get("Feature.AutoPartyInvite.Territory.NoMatches"));
-        }
-
-        return changed;
-    }
-
-    private static bool DrawTerritoryRows(
-        AutoPartyInviteConfig config,
-        bool selectedState,
-        string query,
-        bool hasExactId,
-        uint exactId,
-        ref bool anyVisible,
-        ref uint toggledTerritoryId,
-        ref bool toggledTerritorySelected)
-    {
-        var changed = false;
-        for (var index = 0; index < territoryOptions!.Count; index++)
-        {
-            var option = territoryOptions[index];
-            if (config.AllowedTerritoryIds.Contains(option.Id) != selectedState ||
-                hasExactId && option.Id != exactId ||
-                !hasExactId && query.Length > 0 &&
-                !option.SearchText.Contains(query, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            anyVisible = true;
-            ImGui.PushID((int)option.Id);
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
-            var selected = selectedState;
-            if (OmniControls.Checkbox("##selected", ref selected))
-            {
-                toggledTerritoryId = option.Id;
-                toggledTerritorySelected = selected;
-                changed = true;
-            }
-
-            ImGui.TableNextColumn();
-            ImGui.TextWrapped(option.Name);
-            ImGui.TableNextColumn();
-            ImGui.TextDisabled(option.Location);
-            ImGui.TableNextColumn();
-            ImGui.TextUnformatted(option.Id.ToString());
-            ImGui.PopID();
-        }
-
-        return changed;
-    }
+    private static bool DrawTerritories(AutoPartyInviteConfig config) =>
+        TerritorySelector.Draw(
+            config.AllowedTerritoryIds,
+            OmniLoc.Get("Feature.AutoPartyInvite.Territory.EmptySelection"));
 
     private static bool DrawChannels(AutoPartyInviteConfig config)
     {
@@ -573,84 +364,6 @@ internal static class AutoPartyInvitePanel
             ? OmniLoc.Get(option.LabelKey)
             : string.Format(OmniLoc.Get(option.LabelKey), option.Number);
 
-    private static void EnsureTerritoryOptions()
-    {
-        if (territoryOptions is not null)
-        {
-            return;
-        }
-
-        territoryOptions = [];
-        validTerritoryIds = [];
-        foreach (var territory in LuminaGetter.Get<TerritoryType>())
-        {
-            if (territory.RowId == 0 || !TryGetTerritoryName(territory, out var name))
-            {
-                continue;
-            }
-
-            var regionName = territory.PlaceNameRegion.ValueNullable?.Name.ToString() ?? string.Empty;
-            var zoneName = territory.PlaceNameZone.ValueNullable?.Name.ToString() ?? string.Empty;
-            var contentName = territory.ContentFinderCondition.ValueNullable?.Name.ToString() ?? string.Empty;
-            var location = BuildLocation(regionName, zoneName);
-            territoryOptions.Add(new(
-                territory.RowId,
-                name,
-                location,
-                OmniSearchText.Build(
-                    territory.RowId.ToString(),
-                    name,
-                    territory.Name.ToString(),
-                    location,
-                    regionName,
-                    zoneName,
-                    contentName)));
-            validTerritoryIds.Add(territory.RowId);
-        }
-
-        territoryOptions.Sort(static (left, right) => left.Id.CompareTo(right.Id));
-    }
-
-    private static string GetTerritoryName(uint territoryId)
-    {
-        for (var index = 0; index < territoryOptions!.Count; index++)
-        {
-            if (territoryOptions[index].Id == territoryId)
-            {
-                return territoryOptions[index].Name;
-            }
-        }
-
-        return string.Format(OmniLoc.Get("Feature.AutoPartyInvite.Territory.Fallback"), territoryId);
-    }
-
-    private static bool TryGetTerritoryName(TerritoryType territory, out string name)
-    {
-        name = territory.PlaceName.ValueNullable?.Name.ToString() ?? string.Empty;
-        if (name.Length > 0)
-        {
-            return true;
-        }
-
-        name = territory.Name.ToString();
-        return name.Length > 0;
-    }
-
-    private static string BuildLocation(string regionName, string zoneName)
-    {
-        if (regionName.Length == 0)
-        {
-            return zoneName;
-        }
-
-        if (zoneName.Length == 0 || string.Equals(regionName, zoneName, StringComparison.Ordinal))
-        {
-            return regionName;
-        }
-
-        return $"{regionName} / {zoneName}";
-    }
-
     private static bool IsDigitsOnly(string text)
     {
         for (var index = 0; index < text.Length; index++)
@@ -663,6 +376,4 @@ internal static class AutoPartyInvitePanel
 
         return text.Length > 0;
     }
-
-    private readonly record struct TerritoryOption(uint Id, string Name, string Location, string SearchText);
 }

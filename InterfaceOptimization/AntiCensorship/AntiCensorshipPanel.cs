@@ -10,33 +10,12 @@ namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 
 internal static class AntiCensorshipPanel
 {
-    private static bool colorPickerOpen;
-
     public static bool Draw(AntiCensorshipConfig config)
     {
         var changed = false;
-        var coloring = config.EnableColoring;
-        if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))
-        {
-            config.EnableColoring = coloring;
-            changed = true;
-        }
-
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.AntiCensorship.Mode"));
         ImGui.SameLine();
-        var colorId = config.HighlightColor;
-        if (UIColorPicker.Draw(
-                "antiCensorship",
-                OmniLoc.Get("Feature.AntiCensorship.ColorPicker.Title"),
-                ref colorPickerOpen,
-                ref colorId,
-                KnownColor.Red.ToVector4()))
-        {
-            config.HighlightColor = colorId;
-            changed = true;
-        }
-
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.AntiCensorship.Coloring.Help"));
-
         var autoHandle = config.EnableAutoHandle;
         if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.AutoHandle")}##antiCensorshipAutoHandle", ref autoHandle))
         {
@@ -60,6 +39,23 @@ internal static class AntiCensorshipPanel
         }
 
         ImGuiOm.HelpMarker(OmniLoc.Get("Feature.AntiCensorship.AutoHandle.Help"));
+        ImGui.SameLine(0f, OmniTheme.ContentGap());
+        var coloring = config.EnableColoring;
+        if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))
+        {
+            config.EnableColoring = coloring;
+            changed = true;
+        }
+
+        ImGui.SameLine();
+        var colorId = config.HighlightColor;
+        if (UIColorPicker.Draw("antiCensorship", ref colorId, KnownColor.Red.ToVector4()))
+        {
+            config.HighlightColor = colorId;
+            changed = true;
+        }
+
+        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.AntiCensorship.Coloring.Help"));
         return changed;
     }
 }
