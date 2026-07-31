@@ -13,13 +13,12 @@ internal readonly record struct LockedDutyPreviewRow(
 
 internal sealed class LockedDutyPreviewNativeUi : NativeAddon
 {
-    private const float WindowWidth = 420f;
+    private const float WindowWidth = 400f;
     private const float WindowHeight = 400f;
     private const float ItemSpacing = 2f;
 
     private List<LockedDutyPreviewRow> rows = [];
     private TextNode? summaryNode;
-    private TextNode? emptyNode;
     private ListNode<LockedDutyPreviewRow, LockedDutyPreviewListItemNode>? listNode;
     private TextButtonNode? lockedTabButton;
     private TextButtonNode? excludedTabButton;
@@ -45,6 +44,9 @@ internal sealed class LockedDutyPreviewNativeUi : NativeAddon
         Size = new(WindowWidth, WindowHeight);
         ContentPadding = new(8f, 0f);
         RememberClosePosition = false;
+        CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
+        RespectCloseAll = false;
+        DisableClose = true;
         this.onViewChanged = onViewChanged;
         this.onExclude = onExclude;
         this.onRestore = onRestore;
@@ -62,16 +64,6 @@ internal sealed class LockedDutyPreviewNativeUi : NativeAddon
             AlignmentType = AlignmentType.Left
         };
         summaryNode.AttachNode(this);
-
-        emptyNode = new()
-        {
-            Position = new(ContentStartPosition.X, ContentStartPosition.Y + 34f),
-            Size = new(ContentSize.X, 56f),
-            AlignmentType = AlignmentType.TopLeft,
-            TextFlags = TextFlags.MultiLine,
-            IsVisible = false
-        };
-        emptyNode.AttachNode(this);
 
         listNode = new()
         {
@@ -111,7 +103,6 @@ internal sealed class LockedDutyPreviewNativeUi : NativeAddon
     {
         LockedDutyPreviewListItemNode.ClearCallbacks();
         summaryNode = null;
-        emptyNode = null;
         listNode = null;
         lockedTabButton = null;
         excludedTabButton = null;
@@ -154,14 +145,6 @@ internal sealed class LockedDutyPreviewNativeUi : NativeAddon
             listNode.OptionsList = rows;
         }
 
-        if (emptyNode is not null)
-        {
-            emptyNode.IsVisible = rows.Count == 0;
-            emptyNode.String = showExcludedView
-                ? string.Empty
-                : OmniLoc.Get("Feature.LockedDutyPreview.Empty");
-        }
-
         if (lockedTabButton is not null)
         {
             lockedTabButton.IsChecked = !showExcludedView;
@@ -178,12 +161,6 @@ internal sealed class LockedDutyPreviewNativeUi : NativeAddon
         if (summaryNode is not null)
         {
             summaryNode.Size = new(ContentSize.X, 24f);
-        }
-
-        if (emptyNode is not null)
-        {
-            emptyNode.Position = new(ContentStartPosition.X, ContentStartPosition.Y + 34f);
-            emptyNode.Size = new(ContentSize.X, 56f);
         }
 
         if (listNode is not null)

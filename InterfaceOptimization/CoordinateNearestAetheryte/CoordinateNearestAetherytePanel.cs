@@ -7,7 +7,7 @@ namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 
 internal static class CoordinateNearestAetherytePanel
 {
-    private const int MaxVisibleRows = 8;
+    private const int MaxVisibleRows = 5;
 
     public static bool Draw(
         CoordinateNearestAetheryteConfig config,
@@ -30,6 +30,10 @@ internal static class CoordinateNearestAetherytePanel
         }
 
         ImGui.TableSetupColumn(
+            "##coordinateNearestAetheryteVisible",
+            ImGuiTableColumnFlags.WidthFixed,
+            ImGui.GetFrameHeight());
+        ImGui.TableSetupColumn(
             OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Name"),
             ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn(
@@ -39,84 +43,64 @@ internal static class CoordinateNearestAetherytePanel
             OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Id"),
             ImGuiTableColumnFlags.WidthFixed,
             OmniTheme.Scale(92f));
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Action"),
-            ImGuiTableColumnFlags.WidthFixed,
-            OmniTheme.Scale(86f));
         ImGui.TableSetupScrollFreeze(0, 1);
         OmniControls.BeginTableHeaderRow();
-        OmniControls.TableHeader(OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Name"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Map"));
         ImGui.TableNextColumn();
         ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
-        var idHeader = OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Id");
-        var idHeaderSpacing = OmniTheme.Scale(4f);
-        OmniControls.CenterTableItem(
-            new Vector2(
-                OmniTheme.CheckboxSize() + idHeaderSpacing + ImGui.CalcTextSize(idHeader).X,
-                OmniTheme.CheckboxSize()),
-            OmniTheme.SmallButtonSize().Y);
-        var hasIgnoredAetherytes = config.IgnoredAetheryteIds.Count > 0;
-        using (ImRaii.Disabled(!hasIgnoredAetherytes))
+        OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), OmniTheme.SmallButtonSize().Y);
+        var selectAll = config.IgnoredAetheryteIds.Count == 0;
+        if (OmniControls.Checkbox("##coordinateNearestAetheryteSelectAll", ref selectAll))
         {
-            if (OmniControls.Checkbox("##coordinateNearestAetheryteClearIgnored", ref hasIgnoredAetherytes) &&
-                !hasIgnoredAetherytes)
+            if (selectAll)
             {
                 config.IgnoredAetheryteIds.Clear();
-                changed = true;
             }
+            else
+            {
+                foreach (var aetheryte in aetherytes)
+                {
+                    config.IgnoredAetheryteIds.Add(aetheryte.Id);
+                }
+            }
+
+            changed = true;
         }
 
-        ImGui.SameLine(0f, idHeaderSpacing);
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(idHeader);
-        OmniControls.TableHeader(OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Action"));
+        OmniControls.TableHeader(
+            OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Name"),
+            OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Name.Help"));
+        OmniControls.TableHeader(OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Map"));
+        OmniControls.TableHeader(OmniLoc.Get("Feature.CoordinateNearestAetheryte.Column.Id"));
 
-        for (var pass = 0; pass < 2; pass++)
+        foreach (var aetheryte in aetherytes)
         {
-            var drawIgnored = pass == 0;
-            foreach (var aetheryte in aetherytes)
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), OmniTheme.SmallButtonSize().Y);
+            var visible = !config.IgnoredAetheryteIds.Contains(aetheryte.Id);
+            if (OmniControls.Checkbox($"##coordinateNearestAetheryte{aetheryte.Id}", ref visible))
             {
-                var ignored = config.IgnoredAetheryteIds.Contains(aetheryte.Id);
-                if (ignored != drawIgnored)
+                if (visible)
                 {
-                    continue;
+                    config.IgnoredAetheryteIds.Remove(aetheryte.Id);
+                }
+                else
+                {
+                    config.IgnoredAetheryteIds.Add(aetheryte.Id);
                 }
 
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                var textColor = ignored
-                    ? (Vector4?)null
-                    : ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled];
-                OmniControls.TableTextCentered(aetheryte.Name, OmniTheme.SmallButtonSize().Y, textColor);
-                ImGui.TableNextColumn();
-                OmniControls.TableTextCentered(aetheryte.MapName, OmniTheme.SmallButtonSize().Y, textColor);
-                ImGui.TableNextColumn();
-                OmniControls.TableTextCentered(aetheryte.Id.ToString(), OmniTheme.SmallButtonSize().Y, textColor);
-
-                ImGui.TableNextColumn();
-                var actionLabel = OmniLoc.Get(ignored
-                    ? "Feature.CoordinateNearestAetheryte.Restore"
-                    : "Feature.CoordinateNearestAetheryte.Exclude");
-                var actionButtonSize = OmniControls.CompactButtonSize(actionLabel);
-                OmniControls.CenterTableItem(actionButtonSize, OmniTheme.SmallButtonSize().Y);
-                if (OmniControls.SmallButton(
-                        $"{actionLabel}##coordinateNearestAetheryte{aetheryte.Id}",
-                        false,
-                        actionButtonSize))
-                {
-                    if (ignored)
-                    {
-                        config.IgnoredAetheryteIds.Remove(aetheryte.Id);
-                    }
-                    else
-                    {
-                        config.IgnoredAetheryteIds.Add(aetheryte.Id);
-                    }
-
-                    changed = true;
-                }
+                changed = true;
             }
+
+            var textColor = visible
+                ? (Vector4?)null
+                : ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled];
+            ImGui.TableNextColumn();
+            OmniControls.TableTextCentered(aetheryte.Name, OmniTheme.SmallButtonSize().Y, textColor);
+            ImGui.TableNextColumn();
+            OmniControls.TableTextCentered(aetheryte.MapName, OmniTheme.SmallButtonSize().Y, textColor);
+            ImGui.TableNextColumn();
+            OmniControls.TableTextCentered(aetheryte.Id.ToString(), OmniTheme.SmallButtonSize().Y, textColor);
         }
 
         return changed;

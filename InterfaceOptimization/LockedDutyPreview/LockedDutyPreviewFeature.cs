@@ -25,7 +25,7 @@ public sealed unsafe class LockedDutyPreviewFeature(
     private const int RefreshIntervalMs = 5_000;
     private const float ScreenPadding = 8f;
     private const float ContentsFinderGap = 48f;
-    private const float PositionWindowWidth = 520f;
+    private const float PositionWindowWidth = 400f;
     private const float PositionWindowHeight = 400f;
 
     private readonly LockedDutyPreviewResolver resolver = new();
@@ -121,8 +121,7 @@ public sealed unsafe class LockedDutyPreviewFeature(
     {
         if (!DService.Instance().ClientState.IsLoggedIn ||
             !TryGetContentsFinder(out AtkUnitBase* addon) ||
-            nativeUi is null ||
-            config.AutoHideWhenAllUnlocked && !showExcludedView && lockedRows.Count == 0)
+            nativeUi is null)
         {
             nativeUi?.Close();
             return;
@@ -208,15 +207,11 @@ public sealed unsafe class LockedDutyPreviewFeature(
         }
 
         nativeUi.UpdateData(
-            showExcludedView
-                ? string.Format(
-                    OmniLoc.Get("Feature.LockedDutyPreview.ExcludedSummary"),
-                    excludedRows.Count)
-                : string.Format(
-                    OmniLoc.Get("Feature.LockedDutyPreview.Summary"),
-                    resolver.TotalCount,
-                    resolver.UnlockedCount,
-                    lockedRows.Count),
+            string.Format(
+                OmniLoc.Get("Feature.LockedDutyPreview.Summary"),
+                resolver.UnlockedCount,
+                lockedRows.Count,
+                excludedRows.Count),
             showExcludedView ? excludedRows : lockedRows,
             showExcludedView);
     }

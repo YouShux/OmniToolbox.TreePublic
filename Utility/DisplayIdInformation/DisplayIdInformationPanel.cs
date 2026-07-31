@@ -1,5 +1,6 @@
 using OmniToolbox.Config;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 using OmenTools.ImGuiOm;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
@@ -86,7 +87,8 @@ internal static class DisplayIdInformationPanel
             changed = true;
         }
 
-        using (ImRaii.PushIndent())
+        ImGui.Spacing();
+        ImGui.Indent(OmniTheme.Scale(26f));
         using (ImRaii.Disabled(!config.DisplayStatusId))
         {
             if (DrawCheckbox("Feature.DisplayIdInformation.FlyText", "statusFlyText", config.DisplayStatusIdAppendToName, out var displayFlyText))
@@ -97,6 +99,8 @@ internal static class DisplayIdInformationPanel
 
             ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DisplayIdInformation.StatusFlyText.Help"));
         }
+
+        ImGui.Unindent(OmniTheme.Scale(26f));
 
         return changed;
     }
@@ -110,7 +114,8 @@ internal static class DisplayIdInformationPanel
             changed = true;
         }
 
-        using (ImRaii.PushIndent())
+        ImGui.Spacing();
+        ImGui.Indent(OmniTheme.Scale(26f));
         using (ImRaii.Disabled(!config.DisplayActionId))
         {
             if (DrawCheckbox("Feature.DisplayIdInformation.Resolved", "resolved", config.DisplayActionIdResolved, out var displayResolved))
@@ -141,6 +146,8 @@ internal static class DisplayIdInformationPanel
             ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DisplayIdInformation.CastBar.Help"));
         }
 
+        ImGui.Unindent(OmniTheme.Scale(26f));
+
         return changed;
     }
 
@@ -153,7 +160,8 @@ internal static class DisplayIdInformationPanel
             changed = true;
         }
 
-        using (ImRaii.PushIndent())
+        ImGui.Spacing();
+        ImGui.Indent(OmniTheme.Scale(26f));
         using (ImRaii.Disabled(!config.DisplayTargetId))
         {
             if (DrawCheckbox("Feature.DisplayIdInformation.BattleNpc", "battleNpc", config.DisplayTargetIdBattleNpc, out var battleNpc))
@@ -180,6 +188,8 @@ internal static class DisplayIdInformationPanel
                 changed = true;
             }
         }
+
+        ImGui.Unindent(OmniTheme.Scale(26f));
 
         return changed;
     }

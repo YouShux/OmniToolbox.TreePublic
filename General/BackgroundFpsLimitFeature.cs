@@ -31,7 +31,7 @@ public sealed unsafe class BackgroundFpsLimitFeature(TreeHouseConfig config) : T
         ImGui.SameLine();
         ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
         var limit = Math.Clamp(config.BackgroundFpsLimit.Limit, 20, short.MaxValue);
-        if (OmniControls.InputInt("##backgroundFpsLimit", ref limit, 10, 10))
+        if (OmniControls.InputInt("##backgroundFpsLimit", ref limit))
         {
             config.BackgroundFpsLimit.Limit = Math.Clamp(limit, 20, short.MaxValue);
         }

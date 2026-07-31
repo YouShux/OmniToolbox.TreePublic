@@ -6,20 +6,13 @@ namespace OmniToolbox.TreeHouse.InterfaceOperation;
 
 internal static class ArmoireRecordPanel
 {
-    public static bool Draw(ArmoireRecordConfig config, IArmoireRecordService service, bool enabled)
+    public static bool Draw(ArmoireRecordConfig config)
     {
         var changed = DrawTopSettings(config);
 
         ImGui.Spacing();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ArmoireRecord.Scope.Title"));
         changed |= DrawScopes(config);
-
-        ImGui.Spacing();
-        using var disabled = ImRaii.Disabled(!enabled || service.IsStoring || service.IsRetrieving);
-        if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.ArmoireRecord.Check")}##armoireRecordCheck", false))
-        {
-            service.RequestCheck();
-        }
 
         return changed;
     }

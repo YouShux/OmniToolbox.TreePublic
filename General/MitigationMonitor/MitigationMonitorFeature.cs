@@ -127,8 +127,8 @@ public sealed class MitigationMonitorFeature : TreeHouseFeatureBase
     private void NormalizeConfig()
     {
         config.Size = new(
-            Math.Clamp(config.Size.X <= 0f ? 520f : config.Size.X, MitigationMonitorOverlay.MinimumWidth, 900f),
-            Math.Clamp(config.Size.Y <= 0f ? 300f : config.Size.Y, 160f, 720f));
+            Math.Clamp(config.Size.X <= 0f ? 540f : config.Size.X, MitigationMonitorOverlay.MinimumWidth, 900f),
+            Math.Clamp(config.Size.Y <= 0f ? 270f : config.Size.Y, 160f, 720f));
         if (config.CollapsedPosition == Vector2.Zero)
         {
             config.CollapsedPosition = config.Position + new Vector2(
@@ -154,9 +154,9 @@ public sealed class MitigationMonitorFeature : TreeHouseFeatureBase
         }
 
         config.TimeColumnWidth = Math.Clamp(config.TimeColumnWidth <= 0f ? 54f : config.TimeColumnWidth, 44f, 220f);
-        config.ActionColumnWidth = Math.Clamp(config.ActionColumnWidth <= 0f ? 166f : config.ActionColumnWidth, 70f, 420f);
-        config.TargetColumnWidth = Math.Clamp(config.TargetColumnWidth <= 0f ? 86f : config.TargetColumnWidth, 60f, 240f);
-        config.DamageColumnWidth = Math.Clamp(config.DamageColumnWidth <= 0f ? 86f : config.DamageColumnWidth, 42f, 260f);
+        config.ActionColumnWidth = Math.Clamp(config.ActionColumnWidth <= 0f ? 80f : config.ActionColumnWidth, 70f, 420f);
+        config.TargetColumnWidth = Math.Clamp(config.TargetColumnWidth <= 0f ? 64f : config.TargetColumnWidth, 60f, 240f);
+        config.DamageColumnWidth = Math.Clamp(config.DamageColumnWidth <= 0f ? 88f : config.DamageColumnWidth, 42f, 260f);
         config.MitigationColumnWidth = Math.Clamp(config.MitigationColumnWidth <= 0f ? 64f : config.MitigationColumnWidth, 34f, 180f);
     }
 }

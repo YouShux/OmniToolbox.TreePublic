@@ -150,38 +150,7 @@ public sealed class CoordinateNearestAetheryteFeature(
         }
 
         newPayloads.Add(new TextPayload(" \u2192 "));
-        for (var index = 0; index < route.Length; index++)
-        {
-            if (index > 0)
-            {
-                newPayloads.Add(new TextPayload(" "));
-                newPayloads.Add(new IconPayload((BitmapFontIcon)16));
-                newPayloads.Add(new TextPayload(" "));
-            }
-
-            var segment = route[index];
-            if (segment.Kind == AetheryteRouteSegmentKind.Boundary)
-            {
-                newPayloads.Add(new IconPayload((BitmapFontIcon)74));
-                newPayloads.Add(new TextPayload(segment.Name));
-                continue;
-            }
-
-            if (!segment.CanTeleportDirectly)
-            {
-                newPayloads.Add(new IconPayload((BitmapFontIcon)66));
-                newPayloads.Add(new TextPayload(segment.Name));
-                continue;
-            }
-
-            newPayloads.Add(aetheryteLinkPayload!);
-            newPayloads.Add(new IconPayload((BitmapFontIcon)65));
-            newPayloads.Add(new UIForegroundPayload(69));
-            newPayloads.AddRange(SeString.TextArrowPayloads);
-            newPayloads.Add(new TextPayload(segment.Name));
-            newPayloads.Add(UIForegroundPayload.UIForegroundOff);
-            newPayloads.Add(RawPayload.LinkTerminator);
-        }
+        AetheryteRouteResolver.AppendRoutePayloads(newPayloads, route, aetheryteLinkPayload!);
 
         for (var index = insertIndex; index < payloads.Count; index++)
         {

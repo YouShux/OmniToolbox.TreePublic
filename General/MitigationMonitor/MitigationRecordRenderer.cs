@@ -305,7 +305,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                 statusIndex++;
             }
 
-            var x = min.X + MathF.Max(OmniTheme.Scale(4f), (width - lineWidth) * 0.5f);
+            var x = min.X + OmniTheme.Scale(4f);
             for (var index = lineStart; index < statusIndex; index++)
             {
                 var status = record.Statuses[index];

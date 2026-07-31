@@ -11,7 +11,7 @@ internal static class ChatHotbarLockPanel
         var changed = false;
         using var table = ImRaii.Table(
             "##chatHotbarLockOptions",
-            4,
+            3,
             ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
             new Vector2(ImGui.GetContentRegionAvail().X, 0f));
         if (!table)
@@ -21,8 +21,7 @@ internal static class ChatHotbarLockPanel
 
         ImGui.TableSetupColumn("##chatHotbarLockShowChatLock", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableSetupColumn("##chatHotbarLockHideLocks", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##chatHotbarLockModifierLabel", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##chatHotbarLockModifier", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##chatHotbarLockModifier", ImGuiTableColumnFlags.WidthStretch, 2f);
         using var rowStyle = ImRaii.PushStyle(
             ImGuiStyleVar.FramePadding,
             new Vector2(
@@ -61,8 +60,8 @@ internal static class ChatHotbarLockPanel
         ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ChatHotbarLock.Modifier"));
-
-        ImGui.TableNextColumn();
+        var spacing = ImGui.GetStyle().ItemInnerSpacing.X;
+        ImGui.SameLine(0f, spacing);
         if (OmniControls.BeginCombo(
                 "##chatHotbarLockModifier",
                 modifierKey switch
@@ -71,11 +70,13 @@ internal static class ChatHotbarLockPanel
                     1 => "Alt",
                     _ => "Ctrl"
                 },
-                MathF.Max(
-                    1f,
-                    ImGui.GetContentRegionAvail().X -
-                    OmniControls.HelpIconSize().X -
-                    ImGui.GetStyle().ItemSpacing.X)))
+                MathF.Min(
+                    OmniTheme.Scale(140f),
+                    MathF.Max(
+                        1f,
+                        ImGui.GetContentRegionAvail().X -
+                        OmniControls.HelpIconSize().X -
+                        spacing))))
         {
             if (ImGui.Selectable("Shift", modifierKey == 0))
             {
@@ -95,7 +96,7 @@ internal static class ChatHotbarLockPanel
             ImGui.EndCombo();
         }
 
-        ImGui.SameLine(0f, ImGui.GetStyle().ItemSpacing.X);
+        ImGui.SameLine(0f, spacing);
         OmniControls.HelpIcon(OmniLoc.Get("Feature.ChatHotbarLock.Modifier.Help"));
         if (modifierKey != config.ModifierKey)
         {

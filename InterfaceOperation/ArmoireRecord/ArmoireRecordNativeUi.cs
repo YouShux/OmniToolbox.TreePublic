@@ -8,8 +8,8 @@ namespace OmniToolbox.TreeHouse.InterfaceOperation;
 
 internal sealed class ArmoireRecordNativeUi : NativeAddon
 {
-    private const float WindowWidth = 380f;
-    private const float WindowHeight = 434f;
+    private const float WindowWidth = 420f;
+    private const float WindowHeight = 406f;
     private const float ItemSpacing = 2f;
     private const float ButtonGap = 10f;
     private const float ButtonOffset = 12f;
@@ -17,18 +17,14 @@ internal sealed class ArmoireRecordNativeUi : NativeAddon
 
     private readonly List<ArmoireRecordItem> items = [];
     private TextNode? summaryNode;
-    private TextNode? scopeNode;
     private TextNode? emptyNode;
     private ListNode<ArmoireRecordItem, ArmoireRecordListItemNode>? listNode;
-    private TextButtonNode? checkButton;
     private TextButtonNode? retrieveButton;
     private TextButtonNode? storeButton;
     private string summaryText = string.Empty;
-    private string scopeText = string.Empty;
     private bool isStoring;
     private bool isRetrieving;
     private bool canRetrieve;
-    private Func<bool>? onCheck;
     private Action? onRetrieve;
     private Action? onStore;
 
@@ -41,19 +37,14 @@ internal sealed class ArmoireRecordNativeUi : NativeAddon
         Size = new(WindowWidth, WindowHeight);
         ContentPadding = new(8f, 0f);
         RememberClosePosition = false;
+        CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
+        RespectCloseAll = false;
+        DisableClose = true;
     }
 
     protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
     {
-        if (WindowNode is WindowNode windowNode)
-        {
-            windowNode.ShowCloseButton = false;
-        }
-
-        addon->SetPosition((short)(addon->X + 9f), (short)addon->Y);
-
         summaryNode = CreateTextNode();
-        scopeNode = CreateTextNode();
         emptyNode = new()
         {
             AlignmentType = AlignmentType.TopLeft,
@@ -68,16 +59,6 @@ internal sealed class ArmoireRecordNativeUi : NativeAddon
             OptionsList = items
         };
         listNode.AttachNode(this);
-
-        checkButton = new()
-        {
-            String = OmniLoc.Get("Feature.ArmoireRecord.Check"),
-            OnClick = () =>
-            {
-                onCheck?.Invoke();
-            }
-        };
-        checkButton.AttachNode(this);
 
         retrieveButton = new()
         {
@@ -100,31 +81,25 @@ internal sealed class ArmoireRecordNativeUi : NativeAddon
     protected override unsafe void OnFinalize(AtkUnitBase* addon)
     {
         summaryNode = null;
-        scopeNode = null;
         emptyNode = null;
         listNode = null;
-        checkButton = null;
         retrieveButton = null;
         storeButton = null;
     }
 
     public void UpdateData(
         string summary,
-        string scope,
         IReadOnlyList<ArmoireRecordItem> newItems,
         bool storing,
         bool retrieving,
         bool retrieveAvailable,
-        Func<bool> check,
         Action retrieve,
         Action store)
     {
         summaryText = summary;
-        scopeText = scope;
         isStoring = storing;
         isRetrieving = retrieving;
         canRetrieve = retrieveAvailable;
-        onCheck = check;
         onRetrieve = retrieve;
         onStore = store;
         items.Clear();
@@ -150,11 +125,6 @@ internal sealed class ArmoireRecordNativeUi : NativeAddon
             summaryNode.String = summaryText;
         }
 
-        if (scopeNode is not null)
-        {
-            scopeNode.String = scopeText;
-        }
-
         if (listNode is not null)
         {
             listNode.OptionsList = items;
@@ -166,11 +136,6 @@ internal sealed class ArmoireRecordNativeUi : NativeAddon
             emptyNode.String = emptyNode.IsVisible
                 ? OmniLoc.Get("Feature.ArmoireRecord.Empty")
                 : string.Empty;
-        }
-
-        if (checkButton is not null)
-        {
-            checkButton.IsEnabled = !isStoring && !isRetrieving;
         }
 
         if (retrieveButton is not null)
@@ -208,13 +173,6 @@ internal sealed class ArmoireRecordNativeUi : NativeAddon
             summaryNode.Size = new(ContentSize.X, 22f);
         }
 
-        y += 23f;
-        if (scopeNode is not null)
-        {
-            scopeNode.Position = new(x, y);
-            scopeNode.Size = new(ContentSize.X, 22f);
-        }
-
         y += 28f;
         var listHeight = (ArmoireRecordListItemNode.ItemHeight + ItemSpacing) * VisibleItemRows;
         if (emptyNode is not null)
@@ -230,22 +188,17 @@ internal sealed class ArmoireRecordNativeUi : NativeAddon
         }
 
         var buttonY = y + listHeight + ButtonOffset;
-        var buttonWidth = MathF.Max(80f, (ContentSize.X - ButtonGap * 2f) / 3f);
-        if (checkButton is not null)
-        {
-            checkButton.Position = new(x, buttonY);
-            checkButton.Size = new(buttonWidth, 28f);
-        }
+        var buttonWidth = MathF.Max(80f, (ContentSize.X - ButtonGap) / 2f);
 
         if (retrieveButton is not null)
         {
-            retrieveButton.Position = new(x + buttonWidth + ButtonGap, buttonY);
+            retrieveButton.Position = new(x, buttonY);
             retrieveButton.Size = new(buttonWidth, 28f);
         }
 
         if (storeButton is not null)
         {
-            storeButton.Position = new(x + (buttonWidth + ButtonGap) * 2f, buttonY);
+            storeButton.Position = new(x + buttonWidth + ButtonGap, buttonY);
             storeButton.Size = new(buttonWidth, 28f);
         }
     }
@@ -311,7 +264,7 @@ internal sealed class ArmoireRecordListItemNode : ListItemNode<ArmoireRecordItem
         iconNode.Size = new(42f, 42f);
 
         const float textX = 50f;
-        const float statusWidth = 92f;
+        const float statusWidth = 120f;
         nameNode.Position = new(textX, 4f);
         nameNode.Size = new(MathF.Max(40f, Width - textX - statusWidth - 8f), 22f);
         statusNode.Position = new(MathF.Max(textX, Width - statusWidth), 4f);

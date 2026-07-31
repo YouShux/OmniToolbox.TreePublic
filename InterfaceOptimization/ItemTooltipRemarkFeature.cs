@@ -16,7 +16,7 @@ namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 
 public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
 {
-    private const int RemarkListVisibleRows = 6;
+    private const int RemarkListVisibleRows = 5;
     private const int MaxRemarkLength = 1024;
 
     private readonly ItemTooltipRemarkConfig config;

@@ -1,10 +1,10 @@
 using Lumina.Excel.Sheets;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmenTools.ImGuiOm;
 using OmenTools.Interop.Game.Lumina;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 
@@ -104,14 +104,7 @@ internal static class DesynthesisEnhancementPanel
             ImGui.PushID(index);
             ImGui.BeginGroup();
             var iconSize = new Vector2(OmniTheme.Scale(44f));
-            if (ImageHelper.GetGameIcon(lockedItem.Icon) is { } icon)
-            {
-                ImGui.Image(icon.Handle, iconSize);
-            }
-            else
-            {
-                ImGui.Dummy(iconSize);
-            }
+            FramedGameIcon.DrawItem(lockedItem, iconSize);
 
             if (ImGui.IsItemHovered())
             {

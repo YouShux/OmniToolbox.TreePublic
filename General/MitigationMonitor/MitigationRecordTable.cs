@@ -1,6 +1,7 @@
 using System.Drawing;
 using Dalamud.Interface;
 using OmniToolbox.Config;
+using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools;
@@ -79,6 +80,7 @@ internal sealed class MitigationRecordTable
                     if (ImGui.InvisibleButton($"##MitigationRecord{index}", new Vector2(width, rowHeight)))
                     {
                         ImGui.SetClipboardText(MitigationRecordCopyText.Build(record));
+                        OmniNotifier.Banner(OmniLoc.Get("Feature.MitigationMonitor.Copy.Success"));
                     }
 
                     renderer.Draw(
@@ -368,7 +370,9 @@ internal sealed class MitigationRecordTable
         var buttonSize = OmniTheme.Scale(new Vector2(22f, 20f));
         var spacing = OmniTheme.Scale(3f);
         var x = headerMin.X + width - OmniTheme.Scale(4f) - buttonSize.X * 4f - spacing * 3f;
-        var y = headerMin.Y + MathF.Max(OmniTheme.Scale(1f), (OmniTheme.Scale(HeaderHeight) - buttonSize.Y) * 0.5f);
+        var y = headerMin.Y +
+                MathF.Max(OmniTheme.Scale(1f), (OmniTheme.Scale(HeaderHeight) - buttonSize.Y) * 0.5f) +
+                OmniTheme.Scale(1f);
         DrawIconButton(FontAwesomeIcon.History, "##MitigationHistory", "Feature.MitigationMonitor.History.Title", new(x, y), buttonSize, openHistory);
         x += buttonSize.X + spacing;
         var collapsePosition = new Vector2(x, y);

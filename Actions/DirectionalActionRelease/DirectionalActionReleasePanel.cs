@@ -1,7 +1,7 @@
 using OmenTools.Interop.Game.Lumina;
-using OmenTools.OmenService;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 
@@ -23,7 +23,7 @@ internal static class DirectionalActionReleasePanel
             "##directionalActions",
             4,
             ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY,
-            new Vector2(ImGui.GetContentRegionAvail().X, rowHeight * 9f + ImGui.GetStyle().ItemSpacing.Y));
+            new Vector2(ImGui.GetContentRegionAvail().X, rowHeight * 6f + ImGui.GetStyle().ItemSpacing.Y));
         if (!table)
         {
             return false;
@@ -87,11 +87,8 @@ internal static class DirectionalActionReleasePanel
         var iconSize = new Vector2(MathF.Max(
             OmniTheme.Scale(24f),
             ImGui.GetTextLineHeightWithSpacing() + OmniTheme.Scale(6f)));
-        if (ImageHelper.GetGameIcon(action.Icon) is { } icon)
-        {
-            ImGui.Image(icon.Handle, iconSize);
-            ImGui.SameLine();
-        }
+        FramedGameIcon.DrawAction(action, iconSize);
+        ImGui.SameLine();
 
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(action.Name.ToString());

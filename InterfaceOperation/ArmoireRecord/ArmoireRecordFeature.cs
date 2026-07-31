@@ -1,5 +1,6 @@
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -10,8 +11,10 @@ using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Items;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmenTools;
+using OmenTools.Extensions;
 using OmenTools.Info.Game.Enums;
 using OmenTools.Interop.Game.ExecuteCommand.Implementations;
 using OmenTools.Interop.Game.Helpers;
@@ -23,8 +26,10 @@ namespace OmniToolbox.TreeHouse.InterfaceOperation;
 public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoireRecordService
 {
     private const string CabinetAddonName = "Cabinet";
-    private const uint UpdateIntervalMs = 100;
+    private const uint UpdateIntervalMs = 16;
     private const int StoreIntervalMs = 100;
+    private const ushort ChatBodyColor = 1;
+    private const ushort ChatDyedColor = 43;
 
     private readonly ArmoireRecordConfig config;
     private readonly PlayerInventoryService inventoryService;
@@ -42,6 +47,7 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
     private bool lastCabinetLoaded;
     private long lastSnapshotRevision = -1;
     private long nextStoreTick;
+    private Vector2? lastWindowPosition;
 
     public ArmoireRecordFeature(
         ArmoireRecordConfig config,
@@ -63,13 +69,9 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
         this.autoStoreService = autoStoreService;
     }
 
-    public bool IsStoring => isStoring;
+    private bool IsRetrieving => retrieveRequested && autoStoreService.IsBusy;
 
-    public bool IsRetrieving => retrieveRequested && autoStoreService.IsBusy;
-
-    public int ItemCount => scanItems.Count;
-
-    public int DirectStoreCount
+    private int DirectStoreCount
     {
         get
         {
@@ -88,17 +90,18 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
 
     public override bool HasSettings => true;
 
-    public override bool DrawSettings() => ArmoireRecordPanel.Draw(config, this, IsEnabled);
+    public override bool DrawSettings() => ArmoireRecordPanel.Draw(config);
 
     public bool RequestCheck()
     {
-        if (!IsEnabled || window?.IsOpen != true)
+        if (!IsEnabled)
         {
+            OmniNotifier.Chat(OmniLoc.Get("Feature.ArmoireRecord.Disabled"));
             return false;
         }
 
         hasChecked = true;
-        EnsureCabinetRequested();
+        NotifyScanResults();
         RefreshWindow();
         return true;
     }
@@ -328,18 +331,15 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
             return;
         }
 
-        var scope = GetScopeText();
         if (!hasChecked)
         {
             lastSnapshotRevision = inventoryService.GetSnapshotRevision();
             window.UpdateData(
                 OmniLoc.Get("Feature.ArmoireRecord.CheckPrompt"),
-                scope,
                 [],
                 isStoring,
                 IsRetrieving,
                 autoStoreService.IsAvailable,
-                RequestCheck,
                 StartRetrieveItems,
                 StartStoreDirectItems);
             return;
@@ -351,12 +351,10 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
         {
             window.UpdateData(
                 OmniLoc.Get("Feature.ArmoireRecord.DataUnavailable"),
-                scope,
                 [],
                 isStoring,
                 IsRetrieving,
                 autoStoreService.IsAvailable,
-                RequestCheck,
                 StartRetrieveItems,
                 StartStoreDirectItems);
             return;
@@ -367,14 +365,45 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
                 OmniLoc.Get("Feature.ArmoireRecord.Summary"),
                 scanItems.Count,
                 DirectStoreCount),
-            scope,
             scanItems,
             isStoring,
             IsRetrieving,
             autoStoreService.IsAvailable,
-            RequestCheck,
             StartRetrieveItems,
             StartStoreDirectItems);
+    }
+
+    private void NotifyScanResults()
+    {
+        if (!TryScan())
+        {
+            OmniNotifier.Chat(OmniLoc.Get("Feature.ArmoireRecord.DataUnavailable"));
+            return;
+        }
+
+        if (scanItems.Count == 0)
+        {
+            OmniNotifier.Chat(OmniLoc.Get("Feature.ArmoireRecord.Empty"));
+            return;
+        }
+
+        var builder = new SeStringBuilder()
+            .AddUiForeground(ChatBodyColor)
+            .Append(OmniLoc.Get("Feature.ArmoireRecord.ChatPrefix"))
+            .AddUiForegroundOff();
+        for (var index = 0; index < scanItems.Count; index++)
+        {
+            var item = scanItems[index];
+            builder
+                .Append("\n")
+                .AddItemLink(item.ItemId, false)
+                .AddUiForeground(item.IsDyed ? ChatDyedColor : ChatBodyColor)
+                .Append(" ")
+                .Append(FormatDyeText(item.Stain0, item.Stain1))
+                .AddUiForegroundOff();
+        }
+
+        OmniNotifier.Chat(builder.Build());
     }
 
     private bool TryScan()
@@ -502,28 +531,39 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
         config.ScanFreeCompanyChest && location == ItemInventoryLocation.FreeCompanyChest ||
         config.ScanGlamourDresser && location == ItemInventoryLocation.GlamourDresser;
 
-    private string GetScopeText()
+    private static string FormatDyeText(byte stain0, byte stain1)
     {
-        var labels = new List<string>(6);
-        AddScopeLabel(labels, config.ScanBackpack, "Feature.ArmoireRecord.Scope.Backpack");
-        AddScopeLabel(labels, config.ScanArmory, "Feature.ArmoireRecord.Scope.Armory");
-        AddScopeLabel(labels, config.ScanSaddlebag, "Feature.ArmoireRecord.Scope.Saddlebag");
-        AddScopeLabel(labels, config.ScanRetainers, "Feature.ArmoireRecord.Scope.Retainers");
-        AddScopeLabel(labels, config.ScanFreeCompanyChest, "Feature.ArmoireRecord.Scope.FreeCompanyChest");
-        AddScopeLabel(labels, config.ScanGlamourDresser, "Feature.ArmoireRecord.Scope.GlamourDresser");
-        return labels.Count == 0
-            ? OmniLoc.Get("Feature.ArmoireRecord.Scope.None")
-            : string.Format(
-                OmniLoc.Get("Feature.ArmoireRecord.Scope.Value"),
-                string.Join(OmniLoc.Get("Common.ListSeparator"), labels));
+        if (stain0 == 0 && stain1 == 0)
+        {
+            return OmniLoc.Get("Feature.ArmoireRecord.NoDye");
+        }
+
+        var names = new List<string>(2);
+        if (stain0 != 0)
+        {
+            names.Add(GetStainName(stain0));
+        }
+
+        if (stain1 != 0)
+        {
+            names.Add(GetStainName(stain1));
+        }
+
+        return string.Join(' ', names);
     }
 
-    private static void AddScopeLabel(List<string> labels, bool enabled, string key)
+    private static string GetStainName(byte stainId)
     {
-        if (enabled)
+        if (LuminaGetter.TryGetRow<Stain>(stainId, out var stain))
         {
-            labels.Add(OmniLoc.Get(key));
+            var name = stain.Name.ExtractText();
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                return name;
+            }
         }
+
+        return string.Format(OmniLoc.Get("Feature.ArmoireRecord.UnknownDye"), stainId);
     }
 
     private static string FormatLocation(InventorySnapshotItem item) => item.Location switch
@@ -547,7 +587,13 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
             return false;
         }
 
-        window.SetWindowPosition(new(addon->X + addon->GetScaledWidth(true) - 12f, addon->Y));
+        var position = new Vector2(addon->X + addon->GetScaledWidth(true) + 1f, addon->Y);
+        if (lastWindowPosition != position)
+        {
+            window.SetWindowPosition(position);
+            lastWindowPosition = position;
+        }
+
         return true;
     }
 
@@ -591,6 +637,7 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
         hasChecked = false;
         lastCabinetLoaded = false;
         lastSnapshotRevision = -1;
+        lastWindowPosition = null;
         window?.Close();
     }
 
@@ -603,6 +650,7 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
         lastCabinetLoaded = false;
         lastSnapshotRevision = -1;
         nextStoreTick = 0;
+        lastWindowPosition = null;
         storeQueue.Clear();
         storeRows.Clear();
         aggregates.Clear();
