@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using Dalamud.Game.Text;
 using Dalamud.Interface.Textures;
+using Dalamud.Interface.Textures.TextureWraps;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
@@ -14,7 +15,7 @@ public sealed class IconBrowser
 {
     private const int IconMax = 350_000;
     private const int ScanBudgetPerFrame = 64;
-    private const int DiagnosticLogIntervalMs = 250;
+    private const int TextureRequestBudgetPerFrame = 4;
     private const float SearchControlWidth = 160f;
     private const float IconSizeControlWidth = 160f;
     private const float ModeControlWidth = 180f;
@@ -168,6 +169,9 @@ public sealed class IconBrowser
     private readonly IconBrowserConfig config;
     private readonly Action saveConfig;
     private readonly Dictionary<int, IconTabCache> tabCaches = [];
+    private readonly Dictionary<int, IDalamudTextureWrap> gameIconTextures = [];
+    private readonly HashSet<int> visibleGameIcons = [];
+    private readonly List<int> gameIconTexturesToRelease = [];
     private readonly List<int> filteredGameIcons = [];
     private List<SeIconEntry>? seIconEntries;
     private Action<uint>? gameIconApplyTarget;
@@ -175,11 +179,9 @@ public sealed class IconBrowser
     private BrowserMode mode;
     private string gameIconFilter = string.Empty;
     private string seIconFilter = string.Empty;
-    private Vector2 lastWindowSize;
-    private Vector2 diagnosticWindowSize;
-    private long nextDiagnosticLogTick;
-    private int lastLoggedColumns = -1;
-    private bool logCurrentDraw;
+    private Vector2 expandedWindowSize;
+    private bool isCollapsed;
+    private bool restoreExpandedSize;
 
     public IconBrowser(IconBrowserConfig config, Action saveConfig)
     {
@@ -215,7 +217,6 @@ public sealed class IconBrowser
 
     public void Draw()
     {
-        logCurrentDraw = false;
         if (!IsOpen)
         {
             return;
@@ -233,70 +234,143 @@ public sealed class IconBrowser
             ImGui.CalcTextSize(OmniLoc.Get("IconBrowser.Mode")).X +
             (imguiStyle.ItemSpacing.X + imguiStyle.ItemInnerSpacing.X) * 3f +
             imguiStyle.WindowPadding.X * 2f;
-        ImGui.SetNextWindowSizeConstraints(
-            new Vector2(
-                MathF.Min(
-                    MathF.Max(
-                        (iconSize + imguiStyle.ItemSpacing.X) * 11f + imguiStyle.WindowPadding.X * 2f,
-                        toolbarMinWidth),
-                    viewportSize.X),
-                MathF.Min(OmniTheme.Scale(420f), viewportSize.Y)),
-            viewportSize);
-
-        var isOpen = IsOpen;
-        if (!ImGui.Begin($"{OmniLoc.Get("IconBrowser.Title")}###OmniIconBrowser", ref isOpen))
+        if (isCollapsed)
         {
-            ImGui.End();
-            if (!isOpen)
-            {
-                Close();
-            }
-
-            return;
-        }
-
-        diagnosticWindowSize = ImGui.GetWindowSize();
-        if (diagnosticWindowSize != lastWindowSize &&
-            Environment.TickCount64 >= nextDiagnosticLogTick)
-        {
-            logCurrentDraw = true;
-            nextDiagnosticLogTick = Environment.TickCount64 + DiagnosticLogIntervalMs;
-            DalamudServices.PluginLog.Information(
-                "[IconBrowser.Diagnostics] Frame begin: Window={WindowWidth}x{WindowHeight}, Mode={Mode}, IconSize={IconSize}, WorkingSet={WorkingSet}, ManagedMemory={ManagedMemory}.",
-                diagnosticWindowSize.X,
-                diagnosticWindowSize.Y,
-                mode,
-                iconSize,
-                Environment.WorkingSet,
-                GC.GetTotalMemory(false));
-        }
-
-        lastWindowSize = diagnosticWindowSize;
-        DrawToolbar();
-        if (mode == BrowserMode.SeIconChar)
-        {
-            DrawSeIconBrowser(iconSize);
+            ImGui.SetNextWindowSize(
+                OmniTheme.CollapsedWindowSize(
+                    expandedWindowSize == Vector2.Zero
+                        ? MathF.Min(toolbarMinWidth, viewportSize.X)
+                        : OmniTheme.Scale(expandedWindowSize).X),
+                ImGuiCond.Always);
         }
         else
         {
-            DrawGameIconBrowser(iconSize);
+            ImGui.SetNextWindowSizeConstraints(
+                new Vector2(
+                    MathF.Min(
+                        MathF.Max(
+                            (iconSize + imguiStyle.ItemSpacing.X) * 11f + imguiStyle.WindowPadding.X * 2f,
+                            toolbarMinWidth) +
+                        (OmniTheme.ChromeFrameInset() + OmniTheme.WindowInset()) * 2f,
+                        viewportSize.X),
+                    MathF.Min(OmniTheme.Scale(420f), viewportSize.Y)),
+                viewportSize);
+            if (restoreExpandedSize && expandedWindowSize != Vector2.Zero)
+            {
+                ImGui.SetNextWindowSize(OmniTheme.Scale(expandedWindowSize), ImGuiCond.Always);
+            }
+
+            restoreExpandedSize = false;
         }
 
-        if (logCurrentDraw)
+        ImGui.SetNextWindowCollapsed(false, ImGuiCond.Always);
+        var flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
+                    ImGuiWindowFlags.NoBackground;
+        if (isCollapsed)
         {
-            DalamudServices.PluginLog.Information("[IconBrowser.Diagnostics] Frame body complete; entering ImGui.End.");
+            flags |= ImGuiWindowFlags.NoResize;
         }
 
-        ImGui.End();
-        if (logCurrentDraw)
+        if (!ImGui.Begin("###OmniIconBrowser", flags))
         {
-            DalamudServices.PluginLog.Information("[IconBrowser.Diagnostics] Frame end complete.");
+            ImGui.End();
+            return;
         }
 
-        if (!isOpen)
+        var windowPosition = ImGui.GetWindowPos();
+        var windowSize = ImGui.GetWindowSize();
+        if (!isCollapsed)
+        {
+            expandedWindowSize = OmniTheme.Unscale(windowSize);
+        }
+
+        var framePosition = isCollapsed
+            ? windowPosition + new Vector2(OmniTheme.CollapsedHeaderSafeInset(), OmniTheme.CollapsedHeaderTop())
+            : windowPosition + new Vector2(OmniTheme.ChromeFrameInset());
+        var frameSize = isCollapsed
+            ? new Vector2(
+                MathF.Max(1f, windowSize.X - OmniTheme.CollapsedHeaderSafeInset() * 2f),
+                OmniTheme.TitleBarHeight())
+            : windowSize - new Vector2(OmniTheme.ChromeFrameInset() * 2f);
+        var titleBarSize = new Vector2(frameSize.X, OmniTheme.TitleBarHeight());
+        OmniControls.DrawWindowBackground(framePosition, frameSize, isCollapsed);
+        OmniControls.DrawTextCentered(
+            OmniLoc.Get("IconBrowser.Title"),
+            framePosition,
+            titleBarSize,
+            OmniTheme.Tokens.Text);
+        ImGui.SetCursorScreenPos(
+            framePosition + new Vector2(
+                titleBarSize.X - OmniTheme.TitleExpandIconRight(),
+                OmniTheme.TitleIconTop()));
+        var collapseChanged = false;
+        if (OmniControls.TitleTriangleButton(isCollapsed, "##collapseIconBrowser"))
+        {
+            if (isCollapsed)
+            {
+                restoreExpandedSize = true;
+            }
+
+            isCollapsed = !isCollapsed;
+            collapseChanged = true;
+        }
+
+        ImGui.SetCursorScreenPos(
+            framePosition + new Vector2(
+                titleBarSize.X - OmniTheme.TitleCloseIconRight(),
+                OmniTheme.TitleIconTop()));
+        if (OmniControls.CloseButton("##closeIconBrowser", OmniTheme.TitleIconSize()))
         {
             Close();
         }
+
+        if (!IsOpen || isCollapsed || collapseChanged)
+        {
+            if (isCollapsed)
+            {
+                ReleaseGameIconTextures();
+            }
+
+            ImGui.End();
+            return;
+        }
+
+        var contentPosition = framePosition + new Vector2(
+            OmniTheme.WindowInset(),
+            OmniTheme.TitleBarHeight() + OmniTheme.WindowInset());
+        var contentSize = new Vector2(
+            MathF.Max(1f, frameSize.X - OmniTheme.WindowInset() * 2f),
+            MathF.Max(
+                1f,
+                frameSize.Y - OmniTheme.TitleBarHeight() - OmniTheme.WindowInset() * 2f));
+        ImGui.SetCursorScreenPos(contentPosition);
+        OmniControls.DrawPanelBackground(contentPosition, contentSize, OmniTheme.Tokens.Surface);
+        using (ImRaii.PushColor(ImGuiCol.ChildBg, Vector4.Zero))
+        using (ImRaii.PushStyle(
+                   ImGuiStyleVar.WindowPadding,
+                   OmniTheme.Scale(OmniTheme.Tokens.WindowPadding)))
+        using (var content = ImRaii.Child(
+                   "##iconBrowserContent",
+                   contentSize,
+                   false,
+                   ImGuiWindowFlags.AlwaysUseWindowPadding))
+        {
+            if (content)
+            {
+                DrawToolbar();
+                if (mode == BrowserMode.SeIconChar)
+                {
+                    ReleaseGameIconTextures();
+                    DrawSeIconBrowser(iconSize);
+                }
+                else
+                {
+                    DrawGameIconBrowser(iconSize);
+                }
+            }
+        }
+
+        ImGui.End();
     }
 
     private void DrawToolbar()
@@ -355,6 +429,7 @@ public sealed class IconBrowser
         if (OmniControls.SmallButton(OmniLoc.Get("IconBrowser.RebuildCache"), false))
         {
             tabCaches.Clear();
+            ReleaseGameIconTextures();
         }
     }
 
@@ -390,6 +465,25 @@ public sealed class IconBrowser
 
     private void DrawGameIconBrowser(float iconSize)
     {
+        gameIconTexturesToRelease.Clear();
+        foreach (var icon in gameIconTextures.Keys)
+        {
+            if (!visibleGameIcons.Contains(icon))
+            {
+                gameIconTexturesToRelease.Add(icon);
+            }
+        }
+
+        foreach (var icon in gameIconTexturesToRelease)
+        {
+            if (gameIconTextures.Remove(icon, out var texture))
+            {
+                texture.Dispose();
+            }
+        }
+
+        visibleGameIcons.Clear();
+        var textureRequestBudget = TextureRequestBudgetPerFrame;
         if (!ImGui.BeginTabBar("##iconBrowserTabs", ImGuiTabBarFlags.NoTooltip))
         {
             return;
@@ -408,39 +502,19 @@ public sealed class IconBrowser
                     i,
                     filteredGameIcons,
                     iconSize,
-                    GameIconTabs[i].StatusIcons);
+                    GameIconTabs[i].StatusIcons,
+                    ref textureRequestBudget);
             }
             else
             {
                 var cache = GetTabCache(i);
-                if (logCurrentDraw)
-                {
-                    DalamudServices.PluginLog.Information(
-                        "[IconBrowser.Diagnostics] Scan begin: Tab={Tab}, Icons={IconCount}, Range={Range}, NextIcon={NextIcon}, Complete={Complete}.",
-                        i,
-                        cache.Icons.Count,
-                        cache.RangeIndex,
-                        cache.NextIcon,
-                        cache.IsComplete);
-                }
-
                 ScanTab(GameIconTabs[i], cache);
-                if (logCurrentDraw)
-                {
-                    DalamudServices.PluginLog.Information(
-                        "[IconBrowser.Diagnostics] Scan end: Tab={Tab}, Icons={IconCount}, Range={Range}, NextIcon={NextIcon}, Complete={Complete}.",
-                        i,
-                        cache.Icons.Count,
-                        cache.RangeIndex,
-                        cache.NextIcon,
-                        cache.IsComplete);
-                }
-
                 DrawIconGrid(
                     i,
                     cache.Icons,
                     iconSize,
-                    GameIconTabs[i].StatusIcons);
+                    GameIconTabs[i].StatusIcons,
+                    ref textureRequestBudget);
             }
 
             ImGui.EndTabItem();
@@ -502,102 +576,36 @@ public sealed class IconBrowser
         int tabIndex,
         List<int> icons,
         float iconSize,
-        bool statusIcons)
+        bool statusIcons,
+        ref int textureRequestBudget)
     {
-        var spacing = ImGui.GetStyle().ItemSpacing;
-        var contentWidth = ImGui.GetContentRegionAvail().X - ImGui.GetStyle().WindowPadding.X;
-        if (!float.IsFinite(contentWidth) || !float.IsFinite(iconSize) || iconSize <= 0f)
-        {
-            return;
-        }
-
-        var columns = Math.Max(1, (int)(contentWidth / (iconSize + spacing.X)));
-        var rows = icons.Count == 0 ? 0 : (icons.Count - 1) / columns + 1;
-        if (columns != lastLoggedColumns)
-        {
-            logCurrentDraw = true;
-            lastLoggedColumns = columns;
-        }
-
-        if (logCurrentDraw)
-        {
-            DalamudServices.PluginLog.Information(
-                "[IconBrowser.Diagnostics] Grid begin: Tab={Tab}, Window={WindowWidth}x{WindowHeight}, ContentWidth={ContentWidth}, Columns={Columns}, Rows={Rows}, Icons={IconCount}, IconSize={IconSize}.",
-                tabIndex,
-                diagnosticWindowSize.X,
-                diagnosticWindowSize.Y,
-                contentWidth,
-                columns,
-                rows,
-                icons.Count,
-                iconSize);
-        }
-
         if (!ImGui.BeginChild($"##iconBrowserGrid{tabIndex}"))
         {
-            if (logCurrentDraw)
-            {
-                DalamudServices.PluginLog.Information("[IconBrowser.Diagnostics] Grid child skipped: Tab={Tab}.", tabIndex);
-            }
-
             ImGui.EndChild();
             return;
         }
 
-        if (logCurrentDraw)
+        var spacing = ImGui.GetStyle().ItemSpacing;
+        var contentWidth = ImGui.GetContentRegionAvail().X;
+        if (!float.IsFinite(contentWidth) || !float.IsFinite(iconSize) || iconSize <= 0f)
         {
-            DalamudServices.PluginLog.Information(
-                "[IconBrowser.Diagnostics] Grid child begin: Tab={Tab}, Child={ChildWidth}x{ChildHeight}, ScrollY={ScrollY}, ScrollMaxY={ScrollMaxY}.",
-                tabIndex,
-                ImGui.GetWindowSize().X,
-                ImGui.GetWindowSize().Y,
-                ImGui.GetScrollY(),
-                ImGui.GetScrollMaxY());
+            ImGui.EndChild();
+            return;
         }
 
+        var columns = Math.Max(1, (int)((contentWidth + spacing.X) / (iconSize + spacing.X)));
+        var rows = icons.Count == 0 ? 0 : (icons.Count - 1) / columns + 1;
         var clipper = ImGui.ImGuiListClipper();
         clipper.Begin(rows, iconSize + spacing.Y);
-        if (logCurrentDraw)
-        {
-            DalamudServices.PluginLog.Information(
-                "[IconBrowser.Diagnostics] Clipper begin: Tab={Tab}, Rows={Rows}, RowHeight={RowHeight}.",
-                tabIndex,
-                rows,
-                iconSize + spacing.Y);
-        }
-
         while (clipper.Step())
         {
-            var displayStart = Math.Max(0, clipper.DisplayStart);
-            var displayEnd = Math.Min(rows, clipper.DisplayEnd);
-            if (logCurrentDraw)
-            {
-                DalamudServices.PluginLog.Information(
-                    "[IconBrowser.Diagnostics] Clipper step: Tab={Tab}, DisplayStart={DisplayStart}, DisplayEnd={DisplayEnd}.",
-                    tabIndex,
-                    displayStart,
-                    displayEnd);
-            }
-
-            for (var row = displayStart; row < displayEnd; row++)
+            for (var row = Math.Max(0, clipper.DisplayStart); row < Math.Min(rows, clipper.DisplayEnd); row++)
             {
                 var startIndex = row * columns;
                 var endIndex = Math.Min(startIndex + columns, icons.Count);
-                if (logCurrentDraw)
-                {
-                    DalamudServices.PluginLog.Information(
-                        "[IconBrowser.Diagnostics] Row begin: Tab={Tab}, Row={Row}, StartIndex={StartIndex}, EndIndex={EndIndex}, FirstIcon={FirstIcon}, LastIcon={LastIcon}.",
-                        tabIndex,
-                        row,
-                        startIndex,
-                        endIndex,
-                        icons[startIndex],
-                        icons[endIndex - 1]);
-                }
-
                 for (var index = startIndex; index < endIndex; index++)
                 {
-                    DrawGameIcon(icons[index], iconSize, statusIcons);
+                    DrawGameIcon(icons[index], iconSize, statusIcons, ref textureRequestBudget);
                     if (index < endIndex - 1)
                     {
                         ImGui.SameLine();
@@ -606,31 +614,28 @@ public sealed class IconBrowser
             }
         }
 
-        if (logCurrentDraw)
-        {
-            DalamudServices.PluginLog.Information("[IconBrowser.Diagnostics] Clipper end: Tab={Tab}.", tabIndex);
-        }
-
         clipper.End();
         clipper.Destroy();
-        if (logCurrentDraw)
-        {
-            DalamudServices.PluginLog.Information("[IconBrowser.Diagnostics] Grid body complete; entering EndChild: Tab={Tab}.", tabIndex);
-        }
-
         ImGui.EndChild();
-        if (logCurrentDraw)
-        {
-            DalamudServices.PluginLog.Information("[IconBrowser.Diagnostics] Grid end complete: Tab={Tab}.", tabIndex);
-        }
     }
 
-    private void DrawGameIcon(int icon, float iconSize, bool statusIcon)
+    private void DrawGameIcon(int icon, float iconSize, bool statusIcon, ref int textureRequestBudget)
     {
-        DalamudServices.TextureProvider.TryGetFromGameIcon(
-            new GameIconLookup((uint)icon),
-            out var sharedTexture);
-        var texture = sharedTexture?.GetWrapOrDefault();
+        visibleGameIcons.Add(icon);
+        gameIconTextures.TryGetValue(icon, out var texture);
+        if (texture is null && textureRequestBudget > 0)
+        {
+            textureRequestBudget--;
+            if (DalamudServices.TextureProvider.TryGetFromGameIcon(
+                    new GameIconLookup((uint)icon),
+                    out var sharedTexture) &&
+                sharedTexture.TryGetWrap(out var frameTexture, out _))
+            {
+                texture = frameTexture.CreateWrapSharingLowLevelResource();
+                gameIconTextures.Add(icon, texture);
+            }
+        }
+
         var itemSize = new Vector2(iconSize);
         if (texture is null)
         {
@@ -774,12 +779,20 @@ public sealed class IconBrowser
     private void Close()
     {
         IsOpen = false;
-        lastWindowSize = Vector2.Zero;
-        diagnosticWindowSize = Vector2.Zero;
-        nextDiagnosticLogTick = 0;
-        lastLoggedColumns = -1;
-        logCurrentDraw = false;
+        ReleaseGameIconTextures();
         ClearApplyTargets();
+    }
+
+    private void ReleaseGameIconTextures()
+    {
+        foreach (var texture in gameIconTextures.Values)
+        {
+            texture.Dispose();
+        }
+
+        gameIconTextures.Clear();
+        visibleGameIcons.Clear();
+        gameIconTexturesToRelease.Clear();
     }
 
     private void ClearApplyTargets()
