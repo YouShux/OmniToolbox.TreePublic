@@ -10,13 +10,16 @@ public sealed class ItemPreviewFeature : TreeHouseFeatureBase, IItemPreviewServi
     private readonly ItemConfig config;
     private readonly ItemPreviewService itemPreviewService;
     private readonly ItemSupplementTooltip itemSupplementTooltip;
+    private readonly CollectableValueTooltip collectableValueTooltip;
+    private readonly MateriaTotalTooltip materiaTotalTooltip;
     private readonly ItemPreviewPanel panel;
     private ItemDetailImagePreview? imagePreview;
 
     public ItemPreviewFeature(
         ItemConfig config,
         ItemPreviewService itemPreviewService,
-        ItemSupplementTooltip itemSupplementTooltip)
+        ItemSupplementTooltip itemSupplementTooltip,
+        ItemTooltipInventoryContext inventoryContext)
         : base(new(
             "item-preview",
             "Feature.ItemPreview.Title",
@@ -26,6 +29,8 @@ public sealed class ItemPreviewFeature : TreeHouseFeatureBase, IItemPreviewServi
         this.config = config;
         this.itemPreviewService = itemPreviewService;
         this.itemSupplementTooltip = itemSupplementTooltip;
+        collectableValueTooltip = new(inventoryContext);
+        materiaTotalTooltip = new(inventoryContext);
         panel = new(config);
     }
 
@@ -58,6 +63,8 @@ public sealed class ItemPreviewFeature : TreeHouseFeatureBase, IItemPreviewServi
         if (tooltipChanged)
         {
             itemSupplementTooltip.SetPreviewEnabled(IsEnabled);
+            collectableValueTooltip.SetEnabled(IsEnabled && config.ShowCollectableValueInTooltip);
+            materiaTotalTooltip.SetEnabled(IsEnabled && config.ShowMateriaTotalInTooltip);
         }
 
         return true;
@@ -69,9 +76,14 @@ public sealed class ItemPreviewFeature : TreeHouseFeatureBase, IItemPreviewServi
         try
         {
             itemSupplementTooltip.SetPreviewEnabled(true);
+            collectableValueTooltip.SetEnabled(config.ShowCollectableValueInTooltip);
+            materiaTotalTooltip.SetEnabled(config.ShowMateriaTotalInTooltip);
         }
         catch
         {
+            materiaTotalTooltip.SetEnabled(false);
+            collectableValueTooltip.SetEnabled(false);
+            itemSupplementTooltip.SetPreviewEnabled(false);
             imagePreview?.Dispose();
             imagePreview = null;
             throw;
@@ -83,6 +95,8 @@ public sealed class ItemPreviewFeature : TreeHouseFeatureBase, IItemPreviewServi
         try
         {
             itemSupplementTooltip.SetPreviewEnabled(false);
+            collectableValueTooltip.SetEnabled(false);
+            materiaTotalTooltip.SetEnabled(false);
             itemPreviewService.ClearPreview();
         }
         finally

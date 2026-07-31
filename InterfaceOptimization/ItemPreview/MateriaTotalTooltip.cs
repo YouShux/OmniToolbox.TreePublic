@@ -4,65 +4,92 @@ using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using FFXIVClientStructs.FFXIV.Component.Exd;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using InteropGenerator.Runtime;
 using Lumina.Excel.Sheets;
 using Lumina.Text;
 using Lumina.Text.ReadOnly;
-using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.Tooltips;
+using OmniToolbox.UI;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreeHouse.InterfaceOptimization.ItemPreview;
 
-internal sealed unsafe class MateriaTotalNativeUi : IDisposable
+internal sealed unsafe class MateriaTotalTooltip
 {
     private const string AddonName = "ItemDetail";
     private const int ParameterCountIndex = 21;
     private const int ParameterStartField = 37;
     private const int MaxParameterCount = 8;
     private const ushort HighlightColor = 506;
+    private const ushort ExceededColor = 14;
     private const long ErrorLogThrottleMs = 10_000;
-    private readonly MateriaTotalConfig config;
     private readonly ItemTooltipInventoryContext inventoryContext;
-    private readonly TooltipManager tooltipManager;
-    private readonly AddonEventRegistry addonEvents;
-    private readonly FeatureLifetime lifetime = new();
     private readonly Dictionary<uint, MateriaStat> stats = new(16);
     private readonly Dictionary<uint, string> parameterNames = new(16);
     private readonly List<uint> materiaParameterOrder = new(5);
     private readonly HashSet<uint> appliedParameters = new(8);
+    private FeatureLifetime? lifetime;
     private long lastErrorLogTick;
 
-    public MateriaTotalNativeUi(MateriaTotalConfig config, ItemTooltipInventoryContext inventoryContext)
+    public MateriaTotalTooltip(ItemTooltipInventoryContext inventoryContext)
     {
-        this.config = config;
         this.inventoryContext = inventoryContext;
-        tooltipManager = TooltipManager.Instance();
-        addonEvents = new(DalamudServices.AddonLifecycle);
+    }
 
-        lifetime.Add(tooltipManager.TriggerItemDetailUpdate);
-        lifetime.Add(inventoryContext.Acquire().Dispose);
-        lifetime.Add(addonEvents.Dispose);
+    public void SetEnabled(bool enabled)
+    {
+        if ((lifetime is not null) == enabled)
+        {
+            return;
+        }
 
+        if (enabled)
+        {
+            Enable();
+        }
+        else
+        {
+            Disable();
+        }
+    }
+
+    private void Enable()
+    {
+        var tooltipManager = TooltipManager.Instance();
+        var enabledLifetime = new FeatureLifetime();
+        enabledLifetime.Add(tooltipManager.TriggerItemDetailUpdate);
         try
         {
+            enabledLifetime.Add(inventoryContext.Acquire().Dispose);
+            var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
+            enabledLifetime.Add(addonEvents.Dispose);
             addonEvents.Register(AddonEvent.PreRequestedUpdate, AddonName, OnItemDetailUpdate);
             tooltipManager.TriggerItemDetailUpdate();
+            lifetime = enabledLifetime;
         }
         catch
         {
-            lifetime.Dispose();
+            enabledLifetime.Dispose();
             throw;
         }
     }
 
-    public void RefreshSettings() => tooltipManager.TriggerItemDetailUpdate();
-
-    public void Dispose() => lifetime.Dispose();
+    private void Disable()
+    {
+        try
+        {
+            lifetime?.Dispose();
+        }
+        finally
+        {
+            lifetime = null;
+        }
+    }
 
     private void OnItemDetailUpdate(AddonEvent _, AddonArgs args)
     {
@@ -152,6 +179,12 @@ internal sealed unsafe class MateriaTotalNativeUi : IDisposable
             }
         }
 
+        var itemRowData = ExdModule.GetItemRowById(item.RowId);
+        if (itemRowData == null)
+        {
+            return false;
+        }
+
         for (var index = 0; index < hoveredItem.Materia.Length; index++)
         {
             if (!LuminaGetter.TryGetRow<Materia>(hoveredItem.Materia[index], out var materia))
@@ -174,12 +207,16 @@ internal sealed unsafe class MateriaTotalNativeUi : IDisposable
 
             if (!stats.TryGetValue(parameterId, out var stat))
             {
-                stat = new(GetParameterName(parameterId), 0, 0);
+                stat = new(GetParameterName(parameterId), 0, 0, 0);
             }
 
             if (stat.Delta == 0)
             {
                 materiaParameterOrder.Add(parameterId);
+                stat = stat with
+                {
+                    Maximum = (int)InventoryItem.GetParameterMaxValue(parameterId, itemRowData),
+                };
             }
 
             stats[parameterId] = stat with { Delta = stat.Delta + delta };
@@ -197,7 +234,7 @@ internal sealed unsafe class MateriaTotalNativeUi : IDisposable
 
         stats[parameterId] = stats.TryGetValue(parameterId, out var stat)
             ? stat with { Original = stat.Original + value }
-            : new(GetParameterName(parameterId), value, 0);
+            : new(GetParameterName(parameterId), value, 0, 0);
     }
 
     private string GetParameterName(uint parameterId)
@@ -234,35 +271,31 @@ internal sealed unsafe class MateriaTotalNativeUi : IDisposable
         return false;
     }
 
-    private void WriteTooltipLine(StringArrayData* stringArrayData, int field, MateriaStat stat)
+    private static void WriteTooltipLine(StringArrayData* stringArrayData, int field, MateriaStat stat)
     {
         using var rented = new RentedSeStringBuilder();
-        rented.Builder.Append(stat.Name).Append(" +");
-        AppendValue(rented.Builder, config.ShowTotal ? stat.Total : stat.Original);
-        if (!config.ShowTotal)
-        {
-            rented.Builder.Append("[+");
-            AppendValue(rented.Builder, stat.Delta);
-            rented.Builder.Append("=");
-            AppendValue(rented.Builder, stat.Total);
-            rented.Builder.Append("]");
-        }
-
+        rented.Builder.Append(stat.Name).Append('+');
+        AppendValue(rented.Builder, stat.Original, HighlightColor);
+        rented.Builder
+            .Append('\uFF08')
+            .Append(OmniLoc.Get("ItemTooltip.MateriaTotal.Granted"));
+        AppendValue(rented.Builder, stat.Delta, stat.ExceedsMaximum ? ExceededColor : HighlightColor);
+        rented.Builder
+            .Append('\uFF0C')
+            .Append(OmniLoc.Get(stat.ExceedsMaximum
+                ? "ItemTooltip.MateriaTotal.Maximum"
+                : "ItemTooltip.MateriaTotal.Current"));
+        AppendValue(rented.Builder, stat.ExceedsMaximum ? stat.Maximum : stat.Total, HighlightColor);
+        rented.Builder.Append('\uFF09');
         stringArrayData->SetValue(field, rented.Builder.GetViewAsSpan(), suppressUpdates: true);
     }
 
-    private void AppendValue(SeStringBuilder builder, int value)
+    private static void AppendValue(SeStringBuilder builder, int value, ushort color)
     {
-        if (config.HighlightStats)
-        {
-            builder.PushColorType(HighlightColor);
-        }
-
-        builder.Append(value.ToString());
-        if (config.HighlightStats)
-        {
-            builder.PopColorType();
-        }
+        builder
+            .PushColorType(color)
+            .Append(value.ToString())
+            .PopColorType();
     }
 
     private static string ReadTooltipText(StringArrayData* stringArrayData, int field)
@@ -300,8 +333,10 @@ internal sealed unsafe class MateriaTotalNativeUi : IDisposable
         DalamudServices.PluginLog.Warning(exception, "Materia total failed to {Operation}.", operation);
     }
 
-    private readonly record struct MateriaStat(string Name, int Original, int Delta)
+    private readonly record struct MateriaStat(string Name, int Original, int Delta, int Maximum)
     {
         public int Total => Original + Delta;
+
+        public bool ExceedsMaximum => Maximum > 0 && Total > Maximum;
     }
 }

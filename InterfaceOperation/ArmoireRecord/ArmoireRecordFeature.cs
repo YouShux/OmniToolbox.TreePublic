@@ -587,6 +587,12 @@ public sealed unsafe class ArmoireRecordFeature : TreeHouseFeatureBase, IArmoire
             return false;
         }
 
+        AtkUnitBase* recordAddon = window;
+        if (recordAddon != null && MathF.Abs(recordAddon->Scale - addon->Scale) > 0.001f)
+        {
+            recordAddon->SetScale(addon->Scale / AtkUnitBase.GetGlobalUIScale(), true);
+        }
+
         var position = new Vector2(addon->X + addon->GetScaledWidth(true) + 1f, addon->Y);
         if (lastWindowPosition != position)
         {

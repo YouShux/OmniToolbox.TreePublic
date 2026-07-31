@@ -34,14 +34,13 @@ public sealed unsafe class BetterUserMacroFeature(BetterUserMacroConfig config) 
     private static readonly Vector2 MacroInputSizeOffset = new(20f, 150f);
 
     private readonly List<TextNode> lineNumberNodes = new(MacroLineCount);
-    private readonly List<MacroDragRegistration> dragRegistrations = new((int)MacroSlotsPerPage);
+    private readonly MacroDragRegistration?[] dragRegistrations = new MacroDragRegistration?[(int)MacroSlotsPerPage];
     private readonly Dictionary<string, uint> actionCache = new(StringComparer.OrdinalIgnoreCase);
     private FeatureLifetime? runtimeLifetime;
     private Hook<AddonActionBarBase.Delegates.ShowTooltip>? tooltipHook;
     private AddonMacro* lineNumberAddon;
     private bool macroInputRepositioned;
     private nint dragAddonAddress;
-    private bool dragRegistrationAttempted;
     private MacroSlot? dragSource;
     private MacroSlot? dragTarget;
     private bool dragSwapHandled;
@@ -398,12 +397,6 @@ public sealed unsafe class BetterUserMacroFeature(BetterUserMacroConfig config) 
             dragAddonAddress = addonAddress;
         }
 
-        if (dragRegistrationAttempted)
-        {
-            return;
-        }
-
-        dragRegistrationAttempted = true;
         for (var index = 0u; index < MacroSlotsPerPage; index++)
         {
             var dragDrop = addon->DragDropComponent[(int)index].Value;
@@ -413,35 +406,79 @@ public sealed unsafe class BetterUserMacroFeature(BetterUserMacroConfig config) 
             }
 
             var node = &dragDrop->OwnerNode->AtkResNode;
+            if (dragRegistrations[(int)index] is { } registration)
+            {
+                if (registration.Node == node && registration.Component == dragDrop)
+                {
+                    dragDrop->AcceptedType = DragDropType.Macro;
+                    continue;
+                }
+
+                RemoveMacroDragRegistration(registration);
+            }
+
             var originalAcceptedType = dragDrop->AcceptedType;
             var listener = new CustomEventListener((_, eventType, eventParam, atkEvent, atkEventData) =>
                 OnMacroDragEvent(addon, eventParam, eventType, atkEvent, atkEventData));
             node->AddEvent(AtkEventType.DragDropBegin, index, listener, node, false);
             node->AddEvent(AtkEventType.DragDropInsert, index, listener, node, false);
-            node->AddEvent(AtkEventType.DragDropEnd, index, listener, node, false);
             dragDrop->AcceptedType = DragDropType.Macro;
-            dragRegistrations.Add(new(listener, node, dragDrop, originalAcceptedType, index));
+            dragRegistrations[(int)index] = new(listener, node, dragDrop, originalAcceptedType, index);
         }
     }
 
     private void ClearMacroDragRegistrations()
     {
-        for (var index = dragRegistrations.Count - 1; index >= 0; index--)
+        for (var index = 0; index < dragRegistrations.Length; index++)
         {
-            var registration = dragRegistrations[index];
-            registration.Component->AcceptedType = registration.OriginalAcceptedType;
-            registration.Node->RemoveEvent(AtkEventType.DragDropBegin, registration.Param, registration.Listener, false);
-            registration.Node->RemoveEvent(AtkEventType.DragDropInsert, registration.Param, registration.Listener, false);
-            registration.Node->RemoveEvent(AtkEventType.DragDropEnd, registration.Param, registration.Listener, false);
-            registration.Listener.Dispose();
+            if (dragRegistrations[index] is not { } registration)
+            {
+                continue;
+            }
+
+            RemoveMacroDragRegistration(registration);
+            dragRegistrations[index] = null;
         }
 
-        dragRegistrations.Clear();
         dragAddonAddress = 0;
-        dragRegistrationAttempted = false;
         dragSource = null;
         dragTarget = null;
         dragSwapHandled = false;
+    }
+
+    private static void RemoveMacroDragRegistration(MacroDragRegistration registration)
+    {
+        registration.Component->AcceptedType = registration.OriginalAcceptedType;
+        registration.Node->RemoveEvent(AtkEventType.DragDropBegin, registration.Param, registration.Listener, false);
+        registration.Node->RemoveEvent(AtkEventType.DragDropInsert, registration.Param, registration.Listener, false);
+        if (registration.EndRegistered)
+        {
+            registration.Node->RemoveEvent(AtkEventType.DragDropEnd, registration.Param, registration.Listener, false);
+        }
+
+        registration.Listener.Dispose();
+    }
+
+    private void RegisterMacroDragEnd(int slotIndex)
+    {
+        if (dragRegistrations[slotIndex] is not { EndRegistered: false } registration)
+        {
+            return;
+        }
+
+        registration.Node->AddEvent(AtkEventType.DragDropEnd, registration.Param, registration.Listener, registration.Node, false);
+        dragRegistrations[slotIndex] = registration.WithEndRegistered(true);
+    }
+
+    private void UnregisterMacroDragEnd(int slotIndex)
+    {
+        if (dragRegistrations[slotIndex] is not { EndRegistered: true } registration)
+        {
+            return;
+        }
+
+        registration.Node->RemoveEvent(AtkEventType.DragDropEnd, registration.Param, registration.Listener, false);
+        dragRegistrations[slotIndex] = registration.WithEndRegistered(false);
     }
 
     private void OnMacroDragEvent(
@@ -462,6 +499,7 @@ public sealed unsafe class BetterUserMacroFeature(BetterUserMacroConfig config) 
                 dragSource = new MacroSlot(addon->SelectedPage, (uint)slotIndex);
                 dragTarget = null;
                 dragSwapHandled = false;
+                RegisterMacroDragEnd(slotIndex);
                 break;
 
             case AtkEventType.DragDropInsert:
@@ -507,6 +545,7 @@ public sealed unsafe class BetterUserMacroFeature(BetterUserMacroConfig config) 
                     }
                 }
 
+                UnregisterMacroDragEnd(slotIndex);
                 dragSource = null;
                 dragTarget = null;
                 dragSwapHandled = false;
@@ -1263,13 +1302,15 @@ public sealed unsafe class BetterUserMacroFeature(BetterUserMacroConfig config) 
             AtkResNode* node,
             AtkComponentDragDrop* component,
             DragDropType originalAcceptedType,
-            uint param)
+            uint param,
+            bool endRegistered = false)
         {
             Listener = listener;
             Node = node;
             Component = component;
             OriginalAcceptedType = originalAcceptedType;
             Param = param;
+            EndRegistered = endRegistered;
         }
 
         public CustomEventListener Listener { get; }
@@ -1281,6 +1322,11 @@ public sealed unsafe class BetterUserMacroFeature(BetterUserMacroConfig config) 
         public DragDropType OriginalAcceptedType { get; }
 
         public uint Param { get; }
+
+        public bool EndRegistered { get; }
+
+        public MacroDragRegistration WithEndRegistered(bool endRegistered)
+            => new(Listener, Node, Component, OriginalAcceptedType, Param, endRegistered);
     }
 
     private sealed class MacroSnapshot

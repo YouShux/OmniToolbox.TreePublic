@@ -40,6 +40,7 @@ internal sealed class ArmoireRecordNativeUi : NativeAddon
         CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
         RespectCloseAll = false;
         DisableClose = true;
+        DisableScaleContextOption = true;
     }
 
     protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)

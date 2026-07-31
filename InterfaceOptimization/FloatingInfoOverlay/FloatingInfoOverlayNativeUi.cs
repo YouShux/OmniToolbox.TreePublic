@@ -221,7 +221,7 @@ internal sealed class FloatingInfoOverlayNativeUi(
                 drawList.AddRectFilled(
                     lineMinimum,
                     lineMaximum,
-                    OmniTheme.Color(KnownColor.Orange.ToVector4() with { W = opacity * 0.16f }),
+                    OmniTheme.Color(OmniTheme.Orange with { W = opacity * 0.16f }),
                     OmniTheme.Scale(2f) * overlayScale);
             }
 
@@ -431,7 +431,7 @@ internal sealed class FloatingInfoOverlayNativeUi(
 
     private void AppendCastLines(FloatingInfoObject item)
     {
-        var color = KnownColor.Orange.ToVector4();
+        var color = OmniTheme.Orange;
         lineBuffer.Add(new(
             OmniLoc.Get("Feature.FloatingInfoOverlay.Line.Casting"),
             color,
@@ -565,7 +565,7 @@ internal sealed class FloatingInfoOverlayNativeUi(
             drawList.AddRectFilled(
                 barMinimum,
                 fillMaximum,
-                OmniTheme.Color(KnownColor.Orange.ToVector4() with { W = opacity }),
+                OmniTheme.Color(OmniTheme.Orange with { W = opacity }),
                 OmniTheme.Scale(3f));
             drawList.AddRectFilled(
                 barMinimum,

@@ -1,5 +1,6 @@
 using System.Drawing;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 using OmenTools.Extensions;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
@@ -15,7 +16,7 @@ internal static class ChatLogReplayPresentation
             "Party" => KnownColor.LightSkyBlue.ToVector4(),
             "Say" => KnownColor.WhiteSmoke.ToVector4(),
             "Yell" => KnownColor.Gold.ToVector4(),
-            "Shout" => KnownColor.Orange.ToVector4(),
+            "Shout" => OmniTheme.Orange,
             "TellIncoming" or "TellOutgoing" => KnownColor.HotPink.ToVector4(),
             "Alliance" => KnownColor.DarkOrange.ToVector4(),
             "FreeCompany" => KnownColor.SkyBlue.ToVector4(),

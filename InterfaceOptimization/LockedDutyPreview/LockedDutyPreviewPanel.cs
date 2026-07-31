@@ -15,6 +15,7 @@ internal static class LockedDutyPreviewPanel
         }
 
         ImGui.SameLine();
+        ImGui.AlignTextToFramePadding();
         ImGui.TextDisabled(string.Format(
             OmniLoc.Get("Feature.LockedDutyPreview.ExcludedCount"),
             config.ExcludedContentFinderConditionIds.Count));

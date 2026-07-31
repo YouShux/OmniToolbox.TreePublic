@@ -2,7 +2,6 @@ using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Text;
 using Dalamud.Hooking;
-using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Enums;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -15,10 +14,10 @@ using KamiToolKit;
 using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using Lumina.Excel.Sheets;
-using Lumina.Text.ReadOnly;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.Tooltips;
 using OmniToolbox.TreeHouse;
 using OmniToolbox.UI;
 using OmenTools;
@@ -26,14 +25,12 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Interop.Game.Models;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 
 internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
 {
     private const string AddonName = "SalvageItemSelector";
-    private const string TooltipKeyword = "建议分解技能";
     private const uint SkillColumnId = 91_001;
     private const uint LockColumnId = 91_002;
     private const ushort SkillColumnWidth = 120;
@@ -44,10 +41,8 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
 
     private readonly DesynthesisEnhancementConfig config;
     private readonly HookRegistry hookRegistry;
-    private readonly TooltipManager tooltipManager;
     private readonly AddonEventRegistry addonEvents;
     private readonly FeatureLifetime lifetime = new();
-    private readonly TooltipManager.ItemTooltipUpdateDelegate tooltipHandler;
     private readonly HashSet<uint> gearsetItemIds = [];
     private readonly HashSet<uint> customLockItemIds = [];
     private readonly Dictionary<nint, RowNodes> rowNodes = [];
@@ -57,7 +52,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     private readonly ListItemLockStateCache lockVisuals = new();
     private Hook<PopulateItemDelegate>? populateItemHook;
     private AtkUnitBase* salvageAddon;
-    private bool tooltipRegistered;
     private long lastErrorLogTick;
 
     private delegate void PopulateItemDelegate(
@@ -70,18 +64,11 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     {
         this.config = config;
         this.hookRegistry = hookRegistry;
-        tooltipManager = TooltipManager.Instance();
         addonEvents = new(DalamudServices.AddonLifecycle);
-        tooltipHandler = (_, itemId, ref modifications) => OnItemTooltip(itemId, ref modifications);
 
         lifetime.Add(RestoreSalvageWindow);
         lifetime.Add(ReleaseHook);
         lifetime.Add(addonEvents.Dispose);
-        lifetime.Add(() =>
-        {
-            UnregisterTooltip();
-            tooltipManager.TriggerItemDetailUpdate();
-        });
 
         try
         {
@@ -89,7 +76,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             addonEvents.Register(AddonEvent.PostSetup, AddonName, OnSalvageSetup);
             addonEvents.Register(AddonEvent.PreFinalize, AddonName, OnSalvageFinalize);
             RefreshCaches();
-            UpdateTooltipRegistration();
 
             if (AddonHelper.TryGetByName(AddonName, out AtkUnitBase* addon) && addon->IsAddonAndNodesReady())
             {
@@ -107,8 +93,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     public void RefreshSettings()
     {
         RefreshCaches();
-        UpdateTooltipRegistration();
-        tooltipManager.TriggerItemDetailUpdate();
 
         if (salvageAddon == null &&
             AddonHelper.TryGetByName(AddonName, out AtkUnitBase* addon) &&
@@ -121,107 +105,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     }
 
     public void Dispose() => lifetime.Dispose();
-
-    private void OnItemTooltip(uint itemId, ref List<TooltipItemModification> modifications)
-    {
-        if (!config.ShowTooltipText ||
-            itemId == 0 ||
-            !LuminaGetter.TryGetRow<Item>(itemId, out var item) ||
-            item.Desynth == 0 ||
-            item.ClassJobRepair.RowId == 0 ||
-            !IsDesynthesisEquipment(item))
-        {
-            return;
-        }
-
-        var uiState = UIState.Instance();
-        if (uiState == null)
-        {
-            return;
-        }
-
-        var level = DesynthesisEnhancementState.Calculate(
-            uiState->PlayerState.GetDesynthesisLevel(item.ClassJobRepair.RowId),
-            item.LevelItem.RowId);
-        var jobName = LuminaGetter.TryGetRow<ClassJob>(item.ClassJobRepair.RowId, out var job)
-            ? job.Name.ExtractText()
-            : string.Empty;
-        if (!TryBuildTooltipText(
-                tooltipManager.GetOriginalItemTooltipText(TooltipItemType.GearAbilityInfo),
-                level,
-                jobName,
-                out var text))
-        {
-            return;
-        }
-
-        modifications.Add(new()
-        {
-            Target = TooltipItemType.GearAbilityInfo,
-            Type = TooltipModificationType.Contribute,
-            Text = text
-        });
-    }
-
-    private static bool TryBuildTooltipText(
-        ReadOnlySeString original,
-        DesynthesisLevelInfo level,
-        string jobName,
-        out ReadOnlySeString result)
-    {
-        result = default;
-        if (!original.ExtractText().Contains(TooltipKeyword, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        using var rented = new RentedSeStringBuilder();
-        var replaced = false;
-        foreach (var payload in original)
-        {
-            if (replaced || payload.Type != ReadOnlySePayloadType.Text)
-            {
-                rented.Builder.Append(payload);
-                continue;
-            }
-
-            var text = payload.ToString();
-            var keywordIndex = text.IndexOf(TooltipKeyword, StringComparison.Ordinal);
-            if (keywordIndex < 0)
-            {
-                rented.Builder.Append(payload);
-                continue;
-            }
-
-            var lineStart = text.LastIndexOf('\n', keywordIndex);
-            lineStart = lineStart < 0 ? 0 : lineStart + 1;
-            var lineEnd = text.IndexOf('\n', keywordIndex);
-            if (lineStart > 0)
-            {
-                rented.Builder.Append(text.AsSpan(0, lineStart));
-            }
-
-            rented.Builder
-                .Append(OmniLoc.Get("Feature.DesynthesisEnhancement.TooltipPrefix"))
-                .PushColorType(DesynthesisEnhancementState.GetColorKey(level.Status))
-                .Append(DesynthesisEnhancementState.FormatTooltipValue(level, jobName))
-                .PopColorType();
-            if (lineEnd >= 0)
-            {
-                rented.Builder.Append(text.AsSpan(lineEnd));
-            }
-
-            replaced = true;
-        }
-
-        if (!replaced)
-        {
-            return false;
-        }
-
-        result = rented.Builder.ToReadOnlySeString();
-        return true;
-    }
 
     private void PopulateItemDetour(
         AddonSalvageItemSelector* addon,
@@ -299,10 +182,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         lockVisuals.Apply(renderer, false);
     }
 
-    private static bool IsDesynthesisEquipment(Item item) =>
-        item.EquipSlotCategory.RowId != 0 &&
-        item.ItemUICategory.Value.Name.ExtractText() is not "灵魂水晶" and not "靈魂水晶";
-
     private void OnSalvageSetup(AddonEvent _, AddonArgs args)
     {
         try
@@ -377,6 +256,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             return;
         }
 
+        var emptyStateText = FindEmptyStateText(listComponent);
         salvageAddon = addon;
         var columnX = (short)(lastHeader->GetXShort() + lastHeader->GetWidth());
         var skillHeader = CreateTextNode(
@@ -399,6 +279,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             headerTemplate,
             headerTemplate->AlignmentType,
             (AtkResNode*)skillHeader.Node);
+        addon->UldManager.UpdateDrawNodeList();
 
         CaptureWidth(headerContainer);
         headerContainer->SetWidth((ushort)(columnX + TotalColumnWidth));
@@ -428,12 +309,21 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
                 continue;
             }
 
-            IncreaseWidth(node, TotalColumnWidth);
+            if (node != (AtkResNode*)emptyStateText)
+            {
+                IncreaseWidth(node, TotalColumnWidth);
+            }
+
             if (node->Type == NodeType.Component &&
                 (node->NodeId == 4 || node->NodeId is > 41_000 and < 41_100))
             {
                 rendererNodes.Add((nint)node);
             }
+        }
+
+        if (emptyStateText != null)
+        {
+            MoveX((AtkResNode*)emptyStateText, (short)(TotalColumnWidth / 2));
         }
 
         for (var index = 0; index < rendererNodes.Count; index++)
@@ -467,6 +357,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
                 AlignmentType.Center,
                 renderer->UldManager.RootNode);
             rowNodes[(nint)renderer] = new(skill, locked);
+            renderer->UldManager.UpdateDrawNodeList();
         }
     }
 
@@ -498,8 +389,31 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         node.Node->AtkResNode.DrawFlags = template->AtkResNode.DrawFlags;
         node.Node->AtkResNode.NodeFlags = template->AtkResNode.NodeFlags;
         node.Node->FontSize = template->FontSize;
+        node.Node->AtkResNode.ToggleVisibility(true);
         node.AttachNode(target, NodePosition.AfterTarget);
         return node;
+    }
+
+    private static AtkTextNode* FindEmptyStateText(AtkComponentBase* component)
+    {
+        AtkTextNode* result = null;
+        for (var index = 0; index < component->UldManager.NodeListCount; index++)
+        {
+            var node = component->UldManager.NodeList[index];
+            if (node == null || node->Type != NodeType.Text)
+            {
+                continue;
+            }
+
+            if (result != null && node->GetWidth() <= result->AtkResNode.GetWidth())
+            {
+                continue;
+            }
+
+            result = (AtkTextNode*)node;
+        }
+
+        return result;
     }
 
     private void IncreaseWidths(AtkComponentBase* component, ushort amount)
@@ -561,7 +475,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             return;
         }
 
-        for (var gearsetIndex = 0; gearsetIndex < 100; gearsetIndex++)
+        for (var gearsetIndex = 0; gearsetIndex < 101; gearsetIndex++)
         {
             var gearset = gearsetModule->GetGearset(gearsetIndex);
             if (gearset == null || gearset->Id != gearsetIndex ||
@@ -603,35 +517,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         };
     }
 
-    private void UpdateTooltipRegistration()
-    {
-        if (config.ShowTooltipText == tooltipRegistered)
-        {
-            return;
-        }
-
-        if (config.ShowTooltipText)
-        {
-            tooltipManager.RegItem(tooltipHandler);
-            tooltipRegistered = true;
-        }
-        else
-        {
-            UnregisterTooltip();
-        }
-    }
-
-    private void UnregisterTooltip()
-    {
-        if (!tooltipRegistered)
-        {
-            return;
-        }
-
-        tooltipManager.Unreg(tooltipHandler);
-        tooltipRegistered = false;
-    }
-
     private void ReleaseHook()
     {
         hookRegistry.Release(populateItemHook);
@@ -661,6 +546,11 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         for (var index = injectedNodes.Count - 1; index >= 0; index--)
         {
             injectedNodes[index].Dispose();
+        }
+
+        foreach (var renderer in rowNodes.Keys)
+        {
+            ((AtkComponentBase*)renderer)->UldManager.UpdateDrawNodeList();
         }
 
         for (var index = widthSnapshots.Count - 1; index >= 0; index--)
@@ -705,5 +595,4 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     }
 
     private readonly record struct RowNodes(TextNode Skill, TextNode Lock);
-
 }

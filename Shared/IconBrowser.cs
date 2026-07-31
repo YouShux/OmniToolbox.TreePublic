@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Globalization;
 using Dalamud.Game.Text;
 using Dalamud.Interface.Textures;
-using Dalamud.Interface.Textures.TextureWraps;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
@@ -169,9 +168,7 @@ public sealed class IconBrowser
     private readonly IconBrowserConfig config;
     private readonly Action saveConfig;
     private readonly Dictionary<int, IconTabCache> tabCaches = [];
-    private readonly Dictionary<int, IDalamudTextureWrap> gameIconTextures = [];
-    private readonly HashSet<int> visibleGameIcons = [];
-    private readonly List<int> gameIconTexturesToRelease = [];
+    private readonly Dictionary<int, ISharedImmediateTexture> gameIconTextures = [];
     private readonly List<int> filteredGameIcons = [];
     private List<SeIconEntry>? seIconEntries;
     private Action<uint>? gameIconApplyTarget;
@@ -180,6 +177,7 @@ public sealed class IconBrowser
     private string gameIconFilter = string.Empty;
     private string seIconFilter = string.Empty;
     private Vector2 expandedWindowSize;
+    private int selectedGameIconTab;
     private bool isCollapsed;
     private bool restoreExpandedSize;
 
@@ -326,11 +324,6 @@ public sealed class IconBrowser
 
         if (!IsOpen || isCollapsed || collapseChanged)
         {
-            if (isCollapsed)
-            {
-                ReleaseGameIconTextures();
-            }
-
             ImGui.End();
             return;
         }
@@ -360,7 +353,6 @@ public sealed class IconBrowser
                 DrawToolbar();
                 if (mode == BrowserMode.SeIconChar)
                 {
-                    ReleaseGameIconTextures();
                     DrawSeIconBrowser(iconSize);
                 }
                 else
@@ -429,7 +421,7 @@ public sealed class IconBrowser
         if (OmniControls.SmallButton(OmniLoc.Get("IconBrowser.RebuildCache"), false))
         {
             tabCaches.Clear();
-            ReleaseGameIconTextures();
+            gameIconTextures.Clear();
         }
     }
 
@@ -465,62 +457,45 @@ public sealed class IconBrowser
 
     private void DrawGameIconBrowser(float iconSize)
     {
-        gameIconTexturesToRelease.Clear();
-        foreach (var icon in gameIconTextures.Keys)
+        if (OmniControls.BeginCombo(
+                "##iconBrowserCategory",
+                OmniLoc.Get(GameIconTabs[selectedGameIconTab].LabelKey),
+                ImGui.GetContentRegionAvail().X))
         {
-            if (!visibleGameIcons.Contains(icon))
+            for (var i = 0; i < GameIconTabs.Length; i++)
             {
-                gameIconTexturesToRelease.Add(icon);
+                if (ImGui.Selectable(
+                        $"{OmniLoc.Get(GameIconTabs[i].LabelKey)}##iconBrowserCategory{i}",
+                        selectedGameIconTab == i))
+                {
+                    selectedGameIconTab = i;
+                }
             }
+
+            ImGui.EndCombo();
         }
 
-        foreach (var icon in gameIconTexturesToRelease)
-        {
-            if (gameIconTextures.Remove(icon, out var texture))
-            {
-                texture.Dispose();
-            }
-        }
-
-        visibleGameIcons.Clear();
         var textureRequestBudget = TextureRequestBudgetPerFrame;
-        if (!ImGui.BeginTabBar("##iconBrowserTabs", ImGuiTabBarFlags.NoTooltip))
+        var tab = GameIconTabs[selectedGameIconTab];
+        if (gameIconFilter.Length > 0)
         {
+            DrawIconGrid(
+                selectedGameIconTab,
+                filteredGameIcons,
+                iconSize,
+                tab.StatusIcons,
+                ref textureRequestBudget);
             return;
         }
 
-        for (var i = 0; i < GameIconTabs.Length; i++)
-        {
-            if (!ImGui.BeginTabItem($"{OmniLoc.Get(GameIconTabs[i].LabelKey)}##iconBrowserTab{i}"))
-            {
-                continue;
-            }
-
-            if (gameIconFilter.Length > 0)
-            {
-                DrawIconGrid(
-                    i,
-                    filteredGameIcons,
-                    iconSize,
-                    GameIconTabs[i].StatusIcons,
-                    ref textureRequestBudget);
-            }
-            else
-            {
-                var cache = GetTabCache(i);
-                ScanTab(GameIconTabs[i], cache);
-                DrawIconGrid(
-                    i,
-                    cache.Icons,
-                    iconSize,
-                    GameIconTabs[i].StatusIcons,
-                    ref textureRequestBudget);
-            }
-
-            ImGui.EndTabItem();
-        }
-
-        ImGui.EndTabBar();
+        var cache = GetTabCache(selectedGameIconTab);
+        ScanTab(tab, cache);
+        DrawIconGrid(
+            selectedGameIconTab,
+            cache.Icons,
+            iconSize,
+            tab.StatusIcons,
+            ref textureRequestBudget);
     }
 
     private IconTabCache GetTabCache(int tabIndex)
@@ -621,21 +596,19 @@ public sealed class IconBrowser
 
     private void DrawGameIcon(int icon, float iconSize, bool statusIcon, ref int textureRequestBudget)
     {
-        visibleGameIcons.Add(icon);
-        gameIconTextures.TryGetValue(icon, out var texture);
-        if (texture is null && textureRequestBudget > 0)
+        gameIconTextures.TryGetValue(icon, out var sharedTexture);
+        if (sharedTexture is null && textureRequestBudget > 0)
         {
             textureRequestBudget--;
             if (DalamudServices.TextureProvider.TryGetFromGameIcon(
                     new GameIconLookup((uint)icon),
-                    out var sharedTexture) &&
-                sharedTexture.TryGetWrap(out var frameTexture, out _))
+                    out sharedTexture))
             {
-                texture = frameTexture.CreateWrapSharingLowLevelResource();
-                gameIconTextures.Add(icon, texture);
+                gameIconTextures.Add(icon, sharedTexture);
             }
         }
 
+        var texture = sharedTexture?.GetWrapOrDefault();
         var itemSize = new Vector2(iconSize);
         if (texture is null)
         {
@@ -779,20 +752,8 @@ public sealed class IconBrowser
     private void Close()
     {
         IsOpen = false;
-        ReleaseGameIconTextures();
-        ClearApplyTargets();
-    }
-
-    private void ReleaseGameIconTextures()
-    {
-        foreach (var texture in gameIconTextures.Values)
-        {
-            texture.Dispose();
-        }
-
         gameIconTextures.Clear();
-        visibleGameIcons.Clear();
-        gameIconTexturesToRelease.Clear();
+        ClearApplyTargets();
     }
 
     private void ClearApplyTargets()

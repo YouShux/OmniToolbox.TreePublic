@@ -6,21 +6,21 @@ using Lumina.Text;
 using Lumina.Text.ReadOnly;
 using OmniToolbox.Tooltips;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.OmenService;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreeHouse.InterfaceOptimization.ItemPreview;
 
-public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
+internal sealed unsafe class CollectableValueTooltip
 {
-    private const ushort Green = 504;
-    private const ushort Orange = 500;
+    private const ushort ShopColor = OmniTheme.ShopColorType;
     private const ushort Purple = 522;
     private const ushort BelowMinimumColor = 16;
 
-    private const string CollectabilityKey = "Feature.CollectableValuePreview.Collectability";
-    private const string ExperienceKey = "Feature.CollectableValuePreview.Experience";
-    private const string ScripKey = "Feature.CollectableValuePreview.Scrip";
+    private const string CollectabilityKey = "ItemTooltip.CollectableReward.Collectability";
+    private const string ExperienceKey = "ItemTooltip.CollectableReward.Experience";
+    private const string ScripKey = "ItemTooltip.CollectableReward.Scrip";
 
     private static readonly uint[][] RowIdToJob =
     [
@@ -44,18 +44,30 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
     private TooltipManager? tooltipManager;
     private IDisposable? inventoryLease;
 
-    public CollectableValuePreviewFeature(ItemTooltipInventoryContext inventoryContext)
-        : base(new(
-            "collectable-value-preview",
-            "Feature.CollectableValuePreview.Title",
-            "Feature.CollectableValuePreview.Description",
-            TreeHouseCategory.InterfaceOptimization))
+    public CollectableValueTooltip(ItemTooltipInventoryContext inventoryContext)
     {
         this.inventoryContext = inventoryContext;
         tooltipHandler = OnItemTooltip;
     }
 
-    protected override void OnEnable()
+    public void SetEnabled(bool enabled)
+    {
+        if ((tooltipManager is not null) == enabled)
+        {
+            return;
+        }
+
+        if (enabled)
+        {
+            Enable();
+        }
+        else
+        {
+            Disable();
+        }
+    }
+
+    private void Enable()
     {
         collectableCache ??= BuildCache();
 
@@ -76,7 +88,7 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
         manager.TriggerItemDetailUpdate();
     }
 
-    protected override void OnDisable()
+    private void Disable()
     {
         try
         {
@@ -235,25 +247,20 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
         var scripColor = GetScripColor(itemDetails.ScripRewardType);
 
         builder
-            .AppendNewLine()
-            .PushColorType(Orange)
-            .Append(OmniLoc.Get("Feature.CollectableValuePreview.Header"))
-            .PopColorType()
+            .Append(OmniLoc.Get("ItemTooltip.CollectableReward.Header"))
             .AppendNewLine();
 
         if (!TryGetCurrentCollectability(itemId, out var collectability))
         {
             builder
-                .Append("      ")
-                .PushColorType(Green)
-                .Append(OmniLoc.Get("Feature.CollectableValuePreview.LevelRange"))
+                .Append("  ")
+                .PushColorType(ShopColor)
+                .Append(OmniLoc.Get("ItemTooltip.CollectableReward.LevelRange"))
                 .PopColorType()
-                .Append(' ')
                 .Append(itemDetails.LevelMin)
-                .Append(" - ")
+                .Append('-')
                 .Append(itemDetails.LevelMax)
-                .Append(' ')
-                .PushColorType(Green)
+                .PushColorType(ShopColor)
                 .Append(itemDetails.JobName)
                 .PopColorType()
                 .AppendNewLine();
@@ -264,12 +271,14 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
                 itemDetails.Rewards[1].QualityRequired - 1,
                 useExperienceFloor,
                 scripColor);
+            builder.AppendNewLine();
             AppendGenericReward(
                 builder,
                 itemDetails.Rewards[1],
                 itemDetails.Rewards[2].QualityRequired - 1,
                 useExperienceFloor,
                 scripColor);
+            builder.AppendNewLine();
             AppendGenericReward(builder, itemDetails.Rewards[2], null, useExperienceFloor, scripColor);
             return;
         }
@@ -277,9 +286,9 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
         if (collectability < itemDetails.Rewards[0].QualityRequired)
         {
             builder
-                .Append("      ")
+                .Append("  ")
                 .PushColorType(BelowMinimumColor)
-                .Append(OmniLoc.Get("Feature.CollectableValuePreview.BelowMinimum"))
+                .Append(OmniLoc.Get("ItemTooltip.CollectableReward.BelowMinimum"))
                 .Append(' ')
                 .Append(itemDetails.Rewards[0].QualityRequired)
                 .PopColorType();
@@ -302,11 +311,10 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
         ushort scripColor)
     {
         builder
-            .Append("      ")
-            .PushColorType(Green)
+            .Append("  ")
+            .PushColorType(ShopColor)
             .Append(OmniLoc.Get(CollectabilityKey))
             .PopColorType()
-            .Append(' ')
             .Append(reward.QualityRequired)
             .Append(" - ");
         if (maxQuality.HasValue)
@@ -315,21 +323,19 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
         }
         else
         {
-            builder.Append(OmniLoc.Get("Feature.CollectableValuePreview.Max"));
+            builder.Append(OmniLoc.Get("ItemTooltip.CollectableReward.Max"));
         }
 
         builder
             .Append("  ")
-            .PushColorType(Green)
+            .PushColorType(ShopColor)
             .Append(OmniLoc.Get(ExperienceKey))
             .PopColorType()
-            .Append(' ')
             .Append((useExperienceFloor ? 1000 : reward.Experience).ToString("N0"))
-            .Append("  ")
-            .PushColorType(Green)
+            .Append(' ')
+            .PushColorType(ShopColor)
             .Append(OmniLoc.Get(ScripKey))
-            .PopColorType()
-            .Append(' ');
+            .PopColorType();
         if (scripColor != 0)
         {
             builder.PushColorType(scripColor);
@@ -340,8 +346,6 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
         {
             builder.PopColorType();
         }
-
-        builder.AppendNewLine();
     }
 
     private static void AppendItemReward(
@@ -351,18 +355,16 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
         ushort scripColor)
     {
         builder
-            .Append("      ")
-            .PushColorType(Green)
+            .Append("  ")
+            .PushColorType(ShopColor)
             .Append(OmniLoc.Get(ExperienceKey))
             .PopColorType()
-            .Append(' ')
             .Append((useExperienceFloor ? 1000 : reward.Experience).ToString("N0"))
             .AppendNewLine()
-            .Append("      ")
-            .PushColorType(Green)
+            .Append("  ")
+            .PushColorType(ShopColor)
             .Append(OmniLoc.Get(ScripKey))
-            .PopColorType()
-            .Append(' ');
+            .PopColorType();
         if (scripColor != 0)
         {
             builder.PushColorType(scripColor);
@@ -373,8 +375,6 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
         {
             builder.PopColorType();
         }
-
-        builder.AppendNewLine();
     }
 
     private bool TryGetCurrentCollectability(uint itemId, out int collectability)
@@ -413,7 +413,7 @@ public sealed unsafe class CollectableValuePreviewFeature : TreeHouseFeatureBase
     private static ushort GetScripColor(int scripRewardType) => scripRewardType switch
     {
         2 or 4 => Purple,
-        6 or 7 => Orange,
+        6 or 7 => OmniTheme.OrangeColorType,
         _ => 0,
     };
 

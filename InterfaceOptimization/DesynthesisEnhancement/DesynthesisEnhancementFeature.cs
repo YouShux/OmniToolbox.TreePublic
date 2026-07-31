@@ -1,9 +1,13 @@
 using OmniToolbox.Config;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.Tooltips;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 
-public sealed class DesynthesisEnhancementFeature(DesynthesisEnhancementConfig config, HookRegistry hookRegistry) : TreeHouseFeatureBase(new(
+public sealed class DesynthesisEnhancementFeature(
+    DesynthesisEnhancementConfig config,
+    HookRegistry hookRegistry,
+    ItemSupplementTooltip itemSupplementTooltip) : TreeHouseFeatureBase(new(
     "desynthesis-enhancement",
     "Feature.DesynthesisEnhancement.Title",
     "Feature.DesynthesisEnhancement.Description",
@@ -21,17 +25,20 @@ public sealed class DesynthesisEnhancementFeature(DesynthesisEnhancementConfig c
         }
 
         nativeUi?.RefreshSettings();
+        itemSupplementTooltip.SetDesynthesisEnabled(IsEnabled);
         return true;
     }
 
     protected override void OnEnable()
     {
+        nativeUi = new(config, hookRegistry);
         try
         {
-            nativeUi = new(config, hookRegistry);
+            itemSupplementTooltip.SetDesynthesisEnabled(true);
         }
         catch
         {
+            nativeUi.Dispose();
             nativeUi = null;
             throw;
         }
@@ -41,10 +48,11 @@ public sealed class DesynthesisEnhancementFeature(DesynthesisEnhancementConfig c
     {
         try
         {
-            nativeUi?.Dispose();
+            itemSupplementTooltip.SetDesynthesisEnabled(false);
         }
         finally
         {
+            nativeUi?.Dispose();
             nativeUi = null;
         }
     }

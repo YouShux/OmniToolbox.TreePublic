@@ -24,9 +24,8 @@ public sealed unsafe class LockedDutyPreviewFeature(
     private const string ContentsFinderAddonName = "ContentsFinder";
     private const int RefreshIntervalMs = 5_000;
     private const float ScreenPadding = 8f;
-    private const float ContentsFinderGap = 48f;
-    private const float PositionWindowWidth = 400f;
-    private const float PositionWindowHeight = 400f;
+    private const float ContentsFinderGap = 40f;
+    private const float PreviewScale = 0.5f;
 
     private readonly LockedDutyPreviewResolver resolver = new();
     private readonly List<LockedDutyPreviewRow> lockedRows = [];
@@ -135,26 +134,39 @@ public sealed unsafe class LockedDutyPreviewFeature(
             return;
         }
 
+        if (!nativeUi.IsOpen)
+        {
+            nativeUi.Open();
+        }
+
+        AtkUnitBase* previewAddon = nativeUi;
+        if (previewAddon == null || previewAddon->WindowNode == null)
+        {
+            return;
+        }
+
+        var targetScale = addon->Scale * PreviewScale;
+        if (MathF.Abs(previewAddon->Scale - targetScale) > 0.001f)
+        {
+            previewAddon->SetScale(targetScale / AtkUnitBase.GetGlobalUIScale(), true);
+        }
+
         var state = windowNode->GetNodeState();
+        var previewState = previewAddon->WindowNode->GetNodeState();
         var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
-        var windowX = state.TopLeft.X - PositionWindowWidth - ContentsFinderGap;
+        var windowX = state.TopLeft.X - previewState.Width - ContentsFinderGap;
         var windowY = state.TopLeft.Y;
         windowX = Math.Max(ScreenPadding, Math.Min(
             windowX,
-            display.X - PositionWindowWidth - ScreenPadding));
+            display.X - previewState.Width - ScreenPadding));
         if (windowY < ScreenPadding)
         {
             windowY = ScreenPadding;
         }
 
-        if (windowY + PositionWindowHeight > display.Y - ScreenPadding)
+        if (windowY + previewState.Height > display.Y - ScreenPadding)
         {
-            windowY = Math.Max(ScreenPadding, display.Y - PositionWindowHeight - ScreenPadding);
-        }
-
-        if (!nativeUi.IsOpen)
-        {
-            nativeUi.Open();
+            windowY = Math.Max(ScreenPadding, display.Y - previewState.Height - ScreenPadding);
         }
 
         nativeUi.SetWindowPosition(new(windowX, windowY));

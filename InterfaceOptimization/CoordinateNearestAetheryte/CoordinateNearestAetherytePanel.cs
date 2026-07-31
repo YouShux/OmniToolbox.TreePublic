@@ -8,12 +8,30 @@ namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 internal static class CoordinateNearestAetherytePanel
 {
     private const int MaxVisibleRows = 5;
+    private static string search = string.Empty;
 
     public static bool Draw(
         CoordinateNearestAetheryteConfig config,
         IReadOnlyList<AetheryteDestination> aetherytes)
     {
         var changed = false;
+        OmniControls.InputTextWithHint(
+            "##coordinateNearestAetheryteSearch",
+            OmniLoc.Get("Feature.CoordinateNearestAetheryte.SearchHint"),
+            ref search,
+            128,
+            ImGui.GetContentRegionAvail().X);
+
+        var query = search.Trim();
+        var filteredRowCount = 0;
+        foreach (var aetheryte in aetherytes)
+        {
+            if (MatchesSearch(aetheryte, query))
+            {
+                filteredRowCount++;
+            }
+        }
+
         var rowHeight = MathF.Max(ImGui.GetFrameHeightWithSpacing(), OmniTheme.Scale(30f));
         using var table = ImRaii.Table(
             "##coordinateNearestAetheryteTable",
@@ -23,7 +41,7 @@ internal static class CoordinateNearestAetherytePanel
             ImGuiTableFlags.ScrollY,
             new Vector2(
                 ImGui.GetContentRegionAvail().X,
-                rowHeight * (Math.Min(aetherytes.Count, MaxVisibleRows) + 1) + ImGui.GetStyle().ItemSpacing.Y));
+                rowHeight * (Math.Min(filteredRowCount, MaxVisibleRows) + 1) + ImGui.GetStyle().ItemSpacing.Y));
         if (!table)
         {
             return changed;
@@ -74,6 +92,11 @@ internal static class CoordinateNearestAetherytePanel
 
         foreach (var aetheryte in aetherytes)
         {
+            if (!MatchesSearch(aetheryte, query))
+            {
+                continue;
+            }
+
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), OmniTheme.SmallButtonSize().Y);
@@ -105,4 +128,9 @@ internal static class CoordinateNearestAetherytePanel
 
         return changed;
     }
+
+    private static bool MatchesSearch(AetheryteDestination aetheryte, string query) =>
+        query.Length == 0 ||
+        aetheryte.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+        aetheryte.MapName.Contains(query, StringComparison.OrdinalIgnoreCase);
 }

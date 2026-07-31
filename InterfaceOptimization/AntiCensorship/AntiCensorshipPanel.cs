@@ -13,9 +13,6 @@ internal static class AntiCensorshipPanel
     public static bool Draw(AntiCensorshipConfig config)
     {
         var changed = false;
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.AntiCensorship.Mode"));
-        ImGui.SameLine();
         var autoHandle = config.EnableAutoHandle;
         if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.AutoHandle")}##antiCensorshipAutoHandle", ref autoHandle))
         {

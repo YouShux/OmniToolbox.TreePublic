@@ -13,7 +13,7 @@ internal readonly record struct LockedDutyPreviewRow(
 
 internal sealed class LockedDutyPreviewNativeUi : NativeAddon
 {
-    private const float WindowWidth = 400f;
+    private const float WindowWidth = 360f;
     private const float WindowHeight = 400f;
     private const float ItemSpacing = 2f;
 
@@ -47,6 +47,7 @@ internal sealed class LockedDutyPreviewNativeUi : NativeAddon
         CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
         RespectCloseAll = false;
         DisableClose = true;
+        DisableScaleContextOption = true;
         this.onViewChanged = onViewChanged;
         this.onExclude = onExclude;
         this.onRestore = onRestore;
@@ -56,6 +57,11 @@ internal sealed class LockedDutyPreviewNativeUi : NativeAddon
 
     protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
     {
+        addon->DisableFocusability = true;
+        addon->DisableFocusOnShow = true;
+        addon->FocusNode = null;
+        RootNode.RemoveNodeFlags(NodeFlags.Focusable);
+        WindowNode?.WindowHeaderFocusNode.RemoveNodeFlags(NodeFlags.Focusable);
         LockedDutyPreviewListItemNode.SetCallbacks(onExclude, onRestore, onWiki);
         summaryNode = new()
         {

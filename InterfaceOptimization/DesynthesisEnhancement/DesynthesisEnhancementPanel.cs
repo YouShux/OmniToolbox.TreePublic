@@ -1,10 +1,9 @@
-using Lumina.Excel.Sheets;
 using OmniToolbox.Config;
+using OmniToolbox.Tooltips;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmenTools.ImGuiOm;
-using OmenTools.Interop.Game.Lumina;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 
@@ -14,18 +13,60 @@ internal static class DesynthesisEnhancementPanel
 
     public static bool Draw(DesynthesisEnhancementConfig config)
     {
+        var changed = DrawSwitches(config);
+        if (!config.LockCustomItems || config.CustomLockItemIds.Count == 0)
+        {
+            return changed;
+        }
+
+        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
+        var rows = new ItemSelectionTableRow[config.CustomLockItemIds.Count];
+        for (var index = 0; index < rows.Length; index++)
+        {
+            rows[index] = new(config.CustomLockItemIds[index], true, true);
+        }
+
+        var change = ItemSelectionTable.Draw("desynthesisCustomLockItems", rows, showEnabledColumn: false);
+        if (change.Action == ItemSelectionTableAction.Delete)
+        {
+            changed |= config.CustomLockItemIds.Remove(change.ItemId);
+        }
+
+        return changed;
+    }
+
+    private static bool DrawSwitches(DesynthesisEnhancementConfig config)
+    {
+        var changed = false;
+        using var table = ImRaii.Table(
+            "##desynthesisEnhancementSwitches",
+            3,
+            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
+            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+        if (!table)
+        {
+            return false;
+        }
+
+        ImGui.TableSetupColumn("##desynthesisSwitch0", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##desynthesisSwitch1", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##desynthesisSwitch2", ImGuiTableColumnFlags.WidthStretch, 2f);
+
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
         var value = config.ShowTooltipText;
-        var changed = DrawCheckbox(
+        if (DrawCheckbox(
             "Feature.DesynthesisEnhancement.TooltipText",
             "desynthesisTooltipText",
-            ref value);
-        if (changed)
+            ref value))
         {
             config.ShowTooltipText = value;
+            changed = true;
         }
 
         ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DesynthesisEnhancement.TooltipText.Help"));
 
+        ImGui.TableNextColumn();
         value = config.LockGearsetItems;
         if (DrawCheckbox(
             "Feature.DesynthesisEnhancement.LockGearsetItems",
@@ -36,6 +77,7 @@ internal static class DesynthesisEnhancementPanel
             changed = true;
         }
 
+        ImGui.TableNextColumn();
         value = config.LockCustomItems;
         if (DrawCheckbox(
             "Feature.DesynthesisEnhancement.LockCustomItems",
@@ -46,86 +88,27 @@ internal static class DesynthesisEnhancementPanel
             changed = true;
         }
 
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DesynthesisEnhancement.LockCustomItems.Help"));
-
-        if (!config.LockCustomItems)
+        ImGui.SameLine(0f, OmniTheme.Scale(8f));
+        using (ImRaii.Disabled(!config.LockCustomItems))
         {
-            return changed;
-        }
-
-        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.DesynthesisEnhancement.CustomItemId"));
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (OmniControls.InputInt("##desynthesisCustomItemId", ref customItemIdInput) && customItemIdInput < 0)
-        {
-            customItemIdInput = 0;
-        }
-
-        var itemId = DesynthesisEnhancementState.NormalizeItemId((uint)Math.Max(0, customItemIdInput));
-        Item item = default;
-        var hasItem = itemId > 0 && LuminaGetter.TryGetRow(itemId, out item);
-        ImGui.SameLine();
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.DesynthesisEnhancement.Add"), false) &&
-            customItemIdInput > 0 &&
-            !config.CustomLockItemIds.Contains(itemId))
-        {
-            config.CustomLockItemIds.Add(itemId);
-            changed = true;
-        }
-
-        if (itemId > 0)
-        {
-            ImGui.SameLine(0f, OmniTheme.Scale(10f));
-            if (hasItem)
+            ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
+            if (OmniControls.InputInt("##desynthesisCustomItemId", ref customItemIdInput) && customItemIdInput < 0)
             {
-                ImGui.TextColored(OmniTheme.Tokens.Accent, $"{item.Name} ({itemId})");
-            }
-            else
-            {
-                ImGui.TextDisabled(OmniLoc.Get("Feature.DesynthesisEnhancement.InvalidItemId"));
-            }
-        }
-
-        if (config.CustomLockItemIds.Count == 0)
-        {
-            return changed;
-        }
-
-        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
-        for (var index = 0; index < config.CustomLockItemIds.Count; index++)
-        {
-            if (!LuminaGetter.TryGetRow<Item>(config.CustomLockItemIds[index], out var lockedItem))
-            {
-                continue;
+                customItemIdInput = 0;
             }
 
-            ImGui.PushID(index);
-            ImGui.BeginGroup();
-            var iconSize = new Vector2(OmniTheme.Scale(44f));
-            FramedGameIcon.DrawItem(lockedItem, iconSize);
-
-            if (ImGui.IsItemHovered())
+            var itemId = DesynthesisEnhancementState.NormalizeItemId((uint)Math.Max(0, customItemIdInput));
+            ImGui.SameLine();
+            if (OmniControls.SmallButton(OmniLoc.Get("Feature.DesynthesisEnhancement.Add"), false) &&
+                itemId > 0 &&
+                !config.CustomLockItemIds.Contains(itemId))
             {
-                ImGui.SetTooltip(lockedItem.Name.ToString());
-            }
-
-            if (OmniControls.SmallButton(OmniLoc.Get("Feature.DesynthesisEnhancement.Delete"), false))
-            {
-                config.CustomLockItemIds.RemoveAt(index--);
+                config.CustomLockItemIds.Add(itemId);
                 changed = true;
             }
-
-            ImGui.EndGroup();
-            ImGui.PopID();
-            if (index < config.CustomLockItemIds.Count - 1 &&
-                ImGui.GetContentRegionAvail().X >= iconSize.X + ImGui.GetStyle().ItemSpacing.X)
-            {
-                ImGui.SameLine(0f, OmniTheme.Scale(10f));
-            }
         }
 
+        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DesynthesisEnhancement.LockCustomItems.Help"));
         return changed;
     }
 

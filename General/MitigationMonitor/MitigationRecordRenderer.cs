@@ -115,7 +115,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         var color = record.Kind switch
         {
             MitigationRecordKind.Defeated => KnownColor.LightPink.ToVector4(),
-            MitigationRecordKind.Wipe => KnownColor.Orange.ToVector4(),
+            MitigationRecordKind.Wipe => OmniTheme.Orange,
             _ when record.SourceKind == DamageSourceKind.Dot => KnownColor.Coral.ToVector4(),
             _ when record.SourceKind == DamageSourceKind.AutoAttack => KnownColor.Wheat.ToVector4(),
             _ => KnownColor.White.ToVector4()

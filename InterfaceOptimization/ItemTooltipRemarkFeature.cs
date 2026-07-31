@@ -3,13 +3,11 @@ using Dalamud.Game.Gui.ContextMenu;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Utility;
-using Lumina.Excel.Sheets;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmenTools;
-using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 
 namespace OmniToolbox.TreeHouse.InterfaceOptimization;
@@ -118,21 +116,7 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
 
     public override bool DrawSettings()
     {
-        var changed = false;
-
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.Color"));
-        ImGui.SameLine();
-        var colorId = config.ColorKey;
-        if (UIColorPicker.Draw("itemTooltipRemark", ref colorId))
-        {
-            config.ColorKey = colorId;
-            tooltipManager?.TriggerItemDetailUpdate();
-            changed = true;
-        }
-
-        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
-        changed |= DrawEditor();
+        var changed = DrawEditor();
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
         changed |= DrawRemarkList();
         return changed;
@@ -164,6 +148,19 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
 
     private bool DrawEditor()
     {
+        var changed = false;
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.Color"));
+        ImGui.SameLine();
+        var colorId = config.ColorKey;
+        if (UIColorPicker.Draw("itemTooltipRemark", ref colorId))
+        {
+            config.ColorKey = colorId;
+            tooltipManager?.TriggerItemDetailUpdate();
+            changed = true;
+        }
+
+        ImGui.SameLine(0f, OmniTheme.Scale(12f));
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.ItemId"));
         ImGui.SameLine();
@@ -179,18 +176,13 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
             LoadEditor(GetEditingItemId(), false);
         }
 
-        var itemId = GetEditingItemId();
-        if (itemId != 0)
+        ImGui.SameLine();
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.ItemTooltipRemark.Save"), false))
         {
-            ImGui.SameLine();
-            ImGui.TextColored(
-                OmniTheme.Tokens.Accent,
-                string.Format(
-                    OmniLoc.Get("Feature.ItemTooltipRemark.CurrentItem"),
-                    GetItemDisplayName(itemId),
-                    itemId));
+            changed |= SaveRemark(GetEditingItemId(), editingText, out editingText);
         }
 
+        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.Remark"));
         if (focusTextInput)
         {
@@ -203,28 +195,12 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
             ref editingText,
             MaxRemarkLength,
             new Vector2(ImGui.GetContentRegionAvail().X, OmniTheme.Scale(82f)));
-
-        var changed = false;
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.ItemTooltipRemark.Save"), false))
-        {
-            changed |= SaveRemark(GetEditingItemId(), editingText, out editingText);
-        }
-
-        ImGui.SameLine();
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.ItemTooltipRemark.Delete"), false))
-        {
-            changed |= SaveRemark(GetEditingItemId(), string.Empty, out editingText);
-        }
-
         return changed;
     }
 
     private bool DrawRemarkList()
     {
         ImGui.Separator();
-        ImGui.TextUnformatted(string.Format(
-            OmniLoc.Get("Feature.ItemTooltipRemark.SavedCount"),
-            config.Remarks.Count));
         if (config.Remarks.Count == 0)
         {
             ImGui.TextDisabled(OmniLoc.Get("Feature.ItemTooltipRemark.Empty"));
@@ -232,28 +208,24 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
         }
 
         var editLabel = OmniLoc.Get("Feature.ItemTooltipRemark.Edit");
-        var deleteLabel = OmniLoc.Get("Feature.ItemTooltipRemark.Delete");
-        var itemIdWidth = MathF.Max(
-            OmniTheme.Scale(88f),
-            ImGui.CalcTextSize(uint.MaxValue.ToString()).X +
-            ImGui.GetStyle().FramePadding.X * 2f +
-            OmniTheme.Scale(12f));
-        var editWidth = MathF.Max(
-            OmniTheme.Scale(60f),
-            ImGui.CalcTextSize(editLabel).X +
-            ImGui.GetStyle().FramePadding.X * 2f +
-            OmniTheme.Scale(12f));
-        var deleteWidth = MathF.Max(
-            OmniTheme.Scale(60f),
-            ImGui.CalcTextSize(deleteLabel).X +
-            ImGui.GetStyle().FramePadding.X * 2f +
-            OmniTheme.Scale(12f));
+        var deleteLabel = OmniLoc.Get("Common.Delete");
+        var editButtonSize = OmniControls.CompactButtonSize(editLabel);
+        var deleteButtonSize = OmniControls.CompactButtonSize(deleteLabel);
+        var actionGap = ImGui.GetStyle().ItemSpacing.X;
+        var actionSize = new Vector2(
+            editButtonSize.X + actionGap + deleteButtonSize.X,
+            MathF.Max(editButtonSize.Y, deleteButtonSize.Y));
+        var iconSize = OmniTheme.Scale(40f);
+        var rowContentHeight = MathF.Max(iconSize, actionSize.Y);
+        var cellPadding = ImGui.GetStyle().CellPadding.Y * 2f;
+        var rowHeight = rowContentHeight + cellPadding;
+        var rows = config.Remarks.OrderBy(pair => pair.Key).ToArray();
         var deleteItemId = 0u;
 
         {
             using var table = ImRaii.Table(
                 "##itemTooltipRemarkTable",
-                5,
+                3,
                 ImGuiTableFlags.Borders |
                 ImGuiTableFlags.RowBg |
                 ImGuiTableFlags.ScrollY |
@@ -261,74 +233,67 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
                 ImGuiTableFlags.NoSavedSettings,
                 new Vector2(
                     ImGui.GetContentRegionAvail().X,
-                    ImGui.GetFrameHeightWithSpacing() * (RemarkListVisibleRows + 1f)));
+                    OmniTheme.SmallButtonSize().Y + cellPadding +
+                    rowHeight * RemarkListVisibleRows + OmniTheme.BorderThickness() * 2f));
             if (!table)
             {
                 return false;
             }
 
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.ItemTooltipRemark.ItemId"),
-                ImGuiTableColumnFlags.WidthFixed,
-                itemIdWidth);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.ItemTooltipRemark.ItemName"),
-                ImGuiTableColumnFlags.WidthStretch,
-                1.1f);
+            ImGui.TableSetupColumn(OmniLoc.Get("Common.Item"), ImGuiTableColumnFlags.WidthStretch, 1.2f);
             ImGui.TableSetupColumn(
                 OmniLoc.Get("Feature.ItemTooltipRemark.Remark"),
                 ImGuiTableColumnFlags.WidthStretch,
-                1.7f);
-            ImGui.TableSetupColumn(editLabel, ImGuiTableColumnFlags.WidthFixed, editWidth);
-            ImGui.TableSetupColumn(deleteLabel, ImGuiTableColumnFlags.WidthFixed, deleteWidth);
-            OmniControls.ScrollableTableHeadersRow();
+                1.8f);
+            ImGui.TableSetupColumn(
+                OmniLoc.Get("Common.Action"),
+                ImGuiTableColumnFlags.WidthFixed,
+                actionSize.X + ImGui.GetStyle().CellPadding.X * 2f);
+            ImGui.TableSetupScrollFreeze(0, 1);
+            OmniControls.BeginTableHeaderRow();
+            OmniControls.TableHeader(OmniLoc.Get("Common.Item"));
+            OmniControls.TableHeader(OmniLoc.Get("Feature.ItemTooltipRemark.Remark"));
+            OmniControls.TableHeader(OmniLoc.Get("Common.Action"));
 
-            foreach (var (itemId, remark) in config.Remarks.OrderBy(pair => pair.Key))
+            var clipper = ImGui.ImGuiListClipper();
+            clipper.Begin(rows.Length, rowHeight);
+            while (clipper.Step())
             {
-                var itemName = GetItemDisplayName(itemId);
-                var itemTooltip = string.Format(
-                    OmniLoc.Get("Feature.ItemTooltipRemark.CurrentItem"),
-                    itemName,
-                    itemId);
-
-                ImGui.PushID(unchecked((int)itemId));
-                ImGui.TableNextRow();
-
-                ImGui.TableNextColumn();
-                ImGui.TextUnformatted(itemId.ToString());
-                if (ImGui.IsItemHovered())
+                for (var index = clipper.DisplayStart; index < clipper.DisplayEnd; index++)
                 {
-                    ImGui.SetTooltip(itemTooltip);
-                }
+                    var (itemId, remark) = rows[index];
+                    ImGui.PushID(unchecked((int)itemId));
+                    ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
 
-                ImGui.TableNextColumn();
-                ImGui.TextUnformatted(itemName);
-                if (ImGui.IsItemHovered())
-                {
-                    ImGui.SetTooltip(itemTooltip);
-                }
+                    ImGui.TableNextColumn();
+                    ItemSelectionTable.DrawItemCell(itemId, rowContentHeight, iconSize);
 
-                ImGui.TableNextColumn();
-                ImGui.TextUnformatted(remark);
-                if (ImGui.IsItemHovered())
-                {
-                    ImGui.SetTooltip(remark);
-                }
+                    ImGui.TableNextColumn();
+                    OmniControls.TableTextCentered(remark, rowContentHeight);
+                    if (ImGui.IsItemHovered())
+                    {
+                        ImGui.SetTooltip(remark);
+                    }
 
-                ImGui.TableNextColumn();
-                if (OmniControls.SmallButton(editLabel, false, new Vector2(editWidth, OmniTheme.SmallButtonSize().Y)))
-                {
-                    LoadEditor(itemId, false);
-                }
+                    ImGui.TableNextColumn();
+                    OmniControls.CenterTableItem(actionSize, rowContentHeight);
+                    if (OmniControls.SmallButton(editLabel, false, editButtonSize))
+                    {
+                        LoadEditor(itemId, false);
+                    }
 
-                ImGui.TableNextColumn();
-                if (OmniControls.SmallButton(deleteLabel, false, new Vector2(deleteWidth, OmniTheme.SmallButtonSize().Y)))
-                {
-                    deleteItemId = itemId;
-                }
+                    ImGui.SameLine(0f, actionGap);
+                    if (OmniControls.SmallButton(deleteLabel, false, deleteButtonSize))
+                    {
+                        deleteItemId = itemId;
+                    }
 
-                ImGui.PopID();
+                    ImGui.PopID();
+                }
             }
+
+            clipper.End();
+            clipper.Destroy();
         }
 
         if (deleteItemId == 0)
@@ -429,18 +394,4 @@ public sealed class ItemTooltipRemarkFeature : TreeHouseFeatureBase
 
     private static string Sanitize(string text) =>
         text.Replace('\r', ' ').Replace('\n', ' ').Trim();
-
-    private static string GetItemDisplayName(uint itemId)
-    {
-        if (LuminaGetter.TryGetRow<Item>(itemId, out var item))
-        {
-            var name = item.Name.ExtractText();
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                return name;
-            }
-        }
-
-        return string.Format(OmniLoc.Get("Feature.ItemTooltipRemark.ItemNameFallback"), itemId);
-    }
 }

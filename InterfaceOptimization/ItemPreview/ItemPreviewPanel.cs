@@ -74,6 +74,31 @@ internal sealed class ItemPreviewPanel(ItemConfig config)
             changed = true;
         }
 
+        ImGui.TableNextColumn();
+        var showCollectableValue = config.ShowCollectableValueInTooltip;
+        if (DrawToggle(
+                "Settings.Tooltip.ShowCollectableValue",
+                "##showCollectableValueInTooltip",
+                "Settings.Tooltip.ShowCollectableValue.Help",
+                ref showCollectableValue))
+        {
+            config.ShowCollectableValueInTooltip = showCollectableValue;
+            changed = true;
+        }
+
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
+        var showMateriaTotal = config.ShowMateriaTotalInTooltip;
+        if (DrawToggle(
+                "Settings.Tooltip.ShowMateriaTotal",
+                "##showMateriaTotalInTooltip",
+                null,
+                ref showMateriaTotal))
+        {
+            config.ShowMateriaTotalInTooltip = showMateriaTotal;
+            changed = true;
+        }
+
         return changed;
     }
 
