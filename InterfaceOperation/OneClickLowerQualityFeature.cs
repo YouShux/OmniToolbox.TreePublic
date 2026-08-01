@@ -1,3 +1,5 @@
+using Dalamud.Game.Addon.Lifecycle;
+using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Gui.ContextMenu;
 using Dalamud.Game.Text;
@@ -6,10 +8,11 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using OmniToolbox.Host;
+using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmenTools;
 using OmenTools.Extensions;
-using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
 using OmenTools.Threading.TaskHelper;
 using OmenTools.Threading.TaskHelper.Enums;
@@ -21,11 +24,6 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
     private const int OperationTimeoutMs = 2_000;
     private const int MenuDelayMs = 100;
     private const int AppliedDelayMs = 300;
-    private const int LowerQualityDialogType = 2;
-
-    private static readonly string[] LowerQualityConfirmTextParts = ["确定要降低", "確定要降低"];
-    private static readonly string[] LowerQualityActionTextParts = ["降低品质", "降低品質", "的品质", "的品質"];
-
     private static readonly InventoryType[] InventoryContainers =
     [
         InventoryType.Inventory1,
@@ -64,6 +62,7 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
     ];
 
     private readonly Queue<InventorySlot> pendingSlots = new();
+    private AddonEventRegistry? addonEvents;
     private TaskHelper? taskHelper;
     private InventorySlot currentSlot;
     private uint targetItemId;
@@ -84,12 +83,17 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
             RetryIntervalMS = MenuDelayMs,
             TimeoutMS = OperationTimeoutMs
         };
+        var events = new AddonEventRegistry(DalamudServices.AddonLifecycle);
+        events.Register(AddonEvent.PostSetup, "SelectYesno", OnSelectYesnoSetup);
+        addonEvents = events;
         DService.Instance().ContextMenu.OnMenuOpened += OnMenuOpened;
     }
 
     protected override void OnDisable()
     {
         DService.Instance().ContextMenu.OnMenuOpened -= OnMenuOpened;
+        addonEvents?.Dispose();
+        addonEvents = null;
         pendingSlots.Clear();
         taskHelper?.Dispose();
         taskHelper = null;
@@ -165,10 +169,6 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
 
         skipCurrent = false;
         EnqueueCurrent(OpenCurrent);
-        taskHelper.DelayNext(MenuDelayMs);
-        EnqueueCurrent(PrepareCurrentConfirmation);
-        taskHelper.DelayNext(MenuDelayMs);
-        EnqueueCurrent(ConfirmCurrent);
         taskHelper.DelayNext(AppliedDelayMs);
         EnqueueCurrent(WaitCurrentApplied);
         taskHelper.Enqueue(EnqueueNext);
@@ -205,37 +205,28 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
         return true;
     }
 
-    private bool PrepareCurrentConfirmation() => HandleCurrentConfirmation(false);
-
-    private bool ConfirmCurrent() => HandleCurrentConfirmation(true);
-
-    private bool HandleCurrentConfirmation(bool clickYes)
+    private void OnSelectYesnoSetup(AddonEvent _, AddonArgs args)
     {
-        if (ShouldSkipCurrent())
+        if (taskHelper is null ||
+            !taskHelper.IsBusy ||
+            ShouldSkipCurrent() ||
+            !TryGetCurrentSlot(out var _))
         {
-            return true;
+            return;
         }
 
-        if (!TryGetCurrentSlot(out _))
-        {
-            skipCurrent = true;
-            return true;
-        }
-
-        if (!TryGetLowerQualityDialog(out var addon))
-        {
-            return false;
-        }
-
+        var addon = (AddonSelectYesno*)args.Addon.Address;
         var confirm = addon->ConfirmCheckBox;
-        if (HasVisibleConfirmBox(confirm) && !confirm->IsChecked)
+        if (confirm == null ||
+            confirm->AtkResNode == null ||
+            !confirm->AtkResNode->NodeFlags.HasFlag(NodeFlags.Visible))
+        {
+            return;
+        }
+
+        if (!confirm->IsChecked)
         {
             confirm->Click(3);
-        }
-
-        if (!clickYes)
-        {
-            return true;
         }
 
         var yesButton = addon->YesButton;
@@ -246,7 +237,6 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
         }
 
         addon->AtkUnitBase.FireCallbackInt(0);
-        return true;
     }
 
     private bool WaitCurrentApplied()
@@ -350,69 +340,6 @@ public sealed unsafe class OneClickLowerQualityFeature : TreeHouseFeatureBase
         slot = container->GetInventorySlot(currentSlot.Slot);
         return slot != null && NormalizeItemId(slot->ItemId) == targetItemId && NeedsLowerQuality(slot);
     }
-
-    private static bool TryGetLowerQualityDialog(out AddonSelectYesno* addon)
-    {
-        addon = null;
-        if (!AddonHelper.TryGetByName("SelectYesno", out addon) ||
-            !addon->AtkUnitBase.IsAddonAndNodesReady())
-        {
-            return false;
-        }
-
-        var context = AgentInventoryContext.Instance();
-        if (context != null && context->DialogType == LowerQualityDialogType)
-        {
-            return true;
-        }
-
-        return IsLowerQualityDialog(addon);
-    }
-
-    private static bool IsLowerQualityDialog(AddonSelectYesno* addon)
-    {
-        var textNode = addon->AtkUnitBase.GetTextNodeById(2);
-        if (textNode == null)
-        {
-            return false;
-        }
-
-        var text = textNode->NodeText.ToString().Replace("\n", string.Empty);
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return false;
-        }
-
-        var hasConfirmText = false;
-        foreach (var keyword in LowerQualityConfirmTextParts)
-        {
-            if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-            {
-                hasConfirmText = true;
-                break;
-            }
-        }
-
-        if (!hasConfirmText)
-        {
-            return false;
-        }
-
-        foreach (var keyword in LowerQualityActionTextParts)
-        {
-            if (text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static bool HasVisibleConfirmBox(AtkComponentCheckBox* confirm) =>
-        confirm != null &&
-        confirm->AtkResNode != null &&
-        confirm->AtkResNode->NodeFlags.HasFlag(NodeFlags.Visible);
 
     private static bool NeedsLowerQuality(InventoryItem* slot) =>
         slot->IsHighQuality() || slot->IsCollectable();

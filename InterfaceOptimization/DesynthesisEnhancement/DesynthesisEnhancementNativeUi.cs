@@ -6,13 +6,11 @@ using FFXIVClientStructs.FFXIV.Client.Enums;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
+using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit;
-using KamiToolKit.Classes;
-using KamiToolKit.Nodes;
 using Lumina.Excel.Sheets;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
@@ -36,6 +34,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     private const ushort SkillColumnWidth = 120;
     private const ushort LockColumnWidth = 60;
     private const ushort TotalColumnWidth = SkillColumnWidth + LockColumnWidth;
+    private const short EmptyStateTextXAdjustment = 20;
     private static readonly CompSig PopulateItemSignature = new(
         "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 30 49 8B 38");
 
@@ -46,12 +45,13 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     private readonly HashSet<uint> gearsetItemIds = [];
     private readonly HashSet<uint> customLockItemIds = [];
     private readonly Dictionary<nint, RowNodes> rowNodes = [];
-    private readonly List<TextNode> injectedNodes = [];
+    private readonly List<InjectedNode> injectedNodes = [];
     private readonly List<(nint Address, ushort Width)> widthSnapshots = [];
     private readonly List<(nint Address, short X)> xSnapshots = [];
     private readonly ListItemLockStateCache lockVisuals = new();
     private Hook<PopulateItemDelegate>? populateItemHook;
     private AtkUnitBase* salvageAddon;
+    private (nint Address, short X, AlignmentType Alignment)? emptyStateSnapshot;
     private long lastErrorLogTick;
 
     private delegate void PopulateItemDelegate(
@@ -161,8 +161,9 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         var level = DesynthesisEnhancementState.Calculate(
             uiState->PlayerState.GetDesynthesisLevel(item.ClassJobRepair.RowId),
             item.LevelItem.RowId);
-        nodes.Skill.Node->TextColor = GetStatusColor(level.Status);
-        nodes.Skill.Node->SetText($"{level.Recommended}/{level.Current}");
+        var skillNode = (AtkTextNode*)nodes.Skill;
+        skillNode->TextColor = GetStatusColor(level.Status);
+        skillNode->SetText($"{level.Recommended}/{level.Current}");
 
         var isLocked = config.LockGearsetItems && gearsetItemIds.Contains(GetGearsetItemId(inventoryItem));
         if (config.LockCustomItems &&
@@ -171,14 +172,14 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             isLocked = true;
         }
 
-        nodes.Lock.Node->SetText(isLocked ? $"{(char)SeIconChar.BoxedStar}" : string.Empty);
+        ((AtkTextNode*)nodes.Lock)->SetText(isLocked ? $"{(char)SeIconChar.BoxedStar}" : string.Empty);
         lockVisuals.Apply(renderer, isLocked);
     }
 
     private void ClearRow(AtkComponentListItemRenderer* renderer, RowNodes nodes)
     {
-        nodes.Skill.Node->SetText(string.Empty);
-        nodes.Lock.Node->SetText(string.Empty);
+        ((AtkTextNode*)nodes.Skill)->SetText(string.Empty);
+        ((AtkTextNode*)nodes.Lock)->SetText(string.Empty);
         lockVisuals.Apply(renderer, false);
     }
 
@@ -224,9 +225,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         if (headerContainer == null ||
             separator == null ||
             windowNode == null ||
-            windowNode->Type != NodeType.Component ||
-            listNode == null ||
-            listNode->Type != NodeType.Component)
+            listNode == null)
         {
             return;
         }
@@ -250,13 +249,11 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         var listComponent = ((AtkComponentNode*)listNode)->Component;
         if (headerTemplate == null ||
             windowComponent == null ||
-            listComponent == null ||
-            listComponent->UldManager.NodeList == null)
+            listComponent == null)
         {
             return;
         }
 
-        var emptyStateText = FindEmptyStateText(listComponent);
         salvageAddon = addon;
         var columnX = (short)(lastHeader->GetXShort() + lastHeader->GetWidth());
         var skillHeader = CreateTextNode(
@@ -268,7 +265,8 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             lastHeader->GetHeight(),
             headerTemplate,
             headerTemplate->AlignmentType,
-            lastHeader);
+            lastHeader,
+            &addon->UldManager);
         CreateTextNode(
             LockColumnId,
             OmniLoc.Get("Feature.DesynthesisEnhancement.Column.Lock"),
@@ -278,8 +276,8 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             lastHeader->GetHeight(),
             headerTemplate,
             headerTemplate->AlignmentType,
-            (AtkResNode*)skillHeader.Node);
-        addon->UldManager.UpdateDrawNodeList();
+            (AtkResNode*)skillHeader,
+            &addon->UldManager);
 
         CaptureWidth(headerContainer);
         headerContainer->SetWidth((ushort)(columnX + TotalColumnWidth));
@@ -295,6 +293,11 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         var rendererNodes = new List<nint>(100);
         var listNodes = listComponent->UldManager.NodeList;
         var listNodeCount = listComponent->UldManager.NodeListCount;
+        if (listNodes == null)
+        {
+            return;
+        }
+
         for (var index = 0; index < listNodeCount; index++)
         {
             var node = listNodes[index];
@@ -309,21 +312,13 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
                 continue;
             }
 
-            if (node != (AtkResNode*)emptyStateText)
-            {
-                IncreaseWidth(node, TotalColumnWidth);
-            }
+            IncreaseWidth(node, TotalColumnWidth);
 
             if (node->Type == NodeType.Component &&
                 (node->NodeId == 4 || node->NodeId is > 41_000 and < 41_100))
             {
                 rendererNodes.Add((nint)node);
             }
-        }
-
-        if (emptyStateText != null)
-        {
-            MoveX((AtkResNode*)emptyStateText, (short)(TotalColumnWidth / 2));
         }
 
         for (var index = 0; index < rendererNodes.Count; index++)
@@ -345,7 +340,8 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
                 template->AtkResNode.GetHeight(),
                 template,
                 AlignmentType.Center,
-                renderer->UldManager.RootNode);
+                renderer->UldManager.RootNode,
+                &renderer->UldManager);
             var locked = CreateTextNode(
                 LockColumnId,
                 string.Empty,
@@ -355,13 +351,13 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
                 template->AtkResNode.GetHeight(),
                 template,
                 AlignmentType.Center,
-                renderer->UldManager.RootNode);
-            rowNodes[(nint)renderer] = new(skill, locked);
-            renderer->UldManager.UpdateDrawNodeList();
+                renderer->UldManager.RootNode,
+                &renderer->UldManager);
+            rowNodes[(nint)renderer] = new((nint)skill, (nint)locked);
         }
     }
 
-    private TextNode CreateTextNode(
+    private AtkTextNode* CreateTextNode(
         uint nodeId,
         string text,
         ushort width,
@@ -370,28 +366,64 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         ushort height,
         AtkTextNode* template,
         AlignmentType alignment,
-        AtkResNode* target)
+        AtkResNode* target,
+        AtkUldManager* uldManager)
     {
-        var node = new TextNode { NodeId = nodeId };
-        injectedNodes.Add(node);
-        node.Node->SetText(text);
-        node.Node->AtkResNode.SetWidth(width);
-        node.Node->AtkResNode.SetHeight(height);
-        node.Node->AtkResNode.SetXShort(x);
-        node.Node->AtkResNode.SetYShort(y);
-        node.Node->SetFont(template->FontType);
-        node.Node->SetAlignment(alignment);
-        node.Node->LineSpacing = template->LineSpacing;
-        node.Node->TextColor = template->TextColor;
-        node.Node->EdgeColor = template->EdgeColor;
-        node.Node->BackgroundColor = template->BackgroundColor;
-        node.Node->TextFlags = template->TextFlags;
-        node.Node->AtkResNode.DrawFlags = template->AtkResNode.DrawFlags;
-        node.Node->AtkResNode.NodeFlags = template->AtkResNode.NodeFlags;
-        node.Node->FontSize = template->FontSize;
-        node.Node->AtkResNode.ToggleVisibility(true);
-        node.AttachNode(target, NodePosition.AfterTarget);
+        var node = IMemorySpace.GetUISpace()->Create<AtkTextNode>();
+        node->AtkResNode.Type = NodeType.Text;
+        node->AtkResNode.NodeId = nodeId;
+        node->SetText(text);
+        node->AtkResNode.SetWidth(width);
+        node->AtkResNode.SetHeight(height);
+        node->AtkResNode.SetXShort(x);
+        node->AtkResNode.SetYShort(y);
+        node->SetFont(template->FontType);
+        node->SetAlignment(alignment);
+        node->LineSpacing = template->LineSpacing;
+        node->TextColor = template->TextColor;
+        node->EdgeColor = template->EdgeColor;
+        node->BackgroundColor = template->BackgroundColor;
+        node->TextFlags = template->TextFlags;
+        node->AtkResNode.DrawFlags = template->AtkResNode.DrawFlags;
+        node->AtkResNode.NodeFlags = template->AtkResNode.NodeFlags;
+        node->FontSize = template->FontSize;
+        node->AtkResNode.ToggleVisibility(true);
+
+        var previousNode = target->PrevSiblingNode;
+        node->AtkResNode.ParentNode = target->ParentNode;
+        node->AtkResNode.PrevSiblingNode = previousNode;
+        node->AtkResNode.NextSiblingNode = target;
+        target->PrevSiblingNode = (AtkResNode*)node;
+        if (previousNode != null)
+        {
+            previousNode->NextSiblingNode = (AtkResNode*)node;
+        }
+
+        injectedNodes.Add(new((nint)node, (nint)uldManager));
+        uldManager->UpdateDrawNodeList();
         return node;
+    }
+
+    private static void RemoveInjectedNode(InjectedNode injectedNode)
+    {
+        var node = (AtkResNode*)injectedNode.Address;
+        if (node->ParentNode != null && node->ParentNode->ChildNode == node)
+        {
+            node->ParentNode->ChildNode = node->PrevSiblingNode;
+        }
+
+        if (node->PrevSiblingNode != null)
+        {
+            node->PrevSiblingNode->NextSiblingNode = node->NextSiblingNode;
+        }
+
+        if (node->NextSiblingNode != null)
+        {
+            node->NextSiblingNode->PrevSiblingNode = node->PrevSiblingNode;
+        }
+
+        ((AtkUldManager*)injectedNode.UldManager)->UpdateDrawNodeList();
+        node->Destroy(true);
     }
 
     private static AtkTextNode* FindEmptyStateText(AtkComponentBase* component)
@@ -400,7 +432,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         for (var index = 0; index < component->UldManager.NodeListCount; index++)
         {
             var node = component->UldManager.NodeList[index];
-            if (node == null || node->Type != NodeType.Text)
+            if (node == null || node->Type != NodeType.Text || !node->IsVisible())
             {
                 continue;
             }
@@ -532,6 +564,32 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         }
 
         agent->ItemListRefresh(agent->IsSalvageResultAddonOpen);
+        AdjustEmptyStateText(agent);
+    }
+
+    private void AdjustEmptyStateText(AgentSalvage* agent)
+    {
+        if (agent->ItemCount != 0)
+        {
+            return;
+        }
+
+        var listNode = salvageAddon->GetNodeById(12);
+        var listComponent = listNode == null ? null : ((AtkComponentNode*)listNode)->Component;
+        var emptyStateText = listComponent == null ? null : FindEmptyStateText(listComponent);
+        if (emptyStateText == null)
+        {
+            return;
+        }
+
+        if (emptyStateSnapshot is not { } snapshot || snapshot.Address != (nint)emptyStateText)
+        {
+            snapshot = ((nint)emptyStateText, emptyStateText->AtkResNode.GetXShort(), emptyStateText->AlignmentType);
+            emptyStateSnapshot = snapshot;
+        }
+
+        emptyStateText->SetAlignment(AlignmentType.Center);
+        emptyStateText->AtkResNode.SetXShort((short)(snapshot.X + EmptyStateTextXAdjustment));
     }
 
     private void RestoreSalvageWindow()
@@ -545,12 +603,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         lockVisuals.Restore();
         for (var index = injectedNodes.Count - 1; index >= 0; index--)
         {
-            injectedNodes[index].Dispose();
-        }
-
-        foreach (var renderer in rowNodes.Keys)
-        {
-            ((AtkComponentBase*)renderer)->UldManager.UpdateDrawNodeList();
+            RemoveInjectedNode(injectedNodes[index]);
         }
 
         for (var index = widthSnapshots.Count - 1; index >= 0; index--)
@@ -561,6 +614,12 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         for (var index = xSnapshots.Count - 1; index >= 0; index--)
         {
             ((AtkResNode*)xSnapshots[index].Address)->SetXShort(xSnapshots[index].X);
+        }
+
+        if (emptyStateSnapshot is { } snapshot)
+        {
+            ((AtkTextNode*)snapshot.Address)->AtkResNode.SetXShort(snapshot.X);
+            ((AtkTextNode*)snapshot.Address)->SetAlignment(snapshot.Alignment);
         }
 
         ForgetSalvageWindow();
@@ -579,6 +638,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         injectedNodes.Clear();
         widthSnapshots.Clear();
         xSnapshots.Clear();
+        emptyStateSnapshot = null;
         lockVisuals.Forget();
     }
 
@@ -594,5 +654,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         DalamudServices.PluginLog.Error(exception, "Failed to {Operation}.", operation);
     }
 
-    private readonly record struct RowNodes(TextNode Skill, TextNode Lock);
+    private readonly record struct RowNodes(nint Skill, nint Lock);
+
+    private readonly record struct InjectedNode(nint Address, nint UldManager);
 }

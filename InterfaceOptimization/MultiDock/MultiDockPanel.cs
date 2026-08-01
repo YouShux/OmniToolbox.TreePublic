@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Dalamud.Interface;
+using Dalamud.Plugin;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
@@ -12,6 +13,9 @@ namespace OmniToolbox.TreeHouse.InterfaceOptimization;
 internal sealed class MultiDockPanel
 {
     private const int ClipboardVersion = 1;
+    private const float SourcePickerHeight = 320f;
+    private const float CommandSectionHeight = 520f;
+    private static readonly MultiDockAutoMode[] AutoModes = Enum.GetValues<MultiDockAutoMode>();
     private static readonly JsonSerializerOptions ClipboardJsonOptions = new()
     {
         IncludeFields = true,
@@ -20,29 +24,36 @@ internal sealed class MultiDockPanel
     };
 
     private readonly MultiDockConfig config;
+    private readonly MultiDockFeature feature;
     private readonly IconBrowser iconBrowser;
     private readonly Action saveConfig;
     private readonly Action itemsChanged;
     private readonly Action iconsChanged;
+    private readonly List<IExposedPlugin> pluginRows = [];
+    private readonly List<MultiDockWindowCandidate> windowRows = [];
+    private readonly Dictionary<string, int> pluginItemIndices = new(StringComparer.OrdinalIgnoreCase);
     private string pluginFilter = string.Empty;
-    private string windowName = string.Empty;
-    private string windowDisplayName = string.Empty;
+    private string windowFilter = string.Empty;
     private string commandName = string.Empty;
     private string commandText = string.Empty;
     private string commandFilter = string.Empty;
     private string clipboardStatusKey = string.Empty;
     private double clipboardStatusUntil;
     private bool clipboardStatusIsError;
+    private bool windowRowsLoaded;
     private int editingItemIndex = -1;
+    private string editingToggleIconId = string.Empty;
 
     public MultiDockPanel(
         MultiDockConfig config,
+        MultiDockFeature feature,
         IconBrowser iconBrowser,
         Action saveConfig,
         Action itemsChanged,
         Action iconsChanged)
     {
         this.config = config;
+        this.feature = feature;
         this.iconBrowser = iconBrowser;
         this.saveConfig = saveConfig;
         this.itemsChanged = itemsChanged;
@@ -105,6 +116,7 @@ internal sealed class MultiDockPanel
                 config.HiddenWindows = snapshot.Config.HiddenWindows;
                 itemsChanged();
                 editingItemIndex = -1;
+                editingToggleIconId = string.Empty;
                 changed = true;
                 SetClipboardStatus("Feature.MultiDock.ImportSuccess", false);
             }
@@ -141,7 +153,7 @@ internal sealed class MultiDockPanel
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 changed |= DrawCheckbox(
-                    "Feature.MultiDock.Visible",
+                    id == "plugin" ? "Feature.MultiDock.Visible.Plugin" : "Feature.MultiDock.Visible.Command",
                     $"visible{id}",
                     dock.Visible,
                     value => dock.Visible = value);
@@ -160,81 +172,83 @@ internal sealed class MultiDockPanel
             }
         }
 
-        using var settingsTable = ImRaii.Table(
-            $"##multiDockSettings{id}",
-            2,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
+        using (var settingsTable = ImRaii.Table(
+                   $"##multiDockSettings{id}",
+                   4,
+                   ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX,
+                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+        {
+            if (settingsTable)
+            {
+                ImGui.TableNextRow();
+                changed |= DrawFloatSliderCell(
+                    "Feature.MultiDock.IconSize",
+                    $"iconSize{id}",
+                    dock.IconSize,
+                    value => dock.IconSize = value,
+                    24f,
+                    96f,
+                    "%.0f");
+                changed |= DrawFloatSliderCell(
+                    "Feature.MultiDock.BackgroundOpacity",
+                    $"opacity{id}",
+                    dock.BackgroundOpacity,
+                    value => dock.BackgroundOpacity = value,
+                    0f,
+                    1f,
+                    "%.2f");
+                changed |= DrawIntSliderCell(
+                    "Feature.MultiDock.ItemsPerRow",
+                    $"itemsPerRow{id}",
+                    dock.ItemsPerRow,
+                    value => dock.ItemsPerRow = value,
+                    1,
+                    20);
+                changed |= DrawFloatSliderCell(
+                    "Feature.MultiDock.IconSpacing",
+                    $"spacing{id}",
+                    dock.IconSpacing,
+                    value => dock.IconSpacing = value,
+                    0f,
+                    40f,
+                    "%.0f");
+            }
+        }
+
+        using var behaviorTable = ImRaii.Table(
+            $"##multiDockBehavior{id}",
+            4,
+            ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX,
             new Vector2(ImGui.GetContentRegionAvail().X, 0f));
-        if (!settingsTable)
+        if (!behaviorTable)
         {
             return changed;
         }
 
-        ImGui.TableSetupColumn("##label", ImGuiTableColumnFlags.WidthStretch, 0.8f);
-        ImGui.TableSetupColumn("##value", ImGuiTableColumnFlags.WidthStretch, 1.6f);
-        changed |= DrawFloatSliderRow(
-            "Feature.MultiDock.IconSize",
-            $"iconSize{id}",
-            dock.IconSize,
-            value => dock.IconSize = value,
-            24f,
-            96f,
-            "%.0f");
-        changed |= DrawFloatSliderRow(
-            "Feature.MultiDock.BackgroundOpacity",
-            $"opacity{id}",
-            dock.BackgroundOpacity,
-            value => dock.BackgroundOpacity = value,
-            0f,
+        ImGui.TableNextRow();
+        changed |= DrawFloatSliderCell(
+            "Feature.MultiDock.AutoDelay",
+            $"autoDelay{id}",
+            dock.AutoDelaySeconds,
+            value => dock.AutoDelaySeconds = value,
             1f,
-            "%.2f");
-        changed |= DrawIntSliderRow(
-            "Feature.MultiDock.ItemsPerRow",
-            $"itemsPerRow{id}",
-            dock.ItemsPerRow,
-            value => dock.ItemsPerRow = value,
-            1,
-            20);
-        changed |= DrawFloatSliderRow(
-            "Feature.MultiDock.IconSpacing",
-            $"spacing{id}",
-            dock.IconSpacing,
-            value => dock.IconSpacing = value,
-            0f,
-            40f,
+            120f,
             "%.0f");
-        changed |= DrawAutoModeRow(dock, id);
-        using (ImRaii.Disabled(dock.AutoMode == MultiDockAutoMode.None))
-        {
-            changed |= DrawFloatSliderRow(
-                "Feature.MultiDock.AutoDelay",
-                $"autoDelay{id}",
-                dock.AutoDelaySeconds,
-                value => dock.AutoDelaySeconds = value,
-                0f,
-                120f,
-                "%.0f");
-        }
-
-        changed |= DrawBoolComboRow(
+        changed |= DrawAutoModeComboCell(dock, id);
+        changed |= DrawBoolComboCell(
             "Feature.MultiDock.TogglePosition",
             $"togglePosition{id}",
             dock.ToggleAtEnd,
             value => dock.ToggleAtEnd = value,
             "Feature.MultiDock.TogglePosition.Start",
             "Feature.MultiDock.TogglePosition.End");
-        changed |= DrawBoolComboRow(
+        changed |= DrawBoolComboCell(
             "Feature.MultiDock.ExpandDirection",
             $"expandDirection{id}",
             dock.ReverseExpand,
             value => dock.ReverseExpand = value,
             "Feature.MultiDock.ExpandDirection.Forward",
             "Feature.MultiDock.ExpandDirection.Reverse");
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiDock.ToggleIcon"));
-        ImGui.TableNextColumn();
-        changed |= DrawIconEditor(dock.ToggleIcon, $"toggle{id}");
         return changed;
     }
 
@@ -251,39 +265,54 @@ internal sealed class MultiDockPanel
             {
                 ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiDock.PluginSource"));
                 ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiDock.WindowSource"));
-                ImGui.TableHeadersRow();
+                OmniControls.BeginTableHeaderRow();
+                OmniControls.TableHeader(
+                    OmniLoc.Get("Feature.MultiDock.PluginSource"),
+                    OmniLoc.Get("Feature.MultiDock.PluginSource.Help"));
+                OmniControls.TableHeader(
+                    OmniLoc.Get("Feature.MultiDock.WindowSource"),
+                    OmniLoc.Get("Feature.MultiDock.WindowSource.Help"));
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 changed |= DrawPluginPicker();
                 ImGui.TableNextColumn();
-                changed |= DrawWindowCreator();
+                changed |= DrawWindowPicker();
             }
         }
-
-        ImGui.Spacing();
-        OmniControls.SectionLabel(OmniLoc.Get("Feature.MultiDock.CurrentItems"));
-        changed |= DrawManagedItems(false);
         return changed;
     }
 
     private bool DrawPluginPicker()
     {
-        ImGui.SetNextItemWidth(-1f);
-        OmniControls.InputTextWithHint(
-            "##multiDockPluginFilter",
-            OmniLoc.Get("Feature.MultiDock.Filter"),
-            ref pluginFilter,
-            128);
         if (!ImGui.BeginChild(
                 "##multiDockPluginPicker",
-                new Vector2(0f, OmniTheme.Scale(210f)),
+                new Vector2(0f, OmniTheme.Scale(SourcePickerHeight)),
                 true))
         {
             ImGui.EndChild();
             return false;
         }
 
-        var changed = false;
+        ImGui.SetNextItemWidth(-1f);
+        OmniControls.InputTextWithHint(
+            "##multiDockPluginFilter",
+            OmniLoc.Get("Feature.MultiDock.Filter"),
+            ref pluginFilter,
+            128);
+        var changed = DrawDockToggleIconRow(
+            config.PluginDock,
+            "plugin",
+            "Feature.MultiDock.ToggleIcon.Plugin");
+        pluginItemIndices.Clear();
+        for (var i = 0; i < config.Items.Count; i++)
+        {
+            if (config.Items[i].Type == MultiDockItemType.Plugin)
+            {
+                pluginItemIndices[config.Items[i].PluginInternalName] = i;
+            }
+        }
+
+        pluginRows.Clear();
         foreach (var plugin in DalamudServices.PluginInterface.InstalledPlugins)
         {
             if (!plugin.IsLoaded || (!plugin.HasMainUi && !plugin.HasConfigUi) ||
@@ -294,78 +323,271 @@ internal sealed class MultiDockPanel
                 continue;
             }
 
-            var index = FindPlugin(plugin.InternalName);
+            pluginRows.Add(plugin);
+        }
+
+        pluginRows.Sort(ComparePluginRows);
+        var controlSize = new Vector2(OmniTheme.CheckboxSize());
+        var moveSpacing = OmniTheme.Scale(2f);
+        var cellPadding = ImGui.GetStyle().CellPadding.X * 2f;
+        for (var row = 0; row < pluginRows.Count; row++)
+        {
+            var plugin = pluginRows[row];
+            var index = pluginItemIndices.TryGetValue(plugin.InternalName, out var itemIndex) ? itemIndex : -1;
+            var previousIndex = index >= 0 ? FindAdjacent(index, MultiDockItemType.Plugin, -1) : -1;
+            var nextIndex = index >= 0 ? FindAdjacent(index, MultiDockItemType.Plugin, 1) : -1;
             var selected = index >= 0;
             ImGui.PushID(plugin.InternalName);
-            if (OmniControls.Checkbox(plugin.Name, ref selected))
+            var restart = false;
+            using (var table = ImRaii.Table(
+                       "##multiDockPluginRow",
+                       5,
+                       ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
+                       new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
             {
-                if (selected)
+                if (table)
                 {
-                    config.Items.Add(new()
+                    ImGui.TableSetupColumn(
+                        "##move",
+                        ImGuiTableColumnFlags.WidthFixed,
+                        controlSize.X * 2f + moveSpacing + cellPadding);
+                    ImGui.TableSetupColumn(
+                        "##check",
+                        ImGuiTableColumnFlags.WidthFixed,
+                        controlSize.X + cellPadding);
+                    ImGui.TableSetupColumn(
+                        "##icon",
+                        ImGuiTableColumnFlags.WidthFixed,
+                        controlSize.X + cellPadding);
+                    ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthStretch);
+                    ImGui.TableSetupColumn(
+                        "##edit",
+                        ImGuiTableColumnFlags.WidthFixed,
+                        controlSize.X + cellPadding);
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    using (ImRaii.Disabled(previousIndex < 0))
                     {
-                        Type = MultiDockItemType.Plugin,
-                        Name = plugin.Name,
-                        PluginInternalName = plugin.InternalName
-                    });
-                }
-                else
-                {
-                    config.Items.RemoveAt(index);
-                }
+                        if (OmniControls.IconButton(
+                                "up",
+                                FontAwesomeIcon.ChevronCircleUp,
+                                false,
+                                controlSize,
+                                OmniLoc.Get("Feature.MultiDock.MoveUp")))
+                        {
+                            MoveItem(index, previousIndex);
+                            changed = true;
+                            restart = true;
+                        }
+                    }
 
-                editingItemIndex = -1;
-                itemsChanged();
-                changed = true;
+                    ImGui.SameLine(0f, moveSpacing);
+                    using (ImRaii.Disabled(nextIndex < 0))
+                    {
+                        if (OmniControls.IconButton(
+                                "down",
+                                FontAwesomeIcon.ChevronCircleDown,
+                                false,
+                                controlSize,
+                                OmniLoc.Get("Feature.MultiDock.MoveDown")))
+                        {
+                            MoveItem(index, nextIndex);
+                            changed = true;
+                            restart = true;
+                        }
+                    }
+
+                    ImGui.TableNextColumn();
+                    if (OmniControls.Checkbox("##selected", ref selected))
+                    {
+                        if (selected)
+                        {
+                            config.Items.Add(new()
+                            {
+                                Type = MultiDockItemType.Plugin,
+                                Name = plugin.Name,
+                                PluginInternalName = plugin.InternalName
+                            });
+                        }
+                        else
+                        {
+                            config.Items.RemoveAt(index);
+                        }
+
+                        editingItemIndex = -1;
+                        editingToggleIconId = string.Empty;
+                        itemsChanged();
+                        changed = true;
+                        restart = true;
+                    }
+
+                    ImGui.TableNextColumn();
+                    if (feature.GetPluginTexture(plugin) is { } texture)
+                    {
+                        ImGui.Image(texture.Handle, controlSize);
+                    }
+                    else
+                    {
+                        ImGui.Dummy(controlSize);
+                    }
+
+                    ImGui.TableNextColumn();
+                    ImGui.AlignTextToFramePadding();
+                    ImGui.TextUnformatted(plugin.Name);
+                    if (ImGui.IsItemHovered())
+                    {
+                        ImGui.SetTooltip(plugin.InternalName);
+                    }
+
+                    ImGui.TableNextColumn();
+                    if (index >= 0 && OmniControls.IconButton(
+                            "edit",
+                            FontAwesomeIcon.Cog,
+                            editingItemIndex == index,
+                            controlSize,
+                            OmniLoc.Get("Feature.MultiDock.Edit")))
+                    {
+                        editingToggleIconId = string.Empty;
+                        editingItemIndex = editingItemIndex == index ? -1 : index;
+                    }
+                }
             }
 
-            if (ImGui.IsItemHovered())
+            if (!restart && index >= 0 && editingItemIndex == index)
             {
-                ImGui.SetTooltip(plugin.InternalName);
+                changed |= DrawItemEditor(config.Items[index], index);
             }
 
+            ImGui.Separator();
             ImGui.PopID();
+            if (restart)
+            {
+                break;
+            }
         }
 
         ImGui.EndChild();
         return changed;
     }
 
-    private bool DrawWindowCreator()
+    private bool DrawWindowPicker()
     {
-        var changed = false;
-        ImGui.SetNextItemWidth(-1f);
-        OmniControls.InputTextWithHint(
-            "##multiDockWindowName",
-            OmniLoc.Get("Feature.MultiDock.WindowName"),
-            ref windowName,
-            256);
-        ImGui.SetNextItemWidth(-1f);
-        OmniControls.InputTextWithHint(
-            "##multiDockWindowDisplayName",
-            OmniLoc.Get("Feature.MultiDock.DisplayName"),
-            ref windowDisplayName,
-            128);
-        using (ImRaii.Disabled(windowName.Trim().Length == 0 || FindWindow(windowName.Trim()) >= 0))
+        if (!ImGui.BeginChild(
+                "##multiDockWindowPicker",
+                new Vector2(0f, OmniTheme.Scale(SourcePickerHeight)),
+                true))
         {
-            if (OmniControls.SmallButton(
-                    OmniLoc.Get("Feature.MultiDock.AddWindow"),
-                    false,
-                    new Vector2(ImGui.GetContentRegionAvail().X, OmniTheme.SmallButtonSize().Y)))
+            ImGui.EndChild();
+            return false;
+        }
+
+        if (!windowRowsLoaded)
+        {
+            RefreshWindowRows();
+        }
+
+        var refreshSize = new Vector2(OmniTheme.CheckboxSize());
+        ImGui.SetNextItemWidth(MathF.Max(
+            OmniTheme.Scale(120f),
+            ImGui.GetContentRegionAvail().X - refreshSize.X - ImGui.GetStyle().ItemSpacing.X));
+        OmniControls.InputTextWithHint(
+            "##multiDockWindowFilter",
+            OmniLoc.Get("Feature.MultiDock.Filter"),
+            ref windowFilter,
+            128);
+        ImGui.SameLine();
+        if (OmniControls.IconButton(
+                "refreshWindows",
+                FontAwesomeIcon.SyncAlt,
+                false,
+                refreshSize,
+                OmniLoc.Get("Feature.MultiDock.WindowSource.Refresh")))
+        {
+            RefreshWindowRows();
+        }
+
+        var changed = false;
+        var hasVisibleRows = false;
+        var filter = windowFilter.Trim();
+        for (var row = 0; row < windowRows.Count; row++)
+        {
+            var candidate = windowRows[row];
+            if (filter.Length > 0 &&
+                !candidate.PluginName.Contains(filter, StringComparison.OrdinalIgnoreCase) &&
+                !candidate.DisplayName.Contains(filter, StringComparison.OrdinalIgnoreCase) &&
+                !candidate.WindowName.Contains(filter, StringComparison.OrdinalIgnoreCase))
             {
-                config.Items.Add(new()
+                continue;
+            }
+
+            hasVisibleRows = true;
+            var key = MultiDockFeature.NormalizeWindowKey(candidate.WindowName);
+            var index = FindWindow(candidate.WindowName);
+            var selected = config.HiddenWindows.Contains(key);
+            ImGui.PushID($"{candidate.PluginInternalName}_{key}_{row}");
+            if (OmniControls.Checkbox("##selected", ref selected))
+            {
+                if (selected)
                 {
-                    Type = MultiDockItemType.ImGuiWindow,
-                    Name = windowDisplayName.Trim(),
-                    WindowName = windowName.Trim()
-                });
-                windowName = string.Empty;
-                windowDisplayName = string.Empty;
+                    if (index < 0)
+                    {
+                        config.Items.Add(new()
+                        {
+                            Type = MultiDockItemType.ImGuiWindow,
+                            Name = candidate.DisplayName,
+                            WindowName = candidate.WindowName,
+                            LinkedPluginInternalName = candidate.PluginInternalName
+                        });
+                    }
+                    else
+                    {
+                        config.Items[index].LinkedPluginInternalName = candidate.PluginInternalName;
+                    }
+
+                    config.HiddenWindows.Add(key);
+                }
+                else
+                {
+                    if (index >= 0)
+                    {
+                        config.Items.RemoveAt(index);
+                    }
+
+                    config.HiddenWindows.Remove(key);
+                }
+
+                editingItemIndex = -1;
+                editingToggleIconId = string.Empty;
                 itemsChanged();
                 changed = true;
             }
+
+            ImGui.SameLine();
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted($"{candidate.PluginName} · {candidate.DisplayName}");
+            if (!candidate.DisplayName.Equals(candidate.WindowName, StringComparison.Ordinal))
+            {
+                ImGui.TextDisabled(candidate.WindowName);
+            }
+
+            ImGui.Separator();
+            ImGui.PopID();
         }
 
+        if (!hasVisibleRows)
+        {
+            ImGui.TextDisabled(OmniLoc.Get("Feature.MultiDock.WindowSource.Empty"));
+        }
+
+        ImGui.EndChild();
         return changed;
+    }
+
+    private void RefreshWindowRows()
+    {
+        windowRows.Clear();
+        windowRows.AddRange(feature.GetWindowCandidates());
+        windowRowsLoaded = true;
     }
 
     private bool DrawCommandManagement()
@@ -381,18 +603,40 @@ internal sealed class MultiDockPanel
             {
                 ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiDock.CommandSource"));
                 ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiDock.CommandBrowser"));
-                ImGui.TableHeadersRow();
+                OmniControls.BeginTableHeaderRow();
+                OmniControls.TableHeader(OmniLoc.Get("Feature.MultiDock.CommandSource"));
+                OmniControls.TableHeader(
+                    OmniLoc.Get("Feature.MultiDock.CommandBrowser"),
+                    OmniLoc.Get("Feature.MultiDock.CommandBrowser.Help"));
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
-                changed |= DrawCommandCreator();
+                if (ImGui.BeginChild(
+                        "##multiDockCommandManagement",
+                        new Vector2(0f, OmniTheme.Scale(CommandSectionHeight)),
+                        true))
+                {
+                    changed |= DrawDockToggleIconRow(
+                        config.CommandDock,
+                        "command",
+                        "Feature.MultiDock.ToggleIcon.Command");
+                    changed |= DrawManagedCommands();
+                    ImGui.Spacing();
+                    changed |= DrawCommandCreator();
+                }
+
+                ImGui.EndChild();
                 ImGui.TableNextColumn();
-                changed |= DrawCommandBrowser();
+                if (ImGui.BeginChild(
+                        "##multiDockCommandBrowser",
+                        new Vector2(0f, OmniTheme.Scale(CommandSectionHeight)),
+                        true))
+                {
+                    changed |= DrawCommandBrowser();
+                }
+
+                ImGui.EndChild();
             }
         }
-
-        ImGui.Spacing();
-        OmniControls.SectionLabel(OmniLoc.Get("Feature.MultiDock.CurrentCommands"));
-        changed |= DrawManagedItems(true);
         return changed;
     }
 
@@ -441,15 +685,6 @@ internal sealed class MultiDockPanel
             OmniLoc.Get("Feature.MultiDock.Filter"),
             ref commandFilter,
             128);
-        if (!ImGui.BeginChild(
-                "##multiDockCommandBrowser",
-                new Vector2(0f, OmniTheme.Scale(210f)),
-                true))
-        {
-            ImGui.EndChild();
-            return false;
-        }
-
         var changed = false;
         foreach (var pair in DalamudServices.CommandManager.Commands)
         {
@@ -469,7 +704,9 @@ internal sealed class MultiDockPanel
             var index = FindCommand(command);
             var selected = index >= 0;
             ImGui.PushID(command);
-            if (OmniControls.Checkbox(command, ref selected))
+            if (OmniControls.Checkbox(
+                    help.Length > 0 ? $"{command} → {help}" : command,
+                    ref selected))
             {
                 if (selected)
                 {
@@ -490,23 +727,16 @@ internal sealed class MultiDockPanel
                 changed = true;
             }
 
-            if (help.Length > 0 && ImGui.IsItemHovered())
-            {
-                ImGui.SetTooltip(help);
-            }
-
             ImGui.PopID();
         }
-
-        ImGui.EndChild();
         return changed;
     }
 
-    private bool DrawManagedItems(bool commandsOnly)
+    private bool DrawManagedCommands()
     {
         var changed = false;
         using (var table = ImRaii.Table(
-                   commandsOnly ? "##multiDockManagedCommands" : "##multiDockManagedPluginWindows",
+                   "##multiDockManagedCommands",
                    5,
                    ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.RowBg,
                    new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
@@ -523,16 +753,18 @@ internal sealed class MultiDockPanel
             ImGui.TableSetupColumn("##delete", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(32f));
             for (var i = 0; i < config.Items.Count; i++)
             {
-                if ((config.Items[i].Type == MultiDockItemType.Command) != commandsOnly)
+                if (config.Items[i].Type != MultiDockItemType.Command)
                 {
                     continue;
                 }
 
+                var previousIndex = FindAdjacent(i, MultiDockItemType.Command, -1);
+                var nextIndex = FindAdjacent(i, MultiDockItemType.Command, 1);
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 ImGui.TextUnformatted(GetItemName(config.Items[i]));
                 ImGui.TableNextColumn();
-                using (ImRaii.Disabled(FindAdjacent(i, commandsOnly, -1) < 0))
+                using (ImRaii.Disabled(previousIndex < 0))
                 {
                     if (OmniControls.IconButton(
                             $"moveUp{i}",
@@ -540,13 +772,13 @@ internal sealed class MultiDockPanel
                             false,
                             OmniLoc.Get("Feature.MultiDock.MoveUp")))
                     {
-                        MoveItem(i, FindAdjacent(i, commandsOnly, -1));
+                        MoveItem(i, previousIndex);
                         changed = true;
                     }
                 }
 
                 ImGui.TableNextColumn();
-                using (ImRaii.Disabled(FindAdjacent(i, commandsOnly, 1) < 0))
+                using (ImRaii.Disabled(nextIndex < 0))
                 {
                     if (OmniControls.IconButton(
                             $"moveDown{i}",
@@ -554,7 +786,7 @@ internal sealed class MultiDockPanel
                             false,
                             OmniLoc.Get("Feature.MultiDock.MoveDown")))
                     {
-                        MoveItem(i, FindAdjacent(i, commandsOnly, 1));
+                        MoveItem(i, nextIndex);
                         changed = true;
                     }
                 }
@@ -566,6 +798,7 @@ internal sealed class MultiDockPanel
                         editingItemIndex == i,
                         OmniLoc.Get("Feature.MultiDock.Edit")))
                 {
+                    editingToggleIconId = string.Empty;
                     editingItemIndex = editingItemIndex == i ? -1 : i;
                 }
 
@@ -588,7 +821,7 @@ internal sealed class MultiDockPanel
         }
 
         if (editingItemIndex >= 0 && editingItemIndex < config.Items.Count &&
-            (config.Items[editingItemIndex].Type == MultiDockItemType.Command) == commandsOnly)
+            config.Items[editingItemIndex].Type == MultiDockItemType.Command)
         {
             changed |= DrawItemEditor(config.Items[editingItemIndex], editingItemIndex);
         }
@@ -766,6 +999,50 @@ internal sealed class MultiDockPanel
         return changed;
     }
 
+    private bool DrawDockToggleIconRow(
+        MultiDockBarConfig dock,
+        string id,
+        string labelKey)
+    {
+        var changed = false;
+        ImGui.PushID($"toggleIcon{id}");
+        using (var table = ImRaii.Table(
+                   "##multiDockToggleIconRow",
+                   2,
+                   ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
+                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+        {
+            if (table)
+            {
+                ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthStretch);
+                ImGui.TableSetupColumn("##edit", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(32f));
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextUnformatted(OmniLoc.Get(labelKey));
+                ImGui.TableNextColumn();
+                if (OmniControls.IconButton(
+                        "edit",
+                        FontAwesomeIcon.Cog,
+                        editingToggleIconId == id,
+                        OmniLoc.Get("Feature.MultiDock.Edit")))
+                {
+                    editingItemIndex = -1;
+                    editingToggleIconId = editingToggleIconId == id ? string.Empty : id;
+                }
+            }
+        }
+
+        if (editingToggleIconId == id)
+        {
+            changed |= DrawIconEditor(dock.ToggleIcon, id);
+        }
+
+        ImGui.Separator();
+        ImGui.PopID();
+        return changed;
+    }
+
     private bool DrawIconEditor(MultiDockIconConfig icon, string id)
     {
         var changed = false;
@@ -901,7 +1178,45 @@ internal sealed class MultiDockPanel
         return true;
     }
 
-    private static bool DrawFloatSliderRow(
+    private static bool DrawAutoModeComboCell(MultiDockBarConfig dock, string id)
+    {
+        ImGui.TableNextColumn();
+        var label = OmniLoc.Get("Feature.MultiDock.AutoMode");
+        var changed = false;
+        if (OmniControls.BeginCombo(
+                $"##autoMode{id}",
+                GetAutoModeLabel(dock.AutoMode),
+                GetInlineControlWidth(label)))
+        {
+            for (var i = 0; i < AutoModes.Length; i++)
+            {
+                if (!ImGui.Selectable(GetAutoModeLabel(AutoModes[i]), dock.AutoMode == AutoModes[i]))
+                {
+                    continue;
+                }
+
+                dock.AutoMode = AutoModes[i];
+                changed = true;
+            }
+
+            ImGui.EndCombo();
+        }
+
+        ImGui.SameLine();
+        ImGui.TextUnformatted(label);
+        ImGui.SameLine();
+        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.MultiDock.AutoMode.Help"));
+        return changed;
+    }
+
+    private static string GetAutoModeLabel(MultiDockAutoMode mode) => OmniLoc.Get(mode switch
+    {
+        MultiDockAutoMode.Hide => "Feature.MultiDock.AutoMode.Hide",
+        MultiDockAutoMode.Collapse => "Feature.MultiDock.AutoMode.Collapse",
+        _ => "Feature.MultiDock.AutoMode.None"
+    });
+
+    private static bool DrawFloatSliderCell(
         string labelKey,
         string id,
         float current,
@@ -910,23 +1225,18 @@ internal sealed class MultiDockPanel
         float max,
         string format)
     {
-        ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        ImGui.TextUnformatted(OmniLoc.Get(labelKey));
-        ImGui.TableNextColumn();
+        var label = OmniLoc.Get(labelKey);
         var value = current;
-        OmniControls.SliderFloat($"##{id}", ref value, min, max, format, ImGui.GetContentRegionAvail().X);
-        if (!ImGui.IsItemDeactivatedAfterEdit())
-        {
-            setter(value);
-            return false;
-        }
-
+        OmniControls.SliderFloat($"##{id}", ref value, min, max, format, GetInlineControlWidth(label));
+        var changed = ImGui.IsItemDeactivatedAfterEdit();
         setter(value);
-        return true;
+        ImGui.SameLine();
+        ImGui.TextUnformatted(label);
+        return changed;
     }
 
-    private static bool DrawIntSliderRow(
+    private static bool DrawIntSliderCell(
         string labelKey,
         string id,
         int current,
@@ -934,63 +1244,18 @@ internal sealed class MultiDockPanel
         int min,
         int max)
     {
-        ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        ImGui.TextUnformatted(OmniLoc.Get(labelKey));
-        ImGui.TableNextColumn();
+        var label = OmniLoc.Get(labelKey);
         var value = current;
-        OmniControls.SliderInt($"##{id}", ref value, min, max, "%d", ImGui.GetContentRegionAvail().X);
-        if (!ImGui.IsItemDeactivatedAfterEdit())
-        {
-            setter(value);
-            return false;
-        }
-
+        OmniControls.SliderInt($"##{id}", ref value, min, max, "%d", GetInlineControlWidth(label));
+        var changed = ImGui.IsItemDeactivatedAfterEdit();
         setter(value);
-        return true;
-    }
-
-    private static bool DrawAutoModeRow(MultiDockBarConfig dock, string id)
-    {
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiDock.AutoMode"));
-        ImGui.TableNextColumn();
-        if (!OmniControls.BeginCombo(
-                $"##autoMode{id}",
-                OmniLoc.Get(dock.AutoMode switch
-                {
-                    MultiDockAutoMode.Hide => "Feature.MultiDock.AutoMode.Hide",
-                    MultiDockAutoMode.Collapse => "Feature.MultiDock.AutoMode.Collapse",
-                    _ => "Feature.MultiDock.AutoMode.None"
-                }),
-                ImGui.GetContentRegionAvail().X))
-        {
-            return false;
-        }
-
-        var changed = false;
-        foreach (var mode in Enum.GetValues<MultiDockAutoMode>())
-        {
-            if (ImGui.Selectable(
-                    OmniLoc.Get(mode switch
-                    {
-                        MultiDockAutoMode.Hide => "Feature.MultiDock.AutoMode.Hide",
-                        MultiDockAutoMode.Collapse => "Feature.MultiDock.AutoMode.Collapse",
-                        _ => "Feature.MultiDock.AutoMode.None"
-                    }),
-                    dock.AutoMode == mode))
-            {
-                dock.AutoMode = mode;
-                changed = true;
-            }
-        }
-
-        ImGui.EndCombo();
+        ImGui.SameLine();
+        ImGui.TextUnformatted(label);
         return changed;
     }
 
-    private static bool DrawBoolComboRow(
+    private static bool DrawBoolComboCell(
         string labelKey,
         string id,
         bool current,
@@ -998,33 +1263,58 @@ internal sealed class MultiDockPanel
         string falseLabelKey,
         string trueLabelKey)
     {
-        ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        ImGui.TextUnformatted(OmniLoc.Get(labelKey));
-        ImGui.TableNextColumn();
-        if (!OmniControls.BeginCombo(
+        var label = OmniLoc.Get(labelKey);
+        var changed = false;
+        if (OmniControls.BeginCombo(
                 $"##{id}",
                 OmniLoc.Get(current ? trueLabelKey : falseLabelKey),
-                ImGui.GetContentRegionAvail().X))
+                GetInlineControlWidth(label)))
         {
-            return false;
+            if (ImGui.Selectable(OmniLoc.Get(falseLabelKey), !current))
+            {
+                setter(false);
+                changed = true;
+            }
+
+            if (ImGui.Selectable(OmniLoc.Get(trueLabelKey), current))
+            {
+                setter(true);
+                changed = true;
+            }
+
+            ImGui.EndCombo();
         }
 
-        var changed = false;
-        if (ImGui.Selectable(OmniLoc.Get(falseLabelKey), !current))
-        {
-            setter(false);
-            changed = true;
-        }
-
-        if (ImGui.Selectable(OmniLoc.Get(trueLabelKey), current))
-        {
-            setter(true);
-            changed = true;
-        }
-
-        ImGui.EndCombo();
+        ImGui.SameLine();
+        ImGui.TextUnformatted(label);
         return changed;
+    }
+
+    private static float GetInlineControlWidth(string label) =>
+        MathF.Max(
+            OmniTheme.Scale(80f),
+            ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(label).X - ImGui.GetStyle().ItemSpacing.X);
+
+    private int ComparePluginRows(IExposedPlugin left, IExposedPlugin right)
+    {
+        var hasLeftIndex = pluginItemIndices.TryGetValue(left.InternalName, out var leftIndex);
+        var hasRightIndex = pluginItemIndices.TryGetValue(right.InternalName, out var rightIndex);
+        if (hasLeftIndex != hasRightIndex)
+        {
+            return hasLeftIndex ? -1 : 1;
+        }
+
+        if (hasLeftIndex)
+        {
+            var order = leftIndex.CompareTo(rightIndex);
+            if (order != 0)
+            {
+                return order;
+            }
+        }
+
+        return string.Compare(left.Name, right.Name, StringComparison.OrdinalIgnoreCase);
     }
 
     private int FindPlugin(string internalName)
@@ -1071,11 +1361,11 @@ internal sealed class MultiDockPanel
         return -1;
     }
 
-    private int FindAdjacent(int index, bool commandsOnly, int step)
+    private int FindAdjacent(int index, MultiDockItemType itemType, int step)
     {
         for (var i = index + step; i >= 0 && i < config.Items.Count; i += step)
         {
-            if ((config.Items[i].Type == MultiDockItemType.Command) == commandsOnly)
+            if (config.Items[i].Type == itemType)
             {
                 return i;
             }

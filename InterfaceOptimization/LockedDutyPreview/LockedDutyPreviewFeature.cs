@@ -1,5 +1,6 @@
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
@@ -24,8 +25,7 @@ public sealed unsafe class LockedDutyPreviewFeature(
     private const string ContentsFinderAddonName = "ContentsFinder";
     private const int RefreshIntervalMs = 5_000;
     private const float ScreenPadding = 8f;
-    private const float ContentsFinderGap = 40f;
-    private const float PreviewScale = 0.5f;
+    private const float ContentsFinderGap = 38f;
 
     private readonly LockedDutyPreviewResolver resolver = new();
     private readonly List<LockedDutyPreviewRow> lockedRows = [];
@@ -137,18 +137,17 @@ public sealed unsafe class LockedDutyPreviewFeature(
         if (!nativeUi.IsOpen)
         {
             nativeUi.Open();
+            var agent = AgentContentsFinder.Instance();
+            if (agent != null)
+            {
+                agent->FocusAddon();
+            }
         }
 
         AtkUnitBase* previewAddon = nativeUi;
         if (previewAddon == null || previewAddon->WindowNode == null)
         {
             return;
-        }
-
-        var targetScale = addon->Scale * PreviewScale;
-        if (MathF.Abs(previewAddon->Scale - targetScale) > 0.001f)
-        {
-            previewAddon->SetScale(targetScale / AtkUnitBase.GetGlobalUIScale(), true);
         }
 
         var state = windowNode->GetNodeState();

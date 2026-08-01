@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using Dalamud.Game.Text;
 using Dalamud.Interface.Windowing;
 using Dalamud.Interface.Textures;
+using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Plugin;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
@@ -25,6 +26,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
     private const string CommandDockWindowName = "指令收纳###OmniToolbox.MultiDock.Command";
     private const string PluginDockWindowKey = "###OmniToolbox.MultiDock.Plugin";
     private const string CommandDockWindowKey = "###OmniToolbox.MultiDock.Command";
+    private static readonly string[] LauncherDirectoryNames = ["XIVLauncherCN", "XIVLauncher"];
 
     private readonly MultiDockConfig config;
     private readonly Action saveConfig;
@@ -32,6 +34,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
     private readonly List<MultiDockItemConfig> pluginItems = [];
     private readonly List<MultiDockItemConfig> commandItems = [];
     private readonly Dictionary<string, ISharedImmediateTexture?> fileTextures = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> pluginIconSources = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> failedTexturePaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> appliedHiddenWindows = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> runtimeClosedPluginWindows = new(StringComparer.OrdinalIgnoreCase);
@@ -57,6 +60,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         RefreshItemCaches();
         panel = new(
             config,
+            this,
             iconBrowser,
             saveConfig,
             OnItemsChanged,
@@ -351,7 +355,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
             return DrawStyledButton(seIcon.ToIconString(), iconSize, opacity);
         }
 
-        return DrawIconButton(item.Icon, iconSize, opacity);
+        return DrawTextureButton(GetItemTexture(item), iconSize, opacity);
     }
 
     private bool DrawIconButton(MultiDockIconConfig icon, float iconSize, float opacity)
@@ -359,6 +363,11 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         var wrap = icon.GameIconId != 0
             ? ImageHelper.GetGameIcon(icon.GameIconId)
             : (GetFileTexture(icon.FilePath) ?? GetFallbackTexture())?.GetWrapOrDefault();
+        return DrawTextureButton(wrap, iconSize, opacity);
+    }
+
+    private static bool DrawTextureButton(IDalamudTextureWrap? wrap, float iconSize, float opacity)
+    {
         if (wrap is null || wrap.Handle == IntPtr.Zero)
         {
             return DrawStyledButton("OT", iconSize, opacity);
@@ -746,6 +755,66 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         return result;
     }
 
+    internal IReadOnlyList<MultiDockWindowCandidate> GetWindowCandidates()
+    {
+        var result = new List<MultiDockWindowCandidate>();
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var plugin in DalamudServices.PluginInterface.InstalledPlugins)
+        {
+            if (!plugin.IsLoaded ||
+                plugin.InternalName.Equals(
+                    DalamudServices.PluginInterface.InternalName,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var windowSystems = FindPluginWindowSystems(plugin);
+            for (var i = 0; i < windowSystems.Count; i++)
+            {
+                foreach (var window in windowSystems[i].Windows)
+                {
+                    var key = NormalizeWindowKey(window.WindowName);
+                    if (key.Length == 0 || IsOwnDockWindowKey(key) || !seenKeys.Add(key))
+                    {
+                        continue;
+                    }
+
+                    result.Add(new(
+                        plugin.InternalName,
+                        plugin.Name,
+                        window.WindowName,
+                        BuildWindowDisplayName(window.WindowName)));
+                }
+            }
+        }
+
+        result.Sort(static (left, right) =>
+        {
+            var order = StringComparer.OrdinalIgnoreCase.Compare(left.PluginName, right.PluginName);
+            return order != 0
+                ? order
+                : StringComparer.OrdinalIgnoreCase.Compare(left.DisplayName, right.DisplayName);
+        });
+        return result;
+    }
+
+    private static string BuildWindowDisplayName(string name)
+    {
+        var value = name.Trim();
+        var separator = value.IndexOf("###", StringComparison.Ordinal);
+        if (separator == 0)
+        {
+            value = value[3..].Trim();
+        }
+        else if (separator > 0)
+        {
+            value = value[..separator].Trim();
+        }
+
+        return value.Length > 0 ? value : name;
+    }
+
     private static void OpenPlugin(IExposedPlugin plugin, bool preferConfigUi)
     {
         try
@@ -1058,6 +1127,113 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
                mouse.Y <= position.Y + size.Y;
     }
 
+    private IDalamudTextureWrap? GetItemTexture(MultiDockItemConfig item)
+    {
+        if (item.Icon.GameIconId != 0)
+        {
+            return ImageHelper.GetGameIcon(item.Icon.GameIconId);
+        }
+
+        var customTexture = GetFileTexture(item.Icon.FilePath)?.GetWrapOrDefault();
+        if (customTexture is not null)
+        {
+            return customTexture;
+        }
+
+        var pluginInternalName = item.Type switch
+        {
+            MultiDockItemType.Plugin => item.PluginInternalName,
+            MultiDockItemType.ImGuiWindow => item.LinkedPluginInternalName,
+            _ => string.Empty
+        };
+        var plugin = FindPlugin(pluginInternalName);
+        return plugin is not null
+            ? GetPluginTexture(plugin)
+            : GetFallbackTexture()?.GetWrapOrDefault();
+    }
+
+    internal IDalamudTextureWrap? GetPluginTexture(IExposedPlugin plugin)
+    {
+        var source = GetPluginIconSource(plugin);
+        return source.Length > 0 && ImageHelper.Instance().GetImage(source) is { } texture
+            ? texture
+            : GetFallbackTexture()?.GetWrapOrDefault();
+    }
+
+    private string GetPluginIconSource(IExposedPlugin plugin)
+    {
+        if (pluginIconSources.TryGetValue(plugin.InternalName, out var source))
+        {
+            return source;
+        }
+
+        source = FindLocalPluginIcon(plugin) ?? plugin.Manifest.IconUrl?.Trim() ?? string.Empty;
+        if (source.Length == 0 && !string.IsNullOrWhiteSpace(plugin.Manifest.Dip17Channel))
+        {
+            source = $"https://raw.githubusercontent.com/goatcorp/PluginDistD17/main/{Uri.EscapeDataString(plugin.Manifest.Dip17Channel)}/{Uri.EscapeDataString(plugin.InternalName)}/images/icon.png";
+        }
+
+        pluginIconSources[plugin.InternalName] = source;
+        return source;
+    }
+
+    private static string? FindLocalPluginIcon(IExposedPlugin plugin)
+    {
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            foreach (var launcher in LauncherDirectoryNames)
+            {
+                var versionDirectory = Path.Combine(
+                    appData,
+                    launcher,
+                    "installedPlugins",
+                    plugin.InternalName,
+                    plugin.Version.ToString());
+                if (!Directory.Exists(versionDirectory))
+                {
+                    continue;
+                }
+
+                string? fallback = null;
+                foreach (var file in Directory.EnumerateFiles(versionDirectory, "*", SearchOption.AllDirectories))
+                {
+                    if (!IsSupportedPluginIcon(file))
+                    {
+                        continue;
+                    }
+
+                    var name = Path.GetFileNameWithoutExtension(file);
+                    if (name.Equals("icon", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return file;
+                    }
+
+                    if (fallback is null && name.Contains("icon", StringComparison.OrdinalIgnoreCase))
+                    {
+                        fallback = file;
+                    }
+                }
+
+                if (fallback is not null)
+                {
+                    return fallback;
+                }
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return null;
+    }
+
+    private static bool IsSupportedPluginIcon(string path) => Path.GetExtension(path).ToLowerInvariant() is
+        ".png" or ".jpg" or ".jpeg" or ".webp" or ".bmp";
+
     private ISharedImmediateTexture? GetFileTexture(string path)
     {
         if (path.Length == 0)
@@ -1158,7 +1334,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         dock.BackgroundOpacity = Math.Clamp(dock.BackgroundOpacity, 0f, 1f);
         dock.ItemsPerRow = Math.Clamp(dock.ItemsPerRow, 1, 20);
         dock.AutoMode = Enum.IsDefined(dock.AutoMode) ? dock.AutoMode : MultiDockAutoMode.None;
-        dock.AutoDelaySeconds = Math.Clamp(dock.AutoDelaySeconds, 0f, 120f);
+        dock.AutoDelaySeconds = Math.Clamp(dock.AutoDelaySeconds, 1f, 120f);
         dock.ToggleIcon ??= new();
         NormalizeIcon(dock.ToggleIcon);
     }
@@ -1266,6 +1442,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
     private void InvalidateTextures()
     {
         fileTextures.Clear();
+        pluginIconSources.Clear();
         failedTexturePaths.Clear();
         fallbackTexture = null;
         fallbackTextureLoaded = false;
@@ -1313,3 +1490,9 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         }
     }
 }
+
+internal readonly record struct MultiDockWindowCandidate(
+    string PluginInternalName,
+    string PluginName,
+    string WindowName,
+    string DisplayName);
