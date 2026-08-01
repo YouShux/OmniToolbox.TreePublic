@@ -15,9 +15,9 @@ using OmniToolbox.Host;
 using OmniToolbox.Items;
 using OmniToolbox.Lifecycle;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
-internal sealed unsafe class RealItemIconNativeUi : IDisposable
+internal sealed unsafe class RealItemIconNativeUI : IDisposable
 {
     private const string GlassesAddonName = "TryonGlassesSelect";
     private const string ItemDetailAddonName = "ItemDetail";
@@ -66,7 +66,7 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
     private readonly List<nint> keysToRemove = [];
     private bool disposed;
 
-    public RealItemIconNativeUi(
+    public RealItemIconNativeUI(
         RealItemIconConfig config,
         PlayerInventoryService inventoryService)
     {
@@ -216,17 +216,17 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
                 continue;
             }
 
-            var glassesId = ResolveGlassesId(renderer, index);
-            if (glassesId == 0 || !resolver.TryGetByGlassesId(glassesId, out var replacement))
+            var glassesID = ResolveGlassesID(renderer, index);
+            if (glassesID == 0 || !resolver.TryGetByGlassesID(glassesID, out var replacement))
             {
                 RestoreTarget((nint)addon, target);
                 RemoveOverlay(target.Node);
                 continue;
             }
 
-            if (ApplyReplacement((nint)addon, target, replacement.IconId))
+            if (ApplyReplacement((nint)addon, target, replacement.iconID))
             {
-                ApplyOverlay(target.Node, resolver.IsGlassesUnlocked(glassesId), (nint)addon);
+                ApplyOverlay(target.Node, resolver.IsGlassesUnlocked(glassesID), (nint)addon);
                 continue;
             }
 
@@ -235,27 +235,27 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         }
     }
 
-    private uint ResolveGlassesId(AtkComponentListItemRenderer* renderer, int visibleIndex)
+    private uint ResolveGlassesID(AtkComponentListItemRenderer* renderer, int visibleIndex)
     {
         if (renderer->ListItemIndex >= 0 &&
-            resolver.TryGetByGlassesId((uint)(renderer->ListItemIndex + 1), out var byItemIndex))
+            resolver.TryGetByGlassesID((uint)(renderer->ListItemIndex + 1), out var byItemIndex))
         {
-            return byItemIndex.GlassesId;
+            return byItemIndex.GlassesID;
         }
 
-        if (resolver.TryGetByGlassesId((uint)(visibleIndex + 1), out var byVisibleIndex))
+        if (resolver.TryGetByGlassesID((uint)(visibleIndex + 1), out var byVisibleIndex))
         {
-            return byVisibleIndex.GlassesId;
+            return byVisibleIndex.GlassesID;
         }
 
-        return TryFindGlassesIdInTextNodes(&renderer->UldManager, 0, out var glassesId)
+        return TryFindGlassesIDInTextNodes(&renderer->UldManager, 0, out var glassesId)
             ? glassesId
             : 0;
     }
 
-    private bool TryFindGlassesIdInTextNodes(AtkUldManager* uld, int depth, out uint glassesId)
+    private bool TryFindGlassesIDInTextNodes(AtkUldManager* uld, int depth, out uint glassesID)
     {
-        glassesId = 0;
+        glassesID = 0;
         if (uld == null || depth > MaxNodeDepth || uld->NodeList == null)
         {
             return false;
@@ -271,9 +271,9 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
 
             if (node->Type == NodeType.Text &&
                 TryParseDigits(((AtkTextNode*)node)->NodeText.ToString(), out var parsed) &&
-                resolver.TryGetByGlassesId(parsed, out _))
+                resolver.TryGetByGlassesID(parsed, out _))
             {
-                glassesId = parsed;
+                glassesID = parsed;
                 return true;
             }
 
@@ -284,7 +284,7 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
 
             var component = node->GetAsAtkComponentNode()->Component;
             if (component != null &&
-                TryFindGlassesIdInTextNodes(&component->UldManager, depth + 1, out glassesId))
+                TryFindGlassesIDInTextNodes(&component->UldManager, depth + 1, out glassesID))
             {
                 return true;
             }
@@ -322,7 +322,7 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         var agent = AgentItemDetail.Instance();
         if (addon == null ||
             agent == null ||
-            !resolver.TryGetByItemId(agent->ItemId, out var replacement))
+            !resolver.TryGetByItemID(agent->ItemId, out var replacement))
         {
             RestoreAddon((nint)addon);
             return;
@@ -332,7 +332,7 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         var primaryTarget = CreateTarget(*(AtkComponentIcon**)((byte*)addon + ItemDetailIconOffset));
         if (!primaryTarget.IsEmpty)
         {
-            if (ApplyReplacement((nint)addon, primaryTarget, replacement.IconId))
+            if (ApplyReplacement((nint)addon, primaryTarget, replacement.iconID))
             {
                 RemoveOverlay(primaryTarget.Node);
                 return;
@@ -345,7 +345,7 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         var fallbackTarget = FindBestDetailIconTarget(&addon->UldManager);
         if (!fallbackTarget.IsEmpty &&
             fallbackTarget.Address != primaryTarget.Address &&
-            ApplyReplacement((nint)addon, fallbackTarget, replacement.IconId))
+            ApplyReplacement((nint)addon, fallbackTarget, replacement.iconID))
         {
             RemoveOverlay(fallbackTarget.Node);
         }
@@ -425,19 +425,19 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
             }
 
             var target = CreateTarget(dragDrop);
-            if (!TryGetInventoryItemId(addon, sorter, index, parentTabOverride, out var itemId) ||
-                !resolver.TryGetByItemId(itemId, out var replacement))
+            if (!TryGetInventoryItemID(addon, sorter, index, parentTabOverride, out var itemId) ||
+                !resolver.TryGetByItemID(itemId, out var replacement))
             {
                 RestoreTarget((nint)addon, target);
                 RemoveOverlay(target.Node);
                 continue;
             }
 
-            if (ApplyReplacement((nint)addon, target, replacement.IconId))
+            if (ApplyReplacement((nint)addon, target, replacement.iconID))
             {
                 ApplyOverlay(
                     target.Node,
-                    resolver.IsGlassesUnlocked(replacement.GlassesId),
+                    resolver.IsGlassesUnlocked(replacement.GlassesID),
                     (nint)addon);
                 continue;
             }
@@ -447,14 +447,14 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         }
     }
 
-    private bool TryGetInventoryItemId(
+    private bool TryGetInventoryItemID(
         AtkUnitBase* addon,
         ItemOrderModuleSorter* sorter,
         int visibleSlot,
         int parentTabOverride,
-        out uint itemId)
+        out uint itemID)
     {
-        itemId = 0;
+        itemID = 0;
         var parentTab = parentTabOverride == int.MinValue
             ? GetParentInventoryTab(addon)
             : parentTabOverride;
@@ -473,15 +473,15 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
             return false;
         }
 
-        var holderId = GetInventoryHolderId(addon->NameString);
-        return holderId != 0 && inventoryIndex.TryGetItemId(
-            holderId,
+        var holderID = GetInventoryHolderID(addon->NameString);
+        return holderID != 0 && inventoryIndex.TryGetItemID(
+            holderID,
             (InventoryType)((uint)sorter->InventoryType + entry->Page),
             (ushort)entry->Slot,
-            out itemId);
+            out itemID);
     }
 
-    private static ulong GetInventoryHolderId(string addonName)
+    private static ulong GetInventoryHolderID(string addonName)
     {
         if (!IsRetainerGridAddon(addonName) && !IsRetainerInventoryParent(addonName))
         {
@@ -724,7 +724,7 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         ref int bestScore)
     {
         var node = candidate.Node;
-        if (candidate.IsEmpty || node == null || !node->IsVisible() || GetCurrentIconId(candidate) == 0)
+        if (candidate.IsEmpty || node == null || !node->IsVisible() || GetCurrentIconID(candidate) == 0)
         {
             return;
         }
@@ -818,30 +818,30 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         return firstTextX;
     }
 
-    private bool ApplyReplacement(nint addonAddress, IconTarget target, uint replacementIconId)
+    private bool ApplyReplacement(nint addonAddress, IconTarget target, uint replacementIconID)
     {
-        if (target.IsEmpty || replacementIconId == 0)
+        if (target.IsEmpty || replacementIconID == 0)
         {
             return false;
         }
 
-        var currentIconId = GetCurrentIconId(target);
-        if (currentIconId == 0)
+        var currentIconID = GetCurrentIconID(target);
+        if (currentIconID == 0)
         {
             return false;
         }
 
-        var originalIconId = currentIconId;
+        var originalIconID = currentIconID;
         if (replacements.TryGetValue(target.Address, out var existing))
         {
-            if (existing.AddonAddress == addonAddress && currentIconId == existing.ReplacementIconId)
+            if (existing.AddonAddress == addonAddress && currentIconID == existing.ReplacementIconID)
             {
-                if (currentIconId == replacementIconId)
+                if (currentIconID == replacementIconID)
                 {
                     return true;
                 }
 
-                originalIconId = existing.OriginalIconId;
+                originalIconID = existing.originalIconID;
             }
             else
             {
@@ -849,12 +849,12 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
             }
         }
 
-        if (currentIconId == replacementIconId)
+        if (currentIconID == replacementIconID)
         {
             return true;
         }
 
-        if (!LoadIcon(target, replacementIconId))
+        if (!LoadIcon(target, replacementIconID))
         {
             return false;
         }
@@ -864,8 +864,8 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
             target.Kind,
             target.Address,
             (nint)target.Node,
-            originalIconId,
-            replacementIconId);
+            originalIconID,
+            replacementIconID);
         return true;
     }
 
@@ -955,9 +955,9 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         }
 
         var target = CreateTarget(entry);
-        if (GetCurrentIconId(target) == entry.ReplacementIconId)
+        if (GetCurrentIconID(target) == entry.ReplacementIconID)
         {
-            LoadIcon(target, entry.OriginalIconId);
+            LoadIcon(target, entry.originalIconID);
         }
     }
 
@@ -1107,7 +1107,7 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
                 : &dragDrop->OwnerNode->AtkResNode;
     }
 
-    private static uint GetCurrentIconId(IconTarget target)
+    private static uint GetCurrentIconID(IconTarget target)
     {
         if (target.Kind == TargetKind.DragDrop && target.DragDrop != null)
         {
@@ -1116,19 +1116,19 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
                 return target.Icon->IconId;
             }
 
-            var iconId = target.DragDrop->GetIconId();
-            return iconId > 0 ? (uint)iconId : 0;
+            var iconID = target.DragDrop->GetIconId();
+            return iconID > 0 ? (uint)iconID : 0;
         }
 
         return target.Kind switch
         {
             TargetKind.Icon when target.Icon != null => target.Icon->IconId,
-            TargetKind.Image when target.Image != null => GetImageIconId(target.Image),
+            TargetKind.Image when target.Image != null => GetImageIconID(target.Image),
             _ => 0,
         };
     }
 
-    private static uint GetImageIconId(AtkImageNode* image)
+    private static uint GetImageIconID(AtkImageNode* image)
     {
         if (image == null ||
             image->PartsList == null ||
@@ -1146,9 +1146,9 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
             : asset->AtkTexture.Resource->IconId;
     }
 
-    private static bool LoadIcon(IconTarget target, uint iconId)
+    private static bool LoadIcon(IconTarget target, uint iconID)
     {
-        if (iconId == 0)
+        if (iconID == 0)
         {
             return false;
         }
@@ -1156,17 +1156,17 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         switch (target.Kind)
         {
             case TargetKind.DragDrop when target.DragDrop != null:
-                var loaded = target.DragDrop->LoadIcon(iconId);
+                var loaded = target.DragDrop->LoadIcon(iconID);
                 if (target.Icon != null)
                 {
-                    loaded = target.Icon->LoadIcon(iconId) || loaded;
+                    loaded = target.Icon->LoadIcon(iconID) || loaded;
                     MarkIconDirty(target.Icon);
                 }
 
                 MarkDragDropDirty(target.DragDrop);
                 return loaded;
             case TargetKind.Icon when target.Icon != null:
-                if (!target.Icon->LoadIcon(iconId))
+                if (!target.Icon->LoadIcon(iconID))
                 {
                     return false;
                 }
@@ -1182,8 +1182,8 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
                 }
 
                 target.Image->LoadIconTexture(
-                    iconId,
-                    (int)AtkUldPartExtensions.GetIconSubFolder(iconId));
+                    iconID,
+                    (int)AtkUldPartExtensions.GetIconSubFolder(iconID));
                 MarkNodeDirty(&target.Image->AtkResNode);
                 return true;
             default:
@@ -1279,8 +1279,8 @@ internal sealed unsafe class RealItemIconNativeUi : IDisposable
         TargetKind Kind,
         nint TargetAddress,
         nint NodeAddress,
-        uint OriginalIconId,
-        uint ReplacementIconId);
+        uint originalIconID,
+    uint ReplacementIconID);
 
     private readonly record struct OverlayEntry(SimpleImageNode Node, nint AddonAddress);
 

@@ -1,7 +1,7 @@
 using System.Globalization;
 using OmniToolbox.UI;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 internal static class MitigationRecordCopyText
 {

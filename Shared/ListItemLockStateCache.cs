@@ -1,6 +1,6 @@
 using FFXIVClientStructs.FFXIV.Component.GUI;
 
-namespace OmniToolbox.TreeHouse;
+namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class ListItemLockStateCache
 {

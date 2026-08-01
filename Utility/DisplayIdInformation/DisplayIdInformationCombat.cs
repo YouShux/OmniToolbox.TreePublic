@@ -18,20 +18,20 @@ using OmenTools.Interop.Game.Models;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
-internal sealed unsafe class DisplayIdInformationCombat : IDisposable
+internal sealed unsafe class DisplayIDInformationCombat : IDisposable
 {
     private static readonly CompSig ActionEffectSig = new(
         "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 70 4C 8B BD");
 
-    private const uint SelfCastNodeId = 32620;
-    private const uint TargetCastNodeId = 32621;
+    private const uint SelfCastNodeID = 32620;
+    private const uint TargetCastNodeID = 32621;
 
-    private readonly DisplayIdInformationConfig config;
+    private readonly DisplayIDInformationConfig config;
     private readonly AddonEventRegistry addonEvents;
     private readonly FeatureLifetime lifetime = new();
-    private readonly DisplayIdInformationCache flyTextCache = new();
+    private readonly DisplayIDInformationCache flyTextCache = new();
     private readonly List<uint> currentCastActionIds = [];
     private readonly List<uint> previousCastActionIds = [];
     private readonly Dictionary<string, List<uint>> castActionIdsByName = new(StringComparer.Ordinal);
@@ -46,14 +46,14 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
     private bool castNodesVisible;
 
     private delegate void ActionEffectDelegate(
-        uint sourceId,
+        uint sourceID,
         nint sourceCharacter,
         nint position,
         nint effectHeader,
         nint effectArray,
         nint effectTail);
 
-    public DisplayIdInformationCombat(DisplayIdInformationConfig config)
+    public DisplayIDInformationCombat(DisplayIDInformationConfig config)
     {
         this.config = config;
         addonEvents = new(DalamudServices.AddonLifecycle);
@@ -80,8 +80,8 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
     public void Update()
     {
         UpdateActionEffectHook();
-        if (config.DisplayActionId &&
-            config.DisplayCastBarActionId &&
+        if (config.DisplayActionID &&
+            config.DisplayCastBarActionID &&
             DService.Instance().ClientState.IsLoggedIn &&
             !DService.Instance().Condition[ConditionFlag.BetweenAreas])
         {
@@ -117,7 +117,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
 
     private void UpdateActionEffectHook()
     {
-        if (config.DisplayActionId && config.DisplayFlyTextDamageActionId)
+        if (config.DisplayActionID && config.DisplayFlyTextDamageActionID)
         {
             EnsureActionEffectHook();
         }
@@ -155,7 +155,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
     }
 
     private void OnActionEffect(
-        uint sourceId,
+        uint sourceID,
         nint sourceCharacter,
         nint position,
         nint effectHeader,
@@ -171,13 +171,13 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
             DalamudServices.PluginLog.Debug(ex, "Display ID ActionEffect capture failed.");
         }
 
-        actionEffectHook!.Original(sourceId, sourceCharacter, position, effectHeader, effectArray, effectTail);
+        actionEffectHook!.Original(sourceID, sourceCharacter, position, effectHeader, effectArray, effectTail);
     }
 
     private void CaptureActionEffects(nint effectHeader, nint effectArray)
     {
-        if (!config.DisplayActionId ||
-            !config.DisplayFlyTextDamageActionId ||
+        if (!config.DisplayActionID ||
+            !config.DisplayFlyTextDamageActionID ||
             effectHeader == nint.Zero ||
             effectArray == nint.Zero)
         {
@@ -186,7 +186,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
 
         var header = (ActionEffectHeader*)effectHeader;
         var targetCount = Math.Min((int)header->TargetCount, 32);
-        if (header->ActionId == 0 || targetCount == 0)
+        if (header->ActionID == 0 || targetCount == 0)
         {
             return;
         }
@@ -200,7 +200,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
                 var entry = entries[targetIndex * 8 + effectIndex];
                 if (entry.Type != 0 && entry.Value != 0)
                 {
-                    flyTextCache.RememberAction(header->ActionId, entry.Value, now);
+                    flyTextCache.RememberAction(header->ActionID, entry.Value, now);
                 }
             }
         }
@@ -218,35 +218,35 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
         ref float yOffset,
         ref bool handled)
     {
-        if (config.DisplayStatusId &&
-            config.DisplayStatusIdAppendToName &&
-            DisplayIdInformationFormatter.IsStatusFlyTextKind(kind))
+        if (config.DisplayStatusID &&
+            config.DisplayStatusIDAppendToName &&
+            DisplayIDInformationFormatter.IsStatusFlyTextKind(kind))
         {
-            AppendStatusId(ref text1, icon, kind);
-            AppendStatusId(ref text2, icon, kind);
+            AppendStatusID(ref text1, icon, kind);
+            AppendStatusID(ref text2, icon, kind);
         }
 
-        if (!config.DisplayActionId ||
-            !config.DisplayFlyTextDamageActionId ||
-            !DisplayIdInformationFormatter.IsDamageFlyTextKind(kind))
+        if (!config.DisplayActionID ||
+            !config.DisplayFlyTextDamageActionID ||
+            !DisplayIDInformationFormatter.IsDamageFlyTextKind(kind))
         {
             return;
         }
 
-        if (TryResolveDamageActionId(value1, text1, text2, out var actionId) ||
+        if (TryResolveDamageActionID(value1, text1, text2, out var actionId) ||
             value2 > 0 && ActionExists((uint)value2) && (actionId = (uint)value2) != 0)
         {
-            AppendDamageActionId(ref text1, ref text2, actionId);
+            AppendDamageActionID(ref text1, ref text2, actionId);
             return;
         }
 
-        AppendActionId(ref text1, value2, icon);
-        AppendActionId(ref text2, value2, icon);
+        AppendActionID(ref text1, value2, icon);
+        AppendActionID(ref text2, value2, icon);
     }
 
-    private bool TryResolveDamageActionId(int value1, SeString text1, SeString text2, out uint actionId)
+    private bool TryResolveDamageActionID(int value1, SeString text1, SeString text2, out uint actionID)
     {
-        actionId = 0;
+        actionID = 0;
         var value = value1 > 0 ? (uint)value1 : 0;
         if (value == 0 && !TryExtractFirstUInt(text2.TextValue, out value))
         {
@@ -254,13 +254,13 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
         }
 
         return value != 0 &&
-               flyTextCache.TryTakeAction(value, Environment.TickCount64, out actionId) &&
-               ActionExists(actionId);
+               flyTextCache.TryTakeAction(value, Environment.TickCount64, out actionID) &&
+               ActionExists(actionID);
     }
 
-    private static void AppendDamageActionId(ref SeString text1, ref SeString text2, uint actionId)
+    private static void AppendDamageActionID(ref SeString text1, ref SeString text2, uint actionID)
     {
-        var suffix = $"({actionId})";
+        var suffix = $"({actionID})";
         if (text1.TextValue.Contains(suffix, StringComparison.Ordinal) ||
             text2.TextValue.Contains(suffix, StringComparison.Ordinal) ||
             AppendSuffix(ref text2, suffix))
@@ -282,7 +282,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
         return true;
     }
 
-    private void AppendStatusId(ref SeString text, uint iconId, FlyTextKind kind)
+    private void AppendStatusID(ref SeString text, uint iconID, FlyTextKind kind)
     {
         var raw = text.TextValue;
         if (string.IsNullOrWhiteSpace(raw))
@@ -291,45 +291,45 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
         }
 
         var name = TrimFlyTextSign(raw.TrimStart());
-        if (string.IsNullOrWhiteSpace(name) || !TryResolveStatusId(iconId, name, kind, out var statusId, out var matchedName))
+        if (string.IsNullOrWhiteSpace(name) || !TryResolveStatusID(iconID, name, kind, out var statusID, out var matchedName))
         {
             return;
         }
 
-        var modified = DisplayIdInformationFormatter.InsertFlyTextId(raw, matchedName, statusId);
+        var modified = DisplayIDInformationFormatter.InsertFlyTextID(raw, matchedName, statusID);
         if (!string.Equals(raw, modified, StringComparison.Ordinal))
         {
             text = new SeStringBuilder().Append(modified).Build();
         }
     }
 
-    private bool TryResolveStatusId(
-        uint iconId,
+    private bool TryResolveStatusID(
+        uint iconID,
         string name,
         FlyTextKind kind,
-        out uint statusId,
+        out uint statusID,
         out string matchedName)
     {
         var now = Environment.TickCount64;
         if (kind is FlyTextKind.BuffFading or FlyTextKind.DebuffFading &&
-            flyTextCache.TryGetStatus(iconId, name, now, out statusId, out matchedName))
+            flyTextCache.TryGetStatus(iconID, name, now, out statusID, out matchedName))
         {
             return true;
         }
 
-        if (!TryResolveActiveStatus(iconId, name, out statusId, out matchedName) &&
-            !TryResolveStatusFromSheet(iconId, name, out statusId, out matchedName))
+        if (!TryResolveActiveStatus(iconID, name, out statusID, out matchedName) &&
+            !TryResolveStatusFromSheet(iconID, name, out statusID, out matchedName))
         {
             return false;
         }
 
-        flyTextCache.RememberStatus(iconId, statusId, matchedName, now);
+        flyTextCache.RememberStatus(iconID, statusID, matchedName, now);
         return true;
     }
 
-    private bool TryResolveActiveStatus(uint iconId, string name, out uint statusId, out string matchedName)
+    private bool TryResolveActiveStatus(uint iconID, string name, out uint statusID, out string matchedName)
     {
-        statusId = 0;
+        statusID = 0;
         matchedName = string.Empty;
         var bestLength = -1;
         foreach (var gameObject in DService.Instance().ObjectTable)
@@ -348,12 +348,12 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
             for (var index = 0; index < statuses->NumValidStatuses; index++)
             {
                 var status = statuses->Status[index];
-                if (status.StatusId == 0 || !GetStatusSheet().TryGetRow(status.StatusId, out var row))
+            if (status.StatusId == 0 || !GetStatusSheet().TryGetRow(status.StatusId, out var row))
                 {
                     continue;
                 }
 
-                if (iconId < row.Icon || iconId > row.Icon + status.Param)
+                if (iconID < row.Icon || iconID > row.Icon + status.Param)
                 {
                     continue;
                 }
@@ -364,28 +364,28 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
                     continue;
                 }
 
-                statusId = row.RowId;
+        statusID = row.RowId;
                 matchedName = rowName;
                 bestLength = rowName.Length;
             }
         }
 
-        return statusId != 0;
+        return statusID != 0;
     }
 
-    private bool TryResolveStatusFromSheet(uint iconId, string name, out uint statusId, out string matchedName)
+    private bool TryResolveStatusFromSheet(uint iconID, string name, out uint statusID, out string matchedName)
     {
-        statusId = 0;
+        statusID = 0;
         matchedName = string.Empty;
-        if (!GetStatusIconMap().TryGetValue(iconId, out var statuses))
+        if (!GetStatusIconMap().TryGetValue(iconID, out var statuses))
         {
             return false;
         }
 
-        return TrySelectName(statuses, name, out statusId, out matchedName);
+        return TrySelectName(statuses, name, out statusID, out matchedName);
     }
 
-    private void AppendActionId(ref SeString text, int value2, uint iconId)
+    private void AppendActionID(ref SeString text, int value2, uint iconID)
     {
         var raw = text.TextValue;
         if (string.IsNullOrWhiteSpace(raw) || raw.Contains('(') && raw.Contains(')'))
@@ -395,36 +395,36 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
 
         var name = TrimFlyTextSign(raw.TrimStart());
         if (string.IsNullOrWhiteSpace(name) || IsDigits(name) ||
-            !TryResolveActionId(value2, iconId, name, out var actionId, out var matchedName))
+            !TryResolveActionID(value2, iconID, name, out var actionId, out var matchedName))
         {
             return;
         }
 
-        var modified = DisplayIdInformationFormatter.InsertFlyTextId(raw, matchedName, actionId);
+        var modified = DisplayIDInformationFormatter.InsertFlyTextID(raw, matchedName, actionId);
         if (!string.Equals(raw, modified, StringComparison.Ordinal))
         {
             text = new SeStringBuilder().Append(modified).Build();
         }
     }
 
-    private bool TryResolveActionId(int value2, uint iconId, string name, out uint actionId, out string matchedName)
+    private bool TryResolveActionID(int value2, uint iconID, string name, out uint actionID, out string matchedName)
     {
-        actionId = 0;
+        actionID = 0;
         matchedName = string.Empty;
         if (value2 > 0 && GetActionSheet().TryGetRow((uint)value2, out var action))
         {
             var actionName = action.Name.ToString();
             if (NameMatches(name, actionName))
             {
-                actionId = action.RowId;
+                actionID = action.RowId;
                 matchedName = actionName;
                 return true;
             }
         }
 
-        return iconId != 0 &&
-               GetActionIconMap().TryGetValue(iconId, out var actions) &&
-               TrySelectName(actions, name, out actionId, out matchedName);
+        return iconID != 0 &&
+               GetActionIconMap().TryGetValue(iconID, out var actions) &&
+               TrySelectName(actions, name, out actionID, out matchedName);
     }
 
     private void RefreshCastActionIds()
@@ -454,8 +454,8 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
         castTextByName.Clear();
         for (var index = 0; index < currentCastActionIds.Count; index++)
         {
-            var actionId = currentCastActionIds[index];
-            if (!TryGetActionName(actionId, out var actionName))
+            var actionID = currentCastActionIds[index];
+            if (!TryGetActionName(actionID, out var actionName))
             {
                 continue;
             }
@@ -466,12 +466,12 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
                 castActionIdsByName[actionName] = ids;
             }
 
-            ids.Add(actionId);
+            ids.Add(actionID);
         }
 
         foreach (var (name, ids) in castActionIdsByName)
         {
-            castTextByName[name] = DisplayIdInformationFormatter.FormatSortedCastIds(ids);
+        castTextByName[name] = DisplayIDInformationFormatter.FormatSortedCastIds(ids);
         }
     }
 
@@ -491,10 +491,10 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
     private void OnCastBarAddon(AddonEvent _, AddonArgs args)
     {
         var addon = (AtkUnitBase*)args.Addon.Address;
-        var nodeId = args.AddonName == "_CastBar" ? SelfCastNodeId : TargetCastNodeId;
-        if (!config.DisplayActionId || !config.DisplayCastBarActionId)
+        var nodeID = args.AddonName == "_CastBar" ? SelfCastNodeID : TargetCastNodeID;
+        if (!config.DisplayActionID || !config.DisplayCastBarActionID)
         {
-            ToggleNode(addon, nodeId, false);
+            ToggleNode(addon, nodeID, false);
             return;
         }
 
@@ -506,25 +506,25 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
             !TryGetActionName(battleChara.CastActionID, out var actionName) ||
             !TryFindTextNode(addon, actionName, out var nameNode))
         {
-            ToggleNode(addon, nodeId, false);
+            ToggleNode(addon, nodeID, false);
             return;
         }
 
         var idText = castTextByName.TryGetValue(actionName, out var mapped)
             ? mapped
             : $"({battleChara.CastActionID})";
-        UpdateCastNode(addon, nameNode, nodeId, idText, args.AddonName == "_CastBar");
+        UpdateCastNode(addon, nameNode, nodeID, idText, args.AddonName == "_CastBar");
         castNodesVisible = true;
     }
 
-    private bool TryGetActionName(uint actionId, out string name)
+    private bool TryGetActionName(uint actionID, out string name)
     {
-        if (actionNameCache.TryGetValue(actionId, out name!))
+        if (actionNameCache.TryGetValue(actionID, out name!))
         {
             return true;
         }
 
-        if (!GetActionSheet().TryGetRow(actionId, out var action))
+        if (!GetActionSheet().TryGetRow(actionID, out var action))
         {
             name = string.Empty;
             return false;
@@ -536,7 +536,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
             return false;
         }
 
-        actionNameCache[actionId] = name;
+        actionNameCache[actionID] = name;
         return true;
     }
 
@@ -581,11 +581,11 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
     private static void UpdateCastNode(
         AtkUnitBase* addon,
         AtkTextNode* nameNode,
-        uint nodeId,
+        uint nodeID,
         string idText,
         bool self)
     {
-        var idNode = EnsureCastNode(addon, nameNode, nodeId);
+        var idNode = EnsureCastNode(addon, nameNode, nodeID);
         if (idNode == null)
         {
             return;
@@ -622,9 +622,9 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
             nameNode->AtkResNode.Y + Math.Max(8f, nameNode->AtkResNode.Height) - 4f));
     }
 
-    private static AtkTextNode* EnsureCastNode(AtkUnitBase* addon, AtkTextNode* anchor, uint nodeId)
+    private static AtkTextNode* EnsureCastNode(AtkUnitBase* addon, AtkTextNode* anchor, uint nodeID)
     {
-        var existing = FindTextNodeById(addon, nodeId);
+        var existing = FindTextNodeByID(addon, nodeID);
         if (existing != null)
         {
             return existing;
@@ -632,7 +632,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
 
         var created = IMemorySpace.GetUISpace()->Create<AtkTextNode>();
         created->AtkResNode.Type = NodeType.Text;
-        created->AtkResNode.NodeId = nodeId;
+        created->AtkResNode.NodeId = nodeID;
         created->AtkResNode.NodeFlags = NodeFlags.AnchorLeft | NodeFlags.AnchorTop;
         created->AtkResNode.Color = anchor->AtkResNode.Color;
         created->TextColor = anchor->TextColor;
@@ -654,23 +654,23 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
 
     private void RemoveCastNodes()
     {
-        RemoveCastNode(AddonHelper.GetByName("_CastBar"), SelfCastNodeId);
-        RemoveCastNode(AddonHelper.GetByName("_TargetInfoCastBar"), TargetCastNodeId);
-        RemoveCastNode(AddonHelper.GetByName("_TargetInfoCastBarMainTarget"), TargetCastNodeId);
+        RemoveCastNode(AddonHelper.GetByName("_CastBar"), SelfCastNodeID);
+        RemoveCastNode(AddonHelper.GetByName("_TargetInfoCastBar"), TargetCastNodeID);
+        RemoveCastNode(AddonHelper.GetByName("_TargetInfoCastBarMainTarget"), TargetCastNodeID);
         castNodesVisible = false;
     }
 
     private void HideCastNodes()
     {
-        ToggleNode(AddonHelper.GetByName("_CastBar"), SelfCastNodeId, false);
-        ToggleNode(AddonHelper.GetByName("_TargetInfoCastBar"), TargetCastNodeId, false);
-        ToggleNode(AddonHelper.GetByName("_TargetInfoCastBarMainTarget"), TargetCastNodeId, false);
+        ToggleNode(AddonHelper.GetByName("_CastBar"), SelfCastNodeID, false);
+        ToggleNode(AddonHelper.GetByName("_TargetInfoCastBar"), TargetCastNodeID, false);
+        ToggleNode(AddonHelper.GetByName("_TargetInfoCastBarMainTarget"), TargetCastNodeID, false);
         castNodesVisible = false;
     }
 
-    private static void RemoveCastNode(AtkUnitBase* addon, uint nodeId)
+    private static void RemoveCastNode(AtkUnitBase* addon, uint nodeID)
     {
-        var node = FindTextNodeById(addon, nodeId);
+        var node = FindTextNodeByID(addon, nodeID);
         if (node == null)
         {
             return;
@@ -696,16 +696,16 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
         resourceNode->Destroy(true);
     }
 
-    private static void ToggleNode(AtkUnitBase* addon, uint nodeId, bool visible)
+    private static void ToggleNode(AtkUnitBase* addon, uint nodeID, bool visible)
     {
-        var node = FindTextNodeById(addon, nodeId);
+        var node = FindTextNodeByID(addon, nodeID);
         if (node != null)
         {
             node->AtkResNode.ToggleVisibility(visible);
         }
     }
 
-    private static AtkTextNode* FindTextNodeById(AtkUnitBase* addon, uint nodeId)
+    private static AtkTextNode* FindTextNodeByID(AtkUnitBase* addon, uint nodeID)
     {
         if (addon == null)
         {
@@ -715,7 +715,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
         for (var index = 0; index < addon->UldManager.NodeListCount; index++)
         {
             var node = addon->UldManager.NodeList[index];
-            if (node != null && node->NodeId == nodeId && node->Type == NodeType.Text)
+        if (node != null && node->NodeId == nodeID && node->Type == NodeType.Text)
             {
                 return (AtkTextNode*)node;
             }
@@ -738,7 +738,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
     private ExcelSheet<LuminaStatus> GetStatusSheet() =>
         statusSheet ??= DService.Instance().Data.GetExcelSheet<LuminaStatus>();
 
-    private bool ActionExists(uint actionId) => GetActionSheet().HasRow(actionId);
+    private bool ActionExists(uint actionID) => GetActionSheet().HasRow(actionID);
 
     private Dictionary<uint, List<IdName>> GetActionIconMap()
     {
@@ -751,7 +751,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
         foreach (var action in GetActionSheet())
         {
             var name = action.Name.ToString();
-            if (action.RowId == 0 || action.Icon == 0 || string.IsNullOrWhiteSpace(name))
+        if (action.RowId == 0 || action.Icon == 0 || string.IsNullOrWhiteSpace(name))
             {
                 continue;
             }
@@ -762,7 +762,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
                 actionIconMap[action.Icon] = actions;
             }
 
-            actions.Add(new(action.RowId, name));
+        actions.Add(new(action.RowId, name));
         }
 
         return actionIconMap;
@@ -779,7 +779,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
         foreach (var status in GetStatusSheet())
         {
             var name = status.Name.ToString();
-            if (status.RowId == 0 || status.Icon == 0 || string.IsNullOrWhiteSpace(name))
+        if (status.RowId == 0 || status.Icon == 0 || string.IsNullOrWhiteSpace(name))
             {
                 continue;
             }
@@ -790,7 +790,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
                 statusIconMap[status.Icon] = statuses;
             }
 
-            statuses.Add(new(status.RowId, name));
+        statuses.Add(new(status.RowId, name));
         }
 
         return statusIconMap;
@@ -812,7 +812,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
                 continue;
             }
 
-            id = values[index].Id;
+            id = values[index].ID;
             name = values[index].Name;
             bestLength = name.Length;
             bestIndex = matchIndex;
@@ -893,7 +893,7 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
     private struct ActionEffectHeader
     {
         [System.Runtime.InteropServices.FieldOffset(8)]
-        public uint ActionId;
+        public uint ActionID;
 
         [System.Runtime.InteropServices.FieldOffset(32)]
         public byte TargetCount;
@@ -909,5 +909,5 @@ internal sealed unsafe class DisplayIdInformationCombat : IDisposable
         public uint Value;
     }
 
-    private readonly record struct IdName(uint Id, string Name);
+    private readonly record struct IdName(uint ID, string Name);
 }

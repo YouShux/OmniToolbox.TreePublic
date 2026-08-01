@@ -21,9 +21,9 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
-internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
+internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
 {
     private const string CharacterStatusAddonName = "CharacterStatus";
     private const string CharacterAddonName = "Character";
@@ -38,7 +38,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
     private readonly BetterCharacterPanelConfig config;
     private readonly AddonEventRegistry addonEvents;
     private readonly FeatureLifetime lifetime = new();
-    private readonly BetterCharacterPanelStatusUi statusUi;
+    private readonly BetterCharacterPanelStatusUI statusUI;
     private readonly NativeListController<AddonGearSetList, GearSetListItem> gearSetListController;
     private readonly Dictionary<uint, GearSetReorderButtons> gearSetButtons = [];
     private readonly Dictionary<nint, EquipmentLayoutSnapshot> equipmentLayouts = [];
@@ -50,10 +50,10 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
     private GearSetListSnapshot gearSetListSnapshot;
     private bool gearSetListAdjusted;
 
-    public BetterCharacterPanelNativeUi(BetterCharacterPanelConfig config)
+    public BetterCharacterPanelNativeUI(BetterCharacterPanelConfig config)
     {
         this.config = config;
-        statusUi = new(config);
+        statusUI = new(config);
         addonEvents = new(DalamudServices.AddonLifecycle);
         gearSetListController = new()
         {
@@ -92,12 +92,12 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
             && AddonHelper.TryGetByName(CharacterStatusAddonName, out AtkUnitBase* characterStatus)
             && characterStatus->IsAddonAndNodesReady())
         {
-            statusUi.Setup(characterStatus);
-            statusUi.Refresh(force: true);
+            statusUI.Setup(characterStatus);
+            statusUI.Refresh(force: true);
         }
         else if (!config.ShowUsefulStats)
         {
-            statusUi.Restore();
+            statusUI.Restore();
         }
 
         if (AddonHelper.TryGetByName<AddonCharacter>(CharacterAddonName, out var character)
@@ -165,7 +165,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
         if (AddonHelper.TryGetByName(CharacterStatusAddonName, out AtkUnitBase* characterStatus)
             && characterStatus->IsAddonAndNodesReady())
         {
-            statusUi.Setup(characterStatus);
+            statusUI.Setup(characterStatus);
         }
 
         if (AddonHelper.TryGetByName<AddonCharacter>(CharacterAddonName, out var character)
@@ -193,17 +193,17 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
     {
         if (eventType == AddonEvent.PreFinalize)
         {
-            statusUi.Restore();
+            statusUI.Restore();
             return;
         }
 
         var characterStatus = (AtkUnitBase*)args.Addon.Address;
         if (eventType == AddonEvent.PostSetup)
         {
-            statusUi.Setup(characterStatus);
+            statusUI.Setup(characterStatus);
         }
 
-        statusUi.Refresh();
+        statusUI.Refresh();
     }
 
     private void OnCharacterAddon(AddonEvent eventType, AddonArgs args)
@@ -257,7 +257,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
 
     private void OnFrameworkUpdate(IFramework _)
     {
-        statusUi.Refresh();
+        statusUI.Refresh();
         if (reversedCharacterAddon != null)
         {
             UpdateReverseCharacterPanel(reversedCharacterAddon);
@@ -404,9 +404,9 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
         }
     }
 
-    private static bool MoveNode(EquipmentLayoutSnapshot snapshot, uint nodeId, float x, float y)
+    private static bool MoveNode(EquipmentLayoutSnapshot snapshot, uint nodeID, float x, float y)
     {
-        var node = snapshot.Addon->GetNodeById(nodeId);
+        var node = snapshot.Addon->GetNodeById(nodeID);
         if (node == null)
         {
             return false;
@@ -419,12 +419,12 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
 
     private static bool ShiftUp(
         EquipmentLayoutSnapshot snapshot,
-        uint firstNodeId,
+        uint firstNodeID,
         float firstNodeX,
         float firstNodeY,
         ReadOnlySpan<uint> moveNodeIds)
     {
-        var firstNode = snapshot.Addon->GetNodeById(firstNodeId);
+        var firstNode = snapshot.Addon->GetNodeById(firstNodeID);
         if (firstNode == null)
         {
             return false;
@@ -603,12 +603,12 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
         {
             var buttonX = collisionNode->AtkResNode.Width - GearSetReorderExtraWidth - 6f;
             buttons = new(ownerNode, buttonX);
-            gearSetButtons[item.NodeId] = buttons;
+        gearSetButtons[item.NodeId] = buttons;
             buttons.Attach(ownerNode);
             ownerNode->AtkResNode.SetWidth((ushort)Math.Max(0, ownerNode->AtkResNode.Width - GearSetRowWidthReduction));
         }
 
-        buttons.Update(item.GearSetId, item.ItemIndex, item.IsChecked);
+        buttons.Update(item.gearSetID, item.ItemIndex, item.IsChecked);
     }
 
     private void ClearGearSetButtons()
@@ -621,9 +621,9 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
         }
     }
 
-    private void RemoveGearSetButtons(uint nodeId)
+    private void RemoveGearSetButtons(uint nodeID)
     {
-        if (!gearSetButtons.Remove(nodeId, out var buttons))
+        if (!gearSetButtons.Remove(nodeID, out var buttons))
         {
             return;
         }
@@ -634,7 +634,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
 
     private void RestoreAll()
     {
-        statusUi.Restore();
+        statusUI.Restore();
         RestoreReverseCharacterPanel(reversedCharacterAddon);
         RestoreGearSetList(adjustedGearSetList);
         RestoreAllEquipmentLayouts();
@@ -655,7 +655,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
 
         public bool IsChecked => Renderer != null && Renderer->IsChecked;
 
-        public int GearSetId => GearSetIndexNode != null
+        public int gearSetID => GearSetIndexNode != null
                                 && int.TryParse(GearSetIndexNode->NodeText.ToString(), out var id)
             ? Math.Max(0, id - 1)
             : 0;
@@ -668,7 +668,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
         private readonly SimpleComponentNode container;
         private readonly CircleButtonNode upButton;
         private readonly CircleButtonNode downButton;
-        private int gearSetId;
+        private int gearSetID;
 
         public GearSetReorderButtons(AtkComponentNode* ownerNode, float x)
         {
@@ -704,7 +704,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
 
         public void Update(int id, int itemIndex, bool selected)
         {
-            gearSetId = id;
+            gearSetID = id;
             upButton.IsEnabled = itemIndex > 0;
             var gearsetModule = RaptureGearsetModule.Instance();
             downButton.IsEnabled = gearsetModule != null && itemIndex < gearsetModule->NumGearsets - 1;
@@ -726,7 +726,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
             var agent = AgentGearSet.Instance();
             if (agent != null)
             {
-                agent->MoveSetUp(gearSetId);
+                agent->MoveSetUp(gearSetID);
             }
         }
 
@@ -735,7 +735,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
             var agent = AgentGearSet.Instance();
             if (agent != null)
             {
-                agent->MoveSetDown(gearSetId);
+                agent->MoveSetDown(gearSetID);
             }
         }
     }

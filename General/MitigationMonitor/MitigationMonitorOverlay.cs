@@ -7,7 +7,7 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.OmenService;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationMonitorOverlay
 {
@@ -22,7 +22,7 @@ internal sealed class MitigationMonitorOverlay
     private bool restoreLayoutNextDraw;
     private bool geometryDirty;
     private bool collapsedIconDragged;
-    private DateTime? expansionStartUtc;
+    private DateTime? expansionStartUTC;
     private Vector2 expansionFromPosition;
     private Vector2 expansionFromSize;
 
@@ -60,9 +60,9 @@ internal sealed class MitigationMonitorOverlay
         var animatingExpansion = false;
         var positionCondition = restoreLayoutNextDraw ? ImGuiCond.Always : ImGuiCond.FirstUseEver;
         var sizeCondition = restoreLayoutNextDraw || scaleChanged ? ImGuiCond.Always : ImGuiCond.FirstUseEver;
-        if (expansionStartUtc.HasValue)
+        if (expansionStartUTC.HasValue)
         {
-            var progress = Math.Clamp((float)(DateTime.UtcNow - expansionStartUtc.Value).TotalSeconds / 0.15f, 0f, 1f);
+            var progress = Math.Clamp((float)(DateTime.UtcNow - expansionStartUTC.Value).TotalSeconds / 0.15f, 0f, 1f);
             if (progress < 1f)
             {
                 var eased = progress * progress * (3f - 2f * progress);
@@ -72,7 +72,7 @@ internal sealed class MitigationMonitorOverlay
             }
             else
             {
-                expansionStartUtc = null;
+                expansionStartUTC = null;
             }
 
             positionCondition = ImGuiCond.Always;
@@ -135,7 +135,7 @@ internal sealed class MitigationMonitorOverlay
         recordTable.ResetRuntime();
         geometryDirty = false;
         collapsedIconDragged = false;
-        expansionStartUtc = null;
+        expansionStartUTC = null;
     }
 
     public void RequestLayoutRestore()
@@ -147,7 +147,7 @@ internal sealed class MitigationMonitorOverlay
     private void Collapse(Vector2 buttonPosition)
     {
         config.CollapsedPosition = buttonPosition;
-        expansionStartUtc = null;
+        expansionStartUTC = null;
         config.Collapsed = true;
         saveConfig();
     }
@@ -202,7 +202,7 @@ internal sealed class MitigationMonitorOverlay
                 {
                     expansionFromPosition = ImGui.GetWindowPos();
                     expansionFromSize = OmniTheme.Scale(new Vector2(34f));
-                    expansionStartUtc = DateTime.UtcNow;
+                    expansionStartUTC = DateTime.UtcNow;
                     config.Collapsed = false;
                     restoreLayoutNextDraw = true;
                     saveConfig();

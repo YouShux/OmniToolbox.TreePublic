@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Linq;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class ChatLogReplayAnonymizer
 {

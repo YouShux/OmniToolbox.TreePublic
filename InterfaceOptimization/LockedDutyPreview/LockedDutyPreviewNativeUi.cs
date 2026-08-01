@@ -4,14 +4,14 @@ using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using OmniToolbox.UI;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal readonly record struct LockedDutyPreviewRow(
-    uint ContentFinderConditionId,
+    uint contentFinderConditionID,
     string Name,
     bool IsExcluded);
 
-internal sealed class LockedDutyPreviewNativeUi : NativeAddon
+internal sealed class LockedDutyPreviewNativeUI : NativeAddon
 {
     private const float WindowWidth = 360f;
     private const float WindowHeight = 400f;
@@ -31,7 +31,7 @@ internal sealed class LockedDutyPreviewNativeUi : NativeAddon
     private readonly Action<string> onCopyName;
 
     [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-    public LockedDutyPreviewNativeUi(
+    public LockedDutyPreviewNativeUI(
         Action<bool> onViewChanged,
         Action<LockedDutyPreviewRow> onExclude,
         Action<LockedDutyPreviewRow> onRestore,

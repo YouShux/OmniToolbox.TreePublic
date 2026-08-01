@@ -2,15 +2,15 @@ using System.Globalization;
 using System.IO;
 using OmniToolbox.UI;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationHistoryMenu(
     MitigationCombatLog combatLog,
     MitigationReplayStore replayStore)
 {
     private const int MaxVisibleItems = 12;
-    private const string HistoryPopupId = "##MitigationHistoryPopup";
-    private const string ImportPopupId = "##MitigationImportPopup";
+    private const string HistoryPopupID = "##MitigationHistoryPopup";
+    private const string ImportPopupID = "##MitigationImportPopup";
 
     private readonly List<MitigationCombatHistory> items = new(40);
     private string[] importFiles = [];
@@ -18,11 +18,11 @@ internal sealed class MitigationHistoryMenu(
 
     public string? ActiveHistoryKey { get; private set; }
 
-    public void Open() => ImGui.OpenPopup(HistoryPopupId);
+    public void Open() => ImGui.OpenPopup(HistoryPopupID);
 
     public void Draw()
     {
-        if (!ImGui.BeginPopup(HistoryPopupId))
+        if (!ImGui.BeginPopup(HistoryPopupID))
         {
             return;
         }
@@ -39,7 +39,7 @@ internal sealed class MitigationHistoryMenu(
         if (ImGui.SmallButton(OmniLoc.Get("Feature.MitigationMonitor.History.Import")))
         {
             importFiles = replayStore.GetImportableFiles();
-            ImGui.OpenPopup(ImportPopupId);
+            ImGui.OpenPopup(ImportPopupID);
         }
 
         DrawImportPopup();
@@ -128,7 +128,7 @@ internal sealed class MitigationHistoryMenu(
                 OmniLoc.Get("Feature.MitigationMonitor.History.Item"),
                 item.ElapsedLabel,
                 zone,
-                item.StartUtc.ToLocalTime());
+                item.startUTC.ToLocalTime());
             if (ImGui.Selectable($"{label}##{item.Key}", item.Key == ActiveHistoryKey))
             {
                 ActiveHistoryKey = item.Key;
@@ -144,7 +144,7 @@ internal sealed class MitigationHistoryMenu(
 
     private void DrawImportPopup()
     {
-        if (!ImGui.BeginPopup(ImportPopupId))
+        if (!ImGui.BeginPopup(ImportPopupID))
         {
             return;
         }

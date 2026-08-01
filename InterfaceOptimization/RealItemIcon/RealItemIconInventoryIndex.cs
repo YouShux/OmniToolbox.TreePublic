@@ -2,7 +2,7 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using OmniToolbox.Host;
 using OmniToolbox.Items;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class RealItemIconInventoryIndex(PlayerInventoryService inventoryService)
 {
@@ -10,38 +10,38 @@ internal sealed class RealItemIconInventoryIndex(PlayerInventoryService inventor
 
     private readonly Dictionary<InventorySlotKey, uint> itemIdsBySlot = new(1024);
     private long indexedRevision = -1;
-    private ulong indexedContentId;
+    private ulong indexedContentID;
 
     public void Refresh()
     {
         var revision = inventoryService.GetSnapshotRevision();
-        var contentId = DalamudServices.PlayerState.ContentId;
-        if (revision == indexedRevision && contentId == indexedContentId)
+        var contentID = DalamudServices.PlayerState.ContentId;
+        if (revision == indexedRevision && contentID == indexedContentID)
         {
             return;
         }
 
         indexedRevision = revision;
-        indexedContentId = contentId;
+        indexedContentID = contentID;
         itemIdsBySlot.Clear();
         var items = inventoryService.GetItemsSnapshot();
         for (var index = 0; index < items.Count; index++)
         {
             var item = items[index];
-            var holderId = item.HolderId == 0 ? contentId : item.HolderId;
-            if (holderId != 0 && item.ItemId != 0)
+            var holderID = item.HolderID == 0 ? contentID : item.HolderID;
+            if (holderID != 0 && item.ItemID != 0)
             {
-                itemIdsBySlot[new(holderId, item.ContainerType, item.SlotIndex)] = item.ItemId;
+                itemIdsBySlot[new(holderID, item.ContainerType, item.SlotIndex)] = item.ItemID;
             }
         }
     }
 
-    public bool TryGetItemId(
-        ulong holderId,
+    public bool TryGetItemID(
+        ulong holderID,
         InventoryType containerType,
         ushort slotIndex,
-        out uint itemId) =>
-        itemIdsBySlot.TryGetValue(new(holderId, containerType, slotIndex), out itemId);
+        out uint itemID) =>
+        itemIdsBySlot.TryGetValue(new(holderID, containerType, slotIndex), out itemID);
 
     public static int GetSortedIndex(string addonName, int parentTab, int visibleSlot)
     {
@@ -112,7 +112,7 @@ internal sealed class RealItemIconInventoryIndex(PlayerInventoryService inventor
     }
 
     private readonly record struct InventorySlotKey(
-        ulong HolderId,
+        ulong holderID,
         InventoryType ContainerType,
         ushort SlotIndex);
 }

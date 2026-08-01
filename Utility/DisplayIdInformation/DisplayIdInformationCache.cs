@@ -1,6 +1,6 @@
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
-internal sealed class DisplayIdInformationCache
+internal sealed class DisplayIDInformationCache
 {
     private const long ActionMaxAgeMs = 3_000;
     private const int ActionMaxCount = 512;
@@ -14,18 +14,18 @@ internal sealed class DisplayIdInformationCache
 
     public int StatusCount => statuses.Count;
 
-    public void RememberAction(uint actionId, uint value, long timestamp)
+    public void RememberAction(uint actionID, uint value, long timestamp)
     {
-        if (actionId == 0 || value == 0)
+        if (actionID == 0 || value == 0)
         {
             return;
         }
 
-        actions.Add(new(actionId, value, timestamp));
+        actions.Add(new(actionID, value, timestamp));
         Trim(actions, ActionMaxCount);
     }
 
-    public bool TryTakeAction(uint value, long now, out uint actionId)
+    public bool TryTakeAction(uint value, long now, out uint actionID)
     {
         PruneActions(now);
         for (var index = actions.Count - 1; index >= 0; index--)
@@ -35,18 +35,18 @@ internal sealed class DisplayIdInformationCache
                 continue;
             }
 
-            actionId = actions[index].ActionId;
+            actionID = actions[index].ActionID;
             actions.RemoveAt(index);
             return true;
         }
 
-        actionId = 0;
+        actionID = 0;
         return false;
     }
 
-    public void RememberStatus(uint iconId, uint statusId, string name, long timestamp)
+    public void RememberStatus(uint iconID, uint statusID, string name, long timestamp)
     {
-        if (iconId == 0 || statusId == 0 || string.IsNullOrWhiteSpace(name))
+        if (iconID == 0 || statusID == 0 || string.IsNullOrWhiteSpace(name))
         {
             return;
         }
@@ -54,37 +54,37 @@ internal sealed class DisplayIdInformationCache
         for (var index = statuses.Count - 1; index >= 0; index--)
         {
             var status = statuses[index];
-            if (status.IconId != iconId || status.StatusId != statusId || !string.Equals(status.Name, name, StringComparison.Ordinal))
+            if (status.iconID != iconID || status.statusID != statusID || !string.Equals(status.Name, name, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            statuses[index] = new(iconId, statusId, name, timestamp);
+            statuses[index] = new(iconID, statusID, name, timestamp);
             return;
         }
 
-        statuses.Add(new(iconId, statusId, name, timestamp));
+        statuses.Add(new(iconID, statusID, name, timestamp));
         Trim(statuses, StatusMaxCount);
     }
 
-    public bool TryGetStatus(uint iconId, string text, long now, out uint statusId, out string name)
+    public bool TryGetStatus(uint iconID, string text, long now, out uint statusID, out string name)
     {
         PruneStatuses(now);
         for (var index = statuses.Count - 1; index >= 0; index--)
         {
             var status = statuses[index];
-            if (status.IconId != iconId ||
+            if (status.iconID != iconID ||
                 !text.Contains(status.Name, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            statusId = status.StatusId;
+            statusID = status.statusID;
             name = status.Name;
             return true;
         }
 
-        statusId = 0;
+        statusID = 0;
         name = string.Empty;
         return false;
     }
@@ -125,7 +125,7 @@ internal sealed class DisplayIdInformationCache
         }
     }
 
-    private readonly record struct ActionEntry(uint ActionId, uint Value, long Timestamp);
+    private readonly record struct ActionEntry(uint ActionID, uint Value, long Timestamp);
 
-    private readonly record struct StatusEntry(uint IconId, uint StatusId, string Name, long Timestamp);
+    private readonly record struct StatusEntry(uint iconID, uint statusID, string Name, long Timestamp);
 }

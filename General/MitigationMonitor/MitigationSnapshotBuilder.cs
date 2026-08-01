@@ -11,14 +11,14 @@ using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class MitigationSnapshotBuilder
 {
-    private const uint SacredSoilStatusId = 299;
+    private const uint SacredSoilStatusID = 299;
 
     private static readonly TimeSpan SacredSoilDuration = TimeSpan.FromSeconds(15);
-    private static readonly FrozenDictionary<uint, MitigationDefinition> MitigationByStatusId =
+    private static readonly FrozenDictionary<uint, MitigationDefinition> MitigationByStatusID =
         new MitigationDefinition[]
         {
             new(1191, 20, 20, 20), new(1856, 15, 15, 15), new(1174, 10, 10, 10),
@@ -45,7 +45,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
             new(863, 80, 80, 80), new(864, 80, 80, 80), new(1931, 80, 80, 80),
             new(3829, 40, 40, 40), new(3832, 40, 40, 40), new(3835, 40, 40, 40),
             new(3838, 40, 40, 40), new(3890, 10, 10, 10), new(3896, 10, 10, 10)
-        }.ToFrozenDictionary(static definition => definition.StatusId);
+        }.ToFrozenDictionary(static definition => definition.statusID);
 
     private static readonly FrozenSet<uint> SourceDebuffStatusIds =
         new uint[] { 1193, 1195, 1203, 860, 9, 1715, 2115 }.ToFrozenSet();
@@ -61,7 +61,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
     private readonly Dictionary<uint, ActionDisplayInfo> actionCache = [];
     private readonly Dictionary<uint, StatusDisplayInfo> statusCache = [];
     private readonly HashSet<uint> activeSacredSoilTargets = [];
-    private readonly Dictionary<uint, DateTime> sacredSoilUntilUtc = [];
+    private readonly Dictionary<uint, DateTime> sacredSoilUntilUTC = [];
     private readonly List<uint> expiredSacredSoilTargets = new(8);
     private readonly List<CachedStatus> visibleEnemyDebuffs = new(32);
     private readonly List<ActiveMitigation> mitigationBuilder = new(16);
@@ -92,7 +92,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
         }
 
         expiredSacredSoilTargets.Clear();
-        foreach (var entry in sacredSoilUntilUtc)
+        foreach (var entry in sacredSoilUntilUTC)
         {
             if (entry.Value <= now && !activeSacredSoilTargets.Contains(entry.Key))
             {
@@ -102,7 +102,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
 
         foreach (var entityId in expiredSacredSoilTargets)
         {
-            sacredSoilUntilUtc.Remove(entityId);
+            sacredSoilUntilUTC.Remove(entityId);
         }
     }
 
@@ -116,7 +116,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
         var found = false;
         foreach (var status in target.ToBCStruct()->StatusManager.Status)
         {
-            if (status.StatusId == SacredSoilStatusId)
+            if (status.StatusId == SacredSoilStatusID)
             {
                 found = true;
                 break;
@@ -133,35 +133,35 @@ internal sealed unsafe class MitigationSnapshotBuilder
         }
     }
 
-    public void StartSacredSoil(uint targetEntityId, DateTime now)
+    public void StartSacredSoil(uint targetEntityID, DateTime now)
     {
-        if (targetEntityId != 0 && activeSacredSoilTargets.Add(targetEntityId))
+        if (targetEntityID != 0 && activeSacredSoilTargets.Add(targetEntityID))
         {
-            sacredSoilUntilUtc[targetEntityId] = now + SacredSoilDuration;
+            sacredSoilUntilUTC[targetEntityID] = now + SacredSoilDuration;
         }
     }
 
-    public ActionDisplayInfo GetActionInfo(uint actionId)
+    public ActionDisplayInfo GetActionInfo(uint actionID)
     {
-        if (actionCache.TryGetValue(actionId, out var cached))
+        if (actionCache.TryGetValue(actionID, out var cached))
         {
             return cached;
         }
 
-        var info = LuminaGetter.TryGetRow<LuminaAction>(actionId, out var row)
+        var info = LuminaGetter.TryGetRow<LuminaAction>(actionID, out var row)
             ? new ActionDisplayInfo(row.Name.ToString())
-            : new ActionDisplayInfo(actionId.ToString(CultureInfo.InvariantCulture));
-        actionCache[actionId] = info;
+            : new ActionDisplayInfo(actionID.ToString(CultureInfo.InvariantCulture));
+        actionCache[actionID] = info;
         return info;
     }
 
     public DamageActionDisplay ResolveDamageAction(
-        uint actionId,
+        uint actionID,
         ActionDisplayInfo action,
         IBattleChara? target,
         IGameObject source)
     {
-        if (actionId != 0 && !string.IsNullOrWhiteSpace(action.Name) && action.Name != "0")
+        if (actionID != 0 && !string.IsNullOrWhiteSpace(action.Name) && action.Name != "0")
         {
             return new(action.Name, DamageSourceKind.Skill);
         }
@@ -189,8 +189,8 @@ internal sealed unsafe class MitigationSnapshotBuilder
         foreach (var status in visibleEnemyDebuffs)
         {
             CollectStatus(
-                status.StatusId,
-                status.SourceId,
+                status.statusID,
+                status.SourceID,
                 status.Param,
                 status.RemainingTime,
                 targetObject,
@@ -220,7 +220,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
     public void ClearTargetWindows()
     {
         activeSacredSoilTargets.Clear();
-        sacredSoilUntilUtc.Clear();
+        sacredSoilUntilUTC.Clear();
     }
 
     public void ClearRuntime()
@@ -257,8 +257,8 @@ internal sealed unsafe class MitigationSnapshotBuilder
     }
 
     private void CollectStatus(
-        uint statusId,
-        uint sourceId,
+        uint statusID,
+        uint sourceID,
         ushort param,
         float remainingTime,
         IGameObject target,
@@ -267,49 +267,49 @@ internal sealed unsafe class MitigationSnapshotBuilder
         DateTime now)
     {
         var sourceStatus = sourceKind is MitigationStatusSourceKind.CurrentSource or MitigationStatusSourceKind.VisibleEnemyFallback;
-        if (sourceStatus && !SourceDebuffStatusIds.Contains(statusId) ||
-            !seenStatusKeys.Add(((ulong)statusId << 32) | sourceId))
+        if (sourceStatus && !SourceDebuffStatusIds.Contains(statusID) ||
+            !seenStatusKeys.Add(((ulong)statusID << 32) | sourceID))
         {
             return;
         }
 
-        var display = GetStatusInfo(statusId);
+        var display = GetStatusInfo(statusID);
         var stackCount = Math.Max(1, (int)param);
-        var iconId = stackCount is > 1 and <= 16 ? display.IconId + (uint)(stackCount - 1) : display.IconId;
+        var iconID = stackCount is > 1 and <= 16 ? display.iconID + (uint)(stackCount - 1) : display.iconID;
         var displayRemainingTime = MathF.Max(0f, remainingTime);
-        if (statusId == SacredSoilStatusId && sacredSoilUntilUtc.TryGetValue(target.EntityID, out var seenUntil))
+        if (statusID == SacredSoilStatusID && sacredSoilUntilUTC.TryGetValue(target.EntityID, out var seenUntil))
         {
             displayRemainingTime = MathF.Max(displayRemainingTime, (float)Math.Max(0d, (seenUntil - now).TotalSeconds));
         }
 
-        if (AlwaysShowStatusIds.Contains(statusId))
+        if (AlwaysShowStatusIds.Contains(statusID))
         {
             mitigationBuilder.Add(new(
-                statusId, display.Name, iconId, displayRemainingTime, 0, stackCount,
+                statusID, display.Name, iconID, displayRemainingTime, 0, stackCount,
                 MitigationStatusCategory.Shield, true, false));
             return;
         }
 
-        if (!MitigationByStatusId.TryGetValue(statusId, out var definition))
+        if (!MitigationByStatusID.TryGetValue(statusID, out var definition))
         {
             if (sourceKind == MitigationStatusSourceKind.Target && IsActTargetStatusEffect(display.Name))
             {
                 mitigationBuilder.Add(new(
-                    statusId, display.Name, iconId, displayRemainingTime, 0, stackCount,
+                    statusID, display.Name, iconID, displayRemainingTime, 0, stackCount,
                     MitigationStatusCategory.Vulnerability, true, false));
             }
 
             return;
         }
 
-        var percentValue = ResolveStatusPercentValue(statusId, sourceId, definition, target, damageKind);
+        var percentValue = ResolveStatusPercentValue(statusID, sourceID, definition, target, damageKind);
         var category = definition.HasPercentMitigation
             ? MitigationStatusCategory.Mitigation
             : MitigationStatusCategory.Shield;
         mitigationBuilder.Add(new(
-            statusId,
+            statusID,
             display.Name,
-            iconId,
+            iconID,
             displayRemainingTime,
             percentValue > 0 ? percentValue : definition.DisplayValueFor(damageKind),
             stackCount,
@@ -319,28 +319,28 @@ internal sealed unsafe class MitigationSnapshotBuilder
     }
 
     private static int ResolveStatusPercentValue(
-        uint statusId,
-        uint sourceId,
+        uint statusID,
+        uint sourceID,
         MitigationDefinition definition,
         IGameObject target,
         DamageKind damageKind)
     {
-        if (statusId == 2675)
+        if (statusID == 2675)
         {
-            return sourceId == target.EntityID || sourceId == (uint)target.GameObjectID ? 15 : 10;
+            return sourceID == target.EntityID || sourceID == (uint)target.GameObjectID ? 15 : 10;
         }
 
-        if (statusId == 1174)
+        if (statusID == 1174)
         {
-            return InterventionSourceHasBonus(sourceId) ? 20 : 10;
+            return InterventionSourceHasBonus(sourceID) ? 20 : 10;
         }
 
         return definition.PercentValueFor(damageKind);
     }
 
-    private static bool InterventionSourceHasBonus(uint sourceId)
+    private static bool InterventionSourceHasBonus(uint sourceID)
     {
-        if (FindObject(sourceId) is not IBattleChara source)
+        if (FindObject(sourceID) is not IBattleChara source)
         {
             return false;
         }
@@ -423,17 +423,17 @@ internal sealed unsafe class MitigationSnapshotBuilder
                name.Contains("\u4f53\u529b\u8870\u51cf", StringComparison.Ordinal);
     }
 
-    private StatusDisplayInfo GetStatusInfo(uint statusId)
+    private StatusDisplayInfo GetStatusInfo(uint statusID)
     {
-        if (statusCache.TryGetValue(statusId, out var cached))
+        if (statusCache.TryGetValue(statusID, out var cached))
         {
             return cached;
         }
 
-        var info = LuminaGetter.TryGetRow<LuminaStatus>(statusId, out var row)
+        var info = LuminaGetter.TryGetRow<LuminaStatus>(statusID, out var row)
             ? new StatusDisplayInfo(row.Name.ToString(), row.Description.ToString(), row.Icon)
-            : new StatusDisplayInfo(statusId.ToString(CultureInfo.InvariantCulture), string.Empty, 0);
-        statusCache[statusId] = info;
+            : new StatusDisplayInfo(statusID.ToString(CultureInfo.InvariantCulture), string.Empty, 0);
+        statusCache[statusID] = info;
         return info;
     }
 

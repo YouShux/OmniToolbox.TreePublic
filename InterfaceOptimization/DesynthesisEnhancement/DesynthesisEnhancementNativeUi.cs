@@ -16,7 +16,6 @@ using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.Tooltips;
-using OmniToolbox.TreeHouse;
 using OmniToolbox.UI;
 using OmenTools;
 using OmenTools.Extensions;
@@ -24,13 +23,13 @@ using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Interop.Game.Models;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
-internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
+internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
 {
     private const string AddonName = "SalvageItemSelector";
-    private const uint SkillColumnId = 91_001;
-    private const uint LockColumnId = 91_002;
+    private const uint SkillColumnID = 91_001;
+    private const uint LockColumnID = 91_002;
     private const ushort SkillColumnWidth = 120;
     private const ushort LockColumnWidth = 60;
     private const ushort TotalColumnWidth = SkillColumnWidth + LockColumnWidth;
@@ -58,7 +57,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         AtkResNode** nodes,
         AtkComponentListItemRenderer* listItemRenderer);
 
-    public DesynthesisEnhancementNativeUi(DesynthesisEnhancementConfig config, HookRegistry hookRegistry)
+    public DesynthesisEnhancementNativeUI(DesynthesisEnhancementConfig config, HookRegistry hookRegistry)
     {
         this.config = config;
         this.hookRegistry = hookRegistry;
@@ -163,9 +162,9 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         skillNode->TextColor = GetStatusColor(level.Status);
         skillNode->SetText($"{level.Recommended}/{level.Current}");
 
-        var isLocked = config.LockGearsetItems && gearsetItemIds.Contains(GetGearsetItemId(inventoryItem));
+        var isLocked = config.LockGearsetItems && gearsetItemIds.Contains(GetGearsetItemID(inventoryItem));
         if (config.LockCustomItems &&
-            customLockItemIds.Contains(DesynthesisEnhancementState.NormalizeItemId(inventoryItem->ItemId)))
+            customLockItemIds.Contains(DesynthesisEnhancementState.NormalizeItemID(inventoryItem->ItemId)))
         {
             isLocked = true;
         }
@@ -256,7 +255,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         salvageAddon = addon;
         var columnX = (short)(lastHeader->GetXShort() + lastHeader->GetWidth());
         var skillHeader = CreateTextNode(
-            SkillColumnId,
+            SkillColumnID,
             OmniLoc.Get("Feature.DesynthesisEnhancement.Column.Skill"),
             SkillColumnWidth,
             columnX,
@@ -267,7 +266,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             lastHeader,
             &addon->UldManager);
         CreateTextNode(
-            LockColumnId,
+            LockColumnID,
             OmniLoc.Get("Feature.DesynthesisEnhancement.Column.Lock"),
             LockColumnWidth,
             (short)(columnX + SkillColumnWidth),
@@ -334,7 +333,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             }
 
             var skill = CreateTextNode(
-                SkillColumnId,
+                SkillColumnID,
                 string.Empty,
                 SkillColumnWidth,
                 columnX,
@@ -345,7 +344,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
                 renderer->UldManager.RootNode,
                 &renderer->UldManager);
             var locked = CreateTextNode(
-                LockColumnId,
+                LockColumnID,
                 string.Empty,
                 LockColumnWidth,
                 (short)(columnX + SkillColumnWidth),
@@ -360,7 +359,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     }
 
     private AtkTextNode* CreateTextNode(
-        uint nodeId,
+        uint nodeID,
         string text,
         ushort width,
         short x,
@@ -373,7 +372,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     {
         var node = IMemorySpace.GetUISpace()->Create<AtkTextNode>();
         node->AtkResNode.Type = NodeType.Text;
-        node->AtkResNode.NodeId = nodeId;
+        node->AtkResNode.NodeId = nodeID;
         node->SetText(text);
         node->AtkResNode.SetWidth(width);
         node->AtkResNode.SetHeight(height);
@@ -495,10 +494,10 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         customLockItemIds.Clear();
         for (var index = 0; index < config.CustomLockItemIds.Count; index++)
         {
-            var itemId = DesynthesisEnhancementState.NormalizeItemId(config.CustomLockItemIds[index]);
-            if (itemId != 0)
+            var itemID = DesynthesisEnhancementState.NormalizeItemID(config.CustomLockItemIds[index]);
+            if (itemID != 0)
             {
-                customLockItemIds.Add(itemId);
+                customLockItemIds.Add(itemID);
             }
         }
 
@@ -528,7 +527,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         }
     }
 
-    private static uint GetGearsetItemId(InventoryItem* item) =>
+    private static uint GetGearsetItemID(InventoryItem* item) =>
         (item->Flags & InventoryItem.ItemFlags.HighQuality) != 0
             ? item->ItemId + 1_000_000
             : item->ItemId;

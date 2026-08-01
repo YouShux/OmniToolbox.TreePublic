@@ -3,32 +3,32 @@ using Dalamud.Game.Gui.FlyText;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
-internal static class DisplayIdInformationFormatter
+internal static class DisplayIDInformationFormatter
 {
     public static string FormatActionSuffix(
-        uint originalId,
-        uint resolvedId,
+        uint originalID,
+        uint resolvedID,
         bool showResolved,
         bool showOriginal,
-        uint iconId,
+        uint iconID,
         bool showIcon)
     {
         var suffix = showResolved && !showOriginal
-            ? $" [{resolvedId}]"
-            : showResolved && showOriginal && originalId != resolvedId
-                ? $" [{originalId} → {resolvedId}]"
-                : $" [{originalId}]";
-        return showIcon && iconId != 0 ? $"{suffix}/[{iconId}]" : suffix;
+            ? $" [{resolvedID}]"
+            : showResolved && showOriginal && originalID != resolvedID
+                ? $" [{originalID} → {resolvedID}]"
+                : $" [{originalID}]";
+        return showIcon && iconID != 0 ? $"{suffix}/[{iconID}]" : suffix;
     }
 
-    public static string FormatIdSuffix(uint id, uint iconId, bool showIcon) =>
-        showIcon && iconId != 0 ? $" [{id}]/[{iconId}]" : $" [{id}]";
+    public static string FormatIDSuffix(uint id, uint iconID, bool showIcon) =>
+        showIcon && iconID != 0 ? $" [{id}]/[{iconID}]" : $" [{id}]";
 
-    public static string AppendStatusTooltipId(string text, uint statusId, uint iconId, bool showIcon)
+    public static string AppendStatusTooltipID(string text, uint statusID, uint iconID, bool showIcon)
     {
-        var suffix = $" {FormatIdSuffix(statusId, iconId, showIcon)}";
+        var suffix = $" {FormatIDSuffix(statusID, iconID, showIcon)}";
         var newlineIndex = text.IndexOf('\n');
         var firstLine = newlineIndex < 0 ? text : text[..newlineIndex];
         if (firstLine.EndsWith(suffix, StringComparison.Ordinal))
@@ -41,9 +41,9 @@ internal static class DisplayIdInformationFormatter
             : text.Insert(newlineIndex, suffix);
     }
 
-    public static string? FormatDtr(bool showZone, bool showWeather, uint mapId, uint territoryId, uint weatherId)
+    public static string? FormatDtr(bool showZone, bool showWeather, uint mapID, uint territoryID, uint weatherID)
     {
-        if (!showZone || mapId == 0 || territoryId == 0)
+        if (!showZone || mapID == 0 || territoryID == 0)
         {
             return null;
         }
@@ -52,17 +52,17 @@ internal static class DisplayIdInformationFormatter
             OmniLoc.Get(showWeather
                 ? "Feature.DisplayIdInformation.Dtr.ZoneWeather"
                 : "Feature.DisplayIdInformation.Dtr.Zone"),
-            territoryId,
-            mapId,
-            weatherId);
+            territoryID,
+            mapID,
+            weatherID);
     }
 
-    public static bool ShouldDisplayTarget(ObjectKind objectKind, DisplayIdInformationConfig config) => objectKind switch
+    public static bool ShouldDisplayTarget(ObjectKind objectKind, DisplayIDInformationConfig config) => objectKind switch
     {
-        ObjectKind.BattleNpc => config.DisplayTargetIdBattleNpc,
-        ObjectKind.EventNpc => config.DisplayTargetIdEventNpc,
-        ObjectKind.Companion => config.DisplayTargetIdCompanion,
-        _ => config.DisplayTargetIdOthers
+        ObjectKind.BattleNpc => config.DisplayTargetIDBattleNPC,
+        ObjectKind.EventNpc => config.DisplayTargetIDEventNPC,
+        ObjectKind.Companion => config.DisplayTargetIDCompanion,
+        _ => config.DisplayTargetIDOthers
     };
 
     public static bool IsStatusFlyTextKind(FlyTextKind kind) => kind is
@@ -86,7 +86,7 @@ internal static class DisplayIdInformationFormatter
         FlyTextKind.HpDrain or
         FlyTextKind.MpDrain;
 
-    public static string InsertFlyTextId(string text, string matchedName, uint id)
+    public static string InsertFlyTextID(string text, string matchedName, uint id)
     {
         var suffix = $"({id})";
         if (text.Contains(suffix, StringComparison.Ordinal))

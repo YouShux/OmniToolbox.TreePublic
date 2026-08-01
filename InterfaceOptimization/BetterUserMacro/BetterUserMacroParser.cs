@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal static class BetterUserMacroParser
 {
@@ -10,14 +10,14 @@ internal static class BetterUserMacroParser
     private static readonly byte[] TraditionalIconCommand =
         [0xE5, 0xAE, 0x8F, 0xE5, 0x9C, 0x96, 0xE6, 0xA8, 0x99];
 
-    public static bool TryFindCustomIcon(ReadOnlySpan<byte> text, out uint iconId)
+    public static bool TryFindCustomIcon(ReadOnlySpan<byte> text, out uint iconID)
     {
-        iconId = 0;
+        iconID = 0;
         while (!text.IsEmpty)
         {
             var lineEnd = text.IndexOf((byte)'\n');
             var line = lineEnd < 0 ? text : text[..lineEnd];
-            if (TryParseCustomIcon(line, out iconId))
+            if (TryParseCustomIcon(line, out iconID))
             {
                 return true;
             }
@@ -33,9 +33,9 @@ internal static class BetterUserMacroParser
         return false;
     }
 
-    public static bool TryParseCustomIcon(ReadOnlySpan<byte> line, out uint iconId)
+    public static bool TryParseCustomIcon(ReadOnlySpan<byte> line, out uint iconID)
     {
-        iconId = 0;
+        iconID = 0;
         line = Trim(line);
         if (!ConsumeAscii(ref line, "/omni"u8))
         {
@@ -85,7 +85,7 @@ internal static class BetterUserMacroParser
             return false;
         }
 
-        iconId = value;
+        iconID = value;
         return true;
     }
 

@@ -3,7 +3,7 @@ using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools.Extensions;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal static class ChatLogReplayPresentation
 {

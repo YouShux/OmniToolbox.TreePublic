@@ -2,7 +2,7 @@ using System.Globalization;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class ChatLogReplayWindow
 {
@@ -18,8 +18,8 @@ internal sealed class ChatLogReplayWindow
     private string anonymousPrefix = string.Empty;
     private string statusKey = "Feature.ChatLogReplay.Status.SelectFile";
     private object[] statusArguments = [];
-    private int refreshRequestId;
-    private int readRequestId;
+    private int refreshRequestID;
+    private int readRequestID;
     private int skippedLineCount;
     private bool isOpen;
     private bool showTime = true;
@@ -43,8 +43,8 @@ internal sealed class ChatLogReplayWindow
     {
         isOpen = false;
         storage = null;
-        refreshRequestId++;
-        readRequestId++;
+        refreshRequestID++;
+        readRequestID++;
         ClearEntries();
     }
 
@@ -274,7 +274,7 @@ internal sealed class ChatLogReplayWindow
     private void RequestRefresh()
     {
         SetStatus("Feature.ChatLogReplay.Status.Refreshing");
-        storage?.RequestRefresh(++refreshRequestId);
+        storage?.RequestRefresh(++refreshRequestID);
     }
 
     private void RequestRead(string path)
@@ -282,7 +282,7 @@ internal sealed class ChatLogReplayWindow
         selectedPath = path;
         ClearEntries();
         SetStatus("Feature.ChatLogReplay.Status.Reading");
-        storage?.RequestRead(++readRequestId, path);
+        storage?.RequestRead(++readRequestID, path);
     }
 
     private void ApplyStorageResults()
@@ -291,10 +291,10 @@ internal sealed class ChatLogReplayWindow
         {
             switch (result)
             {
-                case ChatLogReplayFileListResult fileList when fileList.RequestId == refreshRequestId:
+                case ChatLogReplayFileListResult fileList when fileList.requestID == refreshRequestID:
                     ApplyFileList(fileList);
                     break;
-                case ChatLogReplayReadResult read when read.RequestId == readRequestId:
+                case ChatLogReplayReadResult read when read.requestID == readRequestID:
                     ApplyReadResult(read);
                     break;
             }

@@ -8,7 +8,7 @@ using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using LuminaTerritoryType = Lumina.Excel.Sheets.TerritoryType;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationCombatLog(int replaySaveCount)
 {
@@ -17,7 +17,7 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
     private readonly List<MitigationCombatHistory> history = new(40);
     private readonly Dictionary<uint, MitigationRecord> lastDamageByTarget = [];
     private readonly HashSet<uint> deadTargets = [];
-    private DateTime? combatStartUtc;
+    private DateTime? combatStartUTC;
     private long recordsVersion;
     private long historyVersion;
     private int replaySaveCount = Math.Clamp(replaySaveCount, 1, 300);
@@ -63,12 +63,12 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
     {
         lock (syncRoot)
         {
-            combatStartUtc ??= record.TimestampUtc;
-            record = record with { Elapsed = record.TimestampUtc - combatStartUtc.Value };
+            combatStartUTC ??= record.TimestampUTC;
+            record = record with { Elapsed = record.TimestampUTC - combatStartUTC.Value };
             AddRecordNoLock(record);
             if (!record.Missed && !record.Invulnerable)
             {
-                lastDamageByTarget[record.TargetEntityId] = record;
+                lastDamageByTarget[record.targetEntityID] = record;
             }
         }
     }
@@ -79,20 +79,20 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
         {
             if (target.IsAlive)
             {
-                deadTargets.Remove(target.EntityId);
+                deadTargets.Remove(target.EntityID);
                 return;
             }
 
-            if (!deadTargets.Add(target.EntityId))
+            if (!deadTargets.Add(target.EntityID))
             {
                 return;
             }
 
-            var record = lastDamageByTarget.TryGetValue(target.EntityId, out var lastDamage)
+            var record = lastDamageByTarget.TryGetValue(target.EntityID, out var lastDamage)
                 ? lastDamage with
                 {
                     Kind = MitigationRecordKind.Defeated,
-                    TimestampUtc = now,
+                    TimestampUTC = now,
                     Elapsed = GetElapsedNoLock(now),
                     ActionName = BuildDefeatedActionName(lastDamage)
                 }
@@ -105,11 +105,11 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
                         OmniLoc.Get("Feature.MitigationMonitor.Record.DefeatedGeneric"),
                         MitigationText.BuildTargetName(target.JobName, target.TargetName)),
                     string.Empty,
-                    target.EntityId,
+                    target.EntityID,
                     target.TargetName,
                     target.TargetShortName,
                     target.JobName,
-                    target.JobRowId,
+                    target.jobRowID,
                     DamageSourceKind.Skill,
                     0,
                     DamageKind.Special,
@@ -284,13 +284,13 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
 
         var snapshot = records.ToArray();
         var key = now.Ticks.ToString("X", CultureInfo.InvariantCulture);
-        var startUtc = combatStartUtc ?? snapshot[0].TimestampUtc;
+        var startUTC = combatStartUTC ?? snapshot[0].TimestampUTC;
         history.Insert(0, new(
             key,
             snapshot,
-            startUtc,
+            startUTC,
             now,
-            MitigationText.FormatElapsed(now - startUtc),
+            MitigationText.FormatElapsed(now - startUTC),
             GetCurrentZoneDisplayName()));
         historyVersion++;
         TrimHistoryNoLock();
@@ -318,13 +318,13 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
         recordsVersion++;
         lastDamageByTarget.Clear();
         deadTargets.Clear();
-        combatStartUtc = null;
+        combatStartUTC = null;
     }
 
     private TimeSpan GetElapsedNoLock(DateTime now)
     {
-        combatStartUtc ??= now;
-        return now - combatStartUtc.Value;
+        combatStartUTC ??= now;
+        return now - combatStartUTC.Value;
     }
 
     private MitigationCombatHistory? FindHistoryNoLock(string key)
@@ -380,10 +380,10 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
 
     private static string GetCurrentZoneDisplayName()
     {
-        var territoryId = DService.Instance().ClientState.TerritoryType;
-        if (territoryId == 0 || !LuminaGetter.TryGetRow<LuminaTerritoryType>(territoryId, out var row))
+        var territoryID = DService.Instance().ClientState.TerritoryType;
+        if (territoryID == 0 || !LuminaGetter.TryGetRow<LuminaTerritoryType>(territoryID, out var row))
         {
-            return territoryId == 0 ? string.Empty : $"#{territoryId}";
+            return territoryID == 0 ? string.Empty : $"#{territoryID}";
         }
 
         var contentName = row.ContentFinderCondition.ValueNullable?.Name.ToString() ?? string.Empty;
@@ -393,6 +393,6 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
         }
 
         var placeName = row.PlaceName.ValueNullable?.Name.ToString() ?? string.Empty;
-        return string.IsNullOrWhiteSpace(placeName) ? $"#{territoryId}" : placeName;
+        return string.IsNullOrWhiteSpace(placeName) ? $"#{territoryID}" : placeName;
     }
 }

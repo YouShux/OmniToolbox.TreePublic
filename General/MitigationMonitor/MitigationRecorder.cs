@@ -17,7 +17,7 @@ using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKi
 using OmenObjectTable = OmenTools.Dalamud.Services.Game.Object.Abstractions.IObjectTable;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class MitigationRecorder
 {
@@ -75,7 +75,7 @@ internal sealed unsafe class MitigationRecorder
     }
 
     private void OnActionEffect(
-        uint casterEntityId,
+        uint casterEntityID,
         GameCharacter* caster,
         Vector3* targetPosition,
         ActionEffectHandler.Header* header,
@@ -84,7 +84,7 @@ internal sealed unsafe class MitigationRecorder
     {
         try
         {
-            ProcessActionEffect(casterEntityId, header, effects, targetEntityIds);
+            ProcessActionEffect(casterEntityID, header, effects, targetEntityIds);
         }
         catch (Exception ex)
         {
@@ -92,12 +92,12 @@ internal sealed unsafe class MitigationRecorder
         }
         finally
         {
-            receiveHook!.Original(casterEntityId, caster, targetPosition, header, effects, targetEntityIds);
+            receiveHook!.Original(casterEntityID, caster, targetPosition, header, effects, targetEntityIds);
         }
     }
 
     private void ProcessActionEffect(
-        uint casterEntityId,
+        uint casterEntityID,
         ActionEffectHandler.Header* header,
         ActionEffectHandler.TargetEffects* effects,
         GameObjectId* targetEntityIds)
@@ -113,7 +113,7 @@ internal sealed unsafe class MitigationRecorder
             return;
         }
 
-        if (services.ObjectTable.SearchByEntityID(casterEntityId, OmenObjectTable.CharactersRange) is not IBattleChara source ||
+        if (services.ObjectTable.SearchByEntityID(casterEntityID, OmenObjectTable.CharactersRange) is not IBattleChara source ||
             source.ObjectKind != ObjectKind.BattleNpc ||
             combatLog.ShouldSuppressWrites() ||
             !services.Condition[ConditionFlag.InCombat])
@@ -132,9 +132,9 @@ internal sealed unsafe class MitigationRecorder
             var action = snapshotBuilder.GetActionInfo(header->ActionId);
             for (var index = 0; index < Math.Min((int)header->NumTargets, 32); index++)
             {
-                var targetId = targetEntityIds[index];
-                if (!friendlyEntityIds.Contains(targetId.ObjectId) ||
-                    FindObject(targetId) is not { } target ||
+                var targetID = targetEntityIds[index];
+        if (!friendlyEntityIds.Contains(targetID.ObjectId) ||
+                    FindObject(targetID) is not { } target ||
                     !TryDecodeTargetDamage(&effects[index], out var damage))
                 {
                     continue;
@@ -164,7 +164,7 @@ internal sealed unsafe class MitigationRecorder
                     target.Name,
                     CreateShortName(target.Name),
                     GetJobName(targetCharacter),
-                    targetCharacter?.ClassJob.RowId ?? 0,
+        targetCharacter?.ClassJob.RowId ?? 0,
                     actionDisplay.SourceKind,
                     damage.Damage,
                     damage.Kind,
@@ -258,7 +258,7 @@ internal sealed unsafe class MitigationRecorder
             target.Name,
             CreateShortName(target.Name),
             GetJobName(character),
-            character?.ClassJob.RowId ?? 0,
+        character?.ClassJob.RowId ?? 0,
             GetShieldValue(character),
             character?.CurrentHp ?? 0), now);
     }
@@ -350,7 +350,7 @@ internal sealed unsafe class MitigationRecorder
         }
     }
 
-    private void OnLogout(int _, int __) => ClearRuntimeState();
+    private void OnLogout(int _, int unusedReason) => ClearRuntimeState();
 
     private void OnTerritoryChanged(uint _) => ClearRuntimeState();
 

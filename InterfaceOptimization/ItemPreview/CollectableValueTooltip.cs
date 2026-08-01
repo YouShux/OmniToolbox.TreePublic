@@ -10,7 +10,7 @@ using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.OmenService;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization.ItemPreview;
+namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class CollectableValueTooltip
 {
@@ -22,7 +22,7 @@ internal sealed unsafe class CollectableValueTooltip
     private const string ExperienceKey = "ItemTooltip.CollectableReward.Experience";
     private const string ScripKey = "ItemTooltip.CollectableReward.Scrip";
 
-    private static readonly uint[][] RowIdToJob =
+    private static readonly uint[][] RowIDToJob =
     [
         [15, 23],
         [16, 24],
@@ -113,10 +113,10 @@ internal sealed unsafe class CollectableValueTooltip
         {
             foreach (var collectable in collection)
             {
-                if (collectable.Item.RowId == 0 ||
-                    collectable.CollectablesShopRefine.RowId == 0 ||
-                    collectable.CollectablesShopRewardScrip.RowId == 0 ||
-                    !TryResolveJobInfo(collectable.RowId, jobInfos, out var jobInfo))
+        if (collectable.Item.RowId == 0 ||
+            collectable.CollectablesShopRefine.RowId == 0 ||
+            collectable.CollectablesShopRewardScrip.RowId == 0 ||
+            !TryResolveJobInfo(collectable.RowId, jobInfos, out var jobInfo))
                 {
                     continue;
                 }
@@ -124,7 +124,7 @@ internal sealed unsafe class CollectableValueTooltip
                 var rewardScrip = collectable.CollectablesShopRewardScrip.Value;
                 var refine = collectable.CollectablesShopRefine.Value;
                 var levelMax = collectable.LevelMax;
-                cache.TryAdd(collectable.Item.RowId, new(
+        cache.TryAdd(collectable.Item.RowId, new(
                     jobInfo.ExpArrayIndex,
                     jobInfo.Name,
                     collectable.LevelMin,
@@ -152,10 +152,10 @@ internal sealed unsafe class CollectableValueTooltip
 
     private static JobInfo?[] BuildJobInfos()
     {
-        var jobInfos = new JobInfo?[RowIdToJob.Length];
+        var jobInfos = new JobInfo?[RowIDToJob.Length];
         foreach (var job in DService.Instance().Data.GetExcelSheet<ClassJob>())
         {
-            var index = job.ClassJobCategory.RowId switch
+        var index = job.ClassJobCategory.RowId switch
             {
                 33 when job.DohDolJobIndex is >= 0 and < 8 => job.DohDolJobIndex,
                 32 when job.DohDolJobIndex is >= 0 and < 3 => job.DohDolJobIndex + 8,
@@ -170,13 +170,13 @@ internal sealed unsafe class CollectableValueTooltip
         return jobInfos;
     }
 
-    private static bool TryResolveJobInfo(uint rowId, JobInfo?[] jobInfos, out JobInfo jobInfo)
+    private static bool TryResolveJobInfo(uint rowID, JobInfo?[] jobInfos, out JobInfo jobInfo)
     {
-        for (var index = 0; index < RowIdToJob.Length; index++)
+        for (var index = 0; index < RowIDToJob.Length; index++)
         {
-            for (var rowIndex = 0; rowIndex < RowIdToJob[index].Length; rowIndex++)
+            for (var rowIndex = 0; rowIndex < RowIDToJob[index].Length; rowIndex++)
             {
-                if (RowIdToJob[index][rowIndex] != rowId)
+                if (RowIDToJob[index][rowIndex] != rowID)
                 {
                     continue;
                 }
@@ -219,12 +219,12 @@ internal sealed unsafe class CollectableValueTooltip
 
     private void OnItemTooltip(
         ItemKind itemKind,
-        uint itemId,
+        uint itemID,
         ref List<TooltipItemModification> modifications)
     {
         if (itemKind == ItemKind.EventItem ||
             collectableCache is null ||
-            !collectableCache.TryGetValue(itemId, out var itemDetails) ||
+            !collectableCache.TryGetValue(itemID, out var itemDetails) ||
             tooltipManager is null ||
             tooltipManager.GetOriginalItemTooltipText(TooltipItemType.Description).IsEmpty)
         {
@@ -232,7 +232,7 @@ internal sealed unsafe class CollectableValueTooltip
         }
 
         using var rented = new RentedSeStringBuilder();
-        AppendRewardBlock(rented.Builder, itemDetails, itemId);
+        AppendRewardBlock(rented.Builder, itemDetails, itemID);
         modifications.Add(new()
         {
             Target = TooltipItemType.Description,
@@ -241,7 +241,7 @@ internal sealed unsafe class CollectableValueTooltip
         });
     }
 
-    private void AppendRewardBlock(SeStringBuilder builder, CollectableCachedDetails itemDetails, uint itemId)
+    private void AppendRewardBlock(SeStringBuilder builder, CollectableCachedDetails itemDetails, uint itemID)
     {
         var useExperienceFloor = ShouldUseExperienceFloor(itemDetails);
         var scripColor = GetScripColor(itemDetails.ScripRewardType);
@@ -250,7 +250,7 @@ internal sealed unsafe class CollectableValueTooltip
             .Append(OmniLoc.Get("ItemTooltip.CollectableReward.Header"))
             .AppendNewLine();
 
-        if (!TryGetCurrentCollectability(itemId, out var collectability))
+        if (!TryGetCurrentCollectability(itemID, out var collectability))
         {
             builder
                 .Append("  ")
@@ -377,10 +377,10 @@ internal sealed unsafe class CollectableValueTooltip
         }
     }
 
-    private bool TryGetCurrentCollectability(uint itemId, out int collectability)
+    private bool TryGetCurrentCollectability(uint itemID, out int collectability)
     {
         collectability = 0;
-        if (!inventoryContext.TryGet(itemId, out var item) ||
+        if (!inventoryContext.TryGet(itemID, out var item) ||
             (item.Flags & InventoryItem.ItemFlags.Collectable) == 0 ||
             item.SpiritbondOrCollectability <= 0)
         {

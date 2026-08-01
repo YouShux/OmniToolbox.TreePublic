@@ -9,7 +9,7 @@ using OmniToolbox.UI;
 using OmenTools;
 using OmenTools.OmenService;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationReplayStore
 {
@@ -20,7 +20,7 @@ internal sealed class MitigationReplayStore
     private const string ExportDirectoryName = "MitigationExports";
     private const string ExportExtension = ".omni-mitigation.json";
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions JSONOptions = new()
     {
         WriteIndented = true,
         Converters = { new JsonStringEnumConverter() }
@@ -37,7 +37,7 @@ internal sealed class MitigationReplayStore
 
             Directory.CreateDirectory(ExportDirectory);
             var path = EnsureUniquePath(Path.Combine(ExportDirectory, BuildFileName(history)));
-            File.WriteAllText(path, JsonSerializer.Serialize(ToDto(history), JsonOptions), Encoding.UTF8);
+            File.WriteAllText(path, JsonSerializer.Serialize(ToDTO(history), JSONOptions), Encoding.UTF8);
             DalamudServices.PluginLog.Information("Mitigation replay exported to {Path}.", path);
         }
         catch (Exception ex)
@@ -50,7 +50,7 @@ internal sealed class MitigationReplayStore
     {
         try
         {
-            var dto = JsonSerializer.Deserialize<ReplayDto>(File.ReadAllText(path, Encoding.UTF8), JsonOptions);
+            var dto = JsonSerializer.Deserialize<ReplayDto>(File.ReadAllText(path, Encoding.UTF8), JSONOptions);
             if (TryCreateHistory(dto, out var history, out var error))
             {
                 return history;
@@ -90,30 +90,30 @@ internal sealed class MitigationReplayStore
     public string ExportDirectory =>
         Path.Combine(DService.Instance().PI.GetPluginConfigDirectory(), ExportDirectoryName);
 
-    private static ReplayDto ToDto(MitigationCombatHistory history)
+    private static ReplayDto ToDTO(MitigationCombatHistory history)
     {
         var dto = new ReplayDto
         {
             Version = ExportVersion,
-            ExportedUtc = DateTime.UtcNow,
+            ExportedUTC = DateTime.UtcNow,
             ZoneName = history.ZoneName,
-            StartUtc = history.StartUtc,
-            EndUtc = history.EndUtc,
+            startUTC = history.startUTC,
+            endUTC = history.endUTC,
             ElapsedLabel = history.ElapsedLabel
         };
         foreach (var record in history.Records)
         {
-            var recordDto = new RecordDto
+            var recordDTO = new recordDTO
             {
                 Kind = record.Kind,
-                TimestampUtc = record.TimestampUtc,
+                TimestampUTC = record.TimestampUTC,
                 Elapsed = record.Elapsed,
                 ActionName = record.ActionName,
                 SourceName = record.SourceName,
                 TargetName = record.TargetName,
                 TargetShortName = record.TargetShortName,
                 TargetJobName = record.TargetJobName,
-                TargetJobRowId = record.TargetJobRowId,
+                TargetJobRowID = record.TargetJobRowID,
                 SourceKind = record.SourceKind,
                 Damage = record.Damage,
                 DamageKind = record.DamageKind,
@@ -127,11 +127,11 @@ internal sealed class MitigationReplayStore
             };
             foreach (var status in record.Statuses)
             {
-                recordDto.Statuses.Add(new()
+                recordDTO.Statuses.Add(new()
                 {
-                    StatusId = status.StatusId,
+            statusID = status.statusID,
                     Name = status.Name,
-                    IconId = status.IconId,
+                    iconID = status.iconID,
                     RemainingSeconds = status.RemainingSeconds,
                     Value = status.Value,
                     StackCount = status.StackCount,
@@ -141,7 +141,7 @@ internal sealed class MitigationReplayStore
                 });
             }
 
-            dto.Records.Add(recordDto);
+            dto.Records.Add(recordDTO);
         }
 
         return dto;
@@ -173,22 +173,22 @@ internal sealed class MitigationReplayStore
             }
         }
 
-        Array.Sort(records, static (left, right) => left.TimestampUtc.CompareTo(right.TimestampUtc));
-        var startUtc = dto.StartUtc == default ? records[0].TimestampUtc : dto.StartUtc;
-        var endUtc = dto.EndUtc == default ? records[^1].TimestampUtc : dto.EndUtc;
-        if (startUtc == default || endUtc == default || endUtc < startUtc)
+        Array.Sort(records, static (left, right) => left.TimestampUTC.CompareTo(right.TimestampUTC));
+        var startUTC = dto.startUTC == default ? records[0].TimestampUTC : dto.startUTC;
+        var endUTC = dto.endUTC == default ? records[^1].TimestampUTC : dto.endUTC;
+        if (startUTC == default || endUTC == default || endUTC < startUTC)
         {
             error = "Replay timestamps are invalid.";
             return false;
         }
 
         history = new(
-            $"I{startUtc.Ticks:X}_{DateTime.UtcNow.Ticks:X}",
+            $"I{startUTC.Ticks:X}_{DateTime.UtcNow.Ticks:X}",
             records,
-            startUtc,
-            endUtc,
+            startUTC,
+            endUTC,
             string.IsNullOrWhiteSpace(dto.ElapsedLabel)
-                ? MitigationText.FormatElapsed(endUtc - startUtc)
+                ? MitigationText.FormatElapsed(endUTC - startUTC)
                 : dto.ElapsedLabel,
             string.IsNullOrWhiteSpace(dto.ZoneName)
                 ? OmniLoc.Get("Feature.MitigationMonitor.History.Imported")
@@ -196,14 +196,14 @@ internal sealed class MitigationReplayStore
         return true;
     }
 
-    private static bool TryCreateRecord(RecordDto? dto, out MitigationRecord record)
+    private static bool TryCreateRecord(recordDTO? dto, out MitigationRecord record)
     {
         record = default;
         if (dto == null ||
             !Enum.IsDefined(dto.Kind) ||
             !Enum.IsDefined(dto.SourceKind) ||
             !Enum.IsDefined(dto.DamageKind) ||
-            dto.TimestampUtc == default ||
+            dto.TimestampUTC == default ||
             !float.IsFinite(dto.MitigationPercent) ||
             dto.Statuses == null ||
             dto.Statuses.Count > MaxStatusesPerRecord ||
@@ -229,9 +229,9 @@ internal sealed class MitigationReplayStore
             }
 
             statuses[index] = new(
-                status.StatusId,
+                status.statusID,
                 status.Name,
-                status.IconId,
+                status.iconID,
                 MathF.Max(0f, status.RemainingSeconds),
                 status.Value,
                 Math.Max(1, status.StackCount),
@@ -242,7 +242,7 @@ internal sealed class MitigationReplayStore
 
         record = new(
             dto.Kind,
-            dto.TimestampUtc,
+            dto.TimestampUTC,
             dto.Elapsed,
             dto.ActionName,
             dto.SourceName,
@@ -250,7 +250,7 @@ internal sealed class MitigationReplayStore
             dto.TargetName,
             dto.TargetShortName,
             dto.TargetJobName,
-            dto.TargetJobRowId,
+            dto.TargetJobRowID,
             dto.SourceKind,
             dto.Damage,
             dto.DamageKind,
@@ -269,7 +269,7 @@ internal sealed class MitigationReplayStore
 
     private static string BuildFileName(MitigationCombatHistory history)
     {
-        var timestamp = history.StartUtc.ToLocalTime().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+        var timestamp = history.startUTC.ToLocalTime().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
         var zoneName = SanitizeFileName(string.IsNullOrWhiteSpace(history.ZoneName)
             ? OmniLoc.Get("Feature.MitigationMonitor.History.UnknownZone")
             : history.ZoneName);
@@ -322,26 +322,26 @@ internal sealed class MitigationReplayStore
     private sealed class ReplayDto
     {
         public int Version { get; set; } = ExportVersion;
-        public DateTime ExportedUtc { get; set; }
+        public DateTime ExportedUTC { get; set; }
         public string ZoneName { get; set; } = string.Empty;
-        public DateTime StartUtc { get; set; }
-        public DateTime EndUtc { get; set; }
+        public DateTime startUTC { get; set; }
+        public DateTime endUTC { get; set; }
         public string ElapsedLabel { get; set; } = string.Empty;
-        public List<RecordDto?> Records { get; set; } = [];
+        public List<recordDTO?> Records { get; set; } = [];
     }
 
     [Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
-    private sealed class RecordDto
+    private sealed class recordDTO
     {
         public MitigationRecordKind Kind { get; set; }
-        public DateTime TimestampUtc { get; set; }
+        public DateTime TimestampUTC { get; set; }
         public TimeSpan Elapsed { get; set; }
         public string ActionName { get; set; } = string.Empty;
         public string SourceName { get; set; } = string.Empty;
         public string TargetName { get; set; } = string.Empty;
         public string TargetShortName { get; set; } = string.Empty;
         public string TargetJobName { get; set; } = string.Empty;
-        public uint TargetJobRowId { get; set; }
+        public uint TargetJobRowID { get; set; }
         public DamageSourceKind SourceKind { get; set; }
         public uint Damage { get; set; }
         public DamageKind DamageKind { get; set; }
@@ -358,9 +358,9 @@ internal sealed class MitigationReplayStore
     [Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
     private sealed class ActiveMitigationDto
     {
-        public uint StatusId { get; set; }
+        public uint statusID { get; set; }
         public string Name { get; set; } = string.Empty;
-        public uint IconId { get; set; }
+        public uint iconID { get; set; }
         public float RemainingSeconds { get; set; }
         public int Value { get; set; }
         public int StackCount { get; set; }

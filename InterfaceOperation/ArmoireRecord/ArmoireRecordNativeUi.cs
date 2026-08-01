@@ -4,9 +4,9 @@ using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using OmniToolbox.UI;
 
-namespace OmniToolbox.TreeHouse.InterfaceOperation;
+namespace OmniToolbox.TreePublic;
 
-internal sealed class ArmoireRecordNativeUi : NativeAddon
+internal sealed class ArmoireRecordNativeUI : NativeAddon
 {
     private const float WindowWidth = 420f;
     private const float WindowHeight = 406f;
@@ -29,7 +29,7 @@ internal sealed class ArmoireRecordNativeUi : NativeAddon
     private Action? onStore;
 
     [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-    public ArmoireRecordNativeUi()
+    public ArmoireRecordNativeUI()
     {
         InternalName = "OmniArmoireRecord";
         Title = OmniLoc.Get("Feature.ArmoireRecord.Title");
@@ -276,7 +276,7 @@ internal sealed class ArmoireRecordListItemNode : ListItemNode<ArmoireRecordItem
 
     protected override void SetNodeData(ArmoireRecordItem itemData)
     {
-        iconNode.IconId = itemData.IconId;
+        iconNode.IconId = itemData.iconID;
         nameNode.String = $"{itemData.Name} ×{itemData.Quantity}";
         locationNode.String = itemData.LocationsText;
         statusNode.String = OmniLoc.Get(itemData.CanDirectStore

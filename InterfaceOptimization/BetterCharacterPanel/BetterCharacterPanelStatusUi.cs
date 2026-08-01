@@ -8,9 +8,9 @@ using KamiToolKit.Nodes;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
-internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelConfig config) : IDisposable
+internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelConfig config) : IDisposable
 {
     private const float RowHeight = 20f;
     private static readonly ByteColor SecondaryTextColor = new() { A = 0xFF, R = 0xA0, G = 0xA0, B = 0xA0 };
@@ -344,15 +344,15 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
             return;
         }
 
-        UpdateJobVisibility(stats.JobId);
+        UpdateJobVisibility(stats.jobID);
         lastStats = stats;
-        if (BetterCharacterPanelState.IsCrafter(stats.JobId))
+        if (BetterCharacterPanelState.IsCrafter(stats.jobID))
         {
             SetRowText(craftingPoints, stats.CraftingPoints.ToString(CultureInfo.CurrentCulture));
             return;
         }
 
-        if (BetterCharacterPanelState.IsGatherer(stats.JobId))
+        if (BetterCharacterPanelState.IsGatherer(stats.jobID))
         {
             SetRowText(gatheringPoints, stats.GatheringPoints.ToString(CultureInfo.CurrentCulture));
             return;
@@ -380,7 +380,7 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
         SetRowText(magicMitigation, stats.MagicMitigation.DisplayValue.ToString("P0", CultureInfo.CurrentCulture));
         SetTooltip(magicMitigation, BetterCharacterPanelTooltip.MagicDefense, stats);
 
-        if (BetterCharacterPanelState.IsCaster(stats.JobId))
+        if (BetterCharacterPanelState.IsCaster(stats.jobID))
         {
             SetRowText(spellSpeedBonus, stats.Speed.SpeedBonus.DisplayValue.ToString("P1", CultureInfo.CurrentCulture));
             SetRowText(spellGcd, Format("Feature.BetterCharacterPanel.Value.Seconds", stats.Speed.MainGcd.DisplayValue));
@@ -553,7 +553,7 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
         injectedNodes.Add(collision);
     }
 
-    private void UpdateJobVisibility(int jobId)
+    private void UpdateJobVisibility(int jobID)
     {
         if (attributes == null)
         {
@@ -564,7 +564,7 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
         var intelligenceNode = Previous(mindNode);
         var dexterityNode = Previous(Previous(intelligenceNode));
         var strengthNode = Previous(dexterityNode);
-        if (BetterCharacterPanelState.IsCrafter(jobId) || BetterCharacterPanelState.IsGatherer(jobId))
+        if (BetterCharacterPanelState.IsCrafter(jobID) || BetterCharacterPanelState.IsGatherer(jobID))
         {
             SetVisible(mindNode, false);
             SetVisible(intelligenceNode, false);
@@ -576,8 +576,8 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
             SetVisible(gear, false);
             SetRowParentVisible(expectedDamage, false);
             SetRowParentVisible(expectedHeal, false);
-            SetVisible(crafting, BetterCharacterPanelState.IsCrafter(jobId));
-            SetVisible(gathering, BetterCharacterPanelState.IsGatherer(jobId));
+            SetVisible(crafting, BetterCharacterPanelState.IsCrafter(jobID));
+            SetVisible(gathering, BetterCharacterPanelState.IsGatherer(jobID));
             return;
         }
 
@@ -586,18 +586,18 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
         SetVisible(physicalProperties, true);
         SetVisible(gear, true);
         SetRowParentVisible(expectedDamage, true);
-        SetRowParentVisible(expectedHeal, BetterCharacterPanelState.IsCaster(jobId));
+        SetRowParentVisible(expectedHeal, BetterCharacterPanelState.IsCaster(jobID));
         SetVisible(crafting, false);
         SetVisible(gathering, false);
-        if (BetterCharacterPanelState.IsCaster(jobId))
+        if (BetterCharacterPanelState.IsCaster(jobID))
         {
             SetVisible(skillSpeed, false);
             SetVisible(spellSpeed, true);
-            SetVisible(mindNode, BetterCharacterPanelState.UsesMind(jobId));
-            SetVisible(intelligenceNode, !BetterCharacterPanelState.UsesMind(jobId));
+            SetVisible(mindNode, BetterCharacterPanelState.UsesMind(jobID));
+            SetVisible(intelligenceNode, !BetterCharacterPanelState.UsesMind(jobID));
             SetVisible(dexterityNode, false);
             SetVisible(strengthNode, false);
-            SetVisible(piety, BetterCharacterPanelState.UsesMind(jobId));
+            SetVisible(piety, BetterCharacterPanelState.UsesMind(jobID));
             SetVisible(tenacity, false);
             return;
         }
@@ -606,10 +606,10 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
         SetVisible(spellSpeed, false);
         SetVisible(mindNode, false);
         SetVisible(intelligenceNode, false);
-        SetVisible(dexterityNode, BetterCharacterPanelState.UsesDexterity(jobId));
-        SetVisible(strengthNode, !BetterCharacterPanelState.UsesDexterity(jobId));
+        SetVisible(dexterityNode, BetterCharacterPanelState.UsesDexterity(jobID));
+        SetVisible(strengthNode, !BetterCharacterPanelState.UsesDexterity(jobID));
         SetVisible(piety, false);
-        SetVisible(tenacity, BetterCharacterPanelState.UsesTenacity(jobId));
+        SetVisible(tenacity, BetterCharacterPanelState.UsesTenacity(jobID));
     }
 
     private bool HasRequiredRows() =>

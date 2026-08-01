@@ -8,20 +8,20 @@ using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools.Extensions;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 {
-    private const uint PhysicalDamageIconId = 60011;
-    private const uint MagicalDamageIconId = 60012;
-    private const uint SpecialDamageIconId = 60013;
+    private const uint PhysicalDamageIconID = 60011;
+    private const uint MagicalDamageIconID = 60012;
+    private const uint SpecialDamageIconID = 60013;
     private const float StatusMeasureTextScale = 0.82f;
     private const float StatusDrawTextScale = 0.76f;
     private const float StatusIconTextGap = -6f;
     private const float StatusWrappedRowGap = 2f;
     private const float StatusItemGap = -3f;
 
-    private static readonly uint[] JobIconV3ByRowId =
+    private static readonly uint[] JobIconV3ByRowID =
     [
         0, 62301, 62302, 62303, 62304, 62305, 62306, 62307, 62310, 62311, 62312,
         62313, 62314, 62315, 62316, 62317, 62318, 62319, 62320, 62401, 62402, 62403,
@@ -157,8 +157,8 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             return;
         }
 
-        var iconId = GetTargetIconId(record.TargetJobRowId, config.TargetDisplayMode);
-        if (iconId == 0)
+        var iconID = GetTargetIconID(record.TargetJobRowID, config.TargetDisplayMode);
+        if (iconID == 0)
         {
             DrawText(
                 config.TargetDisplayMode == MitigationTargetDisplayMode.JobName && !string.IsNullOrWhiteSpace(record.TargetJobName)
@@ -171,7 +171,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                 true,
                 offset);
         }
-        else if (GetIconHandle(iconId) is { } handle)
+        else if (GetIconHandle(iconID) is { } handle)
         {
             var size = OmniTheme.Scale(new Vector2(24f));
             var iconMin = min + offset + new Vector2(
@@ -200,11 +200,11 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             return;
         }
 
-        var iconId = record.DamageKind switch
+        var iconID = record.DamageKind switch
         {
-            DamageKind.Physical => PhysicalDamageIconId,
-            DamageKind.Magical => MagicalDamageIconId,
-            _ => SpecialDamageIconId
+            DamageKind.Physical => PhysicalDamageIconID,
+            DamageKind.Magical => MagicalDamageIconID,
+            _ => SpecialDamageIconID
         };
         var text = record.Missed
             ? OmniLoc.Get("Feature.MitigationMonitor.Damage.Miss")
@@ -216,7 +216,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         var display = FitText(text, MathF.Max(OmniTheme.Scale(10f), width - iconSize.X - OmniTheme.Scale(8f)));
         var textSize = ImGui.CalcTextSize(display);
         var startX = min.X + MathF.Max(0f, (width - iconSize.X - spacing - textSize.X) * 0.5f);
-        if (GetIconHandle(iconId) is { } handle)
+        if (GetIconHandle(iconID) is { } handle)
         {
             var iconMin = new Vector2(startX, min.Y + MathF.Max(0f, (rowHeight - iconSize.Y) * 0.5f)) + offset;
             ImGui.GetWindowDrawList().AddImage(handle, iconMin, iconMin + iconSize);
@@ -314,7 +314,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                 var slotWidth = GetStatusSlotWidth(status, iconSlotSize.X);
                 var iconMin = new Vector2(x + (slotWidth - iconSize.X) * 0.5f, y) + offset;
                 var iconMax = iconMin + iconSize;
-                if (GetIconHandle(status.IconId) is { } handle)
+                if (GetIconHandle(status.iconID) is { } handle)
                 {
                     ImGui.GetWindowDrawList().AddImage(handle, iconMin, iconMax);
                 }
@@ -358,34 +358,34 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                 "0",
                 CultureInfo.InvariantCulture)).X * StatusMeasureTextScale);
 
-    private ImTextureID? GetIconHandle(uint iconId)
+    private ImTextureID? GetIconHandle(uint iconID)
     {
-        if (iconId == 0)
+        if (iconID == 0)
         {
             return null;
         }
 
-        if (!iconTextures.TryGetValue(iconId, out var texture))
+        if (!iconTextures.TryGetValue(iconID, out var texture))
         {
-            texture = DalamudServices.TextureProvider.GetFromGameIcon(new GameIconLookup(iconId));
-            iconTextures[iconId] = texture;
+            texture = DalamudServices.TextureProvider.GetFromGameIcon(new GameIconLookup(iconID));
+            iconTextures[iconID] = texture;
         }
 
         return texture.GetWrapOrDefault()?.Handle;
     }
 
-    private static uint GetTargetIconId(uint jobRowId, MitigationTargetDisplayMode mode)
+    private static uint GetTargetIconID(uint jobRowID, MitigationTargetDisplayMode mode)
     {
-        if (jobRowId == 0)
+        if (jobRowID == 0)
         {
             return 0;
         }
 
         return mode switch
         {
-            MitigationTargetDisplayMode.JobIcon => 62000u + jobRowId,
-            MitigationTargetDisplayMode.JobIconV2 => 62100u + jobRowId,
-            MitigationTargetDisplayMode.JobIconV3 when jobRowId < JobIconV3ByRowId.Length => JobIconV3ByRowId[jobRowId],
+            MitigationTargetDisplayMode.JobIcon => 62000u + jobRowID,
+            MitigationTargetDisplayMode.JobIconV2 => 62100u + jobRowID,
+            MitigationTargetDisplayMode.JobIconV3 when jobRowID < JobIconV3ByRowID.Length => JobIconV3ByRowID[jobRowID],
             _ => 0
         };
     }

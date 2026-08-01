@@ -6,7 +6,7 @@ using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.OmenService;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationMonitorHotkey(
     MitigationMonitorConfig config,

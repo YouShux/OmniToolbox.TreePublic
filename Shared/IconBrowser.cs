@@ -8,7 +8,7 @@ using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 
-namespace OmniToolbox.TreeHouse;
+namespace OmniToolbox.TreePublic;
 
 public sealed class IconBrowser
 {
@@ -790,4 +790,10 @@ public sealed class IconBrowser
         string DecimalValue,
         string HexValue,
         string SearchText);
+}
+
+[Serializable]
+public sealed class IconBrowserConfig
+{
+    public float IconSize { get; set; } = 50f;
 }

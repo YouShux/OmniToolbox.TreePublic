@@ -8,7 +8,7 @@ using OmniToolbox.UI;
 using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal enum BetterCharacterPanelTooltip
 {
@@ -55,7 +55,7 @@ internal readonly record struct BetterCharacterPanelSpeedCalculation(
     BetterCharacterPanelGcdModifier? Modifier);
 
 internal readonly record struct BetterCharacterPanelStats(
-    int JobId,
+    int jobID,
     int Level,
     int CraftingPoints,
     int GatheringPoints,
@@ -130,11 +130,11 @@ internal static unsafe class BetterCharacterPanelState
     public static BetterCharacterPanelStats Calculate(PlayerState* playerState)
     {
         var level = Math.Clamp((int)playerState->CurrentLevel, 1, 100);
-        var jobId = (int)playerState->CurrentClassJobId;
-        if (IsCrafter(jobId) || IsGatherer(jobId))
+        var jobID = (int)playerState->CurrentClassJobId;
+        if (IsCrafter(jobID) || IsGatherer(jobID))
         {
             return new(
-                jobId,
+                jobID,
                 level,
                 GetAttribute(playerState, Attribute.MaxCp),
                 GetAttribute(playerState, Attribute.MaxGp),
@@ -185,7 +185,7 @@ internal static unsafe class BetterCharacterPanelState
             1000d);
 
         return new(
-            jobId,
+            jobID,
             level,
             GetAttribute(playerState, Attribute.MaxCp),
             GetAttribute(playerState, Attribute.MaxGp),
@@ -196,36 +196,36 @@ internal static unsafe class BetterCharacterPanelState
             CalculateDefense(GetAttribute(playerState, Attribute.Defense), modifier),
             CalculateDefense(GetAttribute(playerState, Attribute.MagicDefense), modifier),
             CalculateSpeed(
-                GetAttribute(playerState, IsCaster(jobId) ? Attribute.SpellSpeed : Attribute.SkillSpeed),
+                GetAttribute(playerState, IsCaster(jobID) ? Attribute.SpellSpeed : Attribute.SkillSpeed),
                 modifier,
-                GetAlternateGcd(jobId, level),
-                GetGcdModifier(jobId, level)),
+                GetAlternateGcd(jobID, level),
+                GetGcdModifier(jobID, level)),
             tenacityMitigation,
             tenacityDamage,
             CalculatePiety(GetAttribute(playerState, Attribute.Piety), modifier),
             CalculateExpectedOutput(
                 playerState,
-                jobId,
+                jobID,
                 determination.DisplayValue,
                 criticalDamage.DisplayValue,
                 criticalRate.DisplayValue,
                 directHit.DisplayValue,
-                UsesTenacity(jobId) ? tenacityDamage.DisplayValue : 0d,
+                UsesTenacity(jobID) ? tenacityDamage.DisplayValue : 0d,
                 modifier));
     }
 
-    public static bool IsCrafter(int jobId) => jobId is >= 8 and <= 15;
+    public static bool IsCrafter(int jobID) => jobID is >= 8 and <= 15;
 
-    public static bool IsGatherer(int jobId) => jobId is >= 16 and <= 18;
+    public static bool IsGatherer(int jobID) => jobID is >= 16 and <= 18;
 
-    public static bool UsesMind(int jobId) => jobId is 6 or 24 or 28 or 33 or 40;
+    public static bool UsesMind(int jobID) => jobID is 6 or 24 or 28 or 33 or 40;
 
-    public static bool UsesTenacity(int jobId) => jobId is 1 or 3 or 19 or 21 or 32 or 37;
+    public static bool UsesTenacity(int jobID) => jobID is 1 or 3 or 19 or 21 or 32 or 37;
 
-    public static bool UsesDexterity(int jobId) => jobId is 5 or 23 or 29 or 30 or 31 or 38 or 41;
+    public static bool UsesDexterity(int jobID) => jobID is 5 or 23 or 29 or 30 or 31 or 38 or 41;
 
-    public static bool IsCaster(int jobId) =>
-        jobId is 6 or 7 or 24 or 25 or 26 or 27 or 28 or 33 or 35 or 36 or 40 or 42;
+    public static bool IsCaster(int jobID) =>
+        jobID is 6 or 7 or 24 or 25 or 26 or 27 or 28 or 33 or 35 or 36 or 40 or 42;
 
     public static ReadOnlySeString BuildTooltip(
         BetterCharacterPanelTooltip tooltip,
@@ -270,7 +270,7 @@ internal static unsafe class BetterCharacterPanelState
             "Feature.BetterCharacterPanel.Tooltip.MagicDefense.Body",
             stats.MagicMitigation,
             stats.MagicMitigation.PointsPerTier),
-        BetterCharacterPanelTooltip.Speed => BuildSpeedTooltip(stats.Speed, IsCaster(stats.JobId)),
+        BetterCharacterPanelTooltip.Speed => BuildSpeedTooltip(stats.Speed, IsCaster(stats.jobID)),
         BetterCharacterPanelTooltip.Tenacity => BuildTenacityTooltip(stats.TenacityMitigation, stats.TenacityDamage),
         BetterCharacterPanelTooltip.Piety => BuildTierTooltip(
             "Feature.BetterCharacterPanel.Tooltip.Piety.Title",
@@ -369,7 +369,7 @@ internal static unsafe class BetterCharacterPanelState
 
     private static BetterCharacterPanelExpectedOutput CalculateExpectedOutput(
         PlayerState* playerState,
-        int jobId,
+        int jobID,
         double determination,
         double criticalMultiplier,
         double criticalRate,
@@ -384,7 +384,7 @@ internal static unsafe class BetterCharacterPanelState
         }
 
         var equipmentData = (ushort*)((nint)inventoryManager + CharacterPanelEquipmentDataOffset);
-        var weaponBaseDamage = equipmentData[IsCaster(jobId) ? MagicDamageIndex : PhysicalDamageIndex]
+        var weaponBaseDamage = equipmentData[IsCaster(jobID) ? MagicDamageIndex : PhysicalDamageIndex]
                                + equipmentData[HighQualityDamageBonusIndex];
         if (GetLevelBasedItemLevel(playerState) is { } syncedItemLevel
             && equipmentData[EquipmentLevelIndex] > playerState->CurrentLevel
@@ -396,16 +396,16 @@ internal static unsafe class BetterCharacterPanelState
         var level = Math.Clamp((int)playerState->CurrentLevel, 1, 100);
         var attackPower = GetAttribute(
             playerState,
-            IsCaster(jobId) ? Attribute.AttackMagicPotency : Attribute.AttackPower);
-        var weaponDamage = Math.Floor(weaponBaseDamage + modifier.Main * GetAttackModifier(jobId) / 1000d) / 100d;
-        var levelAttackModifier = UsesTenacity(jobId)
+            IsCaster(jobID) ? Attribute.AttackMagicPotency : Attribute.AttackPower);
+        var weaponDamage = Math.Floor(weaponBaseDamage + modifier.Main * GetAttackModifier(jobID) / 1000d) / 100d;
+        var levelAttackModifier = UsesTenacity(jobID)
             ? GetTankAttackModifier(level)
             : GetAttackModifierForLevel(level);
         var attack = Math.Floor(100d + levelAttackModifier * (attackPower - modifier.Main) / modifier.Main) / 100d;
         var baseMultiplier = Math.Floor(100d * attack * weaponDamage);
         var withDetermination = Math.Floor(baseMultiplier * (1d + determination));
         var withTenacity = Math.Floor(withDetermination * (1d + tenacity));
-        var normalDamage = Math.Floor(withTenacity * GetTraitModifier(jobId, level));
+        var normalDamage = Math.Floor(withTenacity * GetTraitModifier(jobID, level));
         var averageDamage = Math.Floor(
             Math.Floor(normalDamage * (1d + (criticalMultiplier - 1d) * criticalRate))
             * (1d + directRate * 0.25d));
@@ -417,7 +417,7 @@ internal static unsafe class BetterCharacterPanelState
         var healWithDetermination = Math.Floor(healBaseMultiplier * (1d + determination));
         var healWithTenacity = Math.Floor(healWithDetermination * (1d + tenacity));
         var normalHeal = Math.Floor(
-            healWithTenacity * (IsCaster(jobId) ? GetTraitModifier(jobId, level) : 1d));
+            healWithTenacity * (IsCaster(jobID) ? GetTraitModifier(jobID, level) : 1d));
         var averageHeal = Math.Floor(normalHeal * (1d + (criticalMultiplier - 1d) * criticalRate));
         return new(
             averageDamage,
@@ -458,8 +458,8 @@ internal static unsafe class BetterCharacterPanelState
         });
     }
 
-    private static BetterCharacterPanelGcdModifier? GetGcdModifier(int jobId, int level) =>
-        (jobId, level) switch
+    private static BetterCharacterPanelGcdModifier? GetGcdModifier(int jobID, int level) =>
+        (jobID, level) switch
         {
             (34, >= 78) => new(13, "Feature.BetterCharacterPanel.GcdModifier.Shifu"),
             (34, >= 18) => new(10, "Feature.BetterCharacterPanel.GcdModifier.Shifu"),
@@ -476,8 +476,8 @@ internal static unsafe class BetterCharacterPanelState
             _ => null
         };
 
-    private static BetterCharacterPanelAlternateGcd? GetAlternateGcd(int jobId, int level) =>
-        (jobId, level) switch
+    private static BetterCharacterPanelAlternateGcd? GetAlternateGcd(int jobID, int level) =>
+        (jobID, level) switch
         {
             (25, >= 35) => new(350, "Feature.BetterCharacterPanel.AlternateGcd.FireIII"),
             (27 or 5, >= 6) => new(300, "Feature.BetterCharacterPanel.AlternateGcd.RubyRite"),
@@ -485,7 +485,7 @@ internal static unsafe class BetterCharacterPanelState
             _ => null
         };
 
-    private static int GetAttackModifier(int jobId) => jobId switch
+    private static int GetAttackModifier(int jobID) => jobID switch
     {
         1 => 95, 2 => 100, 3 => 100, 4 => 105, 5 => 105, 6 => 105, 7 => 105,
         19 => 100, 20 => 110, 21 => 105, 22 => 115, 23 => 115, 24 => 115,
@@ -495,9 +495,9 @@ internal static unsafe class BetterCharacterPanelState
         _ => 0
     };
 
-    private static double GetTraitModifier(int jobId, int level)
+    private static double GetTraitModifier(int jobID, int level)
     {
-        if (jobId == 36)
+        if (jobID == 36)
         {
             return level switch
             {
@@ -510,7 +510,7 @@ internal static unsafe class BetterCharacterPanelState
             };
         }
 
-        if (IsCaster(jobId))
+        if (IsCaster(jobID))
         {
             return level switch
             {
@@ -520,7 +520,7 @@ internal static unsafe class BetterCharacterPanelState
             };
         }
 
-        return (jobId, level) switch
+        return (jobID, level) switch
         {
             (5 or 23 or 31, >= 40) => 1.2d,
             (5 or 23 or 31, >= 20) => 1.1d,

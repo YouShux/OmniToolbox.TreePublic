@@ -3,7 +3,7 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Utils.FuzzyMatcher;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class FastSearchIndex : IDisposable
 {
@@ -11,7 +11,7 @@ internal sealed class FastSearchIndex : IDisposable
     private const int RecipeResultLimit = 3_000;
 
     private static readonly Comparison<MarketEntry> CompareMarketEntries =
-        static (left, right) => left.ItemId.CompareTo(right.ItemId);
+        static (left, right) => left.ItemID.CompareTo(right.ItemID);
 
     private static readonly Comparison<RecipeEntry> CompareRecipeEntries =
         static (left, right) => left.RecipeIds[0].CompareTo(right.RecipeIds[0]);
@@ -21,7 +21,7 @@ internal sealed class FastSearchIndex : IDisposable
 
     public FastSearchIndex()
     {
-        var recipeIdsByItemId = new Dictionary<uint, List<uint>>();
+        var recipeIDsByItemID = new Dictionary<uint, List<uint>>();
         foreach (var recipe in LuminaGetter.Get<Recipe>())
         {
             if (recipe.RowId == 0 ||
@@ -31,10 +31,10 @@ internal sealed class FastSearchIndex : IDisposable
                 continue;
             }
 
-            if (!recipeIdsByItemId.TryGetValue(recipe.ItemResult.RowId, out var recipeIds))
+            if (!recipeIDsByItemID.TryGetValue(recipe.ItemResult.RowId, out var recipeIds))
             {
                 recipeIds = [];
-                recipeIdsByItemId.Add(recipe.ItemResult.RowId, recipeIds);
+                recipeIDsByItemID.Add(recipe.ItemResult.RowId, recipeIds);
             }
 
             recipeIds.Add(recipe.RowId);
@@ -55,7 +55,7 @@ internal sealed class FastSearchIndex : IDisposable
                 marketEntries.Add(new(item.RowId, name));
             }
 
-            if (recipeIdsByItemId.Remove(item.RowId, out var recipeIds))
+            if (recipeIDsByItemID.Remove(item.RowId, out var recipeIds))
             {
                 recipeEntries.Add(new(name, recipeIds.ToArray()));
             }
@@ -85,7 +85,7 @@ internal sealed class FastSearchIndex : IDisposable
             Math.Min(destination.Length, MarketResultLimit));
         for (var index = 0; index < matches.Length; index++)
         {
-            destination[index] = matches[index].ItemId;
+            destination[index] = matches[index].ItemID;
         }
 
         return matches.Length;
@@ -115,7 +115,7 @@ internal sealed class FastSearchIndex : IDisposable
         marketMatcher.Dispose();
     }
 
-    private readonly record struct MarketEntry(uint ItemId, string Name);
+    private readonly record struct MarketEntry(uint ItemID, string Name);
 
     private readonly record struct RecipeEntry(string Name, uint[] RecipeIds);
 }

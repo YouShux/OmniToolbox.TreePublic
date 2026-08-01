@@ -17,7 +17,7 @@ using OmniToolbox.UI;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization.ItemPreview;
+namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class MateriaTotalTooltip
 {
@@ -137,24 +137,24 @@ internal sealed unsafe class MateriaTotalTooltip
         for (var index = 0; index < parameterCount; index++)
         {
             var source = ReadTooltipText(stringArrayData, ParameterStartField + index);
-            if (!TryFindParameter(source, out var parameterId))
+            if (!TryFindParameter(source, out var parameterID))
             {
                 continue;
             }
 
-            WriteTooltipLine(stringArrayData, ParameterStartField + index, stats[parameterId]);
-            appliedParameters.Add(parameterId);
+            WriteTooltipLine(stringArrayData, ParameterStartField + index, stats[parameterID]);
+            appliedParameters.Add(parameterID);
         }
 
         for (var index = 0; index < materiaParameterOrder.Count && parameterCount < MaxParameterCount; index++)
         {
-            var parameterId = materiaParameterOrder[index];
-            if (!appliedParameters.Add(parameterId))
+            var parameterID = materiaParameterOrder[index];
+            if (!appliedParameters.Add(parameterID))
             {
                 continue;
             }
 
-            WriteTooltipLine(stringArrayData, ParameterStartField + parameterCount, stats[parameterId]);
+            WriteTooltipLine(stringArrayData, ParameterStartField + parameterCount, stats[parameterID]);
             parameterCount++;
         }
 
@@ -175,7 +175,7 @@ internal sealed unsafe class MateriaTotalTooltip
         {
             for (var index = 0; index < item.BaseParamSpecial.Count; index++)
             {
-                AddBaseValue(item.BaseParamSpecial[index].RowId, item.BaseParamValueSpecial[index]);
+            AddBaseValue(item.BaseParamSpecial[index].RowId, item.BaseParamValueSpecial[index]);
             }
         }
 
@@ -198,76 +198,76 @@ internal sealed unsafe class MateriaTotalTooltip
                 continue;
             }
 
-            var parameterId = materia.BaseParam.RowId;
+        var parameterID = materia.BaseParam.RowId;
             var delta = materia.Value[grade];
-            if (parameterId == 0 || delta <= 0)
+            if (parameterID == 0 || delta <= 0)
             {
                 continue;
             }
 
-            if (!stats.TryGetValue(parameterId, out var stat))
+            if (!stats.TryGetValue(parameterID, out var stat))
             {
-                stat = new(GetParameterName(parameterId), 0, 0, 0);
+                stat = new(GetParameterName(parameterID), 0, 0, 0);
             }
 
             if (stat.Delta == 0)
             {
-                materiaParameterOrder.Add(parameterId);
+                materiaParameterOrder.Add(parameterID);
                 stat = stat with
                 {
-                    Maximum = (int)InventoryItem.GetParameterMaxValue(parameterId, itemRowData),
+                    Maximum = (int)InventoryItem.GetParameterMaxValue(parameterID, itemRowData),
                 };
             }
 
-            stats[parameterId] = stat with { Delta = stat.Delta + delta };
+            stats[parameterID] = stat with { Delta = stat.Delta + delta };
         }
 
         return materiaParameterOrder.Count > 0;
     }
 
-    private void AddBaseValue(uint parameterId, int value)
+    private void AddBaseValue(uint parameterID, int value)
     {
-        if (parameterId == 0 || value <= 0)
+        if (parameterID == 0 || value <= 0)
         {
             return;
         }
 
-        stats[parameterId] = stats.TryGetValue(parameterId, out var stat)
+        stats[parameterID] = stats.TryGetValue(parameterID, out var stat)
             ? stat with { Original = stat.Original + value }
-            : new(GetParameterName(parameterId), value, 0, 0);
+            : new(GetParameterName(parameterID), value, 0, 0);
     }
 
-    private string GetParameterName(uint parameterId)
+    private string GetParameterName(uint parameterID)
     {
-        if (parameterNames.TryGetValue(parameterId, out var name))
+        if (parameterNames.TryGetValue(parameterID, out var name))
         {
             return name;
         }
 
-        name = LuminaGetter.TryGetRow<BaseParam>(parameterId, out var parameter)
+        name = LuminaGetter.TryGetRow<BaseParam>(parameterID, out var parameter)
             ? parameter.Name.ExtractText()
             : string.Empty;
         if (string.IsNullOrWhiteSpace(name))
         {
-            name = $"Param {parameterId}";
+            name = $"Param {parameterID}";
         }
 
-        parameterNames[parameterId] = name;
+        parameterNames[parameterID] = name;
         return name;
     }
 
-    private bool TryFindParameter(string line, out uint parameterId)
+    private bool TryFindParameter(string line, out uint parameterID)
     {
         for (var index = 0; index < materiaParameterOrder.Count; index++)
         {
-            parameterId = materiaParameterOrder[index];
-            if (line.Contains(stats[parameterId].Name, StringComparison.Ordinal))
+            parameterID = materiaParameterOrder[index];
+            if (line.Contains(stats[parameterID].Name, StringComparison.Ordinal))
             {
                 return true;
             }
         }
 
-        parameterId = 0;
+        parameterID = 0;
         return false;
     }
 
@@ -306,9 +306,9 @@ internal sealed unsafe class MateriaTotalTooltip
             : string.Empty;
     }
 
-    private static bool TryGetActiveItem(out uint itemId, out bool hq)
+    private static bool TryGetActiveItem(out uint itemID, out bool hq)
     {
-        itemId = 0;
+        itemID = 0;
         hq = false;
         var agent = AgentItemDetail.Instance();
         if (agent == null || agent->ItemId == 0 || agent->ItemId >= 2_000_000)
@@ -317,8 +317,8 @@ internal sealed unsafe class MateriaTotalTooltip
         }
 
         hq = agent->ItemId >= 500_000;
-        itemId = agent->ItemId % 500_000;
-        return itemId != 0;
+        itemID = agent->ItemId % 500_000;
+        return itemID != 0;
     }
 
     private void LogFailure(Exception exception, string operation)

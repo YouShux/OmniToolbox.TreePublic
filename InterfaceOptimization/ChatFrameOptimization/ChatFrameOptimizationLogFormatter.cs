@@ -11,7 +11,7 @@ using OmenTools;
 using OmenTools.Dalamud.Services.Game.Object.Abstractions;
 using OmenPlayerCharacter = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IPlayerCharacter;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal static class ChatFrameOptimizationLogFormatter
 {
@@ -35,8 +35,8 @@ internal static class ChatFrameOptimizationLogFormatter
             sender.World,
             sender.DisplayName,
             sender.Job.Name,
-            sender.Job.IconId,
-            sender.Job.RowId,
+            sender.Job.iconID,
+            sender.Job.rowID,
             Convert.ToBase64String(message.Sender.Encode()),
             Convert.ToBase64String(message.Message.Encode()),
             native?.Text,
@@ -242,7 +242,7 @@ internal static class ChatFrameOptimizationLogFormatter
         string DisplayName,
         SenderJobInfo Job);
 
-    private readonly record struct SenderJobInfo(string Name, uint IconId, uint RowId);
+    private readonly record struct SenderJobInfo(string Name, uint iconID, uint rowID);
 
     private sealed record NativeChatLine(
         string Text,

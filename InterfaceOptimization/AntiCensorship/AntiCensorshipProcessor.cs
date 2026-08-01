@@ -4,7 +4,7 @@ using Dalamud.Game.Text.SeStringHandling.Payloads;
 using OmniToolbox.Config;
 using TinyPinyin;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class AntiCensorshipProcessor(AntiCensorshipConfig config, Func<string, string> filter)
 {

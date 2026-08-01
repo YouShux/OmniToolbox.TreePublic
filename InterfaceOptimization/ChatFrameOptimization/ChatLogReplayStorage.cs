@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class ChatLogReplayStorage : IDisposable
 {
@@ -23,7 +23,7 @@ internal sealed class ChatLogReplayStorage : IDisposable
     private const string LogDirectoryName = "ChatLogs";
     private const string LogExtension = ".omnilog";
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions JSONOptions = new()
     {
         WriteIndented = false,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -62,11 +62,11 @@ internal sealed class ChatLogReplayStorage : IDisposable
     public void QueueLog(ChatFrameOptimizationLogEntry entry) =>
         Queue(new WriteLogWorkItem(entry));
 
-    public void RequestRefresh(int requestId) =>
-        Queue(new RefreshFilesWorkItem(requestId));
+    public void RequestRefresh(int requestID) =>
+        Queue(new RefreshFilesWorkItem(requestID));
 
-    public void RequestRead(int requestId, string path) =>
-        Queue(new ReadFileWorkItem(requestId, path));
+    public void RequestRead(int requestID, string path) =>
+        Queue(new ReadFileWorkItem(requestID, path));
 
     public void RequestPrune() => Queue(PruneLogsWorkItem.Instance);
 
@@ -111,10 +111,10 @@ internal sealed class ChatLogReplayStorage : IDisposable
                         WriteLog(write.Entry);
                         break;
                     case RefreshFilesWorkItem refresh:
-                        RefreshFiles(refresh.RequestId);
+                        RefreshFiles(refresh.requestID);
                         break;
                     case ReadFileWorkItem read:
-                        ReadFile(read.RequestId, read.Path);
+                        ReadFile(read.requestID, read.Path);
                         break;
                     case PruneLogsWorkItem:
                         PruneOldLogs();
@@ -127,10 +127,10 @@ internal sealed class ChatLogReplayStorage : IDisposable
                 switch (item)
                 {
                     case RefreshFilesWorkItem refresh:
-                        results.Enqueue(new ChatLogReplayFileListResult(refresh.RequestId, false, []));
+                        results.Enqueue(new ChatLogReplayFileListResult(refresh.requestID, false, []));
                         break;
                     case ReadFileWorkItem read:
-                        results.Enqueue(new ChatLogReplayReadResult(read.RequestId, false, [], 0));
+                        results.Enqueue(new ChatLogReplayReadResult(read.requestID, false, [], 0));
                         break;
                 }
             }
@@ -139,7 +139,7 @@ internal sealed class ChatLogReplayStorage : IDisposable
 
     private void WriteLog(ChatFrameOptimizationLogEntry entry)
     {
-        var line = JsonSerializer.Serialize(entry, JsonOptions);
+        var line = JsonSerializer.Serialize(entry, JSONOptions);
         var path = GetWritableLogPath(
             Encoding.UTF8.GetByteCount(line) + Encoding.UTF8.GetByteCount(Environment.NewLine),
             out var created);
@@ -192,16 +192,16 @@ internal sealed class ChatLogReplayStorage : IDisposable
         }
     }
 
-    private void RefreshFiles(int requestId)
+    private void RefreshFiles(int requestID)
     {
         if (!System.IO.Directory.Exists(DirectoryPath))
         {
-            results.Enqueue(new ChatLogReplayFileListResult(requestId, true, []));
+            results.Enqueue(new ChatLogReplayFileListResult(requestID, true, []));
             return;
         }
 
         results.Enqueue(new ChatLogReplayFileListResult(
-            requestId,
+            requestID,
             true,
             System.IO.Directory.GetFiles(DirectoryPath, $"*{LogExtension}")
                 .Select(path => new FileInfo(path))
@@ -215,7 +215,7 @@ internal sealed class ChatLogReplayStorage : IDisposable
                 .ToArray()));
     }
 
-    private void ReadFile(int requestId, string path)
+    private void ReadFile(int requestID, string path)
     {
         var entries = new List<ChatLogReplayEntry>();
         var skipped = 0;
@@ -236,7 +236,7 @@ internal sealed class ChatLogReplayStorage : IDisposable
             }
         }
 
-        results.Enqueue(new ChatLogReplayReadResult(requestId, true, entries, skipped));
+        results.Enqueue(new ChatLogReplayReadResult(requestID, true, entries, skipped));
     }
 
     private static bool TryParseEntry(string line, out ChatLogReplayEntry entry)
@@ -333,9 +333,9 @@ internal sealed class ChatLogReplayStorage : IDisposable
 
     private sealed record WriteLogWorkItem(ChatFrameOptimizationLogEntry Entry) : StorageWorkItem;
 
-    private sealed record RefreshFilesWorkItem(int RequestId) : StorageWorkItem;
+    private sealed record RefreshFilesWorkItem(int requestID) : StorageWorkItem;
 
-    private sealed record ReadFileWorkItem(int RequestId, string Path) : StorageWorkItem;
+    private sealed record ReadFileWorkItem(int requestID, string Path) : StorageWorkItem;
 
     private sealed record PruneLogsWorkItem : StorageWorkItem
     {

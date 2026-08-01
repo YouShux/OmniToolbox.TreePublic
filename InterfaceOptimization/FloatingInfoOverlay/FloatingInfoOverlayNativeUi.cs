@@ -10,9 +10,9 @@ using OmenTools.Interop.Game.Lumina;
 using OmenTools.Extensions;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
-internal sealed class FloatingInfoOverlayNativeUi(
+internal sealed class FloatingInfoOverlayNativeUI(
     FloatingInfoOverlayConfig config,
     FloatingInfoOverlayState state)
 {
@@ -72,9 +72,9 @@ internal sealed class FloatingInfoOverlayNativeUi(
         }
     }
 
-    private int ResolveCurrentPage(uint groupId, List<FloatingInfoObject> objects)
+    private int ResolveCurrentPage(uint groupID, List<FloatingInfoObject> objects)
     {
-        currentPages.TryAdd(groupId, 0);
+        currentPages.TryAdd(groupID, 0);
         var castingIndex = -1;
         for (var index = 0; index < objects.Count; index++)
         {
@@ -84,16 +84,16 @@ internal sealed class FloatingInfoOverlayNativeUi(
                 break;
             }
         }
-        var currentPage = castingIndex >= 0 ? castingIndex : currentPages[groupId];
+        var currentPage = castingIndex >= 0 ? castingIndex : currentPages[groupID];
         if (currentPage >= objects.Count)
         {
             currentPage = 0;
-            currentPages[groupId] = 0;
+            currentPages[groupID] = 0;
         }
 
         if (castingIndex < 0)
         {
-            currentPages[groupId] = currentPage;
+            currentPages[groupID] = currentPage;
         }
 
         return currentPage;
@@ -105,7 +105,7 @@ internal sealed class FloatingInfoOverlayNativeUi(
         List<FloatingInfoLineRect> lineRects,
         int objectCount,
         int currentPage,
-        uint groupId)
+        uint groupID)
     {
         ImGui.SetNextWindowPos(minimum, ImGuiCond.Always);
         ImGui.SetNextWindowSize(maximum - minimum, ImGuiCond.Always);
@@ -120,7 +120,7 @@ internal sealed class FloatingInfoOverlayNativeUi(
         using var padding = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, Vector2.Zero);
         using var colors = ImRaii.PushColor(ImGuiCol.WindowBg, Vector4.Zero)
             .Push(ImGuiCol.Border, Vector4.Zero);
-        var windowOpen = ImGui.Begin($"##OmniFloatingInfo_{groupId:X8}", flags);
+        var windowOpen = ImGui.Begin($"##OmniFloatingInfo_{groupID:X8}", flags);
         try
         {
             if (!windowOpen || !ImGui.IsWindowHovered() || !ImGui.IsMouseClicked(ImGuiMouseButton.Left))
@@ -149,7 +149,7 @@ internal sealed class FloatingInfoOverlayNativeUi(
 
             if (objectCount > 1)
             {
-                currentPages[groupId] = (currentPage + 1) % objectCount;
+                currentPages[groupID] = (currentPage + 1) % objectCount;
             }
 
             return true;
@@ -278,45 +278,45 @@ internal sealed class FloatingInfoOverlayNativeUi(
                 GetMarkerName(item.Marker)));
         }
 
-        if (config.ShowEntityId)
+        if (config.ShowEntityID)
         {
-            if (config.ShowDecimalId)
+            if (config.ShowDecimalID)
             {
-                var entityId = item.EntityId.ToString(CultureInfo.InvariantCulture);
+                var entityID = item.EntityID.ToString(CultureInfo.InvariantCulture);
                 lineBuffer.Add(new(
-                    Format("Feature.FloatingInfoOverlay.Line.EntityId", entityId),
+                    Format("Feature.FloatingInfoOverlay.Line.EntityId", entityID),
                     standardText,
-                    entityId));
+                    entityID));
             }
 
-            if (config.ShowHexId)
+            if (config.ShowHexID)
             {
-                var entityId = $"0x{item.EntityId:X8}";
+                var entityID = $"0x{item.EntityID:X8}";
                 lineBuffer.Add(new(
-                    Format("Feature.FloatingInfoOverlay.Line.EntityIdHex", entityId),
+                    Format("Feature.FloatingInfoOverlay.Line.EntityIdHex", entityID),
                     standardText,
-                    entityId));
+                    entityID));
             }
         }
 
-        if (config.ShowDataId)
+        if (config.ShowDataID)
         {
-            if (config.ShowDecimalId)
+            if (config.ShowDecimalID)
             {
-                var dataId = item.DataId.ToString(CultureInfo.InvariantCulture);
+                var dataID = item.DataID.ToString(CultureInfo.InvariantCulture);
                 lineBuffer.Add(new(
-                    Format("Feature.FloatingInfoOverlay.Line.DataId", dataId),
+                    Format("Feature.FloatingInfoOverlay.Line.DataId", dataID),
                     standardText,
-                    dataId));
+                    dataID));
             }
 
-            if (config.ShowHexId)
+            if (config.ShowHexID)
             {
-                var dataId = $"0x{item.DataId:X8}";
+                var dataID = $"0x{item.DataID:X8}";
                 lineBuffer.Add(new(
-                    Format("Feature.FloatingInfoOverlay.Line.DataIdHex", dataId),
+                    Format("Feature.FloatingInfoOverlay.Line.DataIdHex", dataID),
                     standardText,
-                    dataId));
+                    dataID));
             }
         }
 
@@ -405,11 +405,11 @@ internal sealed class FloatingInfoOverlayNativeUi(
                 var statusText = status.Name.Length == 0
                     ? Format(
                         "Feature.FloatingInfoOverlay.Line.StatusWithoutName",
-                        status.StatusId,
+                        status.StatusID,
                         status.RemainingTime)
                     : Format(
                         "Feature.FloatingInfoOverlay.Line.Status",
-                        status.StatusId,
+                        status.StatusID,
                         status.Name,
                         status.RemainingTime);
                 if (status.Param > 0)
@@ -422,7 +422,7 @@ internal sealed class FloatingInfoOverlayNativeUi(
                 lineBuffer.Add(new(
                     statusText,
                     status.RemainingTime < 5f ? KnownColor.OrangeRed.ToVector4() : standardText,
-                    status.StatusId.ToString(CultureInfo.InvariantCulture)));
+                    status.StatusID.ToString(CultureInfo.InvariantCulture)));
             }
         }
 
@@ -436,18 +436,18 @@ internal sealed class FloatingInfoOverlayNativeUi(
             OmniLoc.Get("Feature.FloatingInfoOverlay.Line.Casting"),
             color,
             string.Empty));
-        var actionName = GetActionName(item.CastActionId);
+        var actionName = GetActionName(item.CastActionID);
         lineBuffer.Add(new(
             Format(
                 actionName.Length == 0
                     ? "Feature.FloatingInfoOverlay.Line.CastActionWithoutName"
                     : "Feature.FloatingInfoOverlay.Line.CastAction",
-                item.CastActionId,
+                item.CastActionID,
                 actionName),
             color,
-            item.CastActionId.ToString(CultureInfo.InvariantCulture)));
+            item.CastActionID.ToString(CultureInfo.InvariantCulture)));
 
-        if (LuminaGetter.TryGetRow<LuminaAction>(item.CastActionId, out var action))
+        if (LuminaGetter.TryGetRow<LuminaAction>(item.CastActionID, out var action))
         {
             var range = (float)action.EffectRange;
             if (action.CastType is > 2 and < 6)
@@ -492,17 +492,17 @@ internal sealed class FloatingInfoOverlayNativeUi(
         }
     }
 
-    private string GetActionName(uint actionId)
+    private string GetActionName(uint actionID)
     {
-        if (actionNameCache.TryGetValue(actionId, out var name))
+        if (actionNameCache.TryGetValue(actionID, out var name))
         {
             return name;
         }
 
-        name = LuminaGetter.TryGetRow<LuminaAction>(actionId, out var action)
+        name = LuminaGetter.TryGetRow<LuminaAction>(actionID, out var action)
             ? action.Name.ToString()
             : string.Empty;
-        actionNameCache[actionId] = name;
+        actionNameCache[actionID] = name;
         return name;
     }
 
@@ -665,11 +665,11 @@ internal sealed class FloatingInfoOverlayNativeUi(
     private void CleanupPages()
     {
         removeBuffer.Clear();
-        foreach (var groupId in currentPages.Keys)
+        foreach (var groupID in currentPages.Keys)
         {
-            if (!state.Groups.ContainsKey(groupId))
+            if (!state.Groups.ContainsKey(groupID))
             {
-                removeBuffer.Add(groupId);
+                removeBuffer.Add(groupID);
             }
         }
 

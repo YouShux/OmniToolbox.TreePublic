@@ -4,16 +4,16 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using LuminaInstanceContent = Lumina.Excel.Sheets.InstanceContent;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal readonly record struct LockedDutyPreviewDuty(
-    uint ContentFinderConditionId,
+    uint contentFinderConditionID,
     string Name,
     bool IsUnlocked);
 
 internal readonly record struct LockedDutyPreviewDefinition(
-    uint ContentFinderConditionId,
-    uint InstanceContentId,
+    uint contentFinderConditionID,
+    uint InstanceContentID,
     string Name);
 
 internal sealed unsafe class LockedDutyPreviewResolver
@@ -43,13 +43,13 @@ internal sealed unsafe class LockedDutyPreviewResolver
         for (var index = 0; index < definitions.Count; index++)
         {
             var definition = definitions[index];
-            var isUnlocked = UIState.IsInstanceContentUnlocked(definition.InstanceContentId);
+            var isUnlocked = UIState.IsInstanceContentUnlocked(definition.InstanceContentID);
             if (isUnlocked)
             {
                 UnlockedCount++;
             }
 
-            duties.Add(new(definition.ContentFinderConditionId, definition.Name, isUnlocked));
+            duties.Add(new(definition.contentFinderConditionID, definition.Name, isUnlocked));
         }
     }
 
@@ -59,36 +59,36 @@ internal sealed unsafe class LockedDutyPreviewResolver
 
         foreach (var instanceContent in LuminaGetter.Get<LuminaInstanceContent>())
         {
-            if (instanceContent.RowId == 0 ||
-                instanceContent.InstanceContentType.RowId == BeginnerTrainingInstanceContentType)
+        if (instanceContent.RowId == 0 ||
+            instanceContent.InstanceContentType.RowId == BeginnerTrainingInstanceContentType)
             {
                 continue;
             }
 
-            var contentFinderConditionId = instanceContent.ContentFinderCondition.RowId;
-            if (contentFinderConditionId == 0)
+        var contentFinderConditionID = instanceContent.ContentFinderCondition.RowId;
+            if (contentFinderConditionID == 0)
             {
                 continue;
             }
 
-            instanceContentIds.TryAdd(contentFinderConditionId, instanceContent.RowId);
+        instanceContentIds.TryAdd(contentFinderConditionID, instanceContent.RowId);
         }
 
         foreach (var condition in LuminaGetter.Get<ContentFinderCondition>())
         {
-            if (condition.RowId == 0 ||
-                !instanceContentIds.TryGetValue(condition.RowId, out var instanceContentId))
+        if (condition.RowId == 0 ||
+            !instanceContentIds.TryGetValue(condition.RowId, out var instanceContentId))
             {
                 continue;
             }
 
-            var contentTypeId = condition.ContentType.ValueNullable?.RowId ?? 0;
-            if (contentTypeId is PvpContentType or GoldSaucerContentType)
+        var contentTypeID = condition.ContentType.ValueNullable?.RowId ?? 0;
+            if (contentTypeID is PvpContentType or GoldSaucerContentType)
             {
                 continue;
             }
 
-            definitions.Add(new(condition.RowId, instanceContentId, condition.Name.ExtractText()));
+        definitions.Add(new(condition.RowId, instanceContentId, condition.Name.ExtractText()));
         }
 
         definitions.Sort(static (left, right) =>

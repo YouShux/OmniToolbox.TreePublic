@@ -7,7 +7,7 @@ using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Extensions;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationRecordTable
 {

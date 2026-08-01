@@ -4,6 +4,7 @@ using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using OmniToolbox.Config;
+using OmniToolbox.TreeHouse;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools;
@@ -13,7 +14,7 @@ using OmenTools.OmenService;
 using CSCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class FloatingInfoOverlayState : IDisposable
 {
@@ -101,7 +102,7 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
             var item = objects[index];
             if (DService.Instance().GameGUI.WorldToScreen(item.Position, out var screenPosition))
             {
-                screenPositions[item.EntityId] = screenPosition;
+                screenPositions[item.EntityID] = screenPosition;
             }
         }
 
@@ -154,7 +155,7 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
             if (!gameObject.IsValid() ||
                 gameObject.EntityID == 0 ||
                 !ShouldShowObject(gameObject, localPlayer) ||
-                !PassesDataIdFilter(gameObject.DataID))
+                !PassesDataIDFilter(gameObject.DataID))
             {
                 continue;
             }
@@ -186,14 +187,14 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
                     break;
                 }
 
-                if (seenEntityIds.Contains(target.EntityId) || !PassesDataIdFilter(target.DataId))
+                if (seenEntityIds.Contains(target.EntityID) || !PassesDataIDFilter(target.DataID))
                 {
                     continue;
                 }
 
                 objects.Add(CreateNonEntityObjectInfo(target));
-                screenPositions[target.EntityId] = target.ScreenPosition;
-                seenEntityIds.Add(target.EntityId);
+                screenPositions[target.EntityID] = target.ScreenPosition;
+                seenEntityIds.Add(target.EntityID);
             }
         }
         else
@@ -215,29 +216,29 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
         for (var index = 0; index < objects.Count; index++)
         {
             var item = objects[index];
-            if (!screenPositions.TryGetValue(item.EntityId, out var rawPosition))
+            if (!screenPositions.TryGetValue(item.EntityID, out var rawPosition))
             {
                 continue;
             }
 
             var anchorPosition = GetStablePixelPosition(
-                item.EntityId,
-                UpdateSmoothedPosition(item.EntityId, rawPosition, smoothingAlpha));
-            uint nearestGroupId = 0;
+                item.EntityID,
+                UpdateSmoothedPosition(item.EntityID, rawPosition, smoothingAlpha));
+            uint nearestGroupID = 0;
             var nearestDistanceSquared = float.MaxValue;
             foreach (var pair in groups)
             {
                 var distanceSquared = Vector3.DistanceSquared(item.Position, pair.Value.Objects[0].Position);
                 if (distanceSquared < mergeDistanceSquared && distanceSquared < nearestDistanceSquared)
                 {
-                    nearestGroupId = pair.Key;
+                    nearestGroupID = pair.Key;
                     nearestDistanceSquared = distanceSquared;
                 }
             }
 
-            if (nearestGroupId != 0)
+            if (nearestGroupID != 0)
             {
-                groups[nearestGroupId].Objects.Add(item);
+                groups[nearestGroupID].Objects.Add(item);
             }
             else
             {
@@ -253,7 +254,7 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
                     groupBuffer.Add(group);
                 }
 
-                groups[item.EntityId] = group;
+                groups[item.EntityID] = group;
             }
         }
 
@@ -272,23 +273,23 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
             _ => false
         };
 
-    private bool PassesDataIdFilter(uint dataId)
+    private bool PassesDataIDFilter(uint dataID)
     {
-        if (!config.EnableDataIdFilter || config.FilterDataIds.Count == 0)
+        if (!config.EnableDataIDFilter || config.FilterDataIds.Count == 0)
         {
             return true;
         }
 
-        var contains = config.FilterDataIds.Contains(dataId);
-        return config.UseDataIdWhitelist ? contains : !contains;
+        var contains = config.FilterDataIds.Contains(dataID);
+        return config.UseDataIDWhitelist ? contains : !contains;
     }
 
     private FloatingInfoObject CreateObjectInfo(IGameObject gameObject, float distance)
     {
         var item = new FloatingInfoObject
         {
-            EntityId = gameObject.EntityID,
-            DataId = gameObject.DataID,
+            EntityID = gameObject.EntityID,
+            DataID = gameObject.DataID,
             Name = gameObject.Name,
             ObjectKind = gameObject.ObjectKind,
             Position = gameObject.Position,
@@ -318,7 +319,7 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
         if (config.ShowCastInfo || config.OnlyCasting)
         {
             item.IsCasting = battleChara.IsCasting;
-            item.CastActionId = battleChara.CastActionID;
+            item.CastActionID = battleChara.CastActionID;
             item.CurrentCastTime = battleChara.CurrentCastTime;
             item.TotalCastTime = battleChara.TotalCastTime;
         }
@@ -340,8 +341,8 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
     {
         var item = new FloatingInfoObject
         {
-            EntityId = target.EntityId,
-            DataId = target.DataId,
+            EntityID = target.EntityID,
+            DataID = target.DataID,
             Name = OmniLoc.Get("Feature.FloatingInfoOverlay.NonEntityTarget"),
             ObjectKind = ObjectKind.BattleNpc,
             Position = target.Position,
@@ -358,7 +359,7 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
         if (castInfo != null && castInfo->IsCasting && castInfo->ActionId != 0)
         {
             item.IsCasting = true;
-            item.CastActionId = castInfo->ActionId;
+            item.CastActionID = castInfo->ActionId;
             item.CurrentCastTime = castInfo->CurrentCastTime;
             item.TotalCastTime = castInfo->TotalCastTime;
         }
@@ -390,17 +391,17 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
         }
     }
 
-    private string GetStatusName(uint statusId)
+    private string GetStatusName(uint statusID)
     {
-        if (statusNameCache.TryGetValue(statusId, out var name))
+        if (statusNameCache.TryGetValue(statusID, out var name))
         {
             return name;
         }
 
-        name = LuminaGetter.TryGetRow<LuminaStatus>(statusId, out var status)
+        name = LuminaGetter.TryGetRow<LuminaStatus>(statusID, out var status)
             ? status.Name.ToString()
             : string.Empty;
-        statusNameCache[statusId] = name;
+        statusNameCache[statusID] = name;
         return name;
     }
 
@@ -455,11 +456,11 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
 
         for (var index = 0; index < removeBuffer.Count; index++)
         {
-            var entityId = removeBuffer[index];
-            var target = nonEntityTargets[entityId];
+            var entityID = removeBuffer[index];
+            var target = nonEntityTargets[entityID];
             if (target.Address == nint.Zero)
             {
-                nonEntityTargets.Remove(entityId);
+                nonEntityTargets.Remove(entityID);
                 continue;
             }
 
@@ -469,13 +470,13 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
                 distance > range ||
                 !DService.Instance().GameGUI.WorldToScreen(character->Position, out var screenPosition))
             {
-                nonEntityTargets.Remove(entityId);
+                nonEntityTargets.Remove(entityID);
                 continue;
             }
 
-            nonEntityTargets[entityId] = target with
+            nonEntityTargets[entityID] = target with
             {
-                DataId = character->BaseId,
+                DataID = character->BaseId,
                 Position = character->Position,
                 ScreenPosition = screenPosition,
                 Distance = distance
@@ -485,12 +486,12 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
         removeBuffer.Clear();
     }
 
-    private Vector2 UpdateSmoothedPosition(uint entityId, Vector2 rawPosition, float alpha)
+    private Vector2 UpdateSmoothedPosition(uint entityID, Vector2 rawPosition, float alpha)
     {
-        if (!smoothedPositions.TryGetValue(entityId, out var previous))
+        if (!smoothedPositions.TryGetValue(entityID, out var previous))
         {
-            smoothedPositions[entityId] = rawPosition;
-            lastSeenFrames[entityId] = updateFrame;
+            smoothedPositions[entityID] = rawPosition;
+            lastSeenFrames[entityID] = updateFrame;
             return rawPosition;
         }
 
@@ -498,24 +499,24 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
         var smoothed = distance > OmniTheme.Scale(180f)
             ? rawPosition
             : Vector2.Lerp(previous, rawPosition, alpha);
-        smoothedPositions[entityId] = smoothed;
-        lastSeenFrames[entityId] = updateFrame;
+        smoothedPositions[entityID] = smoothed;
+        lastSeenFrames[entityID] = updateFrame;
         return smoothed;
     }
 
-    private Vector2 GetStablePixelPosition(uint entityId, Vector2 smoothedPosition)
+    private Vector2 GetStablePixelPosition(uint entityID, Vector2 smoothedPosition)
     {
-        if (!stablePixelPositions.TryGetValue(entityId, out var previous))
+        if (!stablePixelPositions.TryGetValue(entityID, out var previous))
         {
             var initial = new Vector2(MathF.Round(smoothedPosition.X), MathF.Round(smoothedPosition.Y));
-            stablePixelPositions[entityId] = initial;
+            stablePixelPositions[entityID] = initial;
             return initial;
         }
 
         var next = new Vector2(
             StableSnap(smoothedPosition.X, previous.X),
             StableSnap(smoothedPosition.Y, previous.Y));
-        stablePixelPositions[entityId] = next;
+        stablePixelPositions[entityID] = next;
         return next;
     }
 
@@ -533,10 +534,10 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
 
         for (var index = 0; index < removeBuffer.Count; index++)
         {
-            var entityId = removeBuffer[index];
-            lastSeenFrames.Remove(entityId);
-            smoothedPositions.Remove(entityId);
-            stablePixelPositions.Remove(entityId);
+            var entityID = removeBuffer[index];
+            lastSeenFrames.Remove(entityID);
+            smoothedPositions.Remove(entityID);
+            stablePixelPositions.Remove(entityID);
         }
 
         removeBuffer.Clear();
@@ -617,8 +618,8 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
     }
 
     private readonly record struct NonEntityTargetInfo(
-        uint EntityId,
-        uint DataId,
+        uint EntityID,
+        uint DataID,
         Vector3 Position,
         Vector2 ScreenPosition,
         float Distance,
@@ -641,9 +642,9 @@ internal sealed class FloatingInfoGroup(Vector2 anchorPosition, FloatingInfoObje
 
 internal sealed class FloatingInfoObject
 {
-    public uint EntityId { get; init; }
+    public uint EntityID { get; init; }
 
-    public uint DataId { get; init; }
+    public uint DataID { get; init; }
 
     public string Name { get; init; } = string.Empty;
 
@@ -665,7 +666,7 @@ internal sealed class FloatingInfoObject
 
     public bool IsCasting { get; set; }
 
-    public uint CastActionId { get; set; }
+    public uint CastActionID { get; set; }
 
     public float CurrentCastTime { get; set; }
 
@@ -683,7 +684,7 @@ internal sealed class FloatingInfoObject
 }
 
 internal readonly record struct FloatingInfoStatus(
-    uint StatusId,
+    uint StatusID,
     string Name,
     float RemainingTime,
     ushort Param);

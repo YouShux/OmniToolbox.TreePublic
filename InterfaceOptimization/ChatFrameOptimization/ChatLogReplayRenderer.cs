@@ -6,7 +6,7 @@ using Lumina.Text.ReadOnly;
 using OmniToolbox.Host;
 using OmniToolbox.UI.Theme;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 internal sealed class ChatLogReplayRenderer
 {
@@ -65,9 +65,9 @@ internal sealed class ChatLogReplayRenderer
 
     private static void DrawJobIcon(ChatLogReplayEntry entry)
     {
-        if (entry.SenderJobIconId == 0 ||
+        if (entry.SenderJobIconID == 0 ||
             DalamudServices.TextureProvider
-                .GetFromGameIcon(new GameIconLookup(entry.SenderJobIconId))
+                .GetFromGameIcon(new GameIconLookup(entry.SenderJobIconID))
                 .GetWrapOrDefault() is not { } texture)
         {
             return;

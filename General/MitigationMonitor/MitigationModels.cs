@@ -1,7 +1,7 @@
 using System.Reflection;
 using OmniToolbox.UI;
 
-namespace OmniToolbox.TreeHouse.General;
+namespace OmniToolbox.TreePublic;
 
 [Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
 internal enum MitigationRecordKind
@@ -51,7 +51,7 @@ internal enum ActionEffectType : byte
     Invulnerable = 7
 }
 
-internal readonly record struct MitigationDefinition(uint StatusId, int Physical, int Magical, int Special)
+internal readonly record struct MitigationDefinition(uint statusID, int Physical, int Magical, int Special)
 {
     public int PercentValueFor(DamageKind kind) => kind switch
     {
@@ -71,16 +71,16 @@ internal readonly record struct MitigationDefinition(uint StatusId, int Physical
 
 internal readonly record struct ActionDisplayInfo(string Name);
 
-internal readonly record struct StatusDisplayInfo(string Name, string Description, uint IconId);
+internal readonly record struct StatusDisplayInfo(string Name, string Description, uint iconID);
 
 internal readonly record struct DamageActionDisplay(string Name, DamageSourceKind SourceKind);
 
-internal readonly record struct CachedStatus(uint StatusId, uint SourceId, ushort Param, float RemainingTime);
+internal readonly record struct CachedStatus(uint statusID, uint SourceID, ushort Param, float RemainingTime);
 
 internal readonly record struct ActiveMitigation(
-    uint StatusId,
+    uint statusID,
     string Name,
-    uint IconId,
+    uint iconID,
     float RemainingSeconds,
     int Value,
     int StackCount,
@@ -90,15 +90,15 @@ internal readonly record struct ActiveMitigation(
 
 internal readonly record struct MitigationRecord(
     MitigationRecordKind Kind,
-    DateTime TimestampUtc,
+    DateTime TimestampUTC,
     TimeSpan Elapsed,
     string ActionName,
     string SourceName,
-    uint TargetEntityId,
+    uint targetEntityID,
     string TargetName,
     string TargetShortName,
     string TargetJobName,
-    uint TargetJobRowId,
+    uint TargetJobRowID,
     DamageSourceKind SourceKind,
     uint Damage,
     DamageKind DamageKind,
@@ -114,18 +114,18 @@ internal readonly record struct MitigationRecord(
 internal readonly record struct MitigationCombatHistory(
     string Key,
     MitigationRecord[] Records,
-    DateTime StartUtc,
-    DateTime EndUtc,
+    DateTime startUTC,
+    DateTime endUTC,
     string ElapsedLabel,
     string ZoneName);
 
 internal readonly record struct FriendlySnapshot(
-    uint EntityId,
+    uint EntityID,
     bool IsAlive,
     string TargetName,
     string TargetShortName,
     string JobName,
-    uint JobRowId,
+    uint jobRowID,
     uint ShieldValue,
     uint CurrentHp);
 

@@ -1,12 +1,12 @@
 using System.Reflection;
 
-namespace OmniToolbox.TreeHouse.InterfaceOptimization;
+namespace OmniToolbox.TreePublic;
 
 [Obfuscation(Exclude = true, ApplyToMembers = true)]
 internal sealed record ChatFrameOptimizationLogEntry(
     string Version,
     string TimestampLocal,
-    string TimestampUtc,
+    string TimestampUTC,
     int GameTimestamp,
     ushort ChatType,
     string ChatTypeName,
@@ -16,8 +16,8 @@ internal sealed record ChatFrameOptimizationLogEntry(
     string SenderWorld,
     string SenderDisplayName,
     string SenderJobName,
-    uint SenderJobIconId,
-    uint SenderJobRowId,
+    uint SenderJobIconID,
+    uint SenderJobRowID,
     string SenderPayloadBase64,
     string MessagePayloadBase64,
     string? NativeFormattedText,
@@ -46,21 +46,21 @@ internal sealed record ChatLogReplayEntry(
     string SenderDisplayName,
     string SenderText,
     string SenderJobName,
-    uint SenderJobIconId,
+    uint SenderJobIconID,
     string MessageText,
     string NativeFormattedText,
     string NativeFormattedPayloadBase64,
     string SearchText);
 
-internal abstract record ChatLogReplayStorageResult(int RequestId, bool Succeeded);
+internal abstract record ChatLogReplayStorageResult(int requestID, bool Succeeded);
 
 internal sealed record ChatLogReplayFileListResult(
-    int RequestId,
+    int requestID,
     bool Succeeded,
-    IReadOnlyList<ChatLogReplayFile> Files) : ChatLogReplayStorageResult(RequestId, Succeeded);
+    IReadOnlyList<ChatLogReplayFile> Files) : ChatLogReplayStorageResult(requestID, Succeeded);
 
 internal sealed record ChatLogReplayReadResult(
-    int RequestId,
+    int requestID,
     bool Succeeded,
     IReadOnlyList<ChatLogReplayEntry> Entries,
-    int SkippedLineCount) : ChatLogReplayStorageResult(RequestId, Succeeded);
+    int SkippedLineCount) : ChatLogReplayStorageResult(requestID, Succeeded);
