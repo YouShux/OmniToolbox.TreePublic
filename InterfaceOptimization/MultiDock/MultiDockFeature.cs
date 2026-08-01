@@ -1279,7 +1279,7 @@ public sealed class MultiDockFeature : TreeHouseFeatureBase
         }
 
         fallbackTextureLoaded = true;
-        fallbackTexture = GetFileTexture(Path.Combine("Resources", "图标.png"));
+        fallbackTexture = GetFileTexture(Path.Combine("images", "icon.png"));
         return fallbackTexture;
     }
 
