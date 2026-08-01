@@ -34,7 +34,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     private const ushort SkillColumnWidth = 120;
     private const ushort LockColumnWidth = 60;
     private const ushort TotalColumnWidth = SkillColumnWidth + LockColumnWidth;
-    private const short EmptyStateTextXAdjustment = 20;
     private static readonly CompSig PopulateItemSignature = new(
         "48 89 5C 24 ?? 48 89 6C 24 ?? 48 89 74 24 ?? 57 48 83 EC 30 49 8B 38");
 
@@ -51,7 +50,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
     private readonly ListItemLockStateCache lockVisuals = new();
     private Hook<PopulateItemDelegate>? populateItemHook;
     private AtkUnitBase* salvageAddon;
-    private (nint Address, short X, AlignmentType Alignment)? emptyStateSnapshot;
     private long lastErrorLogTick;
 
     private delegate void PopulateItemDelegate(
@@ -254,6 +252,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             return;
         }
 
+        var emptyStateText = FindEmptyStateText(listComponent);
         salvageAddon = addon;
         var columnX = (short)(lastHeader->GetXShort() + lastHeader->GetWidth());
         var skillHeader = CreateTextNode(
@@ -312,7 +311,10 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
                 continue;
             }
 
-            IncreaseWidth(node, TotalColumnWidth);
+            if (node != (AtkResNode*)emptyStateText)
+            {
+                IncreaseWidth(node, TotalColumnWidth);
+            }
 
             if (node->Type == NodeType.Component &&
                 (node->NodeId == 4 || node->NodeId is > 41_000 and < 41_100))
@@ -432,7 +434,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         for (var index = 0; index < component->UldManager.NodeListCount; index++)
         {
             var node = component->UldManager.NodeList[index];
-            if (node == null || node->Type != NodeType.Text || !node->IsVisible())
+            if (node == null || node->Type != NodeType.Text)
             {
                 continue;
             }
@@ -564,32 +566,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         }
 
         agent->ItemListRefresh(agent->IsSalvageResultAddonOpen);
-        AdjustEmptyStateText(agent);
-    }
-
-    private void AdjustEmptyStateText(AgentSalvage* agent)
-    {
-        if (agent->ItemCount != 0)
-        {
-            return;
-        }
-
-        var listNode = salvageAddon->GetNodeById(12);
-        var listComponent = listNode == null ? null : ((AtkComponentNode*)listNode)->Component;
-        var emptyStateText = listComponent == null ? null : FindEmptyStateText(listComponent);
-        if (emptyStateText == null)
-        {
-            return;
-        }
-
-        if (emptyStateSnapshot is not { } snapshot || snapshot.Address != (nint)emptyStateText)
-        {
-            snapshot = ((nint)emptyStateText, emptyStateText->AtkResNode.GetXShort(), emptyStateText->AlignmentType);
-            emptyStateSnapshot = snapshot;
-        }
-
-        emptyStateText->SetAlignment(AlignmentType.Center);
-        emptyStateText->AtkResNode.SetXShort((short)(snapshot.X + EmptyStateTextXAdjustment));
     }
 
     private void RestoreSalvageWindow()
@@ -616,12 +592,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
             ((AtkResNode*)xSnapshots[index].Address)->SetXShort(xSnapshots[index].X);
         }
 
-        if (emptyStateSnapshot is { } snapshot)
-        {
-            ((AtkTextNode*)snapshot.Address)->AtkResNode.SetXShort(snapshot.X);
-            ((AtkTextNode*)snapshot.Address)->SetAlignment(snapshot.Alignment);
-        }
-
         ForgetSalvageWindow();
         addon->UldManager.UpdateDrawNodeList();
         var agent = AgentSalvage.Instance();
@@ -638,7 +608,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUi : IDisposable
         injectedNodes.Clear();
         widthSnapshots.Clear();
         xSnapshots.Clear();
-        emptyStateSnapshot = null;
         lockVisuals.Forget();
     }
 

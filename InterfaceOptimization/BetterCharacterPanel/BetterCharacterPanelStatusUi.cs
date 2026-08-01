@@ -496,9 +496,9 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
             tooltipNode = new()
             {
                 Position = new(collision->X, rowY),
-                Size = new(parent->AtkResNode.Width, valueTemplate->AtkResNode.Height),
-                TextTooltip = BetterCharacterPanelState.BuildTooltip(entry, default)
+                Size = new(parent->AtkResNode.Width, valueTemplate->AtkResNode.Height)
             };
+            tooltipNode.SetTextTooltip(BetterCharacterPanelState.BuildTooltip(entry, default));
             tooltipNode.AttachNode(label.Node, NodePosition.AfterTarget);
             injectedNodes.Add(tooltipNode);
         }
@@ -546,9 +546,9 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
         var collision = new CollisionNode
         {
             Position = new(source->X, source->Y),
-            Size = new(source->Width, source->Height),
-            TextTooltip = BetterCharacterPanelState.BuildTooltip(tooltip, default)
+            Size = new(source->Width, source->Height)
         };
+        collision.SetTextTooltip(BetterCharacterPanelState.BuildTooltip(tooltip, default));
         collision.AttachNode(source, NodePosition.AfterTarget);
         injectedNodes.Add(collision);
     }
@@ -720,7 +720,7 @@ internal sealed unsafe class BetterCharacterPanelStatusUi(BetterCharacterPanelCo
         {
             if (row.Tooltip is not null)
             {
-                row.Tooltip.TextTooltip = BetterCharacterPanelState.BuildTooltip(tooltip, stats);
+                row.Tooltip.SetTextTooltip(BetterCharacterPanelState.BuildTooltip(tooltip, stats));
             }
         }
     }

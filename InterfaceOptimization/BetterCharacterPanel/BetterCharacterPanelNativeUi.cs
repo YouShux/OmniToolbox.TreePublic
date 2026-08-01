@@ -684,7 +684,6 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
                 Icon = ButtonIcon.UpArrow,
                 Size = new(GearSetReorderButtonSize, GearSetReorderButtonSize),
                 OnClick = MoveUp,
-                TextTooltip = OmniLoc.Get("Feature.BetterCharacterPanel.GearSet.MoveUp"),
                 IsEnabled = false
             };
             downButton = new()
@@ -693,9 +692,10 @@ internal sealed unsafe class BetterCharacterPanelNativeUi : IDisposable
                 Size = new(GearSetReorderButtonSize, GearSetReorderButtonSize),
                 Position = new(28f, 0f),
                 OnClick = MoveDown,
-                TextTooltip = OmniLoc.Get("Feature.BetterCharacterPanel.GearSet.MoveDown"),
                 IsEnabled = false
             };
+            upButton.SetTextTooltip(OmniLoc.Get("Feature.BetterCharacterPanel.GearSet.MoveUp"));
+            downButton.SetTextTooltip(OmniLoc.Get("Feature.BetterCharacterPanel.GearSet.MoveDown"));
             upButton.AttachNode(container);
             downButton.AttachNode(container);
         }

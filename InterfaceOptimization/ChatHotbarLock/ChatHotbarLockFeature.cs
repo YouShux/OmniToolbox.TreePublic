@@ -191,10 +191,10 @@ public sealed unsafe class ChatHotbarLockFeature(ChatHotbarLockConfig config, Ac
             TexturePath = "ui/uld/ActionBar.tex",
             TextureCoordinates = config.ChatLocked ? LockedTextureCoordinates : UnlockedTextureCoordinates,
             TextureSize = ButtonSize,
-            TextTooltip = GetChatLockTooltip(),
             IsVisible = config.ShowChatLock && ShouldShowLocks,
             ShowClickableCursor = true,
         };
+        button.SetTextTooltip(GetChatLockTooltip());
         button.ImageNode.Scale = new(0.9f, 0.9f);
         button.ImageNode.Origin = ButtonSize / 2f;
         button.OnClick = () => OnChatLockButtonClicked(button);
@@ -245,7 +245,7 @@ public sealed unsafe class ChatHotbarLockFeature(ChatHotbarLockConfig config, Ac
         }
 
         button.TextureCoordinates = textureCoordinates;
-        button.TextTooltip = GetChatLockTooltip();
+        button.SetTextTooltip(GetChatLockTooltip());
     }
 
     private string GetChatLockTooltip() => OmniLoc.Get(config.ChatLocked
