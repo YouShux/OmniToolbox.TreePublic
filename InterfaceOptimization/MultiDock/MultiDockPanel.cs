@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using Dalamud.Interface;
 using Dalamud.Plugin;
@@ -1416,6 +1417,7 @@ internal sealed class MultiDockPanel
         clipboardStatusUntil = ImGui.GetTime() + 5d;
     }
 
+    [Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
     private sealed class MultiDockClipboardSnapshot
     {
         public int Version { get; set; } = ClipboardVersion;

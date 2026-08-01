@@ -1,7 +1,9 @@
+using System.Reflection;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreeHouse.General;
 
+[Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
 internal enum MitigationRecordKind
 {
     Damage,
@@ -9,6 +11,7 @@ internal enum MitigationRecordKind
     Wipe
 }
 
+[Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
 internal enum MitigationStatusCategory
 {
     Vulnerability,
@@ -16,6 +19,7 @@ internal enum MitigationStatusCategory
     Shield
 }
 
+[Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
 internal enum DamageSourceKind
 {
     Skill,
@@ -30,6 +34,7 @@ internal enum MitigationStatusSourceKind
     VisibleEnemyFallback
 }
 
+[Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
 internal enum DamageKind
 {
     Physical,
