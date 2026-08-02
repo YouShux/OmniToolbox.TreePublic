@@ -4,6 +4,7 @@ using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Gui.ContextMenu;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
+using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -117,7 +118,7 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
             return;
         }
 
-        var itemID = NormalizeItemID(ContextMenuItemManager.Instance().CurrentItemID);
+        var itemID = ItemUtil.GetBaseId(ContextMenuItemManager.Instance().CurrentItemID).ItemId;
         if (itemID == 0)
         {
             return;
@@ -317,7 +318,7 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
         for (var index = 0; index < container->Size; index++)
         {
             var slot = container->GetInventorySlot(index);
-            if (slot != null && NormalizeItemID(slot->ItemId) == targetItemID && NeedsLowerQuality(slot))
+            if (slot != null && ItemUtil.GetBaseId(slot->ItemId).ItemId == targetItemID && NeedsLowerQuality(slot))
             {
                 pendingSlots.Enqueue(new(inventoryType, (ushort)index));
             }
@@ -340,14 +341,11 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
         }
 
         slot = container->GetInventorySlot(currentSlot.Slot);
-        return slot != null && NormalizeItemID(slot->ItemId) == targetItemID && NeedsLowerQuality(slot);
+        return slot != null && ItemUtil.GetBaseId(slot->ItemId).ItemId == targetItemID && NeedsLowerQuality(slot);
     }
 
     private static bool NeedsLowerQuality(InventoryItem* slot) =>
         slot->IsHighQuality() || slot->IsCollectable();
-
-    private static uint NormalizeItemID(uint itemID) =>
-        itemID < 2_000_000 ? itemID % 500_000 : itemID;
 
     private readonly record struct InventorySlot(InventoryType Container, ushort Slot);
 }

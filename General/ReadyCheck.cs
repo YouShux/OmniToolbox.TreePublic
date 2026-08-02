@@ -23,22 +23,6 @@ using ContentFinderCondition = Lumina.Excel.Sheets.ContentFinderCondition;
 
 namespace OmniToolbox.TreePublic;
 
-[Serializable]
-public sealed class ReadyCheckConfig
-{
-    public bool ClearOnTerritoryChanged { get; set; } = true;
-    public bool ClearOnCombat { get; set; }
-    public bool ClearOnInstancedCombat { get; set; } = true;
-    public bool ClearAfterTime { get; set; }
-    public int ClearAfterSeconds { get; set; } = 60;
-    public Vector2 PartyIconOffset { get; set; }
-    public Vector2 AllianceIconOffset { get; set; }
-    public Vector2 CrossWorldAllianceIconOffset { get; set; }
-    public float PartyIconScale { get; set; } = 1f;
-    public float AllianceIconScale { get; set; } = 1f;
-    public float CrossWorldAllianceIconScale { get; set; } = 1f;
-}
-
 public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
@@ -908,4 +892,20 @@ internal static class ReadyCheckPanel
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         return changed;
     }
+}
+
+[Serializable]
+public sealed class ReadyCheckConfig
+{
+    public bool ClearOnTerritoryChanged { get; set; } = true;
+    public bool ClearOnCombat { get; set; }
+    public bool ClearOnInstancedCombat { get; set; } = true;
+    public bool ClearAfterTime { get; set; }
+    public int ClearAfterSeconds { get; set; } = 60;
+    public Vector2 PartyIconOffset { get; set; }
+    public Vector2 AllianceIconOffset { get; set; }
+    public Vector2 CrossWorldAllianceIconOffset { get; set; }
+    public float PartyIconScale { get; set; } = 1f;
+    public float AllianceIconScale { get; set; } = 1f;
+    public float CrossWorldAllianceIconScale { get; set; } = 1f;
 }

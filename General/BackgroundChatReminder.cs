@@ -14,14 +14,6 @@ using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
-[Serializable]
-public sealed class BackgroundChatReminderConfig
-{
-    public bool EnableFlashOnTell { get; set; } = true;
-
-    public bool EnableFlashOnParty { get; set; } = true;
-}
-
 public sealed class BackgroundChatReminder : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
@@ -177,4 +169,12 @@ internal static class BackgroundChatReminderPanel
 
         return changed;
     }
+}
+
+[Serializable]
+public sealed class BackgroundChatReminderConfig
+{
+    public bool EnableFlashOnTell { get; set; } = true;
+
+    public bool EnableFlashOnParty { get; set; } = true;
 }

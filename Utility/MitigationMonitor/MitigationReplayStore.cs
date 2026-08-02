@@ -97,13 +97,13 @@ internal sealed class MitigationReplayStore
             Version = ExportVersion,
             ExportedUTC = DateTime.UtcNow,
             ZoneName = history.ZoneName,
-            startUTC = history.startUTC,
-            endUTC = history.endUTC,
+            StartUTC = history.StartUTC,
+            EndUTC = history.EndUTC,
             ElapsedLabel = history.ElapsedLabel
         };
         foreach (var record in history.Records)
         {
-            var recordDTO = new recordDTO
+            var recordDTO = new RecordDto
             {
                 Kind = record.Kind,
                 TimestampUTC = record.TimestampUTC,
@@ -129,9 +129,9 @@ internal sealed class MitigationReplayStore
             {
                 recordDTO.Statuses.Add(new()
                 {
-            statusID = status.statusID,
+                    StatusID = status.StatusID,
                     Name = status.Name,
-                    iconID = status.iconID,
+                    IconID = status.IconID,
                     RemainingSeconds = status.RemainingSeconds,
                     Value = status.Value,
                     StackCount = status.StackCount,
@@ -174,8 +174,8 @@ internal sealed class MitigationReplayStore
         }
 
         Array.Sort(records, static (left, right) => left.TimestampUTC.CompareTo(right.TimestampUTC));
-        var startUTC = dto.startUTC == default ? records[0].TimestampUTC : dto.startUTC;
-        var endUTC = dto.endUTC == default ? records[^1].TimestampUTC : dto.endUTC;
+        var startUTC = dto.StartUTC == default ? records[0].TimestampUTC : dto.StartUTC;
+        var endUTC = dto.EndUTC == default ? records[^1].TimestampUTC : dto.EndUTC;
         if (startUTC == default || endUTC == default || endUTC < startUTC)
         {
             error = "Replay timestamps are invalid.";
@@ -196,7 +196,7 @@ internal sealed class MitigationReplayStore
         return true;
     }
 
-    private static bool TryCreateRecord(recordDTO? dto, out MitigationRecord record)
+    private static bool TryCreateRecord(RecordDto? dto, out MitigationRecord record)
     {
         record = default;
         if (dto == null ||
@@ -229,9 +229,9 @@ internal sealed class MitigationReplayStore
             }
 
             statuses[index] = new(
-                status.statusID,
+                status.StatusID,
                 status.Name,
-                status.iconID,
+                status.IconID,
                 MathF.Max(0f, status.RemainingSeconds),
                 status.Value,
                 Math.Max(1, status.StackCount),
@@ -269,7 +269,7 @@ internal sealed class MitigationReplayStore
 
     private static string BuildFileName(MitigationCombatHistory history)
     {
-        var timestamp = history.startUTC.ToLocalTime().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+        var timestamp = history.StartUTC.ToLocalTime().ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
         var zoneName = SanitizeFileName(string.IsNullOrWhiteSpace(history.ZoneName)
             ? OmniLoc.Get("Feature.MitigationMonitor.History.UnknownZone")
             : history.ZoneName);
@@ -324,14 +324,14 @@ internal sealed class MitigationReplayStore
         public int Version { get; set; } = ExportVersion;
         public DateTime ExportedUTC { get; set; }
         public string ZoneName { get; set; } = string.Empty;
-        public DateTime startUTC { get; set; }
-        public DateTime endUTC { get; set; }
+        public DateTime StartUTC { get; set; }
+        public DateTime EndUTC { get; set; }
         public string ElapsedLabel { get; set; } = string.Empty;
-        public List<recordDTO?> Records { get; set; } = [];
+        public List<RecordDto?> Records { get; set; } = [];
     }
 
     [Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
-    private sealed class recordDTO
+    private sealed class RecordDto
     {
         public MitigationRecordKind Kind { get; set; }
         public DateTime TimestampUTC { get; set; }
@@ -358,9 +358,9 @@ internal sealed class MitigationReplayStore
     [Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
     private sealed class ActiveMitigationDto
     {
-        public uint statusID { get; set; }
+        public uint StatusID { get; set; }
         public string Name { get; set; } = string.Empty;
-        public uint iconID { get; set; }
+        public uint IconID { get; set; }
         public float RemainingSeconds { get; set; }
         public int Value { get; set; }
         public int StackCount { get; set; }

@@ -20,12 +20,12 @@ using Control = FFXIVClientStructs.FFXIV.Client.Game.Control.Control;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class ShieldOnHp(ShieldOnHpConfig config) : ModuleBase
+public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("ShieldOnHpTitle"),
-        Description = OmniLoc.Get("ShieldOnHpDescription"),
+        Title = OmniLoc.Get("ShieldOnHPTitle"),
+        Description = OmniLoc.Get("ShieldOnHPDescription"),
         Category = ModuleCategory.InterfaceOptimization
     };
 
@@ -44,22 +44,22 @@ public sealed unsafe class ShieldOnHp(ShieldOnHpConfig config) : ModuleBase
     {
         var showBar = config.ShowBar;
         var shouldSave = OmniControls.Checkbox(
-            $"{OmniLoc.Get("Feature.ShieldOnHp.ShowBar")}##shieldOnHpShowBar",
+            $"{OmniLoc.Get("Feature.ShieldOnHP.ShowBar")}##shieldOnHPShowBar",
             ref showBar);
         if (shouldSave)
         {
             config.ShowBar = showBar;
         }
 
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.ShieldOnHp.ShowBar.Help"));
+        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.ShieldOnHP.ShowBar.Help"));
         ImGui.SameLine(0f, OmniTheme.ContentGap());
         using (ImRaii.Disabled(!config.ShowBar))
         {
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted(OmniLoc.Get("Feature.ShieldOnHp.Color"));
+            ImGui.TextUnformatted(OmniLoc.Get("Feature.ShieldOnHP.Color"));
             ImGui.SameLine();
             var color = config.Color;
-            if (OmniControls.ColorEdit("##shieldOnHpColor", ref color))
+            if (OmniControls.ColorEdit("##shieldOnHPColor", ref color))
             {
                 config.Color = color;
             }
@@ -479,7 +479,7 @@ public sealed unsafe class ShieldOnHp(ShieldOnHpConfig config) : ModuleBase
 }
 
 [Serializable]
-public sealed class ShieldOnHpConfig
+public sealed class ShieldOnHPConfig
 {
     public bool ShowBar { get; set; } = true;
     public Vector3 Color { get; set; } = new(1f, 1f, 0f);

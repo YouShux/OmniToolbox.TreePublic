@@ -16,15 +16,6 @@ using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreePublic;
 
-[Serializable]
-public sealed class DirectionalActionReleaseConfig
-{
-    public Dictionary<uint, DirectionalActionMode> Actions { get; set; } = [];
-    public HashSet<uint> ReversedActions { get; set; } = [];
-}
-
-public enum DirectionalActionMode { Disabled, Camera, Mouse }
-
 public sealed unsafe class DirectionalActionRelease : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
@@ -275,4 +266,18 @@ internal static class DirectionalActionReleasePanel
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(action.Name.ToString());
     }
+}
+
+[Serializable]
+public sealed class DirectionalActionReleaseConfig
+{
+    public Dictionary<uint, DirectionalActionMode> Actions { get; set; } = [];
+    public HashSet<uint> ReversedActions { get; set; } = [];
+}
+
+public enum DirectionalActionMode
+{
+    Disabled,
+    Camera,
+    Mouse
 }

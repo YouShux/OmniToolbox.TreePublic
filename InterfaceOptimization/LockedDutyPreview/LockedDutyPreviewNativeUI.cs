@@ -7,7 +7,7 @@ using OmniToolbox.UI;
 namespace OmniToolbox.TreePublic;
 
 internal readonly record struct LockedDutyPreviewRow(
-    uint contentFinderConditionID,
+    uint ContentFinderConditionID,
     string Name,
     bool IsExcluded);
 

@@ -247,10 +247,10 @@ public sealed unsafe class ArmoireRecord : ModuleBase
         {
             var item = scanItems[index];
             if (item.CanDirectStore &&
-                (dyedRows is null || !dyedRows.Contains(item.cabinetRowID)) &&
-                storeRows.Add(item.cabinetRowID))
+                (dyedRows is null || !dyedRows.Contains(item.CabinetRowID)) &&
+                storeRows.Add(item.CabinetRowID))
             {
-                storeQueue.Enqueue(item.cabinetRowID);
+                storeQueue.Enqueue(item.CabinetRowID);
             }
         }
 
@@ -455,7 +455,7 @@ public sealed unsafe class ArmoireRecord : ModuleBase
             var name = item.Name.ExtractText();
             scanItems.Add(new(
                 key.ItemID,
-                aggregate.cabinetRowID,
+                aggregate.CabinetRowID,
                 string.IsNullOrWhiteSpace(name) ? $"Item {key.ItemID}" : name,
                 item.Icon,
                 aggregate.Quantity,
@@ -672,7 +672,7 @@ public sealed unsafe class ArmoireRecord : ModuleBase
 
     private sealed class ScanAggregate(uint cabinetRowID)
     {
-        public uint cabinetRowID { get; } = cabinetRowID;
+        public uint CabinetRowID { get; } = cabinetRowID;
 
         public int Quantity { get; set; }
 
@@ -699,9 +699,9 @@ public sealed class ArmoireRecordConfig
 
 internal sealed record ArmoireRecordItem(
     uint ItemID,
-    uint cabinetRowID,
+    uint CabinetRowID,
     string Name,
-    uint iconID,
+    uint IconID,
     int Quantity,
     string LocationsText,
     byte Stain0,

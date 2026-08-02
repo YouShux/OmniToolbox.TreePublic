@@ -1,3 +1,4 @@
+using Dalamud.Utility;
 using Lumina.Excel.Sheets;
 using OmniToolbox.Host;
 using OmenTools.Interop.Game.Lumina;
@@ -39,7 +40,7 @@ internal sealed class RealItemIconReplacementResolver
     }
 
     public bool TryGetByItemID(uint itemID, out RealItemIconReplacement replacement) =>
-        replacementsByItemID.TryGetValue(NormalizeItemID(itemID), out replacement);
+        replacementsByItemID.TryGetValue(ItemUtil.GetBaseId(itemID).ItemId, out replacement);
 
     public bool TryGetByGlassesID(uint glassesID, out RealItemIconReplacement replacement) =>
         replacementsByGlassesID.TryGetValue(glassesID, out replacement);
@@ -47,9 +48,6 @@ internal sealed class RealItemIconReplacementResolver
     public bool IsGlassesUnlocked(uint glassesID) =>
         glassesByID.TryGetValue(glassesID, out var glasses) &&
         DalamudServices.UnlockState.IsGlassesUnlocked(glasses);
-
-    private static uint NormalizeItemID(uint itemID) =>
-        itemID < 2_000_000 ? itemID % 500_000 : itemID;
 }
 
-internal readonly record struct RealItemIconReplacement(uint GlassesID, uint iconID);
+internal readonly record struct RealItemIconReplacement(uint GlassesID, uint IconID);

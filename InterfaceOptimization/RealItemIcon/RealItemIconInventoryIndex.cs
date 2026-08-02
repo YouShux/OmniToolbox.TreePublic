@@ -112,7 +112,7 @@ internal sealed class RealItemIconInventoryIndex(PlayerInventoryService inventor
     }
 
     private readonly record struct InventorySlotKey(
-        ulong holderID,
+        ulong HolderID,
         InventoryType ContainerType,
         ushort SlotIndex);
 }

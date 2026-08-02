@@ -45,7 +45,7 @@ internal sealed class ChatLogReplayStorage : IDisposable
     {
         this.config = config;
         DirectoryPath = GetDirectoryPath();
-        worker = Task.Run(ProcessQueueAsync);
+        worker = ProcessQueueAsync();
     }
 
     public string DirectoryPath { get; }
@@ -111,10 +111,10 @@ internal sealed class ChatLogReplayStorage : IDisposable
                         WriteLog(write.Entry);
                         break;
                     case RefreshFilesWorkItem refresh:
-                        RefreshFiles(refresh.requestID);
+                        RefreshFiles(refresh.RequestID);
                         break;
                     case ReadFileWorkItem read:
-                        ReadFile(read.requestID, read.Path);
+                        ReadFile(read.RequestID, read.Path);
                         break;
                     case PruneLogsWorkItem:
                         PruneOldLogs();
@@ -127,10 +127,10 @@ internal sealed class ChatLogReplayStorage : IDisposable
                 switch (item)
                 {
                     case RefreshFilesWorkItem refresh:
-                        results.Enqueue(new ChatLogReplayFileListResult(refresh.requestID, false, []));
+                        results.Enqueue(new ChatLogReplayFileListResult(refresh.RequestID, false, []));
                         break;
                     case ReadFileWorkItem read:
-                        results.Enqueue(new ChatLogReplayReadResult(read.requestID, false, [], 0));
+                        results.Enqueue(new ChatLogReplayReadResult(read.RequestID, false, [], 0));
                         break;
                 }
             }
@@ -333,9 +333,9 @@ internal sealed class ChatLogReplayStorage : IDisposable
 
     private sealed record WriteLogWorkItem(ChatFrameOptimizationLogEntry Entry) : StorageWorkItem;
 
-    private sealed record RefreshFilesWorkItem(int requestID) : StorageWorkItem;
+    private sealed record RefreshFilesWorkItem(int RequestID) : StorageWorkItem;
 
-    private sealed record ReadFileWorkItem(int requestID, string Path) : StorageWorkItem;
+    private sealed record ReadFileWorkItem(int RequestID, string Path) : StorageWorkItem;
 
     private sealed record PruneLogsWorkItem : StorageWorkItem
     {

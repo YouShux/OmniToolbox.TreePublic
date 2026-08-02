@@ -1,6 +1,5 @@
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
-using Dalamud.Game.Chat;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Lumina.Excel.Sheets;
@@ -19,18 +18,6 @@ using OmenTools.OmenService;
 using OmenObjectTable = OmenTools.Dalamud.Services.Game.Object.Abstractions.IObjectTable;
 
 namespace OmniToolbox.TreePublic;
-
-[Serializable]
-public sealed class FoodReminderConfig
-{
-    public int TargetNameMode { get; set; } = 1;
-
-    public string PartyMessage { get; set; } = "吃一下食物！";
-
-    public int ThresholdSeconds { get; set; } = 480;
-
-    public HashSet<uint> AllowedTerritoryIds { get; set; } = [];
-}
 
 public sealed class FoodReminder : ModuleBase
 {
@@ -105,9 +92,6 @@ public sealed class FoodReminder : ModuleBase
             addonEvents.Register(AddonEvent.PostSetup, CountdownAddonName, OnCountdownAddon);
             addonEvents.Register(AddonEvent.PostRequestedUpdate, CountdownAddonName, OnCountdownAddon);
             addonEvents.Register(AddonEvent.PreFinalize, CountdownAddonName, OnCountdownAddon);
-
-        DalamudServices.ChatGUI.ChatMessage += OnChatMessage;
-        lifetime.Add(() => DalamudServices.ChatGUI.ChatMessage -= OnChatMessage);
             runtimeLifetime = lifetime;
         }
         catch
@@ -130,34 +114,6 @@ public sealed class FoodReminder : ModuleBase
             countdownProcessed = false;
             seenTargets.Clear();
             ClearReminderLinks();
-        }
-    }
-
-    private void OnChatMessage(IHandleableChatMessage message)
-    {
-        try
-        {
-            if (!DService.Instance().ClientState.IsLoggedIn || !IsAllowedTerritory())
-            {
-                return;
-            }
-
-            var text = message.Message.TextValue;
-            if (IsCountdownStopMessage(text))
-            {
-                countdownProcessed = false;
-                return;
-            }
-
-            if (!countdownProcessed && IsCountdownStartMessage(text))
-            {
-                countdownProcessed = true;
-                CheckAndNotify();
-            }
-        }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Warning(ex, "Food reminder countdown chat handling failed.");
         }
     }
 
@@ -205,21 +161,21 @@ public sealed class FoodReminder : ModuleBase
 
         foreach (var member in services.PartyList)
         {
-        if (member.EntityId == 0)
+            if (member.EntityId == 0)
             {
                 continue;
             }
 
             var memberObject = services.ObjectTable.SearchByEntityID(
-            member.EntityId,
-                OmenObjectTable.CharactersRange) as IBattleChara;
+                                   member.EntityId,
+                                   OmenObjectTable.CharactersRange) as IBattleChara;
             count += TryRemind(new(
-                member.Name.TextValue,
-                GetJobName(member.ClassJob),
-            member.ContentId,
-                memberObject?.GameObjectID ?? 0,
-            member.EntityId,
-                GetFoodRemainingSeconds(memberObject)));
+                                   member.Name.TextValue,
+                                   GetJobName(member.ClassJob),
+                                   member.ContentId,
+                                   memberObject?.GameObjectID ?? 0,
+                                   member.EntityId,
+                                   GetFoodRemainingSeconds(memberObject)));
         }
 
         return count;
@@ -335,53 +291,6 @@ public sealed class FoodReminder : ModuleBase
     private bool IsAllowedTerritory() =>
         config.AllowedTerritoryIds.Count > 0 &&
         config.AllowedTerritoryIds.Contains(DService.Instance().ClientState.TerritoryType);
-
-    private static bool IsCountdownStartMessage(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return false;
-        }
-
-        var value = text.Trim();
-        if (IsCountdownStopMessage(value))
-        {
-            return false;
-        }
-
-        return value.Contains("倒计时", StringComparison.Ordinal) ||
-               value.Contains("倒數", StringComparison.Ordinal) ||
-               value.Contains("Battle commencing in", StringComparison.OrdinalIgnoreCase) ||
-               value.Contains("戦闘開始まで", StringComparison.Ordinal) ||
-               (value.Contains("战斗", StringComparison.Ordinal) || value.Contains("戰鬥", StringComparison.Ordinal)) &&
-               (value.Contains("开始", StringComparison.Ordinal) || value.Contains("開始", StringComparison.Ordinal)) &&
-               value.Contains("秒", StringComparison.Ordinal);
-    }
-
-    private static bool IsCountdownStopMessage(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return false;
-        }
-
-        var value = text.Trim();
-        var hasCountdown = value.Contains("倒计时", StringComparison.Ordinal) ||
-                           value.Contains("倒數", StringComparison.Ordinal) ||
-                           value.Contains("countdown", StringComparison.OrdinalIgnoreCase) ||
-                           value.Contains("カウントダウン", StringComparison.Ordinal);
-        if (!hasCountdown)
-        {
-            return false;
-        }
-
-        return value.Contains("取消", StringComparison.Ordinal) ||
-               value.Contains("中止", StringComparison.Ordinal) ||
-               value.Contains("停止", StringComparison.Ordinal) ||
-               value.Contains("cancel", StringComparison.OrdinalIgnoreCase) ||
-               value.Contains("stopped", StringComparison.OrdinalIgnoreCase) ||
-               value.Contains("aborted", StringComparison.OrdinalIgnoreCase);
-    }
 
     private static float GetFoodRemainingSeconds(IBattleChara? target)
     {
@@ -568,4 +477,16 @@ internal static class FoodReminderPanel
         TerritorySelector.Draw(
             config.AllowedTerritoryIds,
             OmniLoc.Get("Feature.FoodReminder.TerritorySelector.Empty"));
+}
+
+[Serializable]
+public sealed class FoodReminderConfig
+{
+    public int TargetNameMode { get; set; } = 1;
+
+    public string PartyMessage { get; set; } = "吃一下食物！";
+
+    public int ThresholdSeconds { get; set; } = 480;
+
+    public HashSet<uint> AllowedTerritoryIds { get; set; } = [];
 }

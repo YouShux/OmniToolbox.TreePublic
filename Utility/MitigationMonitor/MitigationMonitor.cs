@@ -13,38 +13,13 @@ using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
-[Serializable]
-public sealed class MitigationMonitorConfig
-{
-    public bool Visible { get; set; } = true;
-    public bool Locked { get; set; }
-    public bool Collapsed { get; set; }
-    public Vector2 Position { get; set; } = new(520f, 320f);
-    public Vector2 CollapsedPosition { get; set; }
-    public Vector2 Size { get; set; } = new(540f, 270f);
-    public int ReplaySaveCount { get; set; } = 20;
-    public float Opacity { get; set; } = 0.7f;
-    public bool ShowDotDamage { get; set; } = true;
-    public int HideHotkey { get; set; }
-    public MitigationHotkeyModifier HideHotkeyModifier { get; set; }
-    public MitigationTargetDisplayMode TargetDisplayMode { get; set; } = MitigationTargetDisplayMode.JobIcon;
-    public float TimeColumnWidth { get; set; } = 54f;
-    public float ActionColumnWidth { get; set; } = 80f;
-    public float TargetColumnWidth { get; set; } = 64f;
-    public float DamageColumnWidth { get; set; } = 88f;
-    public float MitigationColumnWidth { get; set; } = 64f;
-}
-
-public enum MitigationHotkeyModifier { None, Control, Shift, Alt }
-public enum MitigationTargetDisplayMode { JobName = 1, JobIcon = 2, JobIconV2 = 3, JobIconV3 = 4, CharacterName = 5 }
-
 public sealed class MitigationMonitor : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
         Title = OmniLoc.Get("MitigationMonitorTitle"),
         Description = OmniLoc.Get("MitigationMonitorDescription"),
-        Category = ModuleCategory.General
+        Category = ModuleCategory.Utility
     };
 
     private readonly MitigationMonitorConfig config;
@@ -306,4 +281,43 @@ internal static class MitigationMonitorPanel
 
         return clicked;
     }
+}
+
+[Serializable]
+public sealed class MitigationMonitorConfig
+{
+    public bool Visible { get; set; } = true;
+    public bool Locked { get; set; }
+    public bool Collapsed { get; set; }
+    public Vector2 Position { get; set; } = new(520f, 320f);
+    public Vector2 CollapsedPosition { get; set; }
+    public Vector2 Size { get; set; } = new(540f, 270f);
+    public int ReplaySaveCount { get; set; } = 20;
+    public float Opacity { get; set; } = 0.7f;
+    public bool ShowDotDamage { get; set; } = true;
+    public int HideHotkey { get; set; }
+    public MitigationHotkeyModifier HideHotkeyModifier { get; set; }
+    public MitigationTargetDisplayMode TargetDisplayMode { get; set; } = MitigationTargetDisplayMode.JobIcon;
+    public float TimeColumnWidth { get; set; } = 54f;
+    public float ActionColumnWidth { get; set; } = 80f;
+    public float TargetColumnWidth { get; set; } = 64f;
+    public float DamageColumnWidth { get; set; } = 88f;
+    public float MitigationColumnWidth { get; set; } = 64f;
+}
+
+public enum MitigationHotkeyModifier
+{
+    None,
+    Control,
+    Shift,
+    Alt
+}
+
+public enum MitigationTargetDisplayMode
+{
+    JobName = 1,
+    JobIcon = 2,
+    JobIconV2 = 3,
+    JobIconV3 = 4,
+    CharacterName = 5
 }

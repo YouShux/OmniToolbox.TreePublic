@@ -276,7 +276,7 @@ internal sealed class ArmoireRecordListItemNode : ListItemNode<ArmoireRecordItem
 
     protected override void SetNodeData(ArmoireRecordItem itemData)
     {
-        iconNode.IconId = itemData.iconID;
+        iconNode.IconId = itemData.IconID;
         nameNode.String = $"{itemData.Name} ×{itemData.Quantity}";
         locationNode.String = itemData.LocationsText;
         statusNode.String = OmniLoc.Get(itemData.CanDirectStore

@@ -35,8 +35,8 @@ internal static class ChatFrameOptimizationLogFormatter
             sender.World,
             sender.DisplayName,
             sender.Job.Name,
-            sender.Job.iconID,
-            sender.Job.rowID,
+            sender.Job.IconID,
+            sender.Job.RowID,
             Convert.ToBase64String(message.Sender.Encode()),
             Convert.ToBase64String(message.Message.Encode()),
             native?.Text,
@@ -242,7 +242,7 @@ internal static class ChatFrameOptimizationLogFormatter
         string DisplayName,
         SenderJobInfo Job);
 
-    private readonly record struct SenderJobInfo(string Name, uint iconID, uint rowID);
+    private readonly record struct SenderJobInfo(string Name, uint IconID, uint RowID);
 
     private sealed record NativeChatLine(
         string Text,

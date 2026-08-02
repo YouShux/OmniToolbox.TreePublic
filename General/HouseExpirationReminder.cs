@@ -14,44 +14,6 @@ using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
-[Serializable]
-public sealed class HouseExpirationReminderConfig
-{
-    public bool ChatNotify { get; set; } = true;
-
-    public bool PopupNotify { get; set; } = true;
-
-    public bool PersonalNotify { get; set; } = true;
-
-    public bool FreeCompanyNotify { get; set; }
-
-    public int WarnDays { get; set; } = 10;
-
-    public HashSet<string> ReminderKeys { get; set; } = [];
-
-    public List<HouseExpirationReminderCharacterRecord> CharacterRecords { get; set; } = [];
-}
-
-[Serializable]
-public sealed class HouseExpirationReminderCharacterRecord
-{
-    public string CharacterKey { get; set; } = string.Empty;
-
-    public string CharacterName { get; set; } = string.Empty;
-
-    public string HomeWorld { get; set; } = string.Empty;
-
-    public ulong ContentID { get; set; }
-
-    public DateTime PersonalLastVisitUTC { get; set; } = DateTime.MinValue;
-
-    public DateTime FreeCompanyLastVisitUTC { get; set; } = DateTime.MinValue;
-
-    public ulong personalHouseID { get; set; }
-
-    public ulong freeCompanyHouseID { get; set; }
-}
-
 public sealed unsafe class HouseExpirationReminder(
     HouseExpirationReminderConfig config,
     Action saveConfig) : ModuleBase
@@ -201,13 +163,13 @@ public sealed unsafe class HouseExpirationReminder(
         if (personal)
         {
             record.PersonalLastVisitUTC = DateTime.UtcNow;
-            record.personalHouseID = houseID;
+            record.PersonalHouseID = houseID;
             RemoveReminderKeys(GetReminderKeyPrefix(record, "personal"));
         }
         else
         {
             record.FreeCompanyLastVisitUTC = DateTime.UtcNow;
-            record.freeCompanyHouseID = houseID;
+            record.FreeCompanyHouseID = houseID;
             RemoveReminderKeys(GetReminderKeyPrefix(record, "freecompany"));
         }
 
@@ -423,6 +385,44 @@ public sealed unsafe class HouseExpirationReminder(
             : value.Kind == DateTimeKind.Utc
                 ? value
                 : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+}
+
+[Serializable]
+public sealed class HouseExpirationReminderConfig
+{
+    public bool ChatNotify { get; set; } = true;
+
+    public bool PopupNotify { get; set; } = true;
+
+    public bool PersonalNotify { get; set; } = true;
+
+    public bool FreeCompanyNotify { get; set; }
+
+    public int WarnDays { get; set; } = 10;
+
+    public HashSet<string> ReminderKeys { get; set; } = [];
+
+    public List<HouseExpirationReminderCharacterRecord> CharacterRecords { get; set; } = [];
+}
+
+[Serializable]
+public sealed class HouseExpirationReminderCharacterRecord
+{
+    public string CharacterKey { get; set; } = string.Empty;
+
+    public string CharacterName { get; set; } = string.Empty;
+
+    public string HomeWorld { get; set; } = string.Empty;
+
+    public ulong ContentID { get; set; }
+
+    public DateTime PersonalLastVisitUTC { get; set; } = DateTime.MinValue;
+
+    public DateTime FreeCompanyLastVisitUTC { get; set; } = DateTime.MinValue;
+
+    public ulong PersonalHouseID { get; set; }
+
+    public ulong FreeCompanyHouseID { get; set; }
 }
 
 internal static class HouseExpirationReminderPanel

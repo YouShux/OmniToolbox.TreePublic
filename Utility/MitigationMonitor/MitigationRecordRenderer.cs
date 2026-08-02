@@ -314,7 +314,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                 var slotWidth = GetStatusSlotWidth(status, iconSlotSize.X);
                 var iconMin = new Vector2(x + (slotWidth - iconSize.X) * 0.5f, y) + offset;
                 var iconMax = iconMin + iconSize;
-                if (GetIconHandle(status.iconID) is { } handle)
+                if (GetIconHandle(status.IconID) is { } handle)
                 {
                     ImGui.GetWindowDrawList().AddImage(handle, iconMin, iconMax);
                 }

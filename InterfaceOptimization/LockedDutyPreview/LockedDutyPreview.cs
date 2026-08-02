@@ -204,15 +204,15 @@ public sealed unsafe class LockedDutyPreview(
         for (var index = 0; index < duties.Count; index++)
         {
             var duty = duties[index];
-        var isExcluded = excludedIds.Contains(duty.contentFinderConditionID);
+            var isExcluded = excludedIds.Contains(duty.ContentFinderConditionID);
             if (isExcluded)
             {
-        excludedRows.Add(new(duty.contentFinderConditionID, duty.Name, true));
+                excludedRows.Add(new(duty.ContentFinderConditionID, duty.Name, true));
             }
 
             if (!duty.IsUnlocked && !isExcluded)
             {
-        lockedRows.Add(new(duty.contentFinderConditionID, duty.Name, false));
+                lockedRows.Add(new(duty.ContentFinderConditionID, duty.Name, false));
             }
         }
     }
@@ -242,7 +242,7 @@ public sealed unsafe class LockedDutyPreview(
 
     private void OnExclude(LockedDutyPreviewRow row)
     {
-        if (!config.ExcludedContentFinderConditionIds.Add(row.contentFinderConditionID))
+        if (!config.ExcludedContentFinderConditionIds.Add(row.ContentFinderConditionID))
         {
             return;
         }
@@ -254,7 +254,7 @@ public sealed unsafe class LockedDutyPreview(
 
     private void OnRestore(LockedDutyPreviewRow row)
     {
-        if (!config.ExcludedContentFinderConditionIds.Remove(row.contentFinderConditionID))
+        if (!config.ExcludedContentFinderConditionIds.Remove(row.ContentFinderConditionID))
         {
             return;
         }

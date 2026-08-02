@@ -1,5 +1,6 @@
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Plugin.Services;
+using Dalamud.Utility;
 using Lumina.Excel.Sheets;
 using OmenTools;
 using OmenTools.Extensions;
@@ -61,12 +62,7 @@ public sealed class CopyItemName : ModuleBase
 
         keyState[VirtualKey.C] = false;
         keyState[VirtualKey.CONTROL] = false;
-        if (hoveredItem < 2_000_000)
-        {
-            hoveredItem %= 500_000;
-        }
-
-        if (!LuminaGetter.TryGetRow<Item>((uint)hoveredItem, out var item))
+        if (!LuminaGetter.TryGetRow<Item>(ItemUtil.GetBaseId((uint)hoveredItem).ItemId, out var item))
         {
             return;
         }

@@ -224,7 +224,7 @@ internal sealed unsafe class RealItemIconNativeUI : IDisposable
                 continue;
             }
 
-            if (ApplyReplacement((nint)addon, target, replacement.iconID))
+            if (ApplyReplacement((nint)addon, target, replacement.IconID))
             {
                 ApplyOverlay(target.Node, resolver.IsGlassesUnlocked(glassesID), (nint)addon);
                 continue;
@@ -332,7 +332,7 @@ internal sealed unsafe class RealItemIconNativeUI : IDisposable
         var primaryTarget = CreateTarget(*(AtkComponentIcon**)((byte*)addon + ItemDetailIconOffset));
         if (!primaryTarget.IsEmpty)
         {
-            if (ApplyReplacement((nint)addon, primaryTarget, replacement.iconID))
+            if (ApplyReplacement((nint)addon, primaryTarget, replacement.IconID))
             {
                 RemoveOverlay(primaryTarget.Node);
                 return;
@@ -345,7 +345,7 @@ internal sealed unsafe class RealItemIconNativeUI : IDisposable
         var fallbackTarget = FindBestDetailIconTarget(&addon->UldManager);
         if (!fallbackTarget.IsEmpty &&
             fallbackTarget.Address != primaryTarget.Address &&
-            ApplyReplacement((nint)addon, fallbackTarget, replacement.iconID))
+            ApplyReplacement((nint)addon, fallbackTarget, replacement.IconID))
         {
             RemoveOverlay(fallbackTarget.Node);
         }
@@ -433,7 +433,7 @@ internal sealed unsafe class RealItemIconNativeUI : IDisposable
                 continue;
             }
 
-            if (ApplyReplacement((nint)addon, target, replacement.iconID))
+            if (ApplyReplacement((nint)addon, target, replacement.IconID))
             {
                 ApplyOverlay(
                     target.Node,
@@ -841,7 +841,7 @@ internal sealed unsafe class RealItemIconNativeUI : IDisposable
                     return true;
                 }
 
-                originalIconID = existing.originalIconID;
+                originalIconID = existing.OriginalIconID;
             }
             else
             {
@@ -957,7 +957,7 @@ internal sealed unsafe class RealItemIconNativeUI : IDisposable
         var target = CreateTarget(entry);
         if (GetCurrentIconID(target) == entry.ReplacementIconID)
         {
-            LoadIcon(target, entry.originalIconID);
+            LoadIcon(target, entry.OriginalIconID);
         }
     }
 
@@ -1279,8 +1279,8 @@ internal sealed unsafe class RealItemIconNativeUI : IDisposable
         TargetKind Kind,
         nint TargetAddress,
         nint NodeAddress,
-        uint originalIconID,
-    uint ReplacementIconID);
+        uint OriginalIconID,
+        uint ReplacementIconID);
 
     private readonly record struct OverlayEntry(SimpleImageNode Node, nint AddonAddress);
 

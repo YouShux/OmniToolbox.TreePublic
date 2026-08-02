@@ -2,6 +2,7 @@ using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Text;
 using Dalamud.Hooking;
+using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Enums;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -164,7 +165,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
 
         var isLocked = config.LockGearsetItems && gearsetItemIds.Contains(GetGearsetItemID(inventoryItem));
         if (config.LockCustomItems &&
-            customLockItemIds.Contains(DesynthesisEnhancementState.NormalizeItemID(inventoryItem->ItemId)))
+            customLockItemIds.Contains(ItemUtil.GetBaseId(inventoryItem->ItemId).ItemId))
         {
             isLocked = true;
         }
@@ -494,7 +495,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
         customLockItemIds.Clear();
         for (var index = 0; index < config.CustomLockItemIds.Count; index++)
         {
-            var itemID = DesynthesisEnhancementState.NormalizeItemID(config.CustomLockItemIds[index]);
+            var itemID = ItemUtil.GetBaseId(config.CustomLockItemIds[index]).ItemId;
             if (itemID != 0)
             {
                 customLockItemIds.Add(itemID);

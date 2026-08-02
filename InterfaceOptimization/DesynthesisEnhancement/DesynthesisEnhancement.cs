@@ -1,3 +1,4 @@
+using Dalamud.Utility;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -167,7 +168,7 @@ internal static class DesynthesisEnhancementPanel
                 customItemIDInput = 0;
             }
 
-            var itemID = DesynthesisEnhancementState.NormalizeItemID((uint)Math.Max(0, customItemIDInput));
+        var itemID = ItemUtil.GetBaseId((uint)Math.Max(0, customItemIDInput)).ItemId;
             ImGui.SameLine();
             if (OmniControls.SmallButton(OmniLoc.Get("Feature.DesynthesisEnhancement.Add"), false) &&
                 itemID > 0 &&

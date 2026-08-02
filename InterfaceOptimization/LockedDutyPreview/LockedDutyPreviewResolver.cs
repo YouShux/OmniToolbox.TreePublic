@@ -7,12 +7,12 @@ using LuminaInstanceContent = Lumina.Excel.Sheets.InstanceContent;
 namespace OmniToolbox.TreePublic;
 
 internal readonly record struct LockedDutyPreviewDuty(
-    uint contentFinderConditionID,
+    uint ContentFinderConditionID,
     string Name,
     bool IsUnlocked);
 
 internal readonly record struct LockedDutyPreviewDefinition(
-    uint contentFinderConditionID,
+    uint ContentFinderConditionID,
     uint InstanceContentID,
     string Name);
 
@@ -49,7 +49,7 @@ internal sealed unsafe class LockedDutyPreviewResolver
                 UnlockedCount++;
             }
 
-            duties.Add(new(definition.contentFinderConditionID, definition.Name, isUnlocked));
+            duties.Add(new(definition.ContentFinderConditionID, definition.Name, isUnlocked));
         }
     }
 

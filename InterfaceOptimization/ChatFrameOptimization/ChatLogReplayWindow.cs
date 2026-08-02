@@ -172,7 +172,7 @@ internal sealed class ChatLogReplayWindow
         ImGui.SameLine();
         using (ImRaii.Disabled(!anonymousMode))
         {
-            ImGui.SetNextItemWidth(132f);
+            ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
             if (ImGui.InputText("##chatLogReplayAnonymousPrefix", ref anonymousPrefix, 24))
             {
                 renderer.RebuildAnonymous(GetAnonymousPrefix());
@@ -245,8 +245,6 @@ internal sealed class ChatLogReplayWindow
     private void DrawReplayBody()
     {
         ImGui.Spacing();
-        ImGui.PushStyleColor(ImGuiCol.ChildBg, new Vector4(0.31f, 0.31f, 0.31f, 1f));
-        ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.10f, 0.10f, 0.10f, 0.55f));
         using (var body = ImRaii.Child(
                    "##chatLogReplayBody",
                    Vector2.Zero,
@@ -267,8 +265,6 @@ internal sealed class ChatLogReplayWindow
                 }
             }
         }
-
-        ImGui.PopStyleColor(2);
     }
 
     private void RequestRefresh()
@@ -291,10 +287,10 @@ internal sealed class ChatLogReplayWindow
         {
             switch (result)
             {
-                case ChatLogReplayFileListResult fileList when fileList.requestID == refreshRequestID:
+                case ChatLogReplayFileListResult fileList when fileList.RequestID == refreshRequestID:
                     ApplyFileList(fileList);
                     break;
-                case ChatLogReplayReadResult read when read.requestID == readRequestID:
+                case ChatLogReplayReadResult read when read.RequestID == readRequestID:
                     ApplyReadResult(read);
                     break;
             }

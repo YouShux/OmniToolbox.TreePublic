@@ -344,15 +344,15 @@ internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelCo
             return;
         }
 
-        UpdateJobVisibility(stats.jobID);
+        UpdateJobVisibility(stats.JobID);
         lastStats = stats;
-        if (BetterCharacterPanelState.IsCrafter(stats.jobID))
+        if (BetterCharacterPanelState.IsCrafter(stats.JobID))
         {
             SetRowText(craftingPoints, stats.CraftingPoints.ToString(CultureInfo.CurrentCulture));
             return;
         }
 
-        if (BetterCharacterPanelState.IsGatherer(stats.jobID))
+        if (BetterCharacterPanelState.IsGatherer(stats.JobID))
         {
             SetRowText(gatheringPoints, stats.GatheringPoints.ToString(CultureInfo.CurrentCulture));
             return;
@@ -380,7 +380,7 @@ internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelCo
         SetRowText(magicMitigation, stats.MagicMitigation.DisplayValue.ToString("P0", CultureInfo.CurrentCulture));
         SetTooltip(magicMitigation, BetterCharacterPanelTooltip.MagicDefense, stats);
 
-        if (BetterCharacterPanelState.IsCaster(stats.jobID))
+        if (BetterCharacterPanelState.IsCaster(stats.JobID))
         {
             SetRowText(spellSpeedBonus, stats.Speed.SpeedBonus.DisplayValue.ToString("P1", CultureInfo.CurrentCulture));
             SetRowText(spellGcd, Format("Feature.BetterCharacterPanel.Value.Seconds", stats.Speed.MainGcd.DisplayValue));

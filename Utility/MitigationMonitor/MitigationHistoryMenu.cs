@@ -128,7 +128,7 @@ internal sealed class MitigationHistoryMenu(
                 OmniLoc.Get("Feature.MitigationMonitor.History.Item"),
                 item.ElapsedLabel,
                 zone,
-                item.startUTC.ToLocalTime());
+                item.StartUTC.ToLocalTime());
             if (ImGui.Selectable($"{label}##{item.Key}", item.Key == ActiveHistoryKey))
             {
                 ActiveHistoryKey = item.Key;

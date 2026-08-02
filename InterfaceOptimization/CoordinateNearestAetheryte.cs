@@ -21,14 +21,14 @@ public sealed class CoordinateNearestAetheryte(
     TeleportService teleportService,
     AetheryteRouteResolver routeResolver) : ModuleBase
 {
-    private const int MaxVisibleRows = 5;
-
     public override ModuleInfo Info { get; } = new()
     {
         Title = OmniLoc.Get("CoordinateNearestAetheryteTitle"),
         Description = OmniLoc.Get("CoordinateNearestAetheryteDescription"),
         Category = ModuleCategory.InterfaceOptimization
     };
+
+    private const int MaxVisibleRows = 5;
 
     private FeatureLifetime? runtimeLifetime;
     private DalamudLinkPayload? aetheryteLinkPayload;

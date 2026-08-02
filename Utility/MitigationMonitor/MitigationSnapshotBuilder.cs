@@ -45,7 +45,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
             new(863, 80, 80, 80), new(864, 80, 80, 80), new(1931, 80, 80, 80),
             new(3829, 40, 40, 40), new(3832, 40, 40, 40), new(3835, 40, 40, 40),
             new(3838, 40, 40, 40), new(3890, 10, 10, 10), new(3896, 10, 10, 10)
-        }.ToFrozenDictionary(static definition => definition.statusID);
+        }.ToFrozenDictionary(static definition => definition.StatusID);
 
     private static readonly FrozenSet<uint> SourceDebuffStatusIds =
         new uint[] { 1193, 1195, 1203, 860, 9, 1715, 2115 }.ToFrozenSet();
@@ -189,7 +189,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
         foreach (var status in visibleEnemyDebuffs)
         {
             CollectStatus(
-                status.statusID,
+                status.StatusID,
                 status.SourceID,
                 status.Param,
                 status.RemainingTime,
@@ -275,7 +275,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
 
         var display = GetStatusInfo(statusID);
         var stackCount = Math.Max(1, (int)param);
-        var iconID = stackCount is > 1 and <= 16 ? display.iconID + (uint)(stackCount - 1) : display.iconID;
+        var iconID = stackCount is > 1 and <= 16 ? display.IconID + (uint)(stackCount - 1) : display.IconID;
         var displayRemainingTime = MathF.Max(0f, remainingTime);
         if (statusID == SacredSoilStatusID && sacredSoilUntilUTC.TryGetValue(target.EntityID, out var seenUntil))
         {

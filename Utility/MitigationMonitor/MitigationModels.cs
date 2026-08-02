@@ -51,7 +51,7 @@ internal enum ActionEffectType : byte
     Invulnerable = 7
 }
 
-internal readonly record struct MitigationDefinition(uint statusID, int Physical, int Magical, int Special)
+internal readonly record struct MitigationDefinition(uint StatusID, int Physical, int Magical, int Special)
 {
     public int PercentValueFor(DamageKind kind) => kind switch
     {
@@ -71,16 +71,16 @@ internal readonly record struct MitigationDefinition(uint statusID, int Physical
 
 internal readonly record struct ActionDisplayInfo(string Name);
 
-internal readonly record struct StatusDisplayInfo(string Name, string Description, uint iconID);
+internal readonly record struct StatusDisplayInfo(string Name, string Description, uint IconID);
 
 internal readonly record struct DamageActionDisplay(string Name, DamageSourceKind SourceKind);
 
-internal readonly record struct CachedStatus(uint statusID, uint SourceID, ushort Param, float RemainingTime);
+internal readonly record struct CachedStatus(uint StatusID, uint SourceID, ushort Param, float RemainingTime);
 
 internal readonly record struct ActiveMitigation(
-    uint statusID,
+    uint StatusID,
     string Name,
-    uint iconID,
+    uint IconID,
     float RemainingSeconds,
     int Value,
     int StackCount,
@@ -94,7 +94,7 @@ internal readonly record struct MitigationRecord(
     TimeSpan Elapsed,
     string ActionName,
     string SourceName,
-    uint targetEntityID,
+    uint TargetEntityID,
     string TargetName,
     string TargetShortName,
     string TargetJobName,
@@ -114,8 +114,8 @@ internal readonly record struct MitigationRecord(
 internal readonly record struct MitigationCombatHistory(
     string Key,
     MitigationRecord[] Records,
-    DateTime startUTC,
-    DateTime endUTC,
+    DateTime StartUTC,
+    DateTime EndUTC,
     string ElapsedLabel,
     string ZoneName);
 
@@ -125,7 +125,7 @@ internal readonly record struct FriendlySnapshot(
     string TargetName,
     string TargetShortName,
     string JobName,
-    uint jobRowID,
+    uint JobRowID,
     uint ShieldValue,
     uint CurrentHp);
 

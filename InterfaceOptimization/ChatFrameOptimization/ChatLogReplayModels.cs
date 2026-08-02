@@ -52,15 +52,15 @@ internal sealed record ChatLogReplayEntry(
     string NativeFormattedPayloadBase64,
     string SearchText);
 
-internal abstract record ChatLogReplayStorageResult(int requestID, bool Succeeded);
+internal abstract record ChatLogReplayStorageResult(int RequestID, bool Succeeded);
 
 internal sealed record ChatLogReplayFileListResult(
-    int requestID,
+    int RequestID,
     bool Succeeded,
-    IReadOnlyList<ChatLogReplayFile> Files) : ChatLogReplayStorageResult(requestID, Succeeded);
+    IReadOnlyList<ChatLogReplayFile> Files) : ChatLogReplayStorageResult(RequestID, Succeeded);
 
 internal sealed record ChatLogReplayReadResult(
-    int requestID,
+    int RequestID,
     bool Succeeded,
     IReadOnlyList<ChatLogReplayEntry> Entries,
-    int SkippedLineCount) : ChatLogReplayStorageResult(requestID, Succeeded);
+    int SkippedLineCount) : ChatLogReplayStorageResult(RequestID, Succeeded);

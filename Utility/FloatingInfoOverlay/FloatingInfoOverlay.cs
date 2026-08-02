@@ -21,7 +21,7 @@ internal sealed class FloatingInfoOverlay(
     {
         Title = OmniLoc.Get("FloatingInfoOverlayTitle"),
         Description = OmniLoc.Get("FloatingInfoOverlayDescription"),
-        Category = ModuleCategory.InterfaceOptimization,
+        Category = ModuleCategory.Utility,
         RequiresPrivateProvider = true
     };
 

@@ -317,7 +317,7 @@ internal sealed unsafe class MateriaTotalTooltip
         }
 
         hq = agent->ItemId >= 500_000;
-        itemID = agent->ItemId % 500_000;
+        itemID = ItemUtil.GetBaseId(agent->ItemId).ItemId;
         return itemID != 0;
     }
 

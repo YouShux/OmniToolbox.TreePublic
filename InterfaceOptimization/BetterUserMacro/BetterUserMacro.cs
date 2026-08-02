@@ -8,7 +8,6 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
@@ -110,6 +109,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
             lifetime.Add(addonEvents.Dispose);
             addonEvents.Register(AddonEvent.PostSetup, "Macro", OnMacroSetup);
+            addonEvents.Register(AddonEvent.PostShow, "Macro", OnMacroRefresh);
+            addonEvents.Register(AddonEvent.PreHide, "Macro", OnMacroFinalize);
             addonEvents.Register(AddonEvent.PreFinalize, "Macro", OnMacroFinalize);
             addonEvents.Register(AddonEvent.PreRefresh, "Macro", OnMacroPreRefresh);
             addonEvents.Register(AddonEvent.PostRefresh, "Macro", OnMacroRefresh);
@@ -469,11 +470,11 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
                          addon is not null &&
                          data is not null &&
                          TryGetMacroSlot(addon, data->DragDropInterface, out source) &&
-                         TryGetMacroSlot(addon, targetNode, out target);
+                         TryGetMacroDropTarget(addon, data, targetNode, out target);
 
-        macroDropHook!.Original(manager, data, targetNode, acceptedType, canNotAccept);
-        if (!shouldSwap || !TrySwapMacro(addon, source, target))
+        if (!shouldSwap || !TrySwapMacro(manager, addon, source, target))
         {
+            macroDropHook!.Original(manager, data, targetNode, acceptedType, canNotAccept);
             return;
         }
 
@@ -501,7 +502,72 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return true;
         }
 
+        if (dragDropInterface->DragDropType != DragDropType.Macro)
+        {
+            return false;
+        }
+
+        var payload = dragDropInterface->GetPayloadContainer();
+        if (payload is null)
+        {
+            return false;
+        }
+
+        if (payload->Int1 is >= 0 and < (int)MacroPageCount &&
+            payload->Int2 is >= 0 and < (int)MacroSlotsPerPage)
+        {
+            slot = new((uint)payload->Int1, (uint)payload->Int2);
+            return true;
+        }
+
+        if (payload->Int2 is >= 0 and < (int)MacroSlotsPerPage)
+        {
+            slot = new(addon->SelectedPage, (uint)payload->Int2);
+            return true;
+        }
+
+        if (dragDropInterface->DragDropReferenceIndex is >= 0 and < (short)MacroSlotsPerPage)
+        {
+            slot = new(addon->SelectedPage, (uint)dragDropInterface->DragDropReferenceIndex);
+            return true;
+        }
+
         return false;
+    }
+
+    private static bool TryGetMacroDropTarget(
+        AddonMacro* addon,
+        AtkEventData.AtkDragDropData* data,
+        AtkComponentNode* targetNode,
+        out MacroSlot slot)
+    {
+        if (TryGetMacroSlot(addon, targetNode, out slot))
+        {
+            return true;
+        }
+
+        var mouse = ImGui.GetIO().MousePos;
+        var mouseX = (short)Math.Clamp(mouse.X, short.MinValue, short.MaxValue);
+        var mouseY = (short)Math.Clamp(mouse.Y, short.MinValue, short.MaxValue);
+        for (var index = 0u; index < MacroSlotsPerPage; index++)
+        {
+            var dragDrop = addon->DragDropComponent[(int)index].Value;
+            if (dragDrop is null || dragDrop->OwnerNode is null)
+            {
+                continue;
+            }
+
+            var node = &dragDrop->OwnerNode->AtkResNode;
+            if (!node->CheckCollisionAtCoords(mouseX, mouseY, true))
+            {
+                continue;
+            }
+
+            slot = new(addon->SelectedPage, index);
+            return true;
+        }
+
+        return TryGetMacroSlot(addon, data->ComponentNode, out slot);
     }
 
     private static bool TryGetMacroSlot(AddonMacro* addon, AtkComponentNode* componentNode, out MacroSlot slot)
@@ -527,7 +593,11 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         return false;
     }
 
-    private bool TrySwapMacro(AddonMacro* addon, MacroSlot source, MacroSlot target)
+    private bool TrySwapMacro(
+        AtkDragDropManager* manager,
+        AddonMacro* addon,
+        MacroSlot source,
+        MacroSlot target)
     {
         if (source == target || source.Set >= MacroPageCount || target.Set >= MacroPageCount ||
             source.Index >= MacroSlotsPerPage || target.Index >= MacroSlotsPerPage)
@@ -542,6 +612,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return false;
         }
 
+        manager->CancelDragDrop(allowSoundEffect: false, suppressFlyBack: true);
         ReloadMacroSlot(source.Set, source.Index);
         ReloadMacroSlot(target.Set, target.Index);
         var refreshedSourceIcon = GetMacroDisplayIcon(addon, source, false);

@@ -55,7 +55,7 @@ internal readonly record struct BetterCharacterPanelSpeedCalculation(
     BetterCharacterPanelGcdModifier? Modifier);
 
 internal readonly record struct BetterCharacterPanelStats(
-    int jobID,
+    int JobID,
     int Level,
     int CraftingPoints,
     int GatheringPoints,
@@ -270,7 +270,7 @@ internal static unsafe class BetterCharacterPanelState
             "Feature.BetterCharacterPanel.Tooltip.MagicDefense.Body",
             stats.MagicMitigation,
             stats.MagicMitigation.PointsPerTier),
-        BetterCharacterPanelTooltip.Speed => BuildSpeedTooltip(stats.Speed, IsCaster(stats.jobID)),
+        BetterCharacterPanelTooltip.Speed => BuildSpeedTooltip(stats.Speed, IsCaster(stats.JobID)),
         BetterCharacterPanelTooltip.Tenacity => BuildTenacityTooltip(stats.TenacityMitigation, stats.TenacityDamage),
         BetterCharacterPanelTooltip.Piety => BuildTierTooltip(
             "Feature.BetterCharacterPanel.Tooltip.Piety.Title",

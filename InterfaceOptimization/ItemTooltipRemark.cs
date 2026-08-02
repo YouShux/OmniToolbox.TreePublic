@@ -29,10 +29,12 @@ public sealed class ItemTooltipRemark : ModuleBase
 
     private readonly ItemTooltipRemarkConfig config;
     private readonly TooltipManager.ItemTooltipUpdateDelegate tooltipHandler;
+    private KeyValuePair<uint, string>[] orderedRemarks = [];
     private int editingItemID;
     private string editingText = string.Empty;
     private bool focusTextInput;
     private bool editorRequested;
+    private bool remarksOrderDirty = true;
     private TooltipManager? tooltipManager;
 
     public ItemTooltipRemark(ItemTooltipRemarkConfig config)
@@ -225,7 +227,8 @@ public sealed class ItemTooltipRemark : ModuleBase
         var rowContentHeight = MathF.Max(iconSize, actionSize.Y);
         var cellPadding = ImGui.GetStyle().CellPadding.Y * 2f;
         var rowHeight = rowContentHeight + cellPadding;
-        var rows = config.Remarks.OrderBy(pair => pair.Key).ToArray();
+        RebuildOrderedRemarks();
+        var rows = orderedRemarks;
         var deleteItemID = 0u;
 
         {
@@ -381,22 +384,27 @@ public sealed class ItemTooltipRemark : ModuleBase
             config.Remarks[itemID] = sanitized;
         }
 
+        remarksOrderDirty = true;
         tooltipManager?.TriggerItemDetailUpdate();
         return true;
+    }
+
+    private void RebuildOrderedRemarks()
+    {
+        if (!remarksOrderDirty)
+        {
+            return;
+        }
+
+        orderedRemarks = config.Remarks.OrderBy(pair => pair.Key).ToArray();
+        remarksOrderDirty = false;
     }
 
     private uint GetEditingItemID() =>
         editingItemID <= 0 ? 0 : NormalizeItemID((uint)editingItemID);
 
-    private static uint NormalizeItemID(ulong itemID)
-    {
-        if (itemID < 2_000_000)
-        {
-            itemID %= 500_000;
-        }
-
-        return itemID <= uint.MaxValue ? (uint)itemID : 0;
-    }
+    private static uint NormalizeItemID(ulong itemID) =>
+        itemID <= uint.MaxValue ? ItemUtil.GetBaseId((uint)itemID).ItemId : 0;
 
     private static string Sanitize(string text) =>
         text.Replace('\r', ' ').Replace('\n', ' ').Trim();

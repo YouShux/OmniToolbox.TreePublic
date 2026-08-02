@@ -54,7 +54,7 @@ internal sealed class DisplayIDInformationCache
         for (var index = statuses.Count - 1; index >= 0; index--)
         {
             var status = statuses[index];
-            if (status.iconID != iconID || status.statusID != statusID || !string.Equals(status.Name, name, StringComparison.Ordinal))
+            if (status.IconID != iconID || status.StatusID != statusID || !string.Equals(status.Name, name, StringComparison.Ordinal))
             {
                 continue;
             }
@@ -73,13 +73,13 @@ internal sealed class DisplayIDInformationCache
         for (var index = statuses.Count - 1; index >= 0; index--)
         {
             var status = statuses[index];
-            if (status.iconID != iconID ||
+            if (status.IconID != iconID ||
                 !text.Contains(status.Name, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            statusID = status.statusID;
+            statusID = status.StatusID;
             name = status.Name;
             return true;
         }
@@ -127,5 +127,5 @@ internal sealed class DisplayIDInformationCache
 
     private readonly record struct ActionEntry(uint ActionID, uint Value, long Timestamp);
 
-    private readonly record struct StatusEntry(uint iconID, uint statusID, string Name, long Timestamp);
+    private readonly record struct StatusEntry(uint IconID, uint StatusID, string Name, long Timestamp);
 }

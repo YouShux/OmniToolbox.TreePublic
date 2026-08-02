@@ -12,18 +12,12 @@ using ClientFramework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framewo
 
 namespace OmniToolbox.TreePublic;
 
-[Serializable]
-public sealed class BackgroundFpsLimitConfig
-{
-    public int Limit { get; set; } = 30;
-}
-
-public sealed unsafe class BackgroundFpsLimit(BackgroundFpsLimitConfig config) : ModuleBase
+public sealed unsafe class BackgroundFPSLimit(BackgroundFPSLimitConfig config) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("BackgroundFpsLimitTitle"),
-        Description = OmniLoc.Get("BackgroundFpsLimitDescription"),
+        Title = OmniLoc.Get("BackgroundFPSLimitTitle"),
+        Description = OmniLoc.Get("BackgroundFPSLimitDescription"),
         Category = ModuleCategory.General
     };
 
@@ -39,17 +33,17 @@ public sealed unsafe class BackgroundFpsLimit(BackgroundFpsLimitConfig config) :
     public override bool DrawSettings()
     {
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.BackgroundFpsLimit.Target"));
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.BackgroundFPSLimit.Target"));
         ImGui.SameLine();
         ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
         var limit = Math.Clamp(config.Limit, 20, short.MaxValue);
-        if (OmniControls.InputInt("##backgroundFpsLimit", ref limit))
+        if (OmniControls.InputInt("##backgroundFPSLimit", ref limit))
         {
             config.Limit = Math.Clamp(limit, 20, short.MaxValue);
         }
 
         var save = ImGui.IsItemDeactivatedAfterEdit();
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.BackgroundFpsLimit.Help"));
+        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.BackgroundFPSLimit.Help"));
         return save;
     }
 
@@ -145,4 +139,10 @@ public sealed unsafe class BackgroundFpsLimit(BackgroundFpsLimitConfig config) :
         deviceLimit = (short)Math.Clamp(deviceLimit + targetLimit - currentFps, targetLimit, short.MaxValue);
         device->FrameRateLimit = deviceLimit;
     }
+}
+
+[Serializable]
+public sealed class BackgroundFPSLimitConfig
+{
+    public int Limit { get; set; } = 30;
 }

@@ -68,7 +68,7 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
             AddRecordNoLock(record);
             if (!record.Missed && !record.Invulnerable)
             {
-                lastDamageByTarget[record.targetEntityID] = record;
+                lastDamageByTarget[record.TargetEntityID] = record;
             }
         }
     }
@@ -109,7 +109,7 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
                     target.TargetName,
                     target.TargetShortName,
                     target.JobName,
-                    target.jobRowID,
+                    target.JobRowID,
                     DamageSourceKind.Skill,
                     0,
                     DamageKind.Special,

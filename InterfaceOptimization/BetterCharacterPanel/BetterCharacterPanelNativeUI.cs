@@ -608,7 +608,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
             ownerNode->AtkResNode.SetWidth((ushort)Math.Max(0, ownerNode->AtkResNode.Width - GearSetRowWidthReduction));
         }
 
-        buttons.Update(item.gearSetID, item.ItemIndex, item.IsChecked);
+        buttons.Update(item.GearSetID, item.ItemIndex, item.IsChecked);
     }
 
     private void ClearGearSetButtons()
@@ -655,7 +655,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
 
         public bool IsChecked => Renderer != null && Renderer->IsChecked;
 
-        public int gearSetID => GearSetIndexNode != null
+        public int GearSetID => GearSetIndexNode != null
                                 && int.TryParse(GearSetIndexNode->NodeText.ToString(), out var id)
             ? Math.Max(0, id - 1)
             : 0;

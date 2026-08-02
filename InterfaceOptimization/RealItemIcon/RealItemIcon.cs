@@ -7,11 +7,6 @@ using OmniToolbox.Items;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed class RealItemIconConfig
-{
-    public bool FacewearGlasses { get; set; } = true;
-}
-
 public sealed class RealItemIcon(
     RealItemIconConfig config,
     PlayerInventoryService inventoryService) : ModuleBase
@@ -64,4 +59,9 @@ public sealed class RealItemIcon(
         config.FacewearGlasses = facewearGlasses;
         return true;
     }
+}
+
+public sealed class RealItemIconConfig
+{
+    public bool FacewearGlasses { get; set; } = true;
 }

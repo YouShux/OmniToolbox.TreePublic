@@ -19,13 +19,6 @@ using LuminaStatus = Lumina.Excel.Sheets.Status;
 
 namespace OmniToolbox.TreePublic;
 
-[Serializable]
-public sealed class DuplicateStatusPreventionConfig
-{
-    public float OverlapThreshold { get; set; } = 5f;
-    public Dictionary<uint, bool> EnabledActions { get; set; } = [];
-}
-
 public sealed unsafe class DuplicateStatusPrevention : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
@@ -142,9 +135,9 @@ public sealed unsafe class DuplicateStatusPrevention : ModuleBase
 
     private bool HasStatus(DuplicateStatusRule rule, IBattleChara? target) => rule.DetectionTarget switch
     {
-        StatusDetectionTarget.Self => HasStatus(DService.Instance().ObjectTable.LocalPlayer?.StatusList, rule.statusID),
-        StatusDetectionTarget.Member => PartyHasStatus(rule.statusID),
-        StatusDetectionTarget.Target => HasStatus(target?.StatusList, rule.statusID),
+        StatusDetectionTarget.Self => HasStatus(DService.Instance().ObjectTable.LocalPlayer?.StatusList, rule.StatusID),
+        StatusDetectionTarget.Member => PartyHasStatus(rule.StatusID),
+        StatusDetectionTarget.Target => HasStatus(target?.StatusList, rule.StatusID),
         _ => false
     };
 
@@ -290,7 +283,7 @@ internal static class DuplicateStatusPreventionPanel
 
     private static void DrawStatus(DuplicateStatusRule status, ref bool first)
     {
-        if (!LuminaGetter.TryGetRow<LuminaStatus>(status.statusID, out var statusRow))
+        if (!LuminaGetter.TryGetRow<LuminaStatus>(status.StatusID, out var statusRow))
         {
             return;
         }
@@ -337,7 +330,7 @@ internal enum StatusDetectionTarget
 }
 
 internal readonly record struct DuplicateStatusRule(
-uint statusID,
+    uint StatusID,
     StatusDetectionTarget DetectionTarget,
     bool IsReverse = false)
 {
@@ -423,4 +416,11 @@ internal static class DuplicateStatusPreventionRules
 
     public static FrozenDictionary<uint, DuplicateActionRule> Actions { get; } =
         OrderedActionData.ToFrozenDictionary();
+}
+
+[Serializable]
+public sealed class DuplicateStatusPreventionConfig
+{
+    public float OverlapThreshold { get; set; } = 5f;
+    public Dictionary<uint, bool> EnabledActions { get; set; } = [];
 }
