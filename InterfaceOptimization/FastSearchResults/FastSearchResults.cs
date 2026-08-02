@@ -39,10 +39,6 @@ public sealed unsafe class FastSearchResults(
         Category = ModuleCategory.InterfaceOptimization
     };
 
-    private const int InventoryRequestIntervalMs = 250;
-    private const int DefaultPageRetryIntervalMs = 120;
-    private const int DefaultPageTimeoutMs = 2_000;
-
     private static readonly CompSig ItemSearchUpdateSignature = new(
         "E8 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 80 BB ?? ?? ?? ?? ?? 0F 85");
 
@@ -318,7 +314,7 @@ public sealed unsafe class FastSearchResults(
         nextInventoryRequestTick = now;
         defaultPageDeadlineTick = GetDefaultFreeCompanyPage() == InventoryType.Invalid
             ? 0
-            : now + DefaultPageTimeoutMs;
+            : now + 2_000;
         nextDefaultPageAttemptTick = now;
     }
 
@@ -347,7 +343,7 @@ public sealed unsafe class FastSearchResults(
             {
                 InventoryCommand.Request(FreeCompanyInventories[freeCompanyPreloadIndex]);
                 freeCompanyPreloadIndex++;
-                nextInventoryRequestTick = now + InventoryRequestIntervalMs;
+                nextInventoryRequestTick = now + 250;
             }
             catch (Exception ex)
             {
@@ -376,7 +372,7 @@ public sealed unsafe class FastSearchResults(
         }
 
         TrySelectFreeCompanyPage(addon, defaultPage);
-        nextDefaultPageAttemptTick = now + DefaultPageRetryIntervalMs;
+        nextDefaultPageAttemptTick = now + 120;
     }
 
     private void DrawFreeCompanyDefaultPage()
@@ -467,10 +463,12 @@ public sealed unsafe class FastSearchResults(
 
     private static bool TrySelectFreeCompanyPage(AtkUnitBase* addon, InventoryType page)
     {
-        var nodeID = page == InventoryType.FreeCompanyCrystals
-            ? 15u
-            : (uint)(10 + (int)page - (int)InventoryType.FreeCompanyPage1);
-        var button = addon == null ? null : (AtkComponentRadioButton*)addon->GetComponentByNodeId(nodeID);
+        var button = addon == null
+            ? null
+            : (AtkComponentRadioButton*)addon->GetComponentByNodeId(
+                page == InventoryType.FreeCompanyCrystals
+                    ? 15u
+                    : (uint)(10 + (int)page - (int)InventoryType.FreeCompanyPage1));
         var ownerNode = button == null ? null : button->AtkComponentButton.AtkComponentBase.OwnerNode;
         var eventData = ownerNode == null ? null : ownerNode->AtkResNode.AtkEventManager.Event;
         if (eventData == null)

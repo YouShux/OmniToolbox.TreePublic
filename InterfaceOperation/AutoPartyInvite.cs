@@ -31,10 +31,6 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
         RequiresPrivateProvider = true
     };
 
-    private const int InviteDigitRunLength = 3;
-    private const int InviteDelayMs = 250;
-    private static readonly long InviteDelayTicks = Stopwatch.Frequency * InviteDelayMs / 1000;
-
     internal static readonly AutoPartyInviteChannel[] ChannelOptions =
     [
         new(XivChatType.Say, "Feature.AutoPartyInvite.Channel.Say"),
@@ -210,7 +206,7 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
             playerPayload.PlayerName,
             payloadWorldID == 0 ? worldID : payloadWorldID,
             chatType,
-            Stopwatch.GetTimestamp() + InviteDelayTicks));
+            Stopwatch.GetTimestamp() + Stopwatch.Frequency * 250 / 1000));
     }
 
     private void OnUpdate(IFramework _)
@@ -268,7 +264,7 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
                 index++;
             }
 
-            if (runLength >= InviteDigitRunLength && config.EnabledDigits.Contains(character - '0'))
+            if (runLength >= 3 && config.EnabledDigits.Contains(character - '0'))
             {
                 return true;
             }
@@ -382,7 +378,9 @@ internal static class AutoPartyInvitePanel
     {
         var changed = DrawTriggers(config);
         ImGui.Spacing();
-        changed |= DrawTerritories(config);
+        changed |= TerritorySelector.Draw(
+            config.AllowedTerritoryIds,
+            OmniLoc.Get("Feature.AutoPartyInvite.Territory.EmptySelection"));
         ImGui.Spacing();
         changed |= DrawChannels(config);
         return changed;
@@ -622,11 +620,6 @@ internal static class AutoPartyInvitePanel
         customTriggerInput = string.Empty;
         return true;
     }
-
-    private static bool DrawTerritories(AutoPartyInviteConfig config) =>
-        TerritorySelector.Draw(
-            config.AllowedTerritoryIds,
-            OmniLoc.Get("Feature.AutoPartyInvite.Territory.EmptySelection"));
 
     private static bool DrawChannels(AutoPartyInviteConfig config)
     {

@@ -62,11 +62,10 @@ internal sealed class ChatLogReplayWindow
         }
 
         var scale = OmniTheme.ScaleValue;
-        var sizeCondition = MathF.Abs(lastScale - scale) > 0.001f
-            ? ImGuiCond.Always
-            : ImGuiCond.FirstUseEver;
+        ImGui.SetNextWindowSize(
+            OmniTheme.Scale(new Vector2(960f, 640f)),
+            MathF.Abs(lastScale - scale) > 0.001f ? ImGuiCond.Always : ImGuiCond.FirstUseEver);
         lastScale = scale;
-        ImGui.SetNextWindowSize(OmniTheme.Scale(new Vector2(960f, 640f)), sizeCondition);
         if (!ImGui.Begin(OmniLoc.Get("Feature.ChatLogReplay.Title"), ref isOpen))
         {
             ImGui.End();

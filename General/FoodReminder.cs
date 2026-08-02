@@ -32,8 +32,6 @@ public sealed class FoodReminder : ModuleBase
         ]
     };
 
-    private const uint FoodStatusID = 48;
-    private const int MaxReminderLinks = 256;
     private const string CountdownAddonName = "ScreenInfo_CountDown";
 
     private readonly FoodReminderConfig config;
@@ -152,7 +150,7 @@ public sealed class FoodReminder : ModuleBase
         {
             count += TryRemind(new(
                 localPlayer.Name,
-                GetJobName(localPlayer),
+                GetJobName(localPlayer.ClassJob),
                 services.PlayerState.ContentId,
                 localPlayer.GameObjectID,
                 localPlayer.EntityID,
@@ -225,7 +223,7 @@ public sealed class FoodReminder : ModuleBase
 
     private DalamudLinkPayload RegisterReminderLink(string targetName)
     {
-        if (reminderPayloads.Count >= MaxReminderLinks)
+        if (reminderPayloads.Count >= 256)
         {
             ClearReminderLinks();
         }
@@ -264,7 +262,7 @@ public sealed class FoodReminder : ModuleBase
     {
         var local = DService.Instance().ObjectTable.LocalPlayer;
         var displayName = config.TargetNameMode == 1 && local is not null
-            ? GetJobName(local)
+            ? GetJobName(local.ClassJob)
             : local?.Name;
         displayName = string.IsNullOrWhiteSpace(displayName)
             ? OmniLoc.Get("Feature.FoodReminder.TestTarget")
@@ -294,15 +292,13 @@ public sealed class FoodReminder : ModuleBase
 
     private static float GetFoodRemainingSeconds(IBattleChara? target)
     {
-        if (target is null || !target.StatusList.TryGetStatus(FoodStatusID, out var status, out _) || status is null)
+        if (target is null || !target.StatusList.TryGetStatus(48, out var status, out _) || status is null)
         {
             return 0f;
         }
 
         return MathF.Max(0f, status.RemainingTime);
     }
-
-    private static string GetJobName(ICharacter character) => GetJobName(character.ClassJob);
 
     private static string GetJobName(Lumina.Excel.RowRef<ClassJob> classJob)
     {

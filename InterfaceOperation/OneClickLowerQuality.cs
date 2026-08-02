@@ -32,9 +32,6 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
         Category = ModuleCategory.InterfaceOperation
     };
 
-    private const int OperationTimeoutMs = 2_000;
-    private const int MenuDelayMs = 100;
-    private const int AppliedDelayMs = 300;
     private static readonly InventoryType[] InventoryContainers =
     [
         InventoryType.Inventory1,
@@ -83,8 +80,8 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
     {
         taskHelper = new()
         {
-            RetryIntervalMS = MenuDelayMs,
-            TimeoutMS = OperationTimeoutMs
+            RetryIntervalMS = 100,
+            TimeoutMS = 2_000
         };
         var events = new AddonEventRegistry(DalamudServices.AddonLifecycle);
         events.Register(AddonEvent.PostSetup, "SelectYesno", OnSelectYesnoSetup);
@@ -172,7 +169,7 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
 
         skipCurrent = false;
         EnqueueCurrent(OpenCurrent);
-        taskHelper.DelayNext(AppliedDelayMs);
+        taskHelper.DelayNext(300);
         EnqueueCurrent(WaitCurrentApplied);
         taskHelper.Enqueue(EnqueueNext);
     }

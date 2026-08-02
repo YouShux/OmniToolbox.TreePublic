@@ -30,9 +30,7 @@ public sealed unsafe class LockedDutyPreview(
     };
 
     private const string ContentsFinderAddonName = "ContentsFinder";
-    private const int RefreshIntervalMs = 5_000;
     private const float ScreenPadding = 8f;
-    private const float ContentsFinderGap = 38f;
 
     private readonly LockedDutyPreviewResolver resolver = new();
     private readonly List<LockedDutyPreviewRow> lockedRows = [];
@@ -117,7 +115,7 @@ public sealed unsafe class LockedDutyPreview(
         }
 
         contentsFinderWasVisible = true;
-        nextRefreshTick = now + RefreshIntervalMs;
+        nextRefreshTick = now + 5_000;
         resolver.Refresh();
         RebuildRows();
         UpdateNativeUIData();
@@ -160,7 +158,7 @@ public sealed unsafe class LockedDutyPreview(
         var state = windowNode->GetNodeState();
         var previewState = previewAddon->WindowNode->GetNodeState();
         var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
-        var windowX = state.TopLeft.X - previewState.Width - ContentsFinderGap;
+        var windowX = state.TopLeft.X - previewState.Width - 38f;
         var windowY = state.TopLeft.Y;
         windowX = Math.Max(ScreenPadding, Math.Min(
             windowX,
@@ -199,12 +197,11 @@ public sealed unsafe class LockedDutyPreview(
     {
         lockedRows.Clear();
         excludedRows.Clear();
-        var excludedIds = config.ExcludedContentFinderConditionIds;
         var duties = resolver.Duties;
         for (var index = 0; index < duties.Count; index++)
         {
             var duty = duties[index];
-            var isExcluded = excludedIds.Contains(duty.ContentFinderConditionID);
+            var isExcluded = config.ExcludedContentFinderConditionIds.Contains(duty.ContentFinderConditionID);
             if (isExcluded)
             {
                 excludedRows.Add(new(duty.ContentFinderConditionID, duty.Name, true));

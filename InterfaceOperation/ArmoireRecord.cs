@@ -43,10 +43,6 @@ public sealed unsafe class ArmoireRecord : ModuleBase
     };
 
     private const string CabinetAddonName = "Cabinet";
-    private const uint UpdateIntervalMs = 16;
-    private const int StoreIntervalMs = 100;
-    private const ushort ChatBodyColor = 1;
-    private const ushort ChatDyedColor = 43;
 
     private readonly ArmoireRecordConfig config;
     private readonly PlayerInventoryService inventoryService;
@@ -121,7 +117,7 @@ public sealed unsafe class ArmoireRecord : ModuleBase
             window = new();
             lifetime.Add(window.Dispose);
 
-            if (!FrameworkManager.Instance().Reg(OnUpdate, UpdateIntervalMs))
+            if (!FrameworkManager.Instance().Reg(OnUpdate, 16))
             {
                 throw new InvalidOperationException("Armoire record update registration failed.");
             }
@@ -328,7 +324,7 @@ public sealed unsafe class ArmoireRecord : ModuleBase
             DalamudServices.PluginLog.Warning(ex, "Armoire record failed to store cabinet row {CabinetRowId}.", rowID);
         }
 
-        nextStoreTick = Environment.TickCount64 + StoreIntervalMs;
+            nextStoreTick = Environment.TickCount64 + 100;
     }
 
     private void RefreshWindow()
@@ -395,7 +391,7 @@ public sealed unsafe class ArmoireRecord : ModuleBase
         }
 
         var builder = new SeStringBuilder()
-            .AddUiForeground(ChatBodyColor)
+                .AddUiForeground(1)
             .Append(OmniLoc.Get("Feature.ArmoireRecord.ChatPrefix"))
             .AddUiForegroundOff();
         for (var index = 0; index < scanItems.Count; index++)
@@ -404,7 +400,7 @@ public sealed unsafe class ArmoireRecord : ModuleBase
             builder
                 .Append("\n")
                 .AddItemLink(item.ItemID, false)
-                .AddUiForeground(item.IsDyed ? ChatDyedColor : ChatBodyColor)
+                .AddUiForeground(item.IsDyed ? (ushort)43 : (ushort)1)
                 .Append(" ")
                 .Append(FormatDyeText(item.Stain0, item.Stain1))
                 .AddUiForegroundOff();

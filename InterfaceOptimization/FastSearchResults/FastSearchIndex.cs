@@ -7,7 +7,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class FastSearchIndex : IDisposable
 {
-    private const int MarketResultLimit = 100;
     private const int RecipeResultLimit = 3_000;
 
     private static readonly Comparison<MarketEntry> CompareMarketEntries =
@@ -82,7 +81,7 @@ internal sealed class FastSearchIndex : IDisposable
         var matches = marketMatcher.Search(
             query,
             CompareMarketEntries,
-            Math.Min(destination.Length, MarketResultLimit));
+            Math.Min(destination.Length, 100));
         for (var index = 0; index < matches.Length; index++)
         {
             destination[index] = matches[index].ItemID;

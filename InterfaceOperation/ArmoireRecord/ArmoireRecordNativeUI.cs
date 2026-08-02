@@ -8,13 +8,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class ArmoireRecordNativeUI : NativeAddon
 {
-    private const float WindowWidth = 420f;
-    private const float WindowHeight = 406f;
-    private const float ItemSpacing = 2f;
-    private const float ButtonGap = 10f;
-    private const float ButtonOffset = 12f;
-    private const int VisibleItemRows = 5;
-
     private readonly List<ArmoireRecordItem> items = [];
     private TextNode? summaryNode;
     private TextNode? emptyNode;
@@ -34,7 +27,7 @@ internal sealed class ArmoireRecordNativeUI : NativeAddon
         InternalName = "OmniArmoireRecord";
         Title = OmniLoc.Get("Feature.ArmoireRecord.Title");
         Subtitle = string.Empty;
-        Size = new(WindowWidth, WindowHeight);
+        Size = new(420f, 406f);
         ContentPadding = new(8f, 0f);
         RememberClosePosition = false;
         CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
@@ -56,7 +49,7 @@ internal sealed class ArmoireRecordNativeUI : NativeAddon
 
         listNode = new()
         {
-            ItemSpacing = ItemSpacing,
+            ItemSpacing = 2f,
             OptionsList = items
         };
         listNode.AttachNode(this);
@@ -175,7 +168,7 @@ internal sealed class ArmoireRecordNativeUI : NativeAddon
         }
 
         y += 28f;
-        var listHeight = (ArmoireRecordListItemNode.ItemHeight + ItemSpacing) * VisibleItemRows;
+        var listHeight = (ArmoireRecordListItemNode.ItemHeight + 2f) * 5;
         if (emptyNode is not null)
         {
             emptyNode.Position = new(x, y + 8f);
@@ -188,8 +181,8 @@ internal sealed class ArmoireRecordNativeUI : NativeAddon
             listNode.Size = new(ContentSize.X - 4f, listHeight);
         }
 
-        var buttonY = y + listHeight + ButtonOffset;
-        var buttonWidth = MathF.Max(80f, (ContentSize.X - ButtonGap) / 2f);
+        var buttonY = y + listHeight + 12f;
+        var buttonWidth = MathF.Max(80f, (ContentSize.X - 10f) / 2f);
 
         if (retrieveButton is not null)
         {
@@ -199,7 +192,7 @@ internal sealed class ArmoireRecordNativeUI : NativeAddon
 
         if (storeButton is not null)
         {
-            storeButton.Position = new(x + buttonWidth + ButtonGap, buttonY);
+            storeButton.Position = new(x + buttonWidth + 10f, buttonY);
             storeButton.Size = new(buttonWidth, 28f);
         }
     }

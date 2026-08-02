@@ -168,6 +168,7 @@ internal static class DisplayIDInformationPanel
             iconBrowser.Toggle();
         }
 
+        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DisplayIdInformation.IconBrowser.Help"));
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         changed |= DrawStatus(config);

@@ -32,12 +32,9 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
         Category = ModuleCategory.General
     };
 
-    private const string ReadyCheckTexturePath = "ui/uld/ReadyCheck_hr1.tex";
-    private const uint NotPresentIconID = 61504;
     private const uint InvalidEntityID = 0xE0000000;
-    private const int MemberCapacity = 48;
 
-    private readonly List<ReadyCheckMember> members = new(MemberCapacity);
+    private readonly List<ReadyCheckMember> members = new(48);
     private readonly HashSet<uint> instancedTerritories = [];
     private FeatureLifetime? runtimeLifetime;
     private Hook<AgentReadyCheck.Delegates.InitiateReadyCheck>? initiateHook;
@@ -56,8 +53,8 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
     protected override void OnEnable()
     {
         PopulateInstancedTerritories();
-        readyCheckTexture ??= DalamudServices.TextureProvider.GetFromGame(ReadyCheckTexturePath);
-        notPresentTexture ??= DalamudServices.TextureProvider.GetFromGameIcon(new GameIconLookup(NotPresentIconID));
+        readyCheckTexture ??= DalamudServices.TextureProvider.GetFromGame("ui/uld/ReadyCheck_hr1.tex");
+        notPresentTexture ??= DalamudServices.TextureProvider.GetFromGameIcon(new GameIconLookup(61504));
         var lifetime = new FeatureLifetime();
         try
         {
@@ -235,7 +232,7 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
 
     private void ScheduleOverlayClear() =>
         clearAfterTick = config.ClearAfterTime
-            ? Environment.TickCount64 + NormalizeClearSeconds(config.ClearAfterSeconds) * 1_000L
+            ? Environment.TickCount64 + Math.Clamp(config.ClearAfterSeconds, 30, 900) * 1_000L
             : 0;
 
     private void CheckOverlayExpiration()
@@ -261,8 +258,6 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
             ClearState();
         }
     }
-
-    private static int NormalizeClearSeconds(int seconds) => Math.Clamp(seconds, 30, 900);
 
     private void ProcessReadyCheckResults()
     {

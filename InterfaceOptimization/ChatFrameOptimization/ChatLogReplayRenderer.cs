@@ -73,8 +73,7 @@ internal sealed class ChatLogReplayRenderer
             return;
         }
 
-        var size = MathF.Max(OmniTheme.Scale(18f), ImGui.GetTextLineHeight());
-        ImGui.Image(texture.Handle, new(size));
+        ImGui.Image(texture.Handle, new(MathF.Max(OmniTheme.Scale(18f), ImGui.GetTextLineHeight())));
         if (!string.IsNullOrWhiteSpace(entry.SenderJobName) && ImGui.IsItemHovered())
         {
             ImGui.SetTooltip(entry.SenderJobName);

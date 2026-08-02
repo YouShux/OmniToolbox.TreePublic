@@ -18,8 +18,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class FloatingInfoOverlayState : IDisposable
 {
-    private const int ScanIntervalMilliseconds = 100;
-    private const int PositionKeepFrames = 180;
     private const int MaxStatusCount = 8;
     private readonly FloatingInfoOverlayConfig config;
     private readonly NonEntityTargetVisibility targetVisibility;
@@ -80,8 +78,7 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
         var currentTick = Stopwatch.GetTimestamp();
         if (currentTick >= nextScanTick)
         {
-            nextScanTick = currentTick +
-                           ScanIntervalMilliseconds * Stopwatch.Frequency / 1000;
+            nextScanTick = currentTick + 100 * Stopwatch.Frequency / 1000;
             ScanObjects(services.ObjectTable.LocalPlayer!);
             return;
         }
@@ -522,7 +519,7 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
 
     private void PruneStalePositions()
     {
-        var minimumFrame = updateFrame - PositionKeepFrames;
+        var minimumFrame = updateFrame - 180;
         removeBuffer.Clear();
         foreach (var pair in lastSeenFrames)
         {

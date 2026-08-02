@@ -8,7 +8,6 @@ internal sealed class MitigationHistoryMenu(
     MitigationCombatLog combatLog,
     MitigationReplayStore replayStore)
 {
-    private const int MaxVisibleItems = 12;
     private const string HistoryPopupID = "##MitigationHistoryPopup";
     private const string ImportPopupID = "##MitigationImportPopup";
 
@@ -47,11 +46,11 @@ internal sealed class MitigationHistoryMenu(
         {
             ImGui.TextDisabled(OmniLoc.Get("Feature.MitigationMonitor.History.Empty"));
         }
-        else if (items.Count > MaxVisibleItems)
+        else if (items.Count > 12)
         {
             using var child = ImRaii.Child(
                 "##MitigationHistoryItems",
-                new(0f, ImGui.GetTextLineHeightWithSpacing() * MaxVisibleItems * 2f),
+                new(0f, ImGui.GetTextLineHeightWithSpacing() * 12 * 2f),
                 false);
             if (child)
             {

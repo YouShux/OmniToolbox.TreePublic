@@ -21,8 +21,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class MitigationRecorder
 {
-    private const int RefreshIntervalMs = 100;
-
     private readonly MitigationCombatLog combatLog;
     private readonly MitigationSnapshotBuilder snapshotBuilder = new();
     private readonly object cacheSyncRoot = new();
@@ -40,7 +38,7 @@ internal sealed unsafe class MitigationRecorder
         lifetime.Add(receiveHook.Dispose);
         receiveHook.Enable();
 
-        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, RefreshIntervalMs))
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
         {
             throw new InvalidOperationException("Mitigation monitor update registration failed.");
         }

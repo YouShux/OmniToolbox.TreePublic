@@ -12,8 +12,6 @@ namespace OmniToolbox.TreePublic;
 internal sealed class MitigationRecordTable
 {
     private const float HeaderHeight = 28f;
-    private const float HeaderControlIconScale = 0.82f;
-    private const float StatusLabelMinimumWidth = 40f;
     private static readonly float[] ColumnMinimumWidths = [44f, 70f, 60f, 42f, 34f];
 
     private readonly MitigationMonitorConfig config;
@@ -214,7 +212,7 @@ internal sealed class MitigationRecordTable
             minimumSum += minimum;
         }
 
-        var statusMinimumWidth = GetHeaderControlsWidth() + OmniTheme.Scale(StatusLabelMinimumWidth);
+        var statusMinimumWidth = GetHeaderControlsWidth() + OmniTheme.Scale(40f);
         var firstColumnsWidth = MathF.Min(
             desiredSum,
             MathF.Max(minimumSum, width - statusMinimumWidth));
@@ -404,10 +402,10 @@ internal sealed class MitigationRecordTable
         }
 
         var text = icon.ToIconString();
-        var textSize = ImGui.CalcTextSize(text) * HeaderControlIconScale;
+        var textSize = ImGui.CalcTextSize(text) * 0.82f;
         ImGui.GetWindowDrawList().AddText(
             ImGui.GetFont(),
-            ImGui.GetFontSize() * HeaderControlIconScale,
+            ImGui.GetFontSize() * 0.82f,
             position + new Vector2(
                 MathF.Max(0f, (size.X - textSize.X) * 0.5f),
                 MathF.Max(0f, (size.Y - textSize.Y) * 0.5f)),
@@ -491,7 +489,7 @@ internal sealed class MitigationRecordTable
                 totalWidth -
                 usedBeforeMitigation -
                 GetHeaderControlsWidth() -
-                OmniTheme.Scale(StatusLabelMinimumWidth));
+                OmniTheme.Scale(40f));
             widths[4] = Math.Clamp(
                 widths[4] + delta,
                 OmniTheme.Scale(ColumnMinimumWidths[4]),

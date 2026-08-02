@@ -82,8 +82,7 @@ internal sealed unsafe class LockedDutyPreviewResolver
                 continue;
             }
 
-        var contentTypeID = condition.ContentType.ValueNullable?.RowId ?? 0;
-            if (contentTypeID is PvpContentType or GoldSaucerContentType)
+            if ((condition.ContentType.ValueNullable?.RowId ?? 0) is PvpContentType or GoldSaucerContentType)
             {
                 continue;
             }

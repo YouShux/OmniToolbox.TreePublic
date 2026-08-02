@@ -33,9 +33,6 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
     private const uint ShieldBarNodeID = 32680;
     private const uint OverShieldBarNodeID = 32681;
     private const float BarBodyWidth = 148f;
-    private const float BarCapWidth = 12f;
-    private const ushort BarHeight = 20;
-
     private FeatureLifetime? runtimeLifetime;
 
     public override bool HasSettings => true;
@@ -284,7 +281,7 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
         bar->AtkResNode.AddGreen = -1;
         bar->AtkResNode.AddBlue = -1;
         bar->AtkResNode.DrawFlags |= 1;
-        bar->AtkResNode.SetHeight(BarHeight);
+        bar->AtkResNode.SetHeight(20);
         bar->AtkResNode.SetWidth(0);
         bar->AtkResNode.SetScale(1f, 1f);
         bar->AtkResNode.ToggleVisibility(false);
@@ -443,7 +440,7 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
     private static ushort ToBarWidth(float percentage) =>
         percentage > 0f
             ? (ushort)Math.Clamp(
-                (int)MathF.Round(percentage * BarBodyWidth + BarCapWidth),
+                (int)MathF.Round(percentage * BarBodyWidth + 12f),
                 0,
                 ushort.MaxValue)
             : (ushort)0;

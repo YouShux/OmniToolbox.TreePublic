@@ -26,8 +26,6 @@ internal sealed unsafe class MateriaTotalTooltip
     private const int ParameterStartField = 37;
     private const int MaxParameterCount = 8;
     private const ushort HighlightColor = 506;
-    private const ushort ExceededColor = 14;
-    private const long ErrorLogThrottleMs = 10_000;
     private readonly ItemTooltipInventoryContext inventoryContext;
     private readonly Dictionary<uint, MateriaStat> stats = new(16);
     private readonly Dictionary<uint, string> parameterNames = new(16);
@@ -136,8 +134,7 @@ internal sealed unsafe class MateriaTotalTooltip
         var parameterCount = Math.Clamp(numberArrayData->IntArray[ParameterCountIndex], 0, MaxParameterCount);
         for (var index = 0; index < parameterCount; index++)
         {
-            var source = ReadTooltipText(stringArrayData, ParameterStartField + index);
-            if (!TryFindParameter(source, out var parameterID))
+            if (!TryFindParameter(ReadTooltipText(stringArrayData, ParameterStartField + index), out var parameterID))
             {
                 continue;
             }
@@ -279,7 +276,7 @@ internal sealed unsafe class MateriaTotalTooltip
         rented.Builder
             .Append('\uFF08')
             .Append(OmniLoc.Get("ItemTooltip.MateriaTotal.Granted"));
-        AppendValue(rented.Builder, stat.Delta, stat.ExceedsMaximum ? ExceededColor : HighlightColor);
+        AppendValue(rented.Builder, stat.Delta, stat.ExceedsMaximum ? (ushort)14 : HighlightColor);
         rented.Builder
             .Append('\uFF0C')
             .Append(OmniLoc.Get(stat.ExceedsMaximum
@@ -324,7 +321,7 @@ internal sealed unsafe class MateriaTotalTooltip
     private void LogFailure(Exception exception, string operation)
     {
         var now = Environment.TickCount64;
-        if (lastErrorLogTick != 0 && now - lastErrorLogTick < ErrorLogThrottleMs)
+        if (lastErrorLogTick != 0 && now - lastErrorLogTick < 10_000)
         {
             return;
         }

@@ -15,8 +15,6 @@ namespace OmniToolbox.TreePublic;
 internal sealed unsafe class CollectableValueTooltip
 {
     private const ushort ShopColor = OmniTheme.ShopColorType;
-    private const ushort Purple = 522;
-    private const ushort BelowMinimumColor = 16;
 
     private const string CollectabilityKey = "ItemTooltip.CollectableReward.Collectability";
     private const string ExperienceKey = "ItemTooltip.CollectableReward.Experience";
@@ -287,7 +285,7 @@ internal sealed unsafe class CollectableValueTooltip
         {
             builder
                 .Append("  ")
-                .PushColorType(BelowMinimumColor)
+                .PushColorType(16)
                 .Append(OmniLoc.Get("ItemTooltip.CollectableReward.BelowMinimum"))
                 .Append(' ')
                 .Append(itemDetails.Rewards[0].QualityRequired)
@@ -412,7 +410,7 @@ internal sealed unsafe class CollectableValueTooltip
 
     private static ushort GetScripColor(int scripRewardType) => scripRewardType switch
     {
-        2 or 4 => Purple,
+        2 or 4 => 522,
         6 or 7 => OmniTheme.OrangeColorType,
         _ => 0,
     };

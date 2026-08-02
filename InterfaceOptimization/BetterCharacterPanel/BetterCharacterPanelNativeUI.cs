@@ -29,10 +29,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
     private const string CharacterAddonName = "Character";
     private const string CharacterInspectAddonName = "CharacterInspect";
     private const string GearSetListAddonName = "GearSetList";
-    private const float ReverseCharacterPanelOffset = 380f;
-    private const float ChildAddonRightOffset = 386f;
     private const ushort GearSetReorderExtraWidth = 56;
-    private const ushort GearSetRowWidthReduction = 60;
     private const float GearSetReorderButtonSize = 32f;
 
     private readonly BetterCharacterPanelConfig config;
@@ -285,7 +282,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
         }
 
         originalCharacterNodeX = characterNode->X;
-        characterNode->SetPositionFloat(originalCharacterNodeX - ReverseCharacterPanelOffset, characterNode->Y);
+        characterNode->SetPositionFloat(originalCharacterNodeX - 380f, characterNode->Y);
         reversedCharacterAddon = character;
     }
 
@@ -316,7 +313,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
             }
 
             childAddonPositions.TryAdd((nint)childInfo, childInfo->PositionX);
-            childInfo->PositionX = (short)(character->AtkUnitBase.RootNode->Width - ChildAddonRightOffset);
+        childInfo->PositionX = (short)(character->AtkUnitBase.RootNode->Width - 386f);
         }
     }
 
@@ -605,7 +602,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
             buttons = new(ownerNode, buttonX);
         gearSetButtons[item.NodeId] = buttons;
             buttons.Attach(ownerNode);
-            ownerNode->AtkResNode.SetWidth((ushort)Math.Max(0, ownerNode->AtkResNode.Width - GearSetRowWidthReduction));
+        ownerNode->AtkResNode.SetWidth((ushort)Math.Max(0, ownerNode->AtkResNode.Width - 60));
         }
 
         buttons.Update(item.GearSetID, item.ItemIndex, item.IsChecked);

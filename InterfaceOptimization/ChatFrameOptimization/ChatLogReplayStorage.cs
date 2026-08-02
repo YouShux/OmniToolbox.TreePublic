@@ -20,7 +20,6 @@ internal sealed class ChatLogReplayStorage : IDisposable
     public const int MinLogFileCount = 1;
     public const int MaxLogFileCount = 200;
 
-    private const string LogDirectoryName = "ChatLogs";
     private const string LogExtension = ".omnilog";
 
     private static readonly JsonSerializerOptions JSONOptions = new()
@@ -51,7 +50,7 @@ internal sealed class ChatLogReplayStorage : IDisposable
     public string DirectoryPath { get; }
 
     public static string GetDirectoryPath() =>
-        Path.Combine(DalamudServices.PluginInterface.GetPluginConfigDirectory(), LogDirectoryName);
+        Path.Combine(DalamudServices.PluginInterface.GetPluginConfigDirectory(), "ChatLogs");
 
     public static int NormalizeFileSize(int value) =>
         Math.Clamp(value, MinLogFileSizeKb, MaxLogFileSizeKb);

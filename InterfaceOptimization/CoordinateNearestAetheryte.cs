@@ -28,8 +28,6 @@ public sealed class CoordinateNearestAetheryte(
         Category = ModuleCategory.InterfaceOptimization
     };
 
-    private const int MaxVisibleRows = 5;
-
     private FeatureLifetime? runtimeLifetime;
     private DalamudLinkPayload? aetheryteLinkPayload;
     private uint aetheryteLinkCommandID;
@@ -67,7 +65,7 @@ public sealed class CoordinateNearestAetheryte(
             ImGuiTableFlags.ScrollY,
             new Vector2(
                 ImGui.GetContentRegionAvail().X,
-                rowHeight * (Math.Min(filteredRowCount, MaxVisibleRows) + 1) + ImGui.GetStyle().ItemSpacing.Y));
+                rowHeight * (Math.Min(filteredRowCount, 5) + 1) + ImGui.GetStyle().ItemSpacing.Y));
         if (!table)
         {
             return changed;

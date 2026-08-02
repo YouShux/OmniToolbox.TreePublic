@@ -8,8 +8,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class AntiCensorshipProcessor(AntiCensorshipConfig config, Func<string, string> filter)
 {
-    private const int HighlightCacheLimit = 128;
-
     private readonly Dictionary<string, byte[]> highlightCache = new(StringComparer.Ordinal);
     private readonly Queue<string> highlightOrder = new();
 
@@ -104,7 +102,7 @@ internal sealed class AntiCensorshipProcessor(AntiCensorshipConfig config, Func<
 
             highlightCache[key] = encoded;
             highlightOrder.Enqueue(key);
-            while (highlightOrder.Count > HighlightCacheLimit)
+            while (highlightOrder.Count > 128)
             {
                 highlightCache.Remove(highlightOrder.Dequeue());
             }

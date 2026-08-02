@@ -24,9 +24,6 @@ public sealed class ItemTooltipRemark : ModuleBase
         Category = ModuleCategory.InterfaceOptimization
     };
 
-    private const int RemarkListVisibleRows = 5;
-    private const int MaxRemarkLength = 1024;
-
     private readonly ItemTooltipRemarkConfig config;
     private readonly TooltipManager.ItemTooltipUpdateDelegate tooltipHandler;
     private KeyValuePair<uint, string>[] orderedRemarks = [];
@@ -201,7 +198,7 @@ public sealed class ItemTooltipRemark : ModuleBase
         OmniControls.InputTextMultiline(
             "##itemTooltipRemarkText",
             ref editingText,
-            MaxRemarkLength,
+            1024,
             new Vector2(ImGui.GetContentRegionAvail().X, OmniTheme.Scale(82f)));
         return changed;
     }
@@ -243,7 +240,7 @@ public sealed class ItemTooltipRemark : ModuleBase
                 new Vector2(
                     ImGui.GetContentRegionAvail().X,
                     OmniTheme.SmallButtonSize().Y + cellPadding +
-                    rowHeight * RemarkListVisibleRows + OmniTheme.BorderThickness() * 2f));
+                    rowHeight * 5 + OmniTheme.BorderThickness() * 2f));
             if (!table)
             {
                 return false;
@@ -360,7 +357,7 @@ public sealed class ItemTooltipRemark : ModuleBase
     private bool SaveRemark(uint itemID, string text, out string sanitized)
     {
         itemID = NormalizeItemID(itemID);
-        sanitized = Sanitize(text);
+        sanitized = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
         if (itemID == 0)
         {
             return false;
@@ -406,8 +403,6 @@ public sealed class ItemTooltipRemark : ModuleBase
     private static uint NormalizeItemID(ulong itemID) =>
         itemID <= uint.MaxValue ? ItemUtil.GetBaseId((uint)itemID).ItemId : 0;
 
-    private static string Sanitize(string text) =>
-        text.Replace('\r', ' ').Replace('\n', ' ').Trim();
 }
 
 [Serializable]

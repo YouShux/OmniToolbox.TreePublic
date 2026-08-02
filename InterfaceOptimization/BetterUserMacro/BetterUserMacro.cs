@@ -158,9 +158,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             ScanAllMacroCustomIcons();
         }
 
-        if (!AddonHelper.TryGetByName("Macro", out AddonMacro* addon) || addon is null)
+        if (!AddonHelper.TryGetByName("Macro", out AddonMacro* addon) || !IsMacroAddonVisible(addon))
         {
-            ClearMacroUI();
             return;
         }
 
@@ -303,7 +302,6 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
 
         EnsureMacroLineNumbers(addon);
         EnsureMacroDropTargets(addon);
-        RefreshVisibleMacroIcons(addon);
     }
 
     private void OnMacroRefresh(AddonEvent _, AddonArgs args)
@@ -316,12 +314,15 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
 
         EnsureMacroLineNumbers(addon);
         EnsureMacroDropTargets(addon);
-        RefreshVisibleMacroIcons(addon);
     }
 
     private void OnMacroPreRefresh(AddonEvent _, AddonArgs unusedArgs) => ClearMacroDropTargets();
 
     private void OnMacroFinalize(AddonEvent _, AddonArgs unusedArgs) => ClearMacroUI();
+
+    private static bool IsMacroAddonVisible(AddonMacro* addon) =>
+        addon is not null &&
+        addon->AtkUnitBase.IsVisible;
 
     private void EnsureMacroLineNumbers(AddonMacro* addon)
     {
@@ -466,13 +467,12 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         var addon = AddonHelper.GetByName<AddonMacro>("Macro");
         var source = default(MacroSlot);
         var target = default(MacroSlot);
-        var shouldSwap = config.DragSwap &&
-                         addon is not null &&
-                         data is not null &&
-                         TryGetMacroSlot(addon, data->DragDropInterface, out source) &&
-                         TryGetMacroDropTarget(addon, data, targetNode, out target);
+        var targetResolved = addon is not null &&
+                             data is not null &&
+                             TryGetMacroSlot(addon, data->DragDropInterface, out source) &&
+                             TryGetMacroDropTarget(addon, data, targetNode, source.Set, out target);
 
-        if (!shouldSwap || !TrySwapMacro(manager, addon, source, target))
+        if (!config.DragSwap || !targetResolved || !TrySwapMacro(manager, addon, source, target))
         {
             macroDropHook!.Original(manager, data, targetNode, acceptedType, canNotAccept);
             return;
@@ -490,6 +490,22 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return false;
         }
 
+        var payload = dragDropInterface->GetPayloadContainer();
+        if (dragDropInterface->DragDropType == DragDropType.Macro &&
+            payload is not null &&
+            payload->Int1 is >= 0 and < (int)MacroPageCount &&
+            payload->Int2 is >= 0 and < (int)MacroSlotsPerPage)
+        {
+            slot = new((uint)payload->Int1, (uint)payload->Int2);
+            return true;
+        }
+
+        var set = GetCurrentMacroSet();
+        if (set >= MacroPageCount)
+        {
+            return false;
+        }
+
         for (var index = 0u; index < MacroSlotsPerPage; index++)
         {
             var dragDrop = addon->DragDropComponent[(int)index].Value;
@@ -498,7 +514,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
                 continue;
             }
 
-            slot = new(addon->SelectedPage, index);
+            slot = new(set, index);
             return true;
         }
 
@@ -507,28 +523,20 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return false;
         }
 
-        var payload = dragDropInterface->GetPayloadContainer();
         if (payload is null)
         {
             return false;
         }
 
-        if (payload->Int1 is >= 0 and < (int)MacroPageCount &&
-            payload->Int2 is >= 0 and < (int)MacroSlotsPerPage)
-        {
-            slot = new((uint)payload->Int1, (uint)payload->Int2);
-            return true;
-        }
-
         if (payload->Int2 is >= 0 and < (int)MacroSlotsPerPage)
         {
-            slot = new(addon->SelectedPage, (uint)payload->Int2);
+            slot = new(set, (uint)payload->Int2);
             return true;
         }
 
         if (dragDropInterface->DragDropReferenceIndex is >= 0 and < (short)MacroSlotsPerPage)
         {
-            slot = new(addon->SelectedPage, (uint)dragDropInterface->DragDropReferenceIndex);
+            slot = new(set, (uint)dragDropInterface->DragDropReferenceIndex);
             return true;
         }
 
@@ -539,9 +547,16 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         AddonMacro* addon,
         AtkEventData.AtkDragDropData* data,
         AtkComponentNode* targetNode,
+        uint set,
         out MacroSlot slot)
     {
-        if (TryGetMacroSlot(addon, targetNode, out slot))
+        if (set >= MacroPageCount)
+        {
+            slot = default;
+            return false;
+        }
+
+        if (TryGetMacroSlot(addon, targetNode, set, out slot))
         {
             return true;
         }
@@ -563,14 +578,18 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
                 continue;
             }
 
-            slot = new(addon->SelectedPage, index);
+            slot = new(set, index);
             return true;
         }
 
-        return TryGetMacroSlot(addon, data->ComponentNode, out slot);
+        return TryGetMacroSlot(addon, data->ComponentNode, set, out slot);
     }
 
-    private static bool TryGetMacroSlot(AddonMacro* addon, AtkComponentNode* componentNode, out MacroSlot slot)
+    private static bool TryGetMacroSlot(
+        AddonMacro* addon,
+        AtkComponentNode* componentNode,
+        uint set,
+        out MacroSlot slot)
     {
         slot = default;
         if (addon is null || componentNode is null)
@@ -586,7 +605,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
                 continue;
             }
 
-            slot = new(addon->SelectedPage, index);
+            slot = new(set, index);
             return true;
         }
 
@@ -718,6 +737,12 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         }
 
         var addon = AddonHelper.GetByName<AddonMacro>("Macro");
+        var currentSet = GetCurrentMacroSet();
+        if (!IsMacroAddonVisible(addon) || currentSet >= MacroPageCount)
+        {
+            addon = null;
+        }
+
         var changed = false;
         for (var set = 0u; set < MacroPageCount; set++)
         {
@@ -725,8 +750,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             for (var index = 0u; index < MacroSlotsPerPage; index++)
             {
                 var macro = macroModule->GetMacro(set, index);
-        if (macro is null || !macro->IsNotEmpty() ||
-            !TryFindMacroCustomIcon(macro, out var iconID) || macro->IconId == iconID)
+                if (macro is null || !macro->IsNotEmpty() ||
+                    !TryFindMacroCustomIcon(macro, out var iconID) || macro->IconId == iconID)
                 {
                     continue;
                 }
@@ -734,7 +759,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
                 macro->SetIcon(iconID);
                 changedPage = true;
                 changed = true;
-                if (addon is not null && addon->SelectedPage == set)
+                if (addon is not null && currentSet == set)
                 {
                     RefreshMacroAddonSlot(addon, set, index, iconID);
                 }
@@ -755,11 +780,6 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         if (hotbarModule is not null)
         {
             hotbarModule->ReloadAllMacroSlots();
-        }
-
-        if (addon is not null)
-        {
-            RefreshVisibleMacroIcons(addon);
         }
     }
 
@@ -792,13 +812,19 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         addon = AddonHelper.GetByName<AddonMacro>("Macro");
         set = agent is null ? 0 : agent->SelectedMacroSet;
         index = agent is null ? 0 : agent->SelectedMacroIndex;
-        return agent is not null && addon is not null && set < MacroPageCount && index < MacroSlotsPerPage;
+        return agent is not null && IsMacroAddonVisible(addon) && set < MacroPageCount && index < MacroSlotsPerPage;
     }
 
     private static AgentMacro* GetMacroAgent()
     {
         var agentModule = AgentModule.Instance();
         return agentModule is null ? null : (AgentMacro*)agentModule->GetAgentByInternalId(AgentId.Macro);
+    }
+
+    private static uint GetCurrentMacroSet()
+    {
+        var agent = GetMacroAgent();
+        return agent is null ? MacroPageCount : agent->SelectedMacroSet;
     }
 
     private static void ApplyMacroIcon(
@@ -818,33 +844,10 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         RefreshMacroAddonSlot(addon, set, index, iconID);
     }
 
-    private void RefreshVisibleMacroIcons(AddonMacro* addon)
-    {
-        if (addon is null || addon->SelectedPage >= MacroPageCount)
-        {
-            return;
-        }
-
-        var set = addon->SelectedPage;
-        var macroModule = RaptureMacroModule.Instance();
-        if (macroModule is null)
-        {
-            return;
-        }
-
-        for (var index = 0u; index < MacroSlotsPerPage; index++)
-        {
-            var macro = macroModule->GetMacro(set, index);
-            if (macro is not null && macro->IsNotEmpty())
-            {
-                RefreshMacroAddonSlot(addon, set, index);
-            }
-        }
-    }
-
     private static uint GetCurrentMacroSlotIcon(AddonMacro* addon, MacroSlot slot)
     {
-        if (addon is null || addon->SelectedPage != slot.Set || slot.Index >= MacroSlotsPerPage)
+        if (addon is null || GetCurrentMacroSet() != slot.Set ||
+            slot.Index >= MacroSlotsPerPage)
         {
             return 0;
         }
@@ -886,7 +889,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return nativeIconID;
         }
 
-        if (allowCachedNativeIcon && addon is not null && addon->SelectedPage == slot.Set)
+        if (allowCachedNativeIcon && addon is not null &&
+            GetCurrentMacroSet() == slot.Set)
         {
             var currentIconID = addon->MacroSetIcon[(int)slot.Index];
             if (currentIconID > 0 && currentIconID != addon->DefaultIcon)
@@ -923,6 +927,11 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return 0;
         }
 
+        if (slotType == RaptureHotbarModule.HotbarSlotType.Empty || rowID == 0)
+        {
+            return 0;
+        }
+
         var iconID = hotbarModule->ScratchSlot.GetIconIdForSlot(slotType, rowID);
         return iconID > 0 ? (uint)iconID : 0;
     }
@@ -933,7 +942,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         uint index,
         uint forcedDisplayIconID = 0)
     {
-        if (addon is null || addon->SelectedPage != set || index >= MacroSlotsPerPage)
+        if (addon is null || GetCurrentMacroSet() != set ||
+            index >= MacroSlotsPerPage)
         {
             return;
         }
@@ -1020,7 +1030,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
 
     private static void ClearMacroDragDropTransientState(AddonMacro* addon, MacroSlot slot)
     {
-        if (addon is null || addon->SelectedPage != slot.Set || slot.Index >= MacroSlotsPerPage)
+        if (addon is null || GetCurrentMacroSet() != slot.Set ||
+            slot.Index >= MacroSlotsPerPage)
         {
             return;
         }

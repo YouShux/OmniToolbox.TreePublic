@@ -2,11 +2,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class DisplayIDInformationCache
 {
-    private const long ActionMaxAgeMs = 3_000;
-    private const int ActionMaxCount = 512;
-    private const long StatusMaxAgeMs = 30_000;
-    private const int StatusMaxCount = 128;
-
     private readonly List<ActionEntry> actions = [];
     private readonly List<StatusEntry> statuses = [];
 
@@ -22,7 +17,7 @@ internal sealed class DisplayIDInformationCache
         }
 
         actions.Add(new(actionID, value, timestamp));
-        Trim(actions, ActionMaxCount);
+        Trim(actions, 512);
     }
 
     public bool TryTakeAction(uint value, long now, out uint actionID)
@@ -64,7 +59,7 @@ internal sealed class DisplayIDInformationCache
         }
 
         statuses.Add(new(iconID, statusID, name, timestamp));
-        Trim(statuses, StatusMaxCount);
+        Trim(statuses, 128);
     }
 
     public bool TryGetStatus(uint iconID, string text, long now, out uint statusID, out string name)
@@ -99,7 +94,7 @@ internal sealed class DisplayIDInformationCache
     {
         for (var index = actions.Count - 1; index >= 0; index--)
         {
-            if (now - actions[index].Timestamp > ActionMaxAgeMs)
+            if (now - actions[index].Timestamp > 3_000)
             {
                 actions.RemoveAt(index);
             }
@@ -110,7 +105,7 @@ internal sealed class DisplayIDInformationCache
     {
         for (var index = statuses.Count - 1; index >= 0; index--)
         {
-            if (now - statuses[index].Timestamp > StatusMaxAgeMs)
+            if (now - statuses[index].Timestamp > 30_000)
             {
                 statuses.RemoveAt(index);
             }

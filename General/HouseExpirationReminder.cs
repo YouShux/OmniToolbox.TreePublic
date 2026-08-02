@@ -27,8 +27,6 @@ public sealed unsafe class HouseExpirationReminder(
 
     internal const int AutoDemolitionDays = 45;
     internal const int DefaultWarnDays = 10;
-    private const uint RefreshIntervalMilliseconds = 1_000;
-
     private ulong lastDetectedHouseID;
     private bool lastInsideOwnedHouse;
 
@@ -38,7 +36,7 @@ public sealed unsafe class HouseExpirationReminder(
 
     protected override void OnEnable()
     {
-        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, RefreshIntervalMilliseconds))
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 1_000))
         {
             throw new InvalidOperationException("House expiration reminder update registration failed.");
         }

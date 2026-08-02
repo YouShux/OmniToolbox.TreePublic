@@ -13,8 +13,6 @@ internal readonly record struct LockedDutyPreviewRow(
 
 internal sealed class LockedDutyPreviewNativeUI : NativeAddon
 {
-    private const float WindowWidth = 360f;
-    private const float WindowHeight = 400f;
     private const float ItemSpacing = 2f;
 
     private List<LockedDutyPreviewRow> rows = [];
@@ -41,7 +39,7 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
         InternalName = "OmniLockedDutiesNative";
         Title = OmniLoc.Get("Feature.LockedDutyPreview.Title");
         Subtitle = string.Empty;
-        Size = new(WindowWidth, WindowHeight);
+        Size = new(360f, 400f);
         ContentPadding = new(8f, 0f);
         RememberClosePosition = false;
         CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };

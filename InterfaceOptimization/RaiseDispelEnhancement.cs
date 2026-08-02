@@ -34,13 +34,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     };
 
     private const uint RaiseStatusID = 148;
-    private const uint TranscendentStatusID = 1140;
     private const uint DispelIconID = 215530;
-    private const int MaxTrackedActors = 96;
-    private const int ScanIntervalMilliseconds = 80;
-    private static readonly Vector2 DefaultWorldIconSize = new(40.5f, 54.3f);
-    private static readonly uint WorldTextBackground = ImGui.ColorConvertFloat4ToU32(new(0.15f, 0.13f, 0.23f, 0.96f));
-
     private readonly Dictionary<ulong, ActorState> states = [];
     private readonly Dictionary<ulong, string> names = [];
     private readonly Dictionary<ulong, Vector3> positions = [];
@@ -274,7 +268,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             return;
         }
 
-        nextScanTick = now + ScanIntervalMilliseconds * Stopwatch.Frequency / 1000;
+        nextScanTick = now + 80 * Stopwatch.Frequency / 1000;
         try
         {
             ScanActors();
@@ -329,7 +323,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                 }
             }
 
-            if (states.Count >= MaxTrackedActors)
+            if (states.Count >= 96)
             {
                 break;
             }
@@ -434,7 +428,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             DrawFrameMarker(drawList, actorKey, state, listColor);
         }
 
-        if (TryGetActorWorldPosition(actorKey, out var position) &&
+        if (positions.TryGetValue(actorKey, out var position) &&
             DService.Instance().GameGUI.WorldToScreen(position, out var screenPosition))
         {
             DrawWorldMarker(drawList, screenPosition, state);
@@ -459,9 +453,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         return false;
     }
 
-    private bool TryGetActorWorldPosition(ulong actorKey, out Vector3 position) =>
-        positions.TryGetValue(actorKey, out position);
-
     private void DrawWorldMarker(ImDrawListPtr drawList, Vector2 screenPosition, ActorState state)
     {
         var (type, text) = GetWorldText(state);
@@ -471,7 +462,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
 
         var scale = Math.Clamp(config.IconScale <= 0f ? 1f : config.IconScale, 0.3f, 3f) * ImGui.GetIO().FontGlobalScale;
-        var iconSize = DefaultWorldIconSize * scale;
+        var iconSize = new Vector2(40.5f, 54.3f) * scale;
         if (config.ShowWorldIcon)
         {
             var iconHandle = GetWorldIconHandle(type, state);
@@ -494,12 +485,15 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             screenPosition.X - textSize.X / 2f - padding.X,
             screenPosition.Y);
         var textMax = textMin + textSize + padding * 2f;
-        var borderColor = type == CastType.Dispel ? config.DispelWorldColor : config.RaiseWorldColor;
-        drawList.AddRectFilled(textMin, textMax, WorldTextBackground, 6f * textScale);
+        drawList.AddRectFilled(
+            textMin,
+            textMax,
+            ImGui.ColorConvertFloat4ToU32(new(0.15f, 0.13f, 0.23f, 0.96f)),
+            6f * textScale);
         drawList.AddRect(
             textMin,
             textMax,
-            borderColor,
+            type == CastType.Dispel ? config.DispelWorldColor : config.RaiseWorldColor,
             6f * textScale,
             ImDrawFlags.None,
             1.5f * textScale);
@@ -696,8 +690,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             return;
         }
 
-        var alliance = allianceList->Alliances[allianceIndex - 1];
-        var member = alliance.Members[memberIndex];
+        var member = allianceList->Alliances[allianceIndex - 1].Members[memberIndex];
         var node = member.AtkComponentBase != null ? member.AtkComponentBase->OwnerNode : null;
         if (node == null)
         {
@@ -730,7 +723,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
 
         var splitX = min.X + (max.X - min.X) * progress / 100f;
-        var dimColor = ((color / 2) & 0xFF000000) | (color & 0x00FFFFFF);
         drawList.AddRectFilled(
             min,
             new Vector2(splitX, max.Y),
@@ -740,7 +732,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         drawList.AddRectFilled(
             new Vector2(splitX, min.Y),
             max,
-            dimColor,
+            ((color / 2) & 0xFF000000) | (color & 0x00FFFFFF),
             rounding,
             ImDrawFlags.RoundCornersRight);
         drawList.AddRect(min, max, color | 0xFF000000, rounding, ImDrawFlags.None, 1.5f);
@@ -842,7 +834,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         iconID = 0;
         foreach (var status in player.StatusList)
         {
-            if (status.StatusID is not (RaiseStatusID or TranscendentStatusID) ||
+            if (status.StatusID is not (RaiseStatusID or 1140) ||
                 !LuminaGetter.TryGetRow<LuminaStatus>(status.StatusID, out var row))
             {
                 continue;
@@ -906,8 +898,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
     private static ulong GetActorKey(IBattleChara player)
     {
-        var objectTable = DService.Instance().ObjectTable;
-        var localPlayer = objectTable.LocalPlayer;
+        var localPlayer = DService.Instance().ObjectTable.LocalPlayer;
         var contentID = DService.Instance().PlayerState.ContentId;
         if (contentID != 0 && localPlayer != null && player.EntityID == localPlayer.EntityID)
         {

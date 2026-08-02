@@ -129,8 +129,6 @@ public sealed class FloatingInfoOverlayConfig
 
 internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
 {
-    private const int VisibleFilterRows = 3;
-
     private string filterInput = string.Empty;
 
     public bool Draw()
@@ -459,11 +457,11 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         var removeLabel = OmniLoc.Get("Feature.FloatingInfoOverlay.Remove");
         var removeButtonSize = OmniControls.CompactButtonSize(removeLabel);
         var rowHeight = removeButtonSize.Y + style.CellPadding.Y * 2f;
-        var scrollable = config.FilterDataIds.Count > VisibleFilterRows;
+        var scrollable = config.FilterDataIds.Count > 3;
         var tableHeight = MathF.Max(
                               OmniTheme.SmallButtonSize().Y,
                               ImGui.GetTextLineHeight() + style.CellPadding.Y * 2f) +
-                          Math.Clamp(config.FilterDataIds.Count, 1, VisibleFilterRows) *
+                          Math.Clamp(config.FilterDataIds.Count, 1, 3) *
                           rowHeight +
                           style.ItemSpacing.Y;
         using var table = ImRaii.Table(

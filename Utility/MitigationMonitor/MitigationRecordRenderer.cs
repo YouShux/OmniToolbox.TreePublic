@@ -15,11 +15,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
     private const uint PhysicalDamageIconID = 60011;
     private const uint MagicalDamageIconID = 60012;
     private const uint SpecialDamageIconID = 60013;
-    private const float StatusMeasureTextScale = 0.82f;
-    private const float StatusDrawTextScale = 0.76f;
     private const float StatusIconTextGap = -6f;
-    private const float StatusWrappedRowGap = 2f;
-    private const float StatusItemGap = -3f;
 
     private static readonly uint[] JobIconV3ByRowID =
     [
@@ -241,11 +237,11 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         }
 
         var iconWidth = OmniTheme.Scale(26f);
-        var lineHeight = OmniTheme.Scale(28f + StatusIconTextGap) + ImGui.GetFontSize() * StatusMeasureTextScale;
+        var lineHeight = OmniTheme.Scale(28f + StatusIconTextGap) + ImGui.GetFontSize() * 0.82f;
         var availableWidth = MathF.Max(iconWidth, statusWidth - OmniTheme.Scale(8f));
         var lineCount = 1;
         var usedWidth = 0f;
-        var gap = OmniTheme.Scale(StatusItemGap);
+        var gap = OmniTheme.Scale(-3f);
         foreach (var status in record.Statuses)
         {
             var slotWidth = GetStatusSlotWidth(status, iconWidth);
@@ -260,7 +256,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             usedWidth = nextWidth;
         }
 
-        return lineCount * lineHeight + (lineCount - 1) * OmniTheme.Scale(StatusWrappedRowGap) + OmniTheme.Scale(4f);
+        return lineCount * lineHeight + (lineCount - 1) * OmniTheme.Scale(2f) + OmniTheme.Scale(4f);
     }
 
     private void DrawStatuses(
@@ -282,11 +278,11 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 
         var iconSlotSize = OmniTheme.Scale(new Vector2(26f, 28f));
         var iconSize = OmniTheme.StatusIconSize(iconSlotSize.Y);
-        var smallFontSize = ImGui.GetFontSize() * StatusDrawTextScale;
+        var smallFontSize = ImGui.GetFontSize() * 0.76f;
         var lineHeight = iconSlotSize.Y + OmniTheme.Scale(StatusIconTextGap) + smallFontSize;
         var y = min.Y + MathF.Max(0f, (rowHeight - CalculateStatusHeight(record, width)) * 0.5f);
         var availableWidth = MathF.Max(iconSlotSize.X, width - OmniTheme.Scale(8f));
-        var gap = OmniTheme.Scale(StatusItemGap);
+        var gap = OmniTheme.Scale(-3f);
         var statusIndex = 0;
         while (statusIndex < record.Statuses.Length)
         {
@@ -310,7 +306,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             {
                 var status = record.Statuses[index];
                 var seconds = MathF.Ceiling(status.RemainingSeconds).ToString("0", CultureInfo.InvariantCulture);
-                var textSize = ImGui.CalcTextSize(seconds) * StatusDrawTextScale;
+                var textSize = ImGui.CalcTextSize(seconds) * 0.76f;
                 var slotWidth = GetStatusSlotWidth(status, iconSlotSize.X);
                 var iconMin = new Vector2(x + (slotWidth - iconSize.X) * 0.5f, y) + offset;
                 var iconMax = iconMin + iconSize;
@@ -347,7 +343,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                 x += slotWidth + gap;
             }
 
-            y += lineHeight + OmniTheme.Scale(StatusWrappedRowGap);
+            y += lineHeight + OmniTheme.Scale(2f);
         }
     }
 
@@ -356,7 +352,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             iconWidth,
             ImGui.CalcTextSize(MathF.Ceiling(status.RemainingSeconds).ToString(
                 "0",
-                CultureInfo.InvariantCulture)).X * StatusMeasureTextScale);
+                CultureInfo.InvariantCulture)).X * 0.82f);
 
     private ImTextureID? GetIconHandle(uint iconID)
     {
