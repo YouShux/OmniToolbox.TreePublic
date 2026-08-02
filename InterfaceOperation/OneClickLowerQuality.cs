@@ -15,6 +15,8 @@ using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
+using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.OmenService;
@@ -23,7 +25,7 @@ using OmenTools.Threading.TaskHelper.Enums;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class OneClickLowerQuality : ModuleBase
+public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig config) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -31,6 +33,10 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
         Description = OmniLoc.Get("OneClickLowerQualityDescription"),
         Category = ModuleCategory.InterfaceOperation
     };
+
+    public override bool HasSettings => true;
+
+    public override bool DrawSettings() => OneClickLowerQualityPanel.Draw(config);
 
     private static readonly InventoryType[] InventoryContainers =
     [
@@ -73,7 +79,6 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
     private AddonEventRegistry? addonEvents;
     private TaskHelper? taskHelper;
     private InventorySlot currentSlot;
-    private uint targetItemID;
     private bool skipCurrent;
 
     protected override void OnEnable()
@@ -97,7 +102,6 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
         pendingSlots.Clear();
         taskHelper?.Dispose();
         taskHelper = null;
-        targetItemID = 0;
         skipCurrent = false;
     }
 
@@ -142,12 +146,18 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
             return;
         }
 
-        targetItemID = itemID;
         pendingSlots.Clear();
-        CollectSlots(sourceContainer);
+        CollectSlots(sourceContainer, itemID);
+        foreach (var configuredItemID in config.ItemIDs)
+        {
+            if (configuredItemID != itemID || Array.IndexOf(InventoryContainers, sourceContainer) < 0)
+            {
+                CollectSlots(InventoryType.Inventory1, configuredItemID);
+            }
+        }
+
         if (pendingSlots.Count == 0)
         {
-            targetItemID = 0;
             return;
         }
 
@@ -163,7 +173,6 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
 
         if (!pendingSlots.TryDequeue(out currentSlot))
         {
-            targetItemID = 0;
             return;
         }
 
@@ -267,7 +276,6 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
         }
 
         pendingSlots.Clear();
-        targetItemID = 0;
         taskHelper?.Abort();
         return true;
     }
@@ -276,7 +284,7 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
 
     private void SkipCurrent() => skipCurrent = true;
 
-    private void CollectSlots(InventoryType sourceContainer)
+    private void CollectSlots(InventoryType sourceContainer, uint itemID)
     {
         var containers = Array.IndexOf(InventoryContainers, sourceContainer) >= 0
             ? InventoryContainers
@@ -288,17 +296,17 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
 
         if (containers is null)
         {
-            CollectSlotsFromContainer(sourceContainer);
+            CollectSlotsFromContainer(sourceContainer, itemID);
             return;
         }
 
         foreach (var container in containers)
         {
-            CollectSlotsFromContainer(container);
+            CollectSlotsFromContainer(container, itemID);
         }
     }
 
-    private void CollectSlotsFromContainer(InventoryType inventoryType)
+    private void CollectSlotsFromContainer(InventoryType inventoryType, uint itemID)
     {
         var manager = InventoryManager.Instance();
         if (manager == null)
@@ -315,9 +323,9 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
         for (var index = 0; index < container->Size; index++)
         {
             var slot = container->GetInventorySlot(index);
-            if (slot != null && ItemUtil.GetBaseId(slot->ItemId).ItemId == targetItemID && NeedsLowerQuality(slot))
+            if (slot != null && ItemUtil.GetBaseId(slot->ItemId).ItemId == itemID && NeedsLowerQuality(slot))
             {
-                pendingSlots.Enqueue(new(inventoryType, (ushort)index));
+                pendingSlots.Enqueue(new(inventoryType, (ushort)index, itemID));
             }
         }
     }
@@ -338,11 +346,62 @@ public sealed unsafe class OneClickLowerQuality : ModuleBase
         }
 
         slot = container->GetInventorySlot(currentSlot.Slot);
-        return slot != null && ItemUtil.GetBaseId(slot->ItemId).ItemId == targetItemID && NeedsLowerQuality(slot);
+        return slot != null &&
+               ItemUtil.GetBaseId(slot->ItemId).ItemId == currentSlot.ItemID &&
+               NeedsLowerQuality(slot);
     }
 
     private static bool NeedsLowerQuality(InventoryItem* slot) =>
         slot->IsHighQuality() || slot->IsCollectable();
 
-    private readonly record struct InventorySlot(InventoryType Container, ushort Slot);
+    private readonly record struct InventorySlot(InventoryType Container, ushort Slot, uint ItemID);
+}
+
+[Serializable]
+public sealed class OneClickLowerQualityConfig
+{
+    public HashSet<uint> ItemIDs { get; set; } = [];
+}
+
+internal static class OneClickLowerQualityPanel
+{
+    private static int itemIDInput;
+
+    public static bool Draw(OneClickLowerQualityConfig config)
+    {
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.OneClickLowerQuality.ItemId"));
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(OmniTheme.Scale(110f));
+        if (OmniControls.InputInt("##oneClickLowerQualityItemId", ref itemIDInput) && itemIDInput < 0)
+        {
+            itemIDInput = 0;
+        }
+
+        var itemID = ItemUtil.GetBaseId((uint)Math.Max(0, itemIDInput)).ItemId;
+        ImGui.SameLine();
+        var changed = OmniControls.SmallButton(
+                          $"{OmniLoc.Get("Feature.OneClickLowerQuality.Add")}##oneClickLowerQualityAdd",
+                          false) &&
+                      itemID > 0 &&
+                      config.ItemIDs.Add(itemID);
+
+        ImGui.Dummy(new(0f, OmniTheme.Scale(6f)));
+        var itemIDs = new uint[config.ItemIDs.Count];
+        config.ItemIDs.CopyTo(itemIDs);
+        Array.Sort(itemIDs);
+        var rows = new ItemSelectionTableRow[itemIDs.Length];
+        for (var index = 0; index < itemIDs.Length; index++)
+        {
+            rows[index] = new(itemIDs[index], true, true);
+        }
+
+        var change = ItemSelectionTable.Draw("oneClickLowerQualityItems", rows, showEnabledColumn: false);
+        if (change.Action == ItemSelectionTableAction.Delete)
+        {
+            changed |= config.ItemIDs.Remove(change.ItemID);
+        }
+
+        return changed;
+    }
 }

@@ -199,6 +199,18 @@ public sealed class ItemPreview : ModuleBase
             changed = true;
         }
 
+        ImGui.TableNextColumn();
+        var showItemSetContents = config.ShowItemSetContentsInTooltip;
+        if (DrawToggle(
+                "Settings.Tooltip.ShowItemSets",
+                "##showItemSetContentsInTooltip",
+                "Settings.Tooltip.ShowItemSets.Help",
+                ref showItemSetContents))
+        {
+            config.ShowItemSetContentsInTooltip = showItemSetContents;
+            changed = true;
+        }
+
         return changed;
     }
 

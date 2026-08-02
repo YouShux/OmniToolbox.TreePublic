@@ -7,6 +7,7 @@ using Lumina.Text.ReadOnly;
 using OmniToolbox.UI;
 using OmenTools;
 using OmenTools.Interop.Game.Lumina;
+using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
@@ -45,7 +46,7 @@ internal readonly record struct BetterCharacterPanelAlternateGcd(int Gcd, string
 
 internal readonly record struct BetterCharacterPanelGcdModifier(
     int Modifier,
-    string AbbreviationKey);
+    string? AbbreviationKey);
 
 internal readonly record struct BetterCharacterPanelSpeedCalculation(
     BetterCharacterPanelStatInfo SpeedBonus,
@@ -97,7 +98,8 @@ internal static unsafe class BetterCharacterPanelState
         AttackMagicPotency = 33,
         Determination = 44,
         SkillSpeed = 45,
-        SpellSpeed = 46
+        SpellSpeed = 46,
+        Haste = 47
     }
 
     private readonly record struct LevelModifier(int Main, int Sub, int Div);
@@ -199,7 +201,7 @@ internal static unsafe class BetterCharacterPanelState
                 GetAttribute(playerState, IsCaster(jobID) ? Attribute.SpellSpeed : Attribute.SkillSpeed),
                 modifier,
                 GetAlternateGcd(jobID, level),
-                GetGcdModifier(jobID, level)),
+                GetGcdModifier(jobID, level, GetAttribute(playerState, Attribute.Haste))),
             tenacityMitigation,
             tenacityDamage,
             CalculatePiety(GetAttribute(playerState, Attribute.Piety), modifier),
@@ -458,23 +460,41 @@ internal static unsafe class BetterCharacterPanelState
         });
     }
 
-    private static BetterCharacterPanelGcdModifier? GetGcdModifier(int jobID, int level) =>
-        (jobID, level) switch
+    private static BetterCharacterPanelGcdModifier? GetGcdModifier(int jobID, int level, int haste)
+    {
+        // Hyperphantasia only affects its supported spells while the player is inside the Starry Sky field.
+        if (jobID == 42
+            && level >= 82
+            && LocalPlayerState.HasStatus(3688, out _)
+            && LocalPlayerState.HasStatus(3689, out _))
         {
-            (34, >= 78) => new(13, "Feature.BetterCharacterPanel.GcdModifier.Shifu"),
-            (34, >= 18) => new(10, "Feature.BetterCharacterPanel.GcdModifier.Shifu"),
-            (30, >= 45) => new(15, "Feature.BetterCharacterPanel.GcdModifier.Huton"),
-            (20, >= 76) => new(20, "Feature.BetterCharacterPanel.GcdModifier.GreasedLightning"),
-            (20, >= 40) => new(15, "Feature.BetterCharacterPanel.GcdModifier.GreasedLightning"),
-            (20 or 2, >= 20) => new(10, "Feature.BetterCharacterPanel.GcdModifier.GreasedLightning"),
-            (20 or 2, >= 1) => new(5, "Feature.BetterCharacterPanel.GcdModifier.GreasedLightning"),
-            (24, >= 30) => new(20, "Feature.BetterCharacterPanel.GcdModifier.PresenceOfMind"),
-            (23, >= 40) => new(16, "Feature.BetterCharacterPanel.GcdModifier.ArmysPaeon"),
-            (25, >= 52) => new(15, "Feature.BetterCharacterPanel.GcdModifier.LeyLines"),
-            (41, >= 65) => new(15, "Feature.BetterCharacterPanel.GcdModifier.Swiftscaled"),
-            (42, >= 82) => new(25, "Feature.BetterCharacterPanel.GcdModifier.AstralPrism"),
+            return new(25, "Feature.BetterCharacterPanel.GcdModifier.AstralPrism");
+        }
+
+        if (haste == 100)
+        {
+            return null;
+        }
+
+        var abbreviationKey = (jobID, level) switch
+        {
+            (34, >= 18) when LocalPlayerState.HasStatus(1299, out _) =>
+                "Feature.BetterCharacterPanel.GcdModifier.Shifu",
+            (30, >= 45) => "Feature.BetterCharacterPanel.GcdModifier.Huton",
+            (20 or 2, >= 1) => "Feature.BetterCharacterPanel.GcdModifier.GreasedLightning",
+            (24, >= 30) when LocalPlayerState.HasStatus(157, out _) =>
+                "Feature.BetterCharacterPanel.GcdModifier.PresenceOfMind",
+            (23, >= 40) when LocalPlayerState.HasStatus(2214, out _)
+                                  || LocalPlayerState.HasStatus(1932, out _) =>
+                "Feature.BetterCharacterPanel.GcdModifier.ArmysPaeon",
+            (25, >= 52) when LocalPlayerState.HasStatus(738, out _) =>
+                "Feature.BetterCharacterPanel.GcdModifier.LeyLines",
+            (41, >= 65) when LocalPlayerState.HasStatus(3669, out _) =>
+                "Feature.BetterCharacterPanel.GcdModifier.Swiftscaled",
             _ => null
         };
+        return new(100 - haste, abbreviationKey);
+    }
 
     private static BetterCharacterPanelAlternateGcd? GetAlternateGcd(int jobID, int level) =>
         (jobID, level) switch
@@ -594,10 +614,10 @@ internal static unsafe class BetterCharacterPanelState
         BetterCharacterPanelSpeedCalculation speed,
         bool caster)
     {
-        var modifier = speed.Modifier is { } gcdModifier
+        var modifier = speed.Modifier?.AbbreviationKey is { } abbreviationKey
             ? Format(
                 "Feature.BetterCharacterPanel.Tooltip.Speed.Modifier",
-                OmniLoc.Get(gcdModifier.AbbreviationKey))
+                OmniLoc.Get(abbreviationKey))
             : string.Empty;
 
         using var rented = new RentedSeStringBuilder();
