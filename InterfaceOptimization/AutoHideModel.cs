@@ -83,6 +83,12 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             "targetOfTarget",
             config.ShowTargetOfTarget,
             value => config.ShowTargetOfTarget = value);
+        ImGui.SameLine(0f, OmniTheme.Scale(16f));
+        changed |= DrawCheckbox(
+            "Feature.AutoHideModel.ReduceOnScreenPlayers",
+            "reduceOnScreenPlayers",
+            config.ReduceOnScreenPlayers,
+            value => config.ReduceOnScreenPlayers = value);
         if (!changed)
         {
             return false;
@@ -357,7 +363,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             return;
         }
 
-        if (ShouldSuspendByTerritory(localGameObject))
+        if (ShouldSuspendByTerritory())
         {
             ShowAll();
             return;
@@ -371,9 +377,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         }
 
         var localPlayer = (Character*)localGameObject;
-        var isBound = DService.Instance().Condition[ConditionFlag.BoundByDuty] &&
+        var isBound = GameState.TerritoryIntendedUse != TerritoryIntendedUse.OccultCrescent &&
+                      DService.Instance().Condition[ConditionFlag.BoundByDuty] &&
                       localGameObject->EventId.ContentId != EventHandlerContent.TreasureHuntDirector;
         RefreshPlayerContainers(objectManager, localPlayer);
+        var playerCount = 0;
         for (var index = ObjectScanStart; index < UnimportantNPCScanEnd; index++)
         {
             var gameObject = objectManager->Objects.IndexSorted[index].Value;
@@ -403,7 +411,15 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             switch (gameObject->ObjectKind)
             {
                 case ClientObjectKind.Pc:
-                    SetVisibility(gameObject, isBound || ShouldShowPlayer(character));
+                    var reducePlayerCount = index < ObjectScanEnd && index % 2 == 0;
+                    if (reducePlayerCount)
+                    {
+                        playerCount++;
+                    }
+
+                    SetVisibility(
+                        gameObject,
+                        isBound || ShouldShowPlayer(character, reducePlayerCount ? playerCount : 0));
                     break;
                 case ClientObjectKind.BattleNpc
                     when (BattleNpcSubKind)gameObject->SubKind == BattleNpcSubKind.Pet &&
@@ -464,19 +480,25 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         }
     }
 
-    private bool ShouldShowPlayer(Character* character)
+    private bool ShouldShowPlayer(Character* character, int playerCount)
     {
-        if (!ShouldHide(config.Players))
+        var entityID = character->GameObject.EntityId;
+        var showByConfig = config.Players.ShowDead && character->GameObject.IsDead() ||
+                           config.Players.ShowFriends && friendPlayers.Contains(entityID) ||
+                           config.Players.ShowFreeCompany && freeCompanyPlayers.Contains(entityID) ||
+                           config.Players.ShowParty && partyPlayers.Contains(entityID) ||
+                           IsTargetOfTarget(character);
+        if (ShouldHide(config.Players))
         {
-            return true;
+            return showByConfig;
         }
 
-        var entityID = character->GameObject.EntityId;
-        return config.Players.ShowDead && character->GameObject.IsDead() ||
-               config.Players.ShowFriends && friendPlayers.Contains(entityID) ||
-               config.Players.ShowFreeCompany && freeCompanyPlayers.Contains(entityID) ||
-               config.Players.ShowParty && partyPlayers.Contains(entityID) ||
-               IsTargetOfTarget(character);
+        var target = TargetSystem.Instance()->Target;
+        return !config.ReduceOnScreenPlayers ||
+               playerCount < 10 ||
+               character->GameObject.NamePlateIconId != 0 ||
+               target != null && target->EntityId == entityID ||
+               showByConfig;
     }
 
     private void ProcessOwnedObject(
@@ -780,11 +802,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
                condition[ConditionFlag.DutyRecorderPlayback];
     }
 
-    private static bool ShouldSuspendByTerritory(GameObject* localGameObject)
+    private static bool ShouldSuspendByTerritory()
     {
         if (GameState.TerritoryIntendedUse == TerritoryIntendedUse.OccultCrescent)
         {
-            return localGameObject->Position.Y < 0f;
+            return false;
         }
 
         return GameState.ContentFinderCondition != 0 ||
@@ -926,6 +948,8 @@ public sealed class AutoHideModelConfig
     public bool HideGroundHealingEffects { get; set; } = true;
 
     public bool ShowTargetOfTarget { get; set; } = true;
+
+    public bool ReduceOnScreenPlayers { get; set; } = true;
 
     public bool HideUnimportantNpcs { get; set; } = true;
 }

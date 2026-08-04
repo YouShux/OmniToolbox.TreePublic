@@ -378,6 +378,15 @@ public sealed unsafe class ChatFrameOptimization(
             return;
         }
 
+        if (input.StartsWith("/shout ", StringComparison.Ordinal) ||
+            input.StartsWith("/sh ", StringComparison.Ordinal) ||
+            input.StartsWith("/喊话频道 ", StringComparison.Ordinal) ||
+            input.StartsWith("/喊 ", StringComparison.Ordinal))
+        {
+            SetChatChannel(5, "/shout");
+            return;
+        }
+
         if (TryGetNumberedChannel(input, "/cwl", "/cwlinkshell", out var crossWorld))
         {
             SetChatChannel(crossWorld + 8, $"/cwl{crossWorld}");

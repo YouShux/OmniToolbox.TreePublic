@@ -85,7 +85,6 @@ public sealed class MitigationMonitor : ModuleBase
     protected override void OnEnable()
     {
         NormalizeConfig();
-        config.Visible = true;
         combatLog.SetReplaySaveCount(config.ReplaySaveCount);
         var lifetime = new FeatureLifetime();
         try

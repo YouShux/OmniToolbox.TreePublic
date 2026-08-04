@@ -54,6 +54,8 @@ public sealed class ItemPreview : ModuleBase
 
     public void ClearPreview() => itemPreviewService.ClearPreview();
 
+    public void ClearPreviewResidue() => itemPreviewService.ClearPreviewResidue();
+
     public override bool DrawSettings()
     {
         OmniControls.SectionLabel(OmniLoc.Get("Settings.Tooltip.Title"));

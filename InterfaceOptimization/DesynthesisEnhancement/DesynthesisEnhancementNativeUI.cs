@@ -39,7 +39,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
     private readonly FeatureLifetime lifetime = new();
     private readonly HashSet<uint> gearsetItemIds = [];
     private readonly HashSet<uint> customLockItemIds = [];
-    private readonly Dictionary<nint, nint> rowNodes = [];
     private readonly List<InjectedNode> injectedNodes = [];
     private readonly List<(nint Address, ushort Width)> widthSnapshots = [];
     private readonly List<(nint Address, short X)> xSnapshots = [];
@@ -49,9 +48,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
     private AtkComponentList* salvageList;
     private short rowColumnX;
     private bool initialRowsReady;
-    private bool refreshingRows;
-    private int refreshAttemptedRows;
-    private int refreshReadyRows;
     private long lastErrorLogTick;
 
     private delegate void PopulateItemDelegate(
@@ -113,25 +109,16 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
         AtkResNode** nodes,
         AtkComponentListItemRenderer* listItemRenderer)
     {
-        populateItemHook!.Original(addon, index, nodes, listItemRenderer);
-
         try
         {
-            var rowReady = UpdateListItem(listItemRenderer, index);
-            var agent = AgentSalvage.Instance();
-            if (refreshingRows && agent != null && index >= 0 && (uint)index < agent->ItemCount)
-            {
-                refreshAttemptedRows++;
-                if (rowReady)
-                {
-                    refreshReadyRows++;
-                }
-            }
+            UpdateListItem(listItemRenderer, index);
         }
         catch (Exception ex)
         {
             LogFailure(ex, "update desynthesis list item");
         }
+
+        populateItemHook!.Original(addon, index, nodes, listItemRenderer);
     }
 
     private bool UpdateListItem(AtkComponentListItemRenderer* renderer, int index)
@@ -149,19 +136,13 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
             return false;
         }
 
-        var dataIndex = renderer->ListItemIndex;
-        if (dataIndex < 0 || (uint)dataIndex >= agent->ItemCount)
+        if ((uint)index >= agent->ItemCount)
         {
-            dataIndex = index;
-        }
-
-        if ((uint)dataIndex >= agent->ItemCount)
-        {
-            ClearRow(renderer, skillNode, dataIndex);
+            ClearRow(renderer, skillNode, index);
             return false;
         }
 
-        var entry = agent->ItemList + dataIndex;
+        var entry = agent->ItemList + index;
         var container = InventoryManager.Instance()->GetInventoryContainer(entry->InventoryType);
         var inventoryItem = container == null ? null : container->GetInventorySlot((int)entry->InventorySlot);
         if (inventoryItem == null ||
@@ -170,14 +151,14 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
             item.Desynth == 0 ||
             item.ClassJobRepair.RowId == 0)
         {
-            ClearRow(renderer, skillNode, dataIndex);
+            ClearRow(renderer, skillNode, index);
             return false;
         }
 
         var uiState = UIState.Instance();
         if (uiState == null)
         {
-            ClearRow(renderer, skillNode, dataIndex);
+            ClearRow(renderer, skillNode, index);
             return false;
         }
 
@@ -197,14 +178,14 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
             isLocked = true;
         }
 
-        if (salvageList != null && dataIndex < salvageList->ListLength)
+        if (salvageList != null && index < salvageList->ListLength)
         {
-            if (isLocked && salvageList->SelectedItemIndex == dataIndex)
+            if (isLocked && salvageList->SelectedItemIndex == index)
             {
                 salvageList->DeselectItem();
             }
 
-            salvageList->SetItemDisabledState(dataIndex, isLocked);
+            salvageList->SetItemDisabledState(index, isLocked);
         }
 
         lockVisuals.Apply(renderer, isLocked);
@@ -243,7 +224,7 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
 
     private void OnSalvageDraw(AddonEvent _, AddonArgs args)
     {
-        if (initialRowsReady || refreshingRows)
+        if (initialRowsReady)
         {
             return;
         }
@@ -374,16 +355,20 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
             {
                 IncreaseWidth(node, SkillColumnWidth);
             }
+
+            if (node->NodeId == 4 || node->NodeId is > 41_000 and < 41_100)
+            {
+                var renderer = (AtkComponentListItemRenderer*)((AtkComponentNode*)node)->Component;
+                if (renderer != null)
+                {
+                    EnsureSkillNode(renderer);
+                }
+            }
         }
     }
 
     private AtkTextNode* EnsureSkillNode(AtkComponentListItemRenderer* renderer)
     {
-        if (rowNodes.TryGetValue((nint)renderer, out var node) && node != 0)
-        {
-            return (AtkTextNode*)node;
-        }
-
         var skill = FindTextNodeByID(renderer, SkillColumnID);
         var template = renderer->GetTextNodeById(6);
         var root = renderer->UldManager.RootNode;
@@ -402,7 +387,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
                 &renderer->UldManager);
         }
 
-        rowNodes[(nint)renderer] = (nint)skill;
         return skill;
     }
 
@@ -656,24 +640,35 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
     private bool RefreshVisibleRows()
     {
         var agent = AgentSalvage.Instance();
-        if (salvageAddon == null || agent == null || agent->ItemCount == 0)
+        if (salvageList == null || agent == null || agent->ItemCount == 0)
         {
             return false;
         }
 
-        refreshAttemptedRows = 0;
-        refreshReadyRows = 0;
-        refreshingRows = true;
-        try
+        var firstIndex = Math.Max(salvageList->FirstVisibleItemIndex, 0);
+        var endIndex = Math.Min(
+            firstIndex + salvageList->NumVisibleItems,
+            Math.Min(salvageList->ListLength, (int)agent->ItemCount));
+        if (firstIndex >= endIndex)
         {
-            agent->ItemListRefresh(agent->IsSalvageResultAddonOpen);
-        }
-        finally
-        {
-            refreshingRows = false;
+            return false;
         }
 
-        return refreshAttemptedRows > 0 && refreshReadyRows == refreshAttemptedRows;
+        for (var index = firstIndex; index < endIndex; index++)
+        {
+            var renderer = salvageList->GetItemRenderer(index);
+            if (renderer == null)
+            {
+                return false;
+            }
+
+            if (!UpdateListItem(renderer, index))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void RestoreSalvageWindow()
@@ -723,10 +718,6 @@ internal sealed unsafe class DesynthesisEnhancementNativeUI : IDisposable
         salvageList = null;
         rowColumnX = 0;
         initialRowsReady = false;
-        refreshingRows = false;
-        refreshAttemptedRows = 0;
-        refreshReadyRows = 0;
-        rowNodes.Clear();
         injectedNodes.Clear();
         widthSnapshots.Clear();
         xSnapshots.Clear();
