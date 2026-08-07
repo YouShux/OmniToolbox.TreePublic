@@ -82,10 +82,37 @@ public sealed class ItemPriceQuery : ModuleBase
         ImGui.Separator();
         ImGui.Spacing();
 
-        var statisticsScope = config.StatisticsScope;
-        if (DrawStatisticsScopeRow(ref statisticsScope))
+        var showRegionAverage = config.IsAverageSalePriceVisible(MarketMetricScope.Region);
+        var showDataCenterAverage = config.IsAverageSalePriceVisible(MarketMetricScope.DataCenter);
+        var showWorldAverage = config.IsAverageSalePriceVisible(MarketMetricScope.World);
+        if (DrawStatisticsScopeRow(
+                "Settings.Market.AverageSalePriceScope",
+                "averageSalePrice",
+                ref showRegionAverage,
+                ref showDataCenterAverage,
+                ref showWorldAverage,
+                true))
         {
-            config.StatisticsScope = statisticsScope;
+            config.ShowRegionAverageSalePriceInTooltip = showRegionAverage;
+            config.ShowDataCenterAverageSalePriceInTooltip = showDataCenterAverage;
+            config.ShowWorldAverageSalePriceInTooltip = showWorldAverage;
+            changed = true;
+        }
+
+        var showRegionVelocity = config.IsDailySaleVelocityVisible(MarketMetricScope.Region);
+        var showDataCenterVelocity = config.IsDailySaleVelocityVisible(MarketMetricScope.DataCenter);
+        var showWorldVelocity = config.IsDailySaleVelocityVisible(MarketMetricScope.World);
+        if (DrawStatisticsScopeRow(
+                "Settings.Market.DailySaleVelocityScope",
+                "dailySaleVelocity",
+                ref showRegionVelocity,
+                ref showDataCenterVelocity,
+                ref showWorldVelocity,
+                false))
+        {
+            config.ShowRegionDailySaleVelocityInTooltip = showRegionVelocity;
+            config.ShowDataCenterDailySaleVelocityInTooltip = showDataCenterVelocity;
+            config.ShowWorldDailySaleVelocityInTooltip = showWorldVelocity;
             changed = true;
         }
 
@@ -105,6 +132,12 @@ public sealed class ItemPriceQuery : ModuleBase
         config.ShowRegionRecentPurchaseInTooltip = defaults.ShowRegionRecentPurchaseInTooltip;
         config.ShowOriginalWorldRecentPurchaseInTooltip = defaults.ShowOriginalWorldRecentPurchaseInTooltip;
         config.StatisticsScope = defaults.StatisticsScope;
+        config.ShowRegionAverageSalePriceInTooltip = defaults.ShowRegionAverageSalePriceInTooltip;
+        config.ShowDataCenterAverageSalePriceInTooltip = defaults.ShowDataCenterAverageSalePriceInTooltip;
+        config.ShowWorldAverageSalePriceInTooltip = defaults.ShowWorldAverageSalePriceInTooltip;
+        config.ShowRegionDailySaleVelocityInTooltip = defaults.ShowRegionDailySaleVelocityInTooltip;
+        config.ShowDataCenterDailySaleVelocityInTooltip = defaults.ShowDataCenterDailySaleVelocityInTooltip;
+        config.ShowWorldDailySaleVelocityInTooltip = defaults.ShowWorldDailySaleVelocityInTooltip;
         return true;
     }
 
@@ -138,46 +171,35 @@ public sealed class ItemPriceQuery : ModuleBase
         return changed;
     }
 
-    private static bool DrawStatisticsScopeRow(ref MarketMetricScope scope)
+    private static bool DrawStatisticsScopeRow(
+        string labelKey,
+        string id,
+        ref bool region,
+        ref bool dataCenter,
+        ref bool world,
+        bool showHelp)
     {
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Settings.Market.StatisticsScope"));
+        ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         ImGui.SameLine(0f, OmniTheme.Scale(12f));
-        var changed = DrawStatisticsScopeOption(
-            "Settings.Market.Scope.Region",
-            "##statisticsRegion",
-            MarketMetricScope.Region,
-            ref scope);
+        var changed = OmniControls.Checkbox(
+            $"{OmniLoc.Get("Settings.Market.Scope.Region")}##{id}Region",
+            ref region);
         ImGui.SameLine(0f, OmniTheme.Scale(12f));
-        changed |= DrawStatisticsScopeOption(
-            "Settings.Market.Scope.DataCenter",
-            "##statisticsDataCenter",
-            MarketMetricScope.DataCenter,
-            ref scope);
+        changed |= OmniControls.Checkbox(
+            $"{OmniLoc.Get("Settings.Market.Scope.DataCenter")}##{id}DataCenter",
+            ref dataCenter);
         ImGui.SameLine(0f, OmniTheme.Scale(12f));
-        changed |= DrawStatisticsScopeOption(
-            "Settings.Market.Scope.World",
-            "##statisticsWorld",
-            MarketMetricScope.World,
-            ref scope);
+        changed |= OmniControls.Checkbox(
+            $"{OmniLoc.Get("Settings.Market.Scope.World")}##{id}World",
+            ref world);
+        if (!showHelp)
+        {
+            return changed;
+        }
+
         ImGui.SameLine(0f, OmniTheme.Scale(6f));
         OmniControls.HelpIcon(OmniLoc.Get("Settings.Market.StatisticsScope.Help"));
         return changed;
-    }
-
-    private static bool DrawStatisticsScopeOption(
-        string labelKey,
-        string id,
-        MarketMetricScope option,
-        ref MarketMetricScope scope)
-    {
-        var selected = scope == option;
-        if (!OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}{id}", ref selected) || !selected)
-        {
-            return false;
-        }
-
-        scope = option;
-        return true;
     }
 }

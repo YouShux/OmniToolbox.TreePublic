@@ -324,7 +324,7 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
 
         var scale = AtkUnitBase.GetGlobalUIScale();
         button.Position = new(
-            anchor->GetXFloat() + (isMainChat ? 30f : 32f) * scale,
+            anchor->GetXFloat() + (isMainChat ? 40f : 32f) * scale,
             anchor->GetYFloat() + (isMainChat ? 2f : 2f * scale));
         button.Scale = new(scale, scale);
         button.IsVisible = addon->IsVisible && config.ShowChatLock && showLocks;

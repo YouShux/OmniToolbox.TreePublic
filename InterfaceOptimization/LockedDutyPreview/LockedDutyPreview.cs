@@ -158,7 +158,7 @@ public sealed unsafe class LockedDutyPreview(
         var state = windowNode->GetNodeState();
         var previewState = previewAddon->WindowNode->GetNodeState();
         var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
-        var windowX = state.TopLeft.X - previewState.Width - 38f;
+        var windowX = state.TopLeft.X - previewState.Width - 2f;
         var windowY = state.TopLeft.Y;
         windowX = Math.Max(ScreenPadding, Math.Min(
             windowX,

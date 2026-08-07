@@ -68,15 +68,22 @@ public sealed class GlamourName : ModuleBase
         }
 
         using var builder = new RentedSeStringBuilder();
-        builder.Builder
+        var combinedName = builder.Builder
             .Append(originalName)
             .Append('\n')
-            .Append(glamourName);
+            .Append(glamourName)
+            .ToReadOnlySeString();
         modifications.Add(new()
         {
             Target = TooltipItemType.Name,
             Type = TooltipModificationType.Contribute,
-            Text = builder.Builder.ToReadOnlySeString()
+            Text = combinedName
+        });
+        modifications.Add(new()
+        {
+            Target = TooltipItemType.GlamourName,
+            Type = TooltipModificationType.Contribute,
+            Text = default
         });
     }
 }
