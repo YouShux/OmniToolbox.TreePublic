@@ -1,6 +1,5 @@
 using System.Numerics;
 using System.Linq;
-using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
@@ -14,11 +13,8 @@ using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
-using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Extensions;
-using OmenTools.ImGuiOm;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
@@ -44,10 +40,13 @@ public sealed unsafe class ChocoboColorPreview(
     ];
 
     private readonly List<ChocoboColor> colors = [];
-    private readonly Dictionary<string, string> fruitNames = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ChocoboFruitInfo> fruitInfo = new(StringComparer.Ordinal);
+    private ChocoboColorPreviewNativeUI? nativeUI;
     private bool colorsLoaded;
     private Demihuman* appliedDrawObject;
     private byte appliedStainID;
+    private byte displayedCurrentStainID = byte.MaxValue;
+    private byte displayedTargetStainID = byte.MaxValue;
 
     public override ModuleInfo Info { get; } = new()
     {
@@ -56,11 +55,21 @@ public sealed unsafe class ChocoboColorPreview(
         Category = ModuleCategory.General
     };
 
-    protected override void OnEnable() =>
+    protected override void OnEnable()
+    {
+        nativeUI = new(OnTargetColorSelected, PreviewTargetColor, ClearPreview);
         DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
+    }
 
-    protected override void OnDisable() =>
+    protected override void OnDisable()
+    {
         DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay;
+        nativeUI?.Close();
+        nativeUI?.Dispose();
+        nativeUI = null;
+        displayedCurrentStainID = byte.MaxValue;
+        displayedTargetStainID = byte.MaxValue;
+    }
 
     private void DrawOverlay()
     {
@@ -68,13 +77,16 @@ public sealed unsafe class ChocoboColorPreview(
         if (!DService.Instance().ClientState.IsLoggedIn ||
             !AddonHelper.TryGetByName(BuddyAddonName, out addon) ||
             addon == null ||
-            !addon->IsVisible)
+            !addon->IsVisible ||
+            nativeUI is null)
         {
+            nativeUI?.Close();
             return;
         }
 
         if (!TryGetCompanion(out var battleChara, out var drawObject, out var currentStainID))
         {
+            nativeUI.Close();
             return;
         }
 
@@ -84,110 +96,122 @@ public sealed unsafe class ChocoboColorPreview(
         if (!TryGetColor(currentStainID, out var currentColor) ||
             !TryGetColor(targetStainID, out var targetColor))
         {
+            nativeUI.Close();
             return;
         }
 
-        var calculation = Calculate(currentColor.Rgb, targetColor.Rgb);
-        var position = ImGui.GetMainViewport().Pos + new Vector2(
-            addon->X + addon->GetScaledWidth(true) + 4f,
-            addon->Y);
-        ImGui.SetNextWindowPos(position, ImGuiCond.Always);
-        using var style = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, OmniTheme.Scale(new Vector2(8f)));
-        using var colors = ImRaii.PushColor(ImGuiCol.WindowBg, OmniTheme.Tokens.Surface);
-        if (!ImGui.Begin("##OmniChocoboColorPreview",
-                ImGuiWindowFlags.NoDecoration |
-                ImGuiWindowFlags.NoSavedSettings |
-                ImGuiWindowFlags.AlwaysAutoResize |
-                ImGuiWindowFlags.NoMove))
+        if (displayedCurrentStainID != currentStainID || displayedTargetStainID != targetStainID)
         {
-            ImGui.End();
-            return;
+            var calculation = Calculate(currentColor.Rgb, targetColor.Rgb);
+            nativeUI.UpdateData(
+                currentColor.Name,
+                currentColor.DisplayColor,
+                targetColor.Name,
+                targetColor.DisplayColor,
+                BuildFruitRequirements(calculation.Fruits),
+                BuildFeedOrder(calculation.Order));
+            displayedCurrentStainID = currentStainID;
+            displayedTargetStainID = targetStainID;
         }
 
-        DrawColorRow(OmniLoc.Get("Feature.ChocoboColorPreview.CurrentColor"), currentColor);
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.ChocoboColorPreview.TargetColor"));
-        ImGui.SameLine();
-        DrawColorCombo(targetStainID);
-        ImGui.SameLine();
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.ChocoboColorPreview.Preview"), false))
-        {
-            config.PreviewStainID = targetStainID;
-            ApplyStain(battleChara, drawObject, targetStainID);
-            saveConfig();
-        }
-
-        ImGui.SameLine();
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.ChocoboColorPreview.PreviewHelp"));
-        ImGui.SameLine();
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.ChocoboColorPreview.Clear"), false))
-        {
-            config.PreviewStainID = 0;
-            ApplyStain(battleChara, drawObject, currentStainID);
-            saveConfig();
-        }
-
-        ImGui.SameLine();
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.ChocoboColorPreview.ClearHelp"));
-        ImGui.Separator();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.ChocoboColorPreview.FruitRequirements"));
-        if (calculation.Fruits.Count == 0)
-        {
-            ImGui.TextDisabled(OmniLoc.Get("Feature.ChocoboColorPreview.NoFruit"));
-        }
-        else
-        {
-            foreach (var fruit in calculation.Fruits)
-            {
-                ImGui.BulletText($"{GetFruitName(fruit.Index)} ×{fruit.Count}");
-            }
-        }
-
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.ChocoboColorPreview.FeedOrder"));
-        if (calculation.Order.Count == 0)
-        {
-            ImGui.TextDisabled(OmniLoc.Get("Feature.ChocoboColorPreview.NoFruit"));
-        }
-        else
-        {
-            for (var index = 0; index < calculation.Order.Count; index++)
-            {
-                ImGui.BulletText($"{index + 1}. {GetFruitName(calculation.Order[index])}");
-            }
-        }
-
-        ImGui.End();
+        PositionNativeUI(addon, nativeUI);
     }
 
-    private void DrawColorRow(string label, ChocoboColor color)
+    private List<ChocoboFruitRequirement> BuildFruitRequirements(IReadOnlyList<FruitCount> fruitCounts)
     {
-        ImGui.TextUnformatted(label);
-        ImGui.SameLine();
-        ImGui.ColorButton($"##{label}", color.DisplayColor, ImGuiColorEditFlags.NoTooltip, OmniTheme.Scale(new Vector2(18f)));
-        ImGui.SameLine();
-        ImGui.TextUnformatted(color.Name);
+        var requirements = new List<ChocoboFruitRequirement>(fruitCounts.Count);
+        for (var index = 0; index < fruitCounts.Count; index++)
+        {
+            var fruit = fruitCounts[index];
+            var fruitInfo = GetFruitInfo(fruit.Index);
+            requirements.Add(new(fruitInfo.Name, fruitInfo.IconID, fruit.Count));
+        }
+
+        return requirements;
     }
 
-    private void DrawColorCombo(byte selectedID)
+    private List<ChocoboFeedOrder> BuildFeedOrder(IReadOnlyList<int> order)
     {
-        var selectedName = TryGetColor(selectedID, out var selected) ? selected.Name : selectedID.ToString();
-        if (!ImGui.BeginCombo("##ChocoboTargetColor", selectedName))
+        var feedOrder = new List<ChocoboFeedOrder>(order.Count);
+        for (var index = 0; index < order.Count; index++)
+        {
+            var fruit = GetFruitInfo(order[index]);
+            feedOrder.Add(new(index + 1, fruit.Name, fruit.IconID));
+        }
+
+        return feedOrder;
+    }
+
+    private void OnTargetColorSelected(byte stainID)
+    {
+        if (config.TargetStainID == stainID)
         {
             return;
         }
 
-        foreach (var color in colors)
+        config.TargetStainID = stainID;
+        saveConfig();
+    }
+
+    private void PreviewTargetColor()
+    {
+        if (!TryGetCompanion(out var battleChara, out var drawObject, out var currentStainID))
         {
-            using var id = ImRaii.PushId(color.RowID);
-            ImGui.ColorButton("##Color", color.DisplayColor, ImGuiColorEditFlags.NoTooltip, OmniTheme.Scale(new Vector2(16f)));
-            ImGui.SameLine();
-            if (ImGui.Selectable(color.Name, color.RowID == selectedID))
-            {
-                config.TargetStainID = color.RowID;
-                saveConfig();
-            }
+            return;
         }
 
-        ImGui.EndCombo();
+        var targetStainID = config.TargetStainID == 0 ? currentStainID : config.TargetStainID;
+        config.PreviewStainID = targetStainID;
+        ApplyStain(battleChara, drawObject, targetStainID);
+        saveConfig();
+    }
+
+    private void ClearPreview()
+    {
+        if (!TryGetCompanion(out var battleChara, out var drawObject, out var currentStainID))
+        {
+            return;
+        }
+
+        config.PreviewStainID = 0;
+        ApplyStain(battleChara, drawObject, currentStainID);
+        saveConfig();
+    }
+
+    private static void PositionNativeUI(AtkUnitBase* buddyAddon, ChocoboColorPreviewNativeUI nativeUI)
+    {
+        var buddyWindow = buddyAddon->WindowNode;
+        var stage = AtkStage.Instance();
+        if (buddyWindow == null || stage == null)
+        {
+            nativeUI.Close();
+            return;
+        }
+
+        if (!nativeUI.IsOpen)
+        {
+            nativeUI.Open();
+        }
+
+        AtkUnitBase* previewAddon = nativeUI;
+        if (previewAddon == null || previewAddon->WindowNode == null)
+        {
+            return;
+        }
+
+        var buddyState = buddyWindow->GetNodeState();
+        var previewState = previewAddon->WindowNode->GetNodeState();
+        var screenSize = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
+        var position = new Vector2(
+            Math.Clamp(
+                buddyState.TopLeft.X + buddyState.Width + 4f,
+                8f,
+                MathF.Max(8f, screenSize.X - previewState.Width - 8f)),
+            Math.Clamp(
+                buddyState.TopLeft.Y,
+                8f,
+                MathF.Max(8f, screenSize.Y - previewState.Height - 8f)));
+        nativeUI.SetWindowPosition(position);
     }
 
     private void EnsureData()
@@ -211,29 +235,31 @@ public sealed unsafe class ChocoboColorPreview(
             }
         }
 
-        if (fruitNames.Count == Fruits.Length)
+        if (fruitInfo.Count == Fruits.Length)
         {
             return;
         }
 
-        var itemNames = new Dictionary<string, string>(StringComparer.Ordinal);
+        var itemInfo = new Dictionary<string, ChocoboFruitInfo>(StringComparer.Ordinal);
         foreach (var item in LuminaGetter.Get<Item>())
         {
             var name = item.Name.ExtractText();
             if (!string.IsNullOrWhiteSpace(name))
             {
-                itemNames.TryAdd(name, name);
+                itemInfo.TryAdd(name, new(name, item.Icon));
             }
         }
 
         foreach (var fruit in Fruits)
         {
-            fruitNames[fruit.LocalizationKey] = fruit.Candidates.FirstOrDefault(itemNames.ContainsKey)
-                ?? OmniLoc.Get(fruit.LocalizationKey);
+            var candidate = fruit.Candidates.FirstOrDefault(itemInfo.ContainsKey);
+            fruitInfo[fruit.LocalizationKey] = candidate is not null
+                ? itemInfo[candidate]
+                : new(OmniLoc.Get(fruit.LocalizationKey), 0);
         }
     }
 
-    private string GetFruitName(int index) => fruitNames[Fruits[index].LocalizationKey];
+    private ChocoboFruitInfo GetFruitInfo(int index) => fruitInfo[Fruits[index].LocalizationKey];
 
     private bool TryGetColor(byte rowID, out ChocoboColor color)
     {
@@ -441,6 +467,8 @@ public sealed unsafe class ChocoboColorPreview(
         Vector3 Delta,
         string[] Candidates);
 
+    private readonly record struct ChocoboFruitInfo(string Name, uint IconID);
+
     private readonly record struct ChocoboColor(
         byte RowID,
         string Name,
@@ -461,6 +489,10 @@ public sealed unsafe class ChocoboColorPreview(
         int Count,
         int[] Deltas);
 }
+
+internal readonly record struct ChocoboFruitRequirement(string Name, uint IconID, int Count);
+
+internal readonly record struct ChocoboFeedOrder(int Index, string Name, uint IconID);
 
 [Serializable]
 public sealed class ChocoboColorPreviewConfig

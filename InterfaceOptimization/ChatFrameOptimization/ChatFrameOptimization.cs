@@ -9,6 +9,7 @@ using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Interface;
 using Dalamud.Hooking;
+using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
 using Lumina.Text.ReadOnly;
@@ -20,6 +21,9 @@ using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmenTools;
+using OmenTools.Dalamud.Helpers;
+using OmenTools.Interop.Game;
 using OmenTools.Interop.Game.Models;
 using OmenTools.ImGuiOm;
 using OmenTools.OmenService;
@@ -43,6 +47,8 @@ public sealed unsafe class ChatFrameOptimization(
     private static readonly CompSig ScrollToBottomSignature = new(
         "E8 ?? ?? ?? ?? 48 8B 43 10 33 D2");
 
+    private const string StickyShoutAutoSwitchSignature = "05 75 0C 8B D7 E8 ?? ?? ?? ?? E9";
+
     private static readonly Regex URLRegex = new(
         @"(http|ftp|https)://([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
@@ -52,6 +58,8 @@ public sealed unsafe class ChatFrameOptimization(
     private FeatureLifetime? runtimeLifetime;
     private ChatLogReplayStorage? storage;
     private Hook<ScrollToBottomDelegate>? scrollToBottomHook;
+    private Hook<RaptureShellModule.Delegates.ChangeChatChannel>? changeChatChannelHook;
+    private MemoryPatch? stickyShoutAutoSwitchPatch;
     private DalamudLinkPayload? urlPayload;
     private uint urlCommandID;
 
@@ -67,8 +75,16 @@ public sealed unsafe class ChatFrameOptimization(
 
     public override bool HasSettings => true;
 
-    public override bool DrawSettings() =>
-        panel.Draw(config, storage, IsEnabled, OpenReplay);
+    public override bool DrawSettings()
+    {
+        var changed = panel.Draw(config, storage, IsEnabled, OpenReplay);
+        if (changed)
+        {
+            stickyShoutAutoSwitchPatch?.Set(config.StickyChat);
+        }
+
+        return changed;
+    }
 
     public bool OpenReplay()
     {
@@ -110,6 +126,30 @@ public sealed unsafe class ChatFrameOptimization(
             }
 
             lifetime.Add(() => chatManager.Unreg(OnPostExecuteCommand));
+
+            if (DService.Instance().SigScanner.TryScanText(StickyShoutAutoSwitchSignature, out var stickyShoutAddress))
+            {
+                stickyShoutAutoSwitchPatch = new(stickyShoutAddress, "FE");
+                lifetime.Add(stickyShoutAutoSwitchPatch.Dispose);
+                stickyShoutAutoSwitchPatch.Set(config.StickyChat);
+            }
+
+            DalamudServices.PluginLog.Information(
+                "[StickyChat] Runtime initialized: Enabled={Enabled}, ShoutPatchValid={PatchValid}, ShoutPatchEnabled={PatchEnabled}, ShoutPatchAddress={PatchAddress}, ShoutPatchOldByte={PatchOldByte}, ShoutPatchNewByte={PatchNewByte}.",
+                config.StickyChat,
+                stickyShoutAutoSwitchPatch?.IsValid ?? false,
+                stickyShoutAutoSwitchPatch?.IsEnabled ?? false,
+                stickyShoutAutoSwitchPatch?.Address ?? nint.Zero,
+                stickyShoutAutoSwitchPatch is { OldBytes.Length: > 0 } ? stickyShoutAutoSwitchPatch.OldBytes[0] : -1,
+                stickyShoutAutoSwitchPatch is { NewBytes.Length: > 0 } ? stickyShoutAutoSwitchPatch.NewBytes[0] : -1);
+
+            changeChatChannelHook = DService.Instance().Hook.HookFromAddress<RaptureShellModule.Delegates.ChangeChatChannel>(
+                DalamudReflector.GetMemberFuncByName(
+                    typeof(RaptureShellModule.MemberFunctionPointers),
+                    nameof(RaptureShellModule.ChangeChatChannel)),
+                OnChangeChatChannel);
+            lifetime.Add(changeChatChannelHook.Dispose);
+            changeChatChannelHook.Enable();
 
             scrollToBottomHook = ScrollToBottomSignature.GetHook<ScrollToBottomDelegate>(OnScrollToBottom);
             lifetime.Add(scrollToBottomHook.Dispose);
@@ -167,13 +207,31 @@ public sealed unsafe class ChatFrameOptimization(
 
     private void OnCheckMessageHandled(IHandleableChatMessage message)
     {
-        if (!config.ClickableLinks)
-        {
-            return;
-        }
-
         try
         {
+            if (config.StickyChat &&
+                message.LogKind == XivChatType.ErrorMessage)
+            {
+                var errorText = message.Message.TextValue;
+                var isShoutError = errorText.Contains("/shout", StringComparison.OrdinalIgnoreCase);
+                var shell = RaptureShellModule.Instance();
+                DalamudServices.PluginLog.Information(
+                    "[StickyChat] Error message observed: IsShoutError={IsShoutError}, Text={ErrorText}, ChatType={ChatType}, TempChatType={TempChatType}.",
+                    isShoutError,
+                    errorText,
+                    shell == null ? -1 : shell->ChatType,
+                    shell == null ? -1 : shell->TempChatType);
+                if (isShoutError)
+                {
+                    SetChatChannel(5);
+                }
+            }
+
+            if (!config.ClickableLinks)
+            {
+                return;
+            }
+
             if (TryBuildClickableLinks(message.LogKind, message.Message, out var modified))
             {
                 message.Message = modified;
@@ -181,7 +239,7 @@ public sealed unsafe class ChatFrameOptimization(
         }
         catch (Exception ex)
         {
-            DalamudServices.PluginLog.Warning(ex, "Chat-frame link preprocessing failed.");
+            DalamudServices.PluginLog.Warning(ex, "Chat-frame message preprocessing failed.");
         }
     }
 
@@ -320,7 +378,15 @@ public sealed unsafe class ChatFrameOptimization(
 
         try
         {
-            ApplyStickyChat(command.ToString());
+            var input = command.ToString();
+            var shell = RaptureShellModule.Instance();
+            DalamudServices.PluginLog.Information(
+                "[StickyChat] PostExecuteCommand observed: IsSlashCommand={IsSlashCommand}, IsShoutCommand={IsShoutCommand}, ChatType={ChatType}, TempChatType={TempChatType}.",
+                input.Length > 0 && input[0] == '/',
+                input.StartsWith("/shout ", StringComparison.Ordinal) || input.StartsWith("/sh ", StringComparison.Ordinal),
+                shell == null ? -1 : shell->ChatType,
+                shell == null ? -1 : shell->TempChatType);
+            ApplyStickyChat(input);
         }
         catch (Exception ex)
         {
@@ -338,28 +404,28 @@ public sealed unsafe class ChatFrameOptimization(
         if (input.StartsWith("/party ", StringComparison.Ordinal) ||
             input.StartsWith("/p ", StringComparison.Ordinal))
         {
-            SetChatChannel(2, "/party");
+            SetChatChannel(2);
             return;
         }
 
         if (input.StartsWith("/say ", StringComparison.Ordinal) ||
             input.StartsWith("/s ", StringComparison.Ordinal))
         {
-            SetChatChannel(1, "/say");
+            SetChatChannel(1);
             return;
         }
 
         if (input.StartsWith("/alliance ", StringComparison.Ordinal) ||
             input.StartsWith("/a ", StringComparison.Ordinal))
         {
-            SetChatChannel(3, "/alliance");
+            SetChatChannel(3);
             return;
         }
 
         if (input.StartsWith("/freecompany ", StringComparison.Ordinal) ||
             input.StartsWith("/fc ", StringComparison.Ordinal))
         {
-            SetChatChannel(6, "/freecompany");
+            SetChatChannel(6);
             return;
         }
 
@@ -367,14 +433,14 @@ public sealed unsafe class ChatFrameOptimization(
             input.StartsWith("/beginner ", StringComparison.Ordinal) ||
             input.StartsWith("/n ", StringComparison.Ordinal))
         {
-            SetChatChannel(8, "/novice");
+            SetChatChannel(8);
             return;
         }
 
         if (input.StartsWith("/yell ", StringComparison.Ordinal) ||
             input.StartsWith("/y ", StringComparison.Ordinal))
         {
-            SetChatChannel(4, "/yell");
+            SetChatChannel(4);
             return;
         }
 
@@ -383,19 +449,19 @@ public sealed unsafe class ChatFrameOptimization(
             input.StartsWith("/喊话频道 ", StringComparison.Ordinal) ||
             input.StartsWith("/喊 ", StringComparison.Ordinal))
         {
-            SetChatChannel(5, "/shout");
+            SetChatChannel(5);
             return;
         }
 
         if (TryGetNumberedChannel(input, "/cwl", "/cwlinkshell", out var crossWorld))
         {
-            SetChatChannel(crossWorld + 8, $"/cwl{crossWorld}");
+            SetChatChannel(crossWorld + 8);
             return;
         }
 
         if (TryGetNumberedChannel(input, "/l", "/linkshell", out var linkshell))
         {
-            SetChatChannel(linkshell + 18, $"/linkshell{linkshell}");
+            SetChatChannel(linkshell + 18);
         }
     }
 
@@ -422,7 +488,7 @@ public sealed unsafe class ChatFrameOptimization(
                    out channel);
     }
 
-    private static void SetChatChannel(int chatType, string command)
+    private static void SetChatChannel(int chatType)
     {
         var shell = RaptureShellModule.Instance();
         if (shell is null)
@@ -430,8 +496,60 @@ public sealed unsafe class ChatFrameOptimization(
             return;
         }
 
-        shell->ChatType = (ushort)chatType;
-        shell->CurrentChannel.SetString(command);
+        var previousChatType = shell->ChatType;
+        var previousTempChatType = shell->TempChatType;
+        using var target = new Utf8String();
+        var result = shell->ChangeChatChannel(
+            chatType,
+            chatType is >= 9 and <= 16 ? (uint)(chatType - 9) : chatType is >= 19 and <= 26 ? (uint)(chatType - 19) : 0,
+            &target,
+            true);
+        DalamudServices.PluginLog.Information(
+            "[StickyChat] Channel forced: RequestedChatType={RequestedChatType}, Result={Result}, ChatTypeBefore={ChatTypeBefore}, ChatTypeAfter={ChatTypeAfter}, TempChatTypeBefore={TempChatTypeBefore}, TempChatTypeAfter={TempChatTypeAfter}.",
+            chatType,
+            result,
+            previousChatType,
+            shell->ChatType,
+            previousTempChatType,
+            shell->TempChatType);
+    }
+
+    private bool OnChangeChatChannel(
+        RaptureShellModule* shell,
+        int channel,
+        uint linkshellIndex,
+        Utf8String* target,
+        bool setChatType)
+    {
+        var previousChatType = shell->ChatType;
+        var previousTempChatType = shell->TempChatType;
+        var previousCurrentChannel = shell->CurrentChannel.ToString();
+        var previousTempChatCommand = shell->TempChatCommand.ToString();
+        var result = changeChatChannelHook!.Original(shell, channel, linkshellIndex, target, setChatType);
+        var promotedTemporaryChannel = result && config.StickyChat && !setChatType && shell->TempChatType >= 0;
+        if (promotedTemporaryChannel)
+        {
+            shell->ChatType = shell->TempChatType;
+            shell->CurrentChannel.SetString(shell->TempChatCommand.ToString());
+            shell->TempChatType = -2;
+        }
+
+        DalamudServices.PluginLog.Information(
+            "[StickyChat] ChangeChatChannel observed: Channel={Channel}, LinkshellIndex={LinkshellIndex}, RequestedSetChatType={RequestedSetChatType}, PromotedTemporaryChannel={PromotedTemporaryChannel}, Result={Result}, ChatTypeBefore={ChatTypeBefore}, ChatTypeAfter={ChatTypeAfter}, TempChatTypeBefore={TempChatTypeBefore}, TempChatTypeAfter={TempChatTypeAfter}, CurrentChannelBefore={CurrentChannelBefore}, CurrentChannelAfter={CurrentChannelAfter}, TempChatCommandBefore={TempChatCommandBefore}, TempChatCommandAfter={TempChatCommandAfter}.",
+            channel,
+            linkshellIndex,
+            setChatType,
+            promotedTemporaryChannel,
+            result,
+            previousChatType,
+            shell->ChatType,
+            previousTempChatType,
+            shell->TempChatType,
+            previousCurrentChannel,
+            shell->CurrentChannel.ToString(),
+            previousTempChatCommand,
+            shell->TempChatCommand.ToString());
+        return result;
     }
 
     private void* OnScrollToBottom(LogViewer* logViewer)
@@ -478,6 +596,8 @@ public sealed unsafe class ChatFrameOptimization(
         runtimeLifetime = null;
         storage = null;
         scrollToBottomHook = null;
+        changeChatChannelHook = null;
+        stickyShoutAutoSwitchPatch = null;
         urlPayload = null;
         urlCommandID = 0;
         replayWindow.Close();
