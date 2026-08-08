@@ -1,14 +1,11 @@
 using System.Linq;
-using Dalamud.Game.Addon.Lifecycle;
-using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit.Nodes;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -35,21 +32,30 @@ public sealed unsafe partial class BetterGlamourManagement(
         Title = OmniLoc.Get("BetterGlamourManagementTitle"),
         Description = OmniLoc.Get("BetterGlamourManagementDescription"),
         Category = ModuleCategory.InterfaceOptimization,
-        RequiresPrivateProvider = true
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/BetterGlamourManagement-1.png?v=a2e7f88",
+        RequiresPrivateProvider = true,
+        Commands =
+        [
+            new ModuleCommand(
+                "Feature.BetterGlamourManagement.CommandDescription",
+                "/omni 幻化管理")
+        ]
     };
 
-    private const string CharacterAddonName = "Character";
     private const string CharacterInspectAddonName = "CharacterInspect";
     private const string TryOnAddonName = "Tryon";
     private const float ScreenPadding = 8f;
+    internal const int MaxPresetCount = 100;
 
     private static readonly int[] InspectSlots = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12];
 
-    private AddonEventRegistry? addonEvents;
     private BetterGlamourActionsNativeUI? actionsNativeUI;
-    private TextButtonNode? characterButton;
+    private BetterGlamourManagerNativeUI? managerNativeUI;
     private TaskHelper? taskHelper;
-    private bool managerOpen;
+    private BetterGlamourPreset? activeTryOnPreset;
+    private nint previewPlayerAddress;
+    private bool pendingTryOnRestore;
     private int selectedPresetIndex = -1;
     private int lastGearsetIndex = int.MinValue;
 
@@ -58,12 +64,14 @@ public sealed unsafe partial class BetterGlamourManagement(
         try
         {
             taskHelper = new() { TimeoutMS = 10_000 };
-            actionsNativeUI = new(TryOnInspect, SaveInspect, ExportInspect, ClearTryOn);
-            var events = new AddonEventRegistry(DalamudServices.AddonLifecycle);
-            events.Register(AddonEvent.PostDraw, CharacterAddonName, OnCharacterAddon);
-            events.Register(AddonEvent.PreFinalize, CharacterAddonName, OnCharacterAddon);
-            addonEvents = events;
-
+            actionsNativeUI = new(TryOnInspect, SaveInspect, ExportInspect, OpenManager, ClearTryOn);
+            managerNativeUI = new(
+                SelectPreset,
+                _ => saveConfig(),
+                ChangePresetGearset,
+                StartTryOn,
+                CopyPreset,
+                DeletePreset);
             if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 250))
             {
                 throw new InvalidOperationException("Better glamour management update registration failed.");
@@ -82,23 +90,40 @@ public sealed unsafe partial class BetterGlamourManagement(
     {
         DalamudServices.PluginInterface.UiBuilder.Draw -= Draw;
         FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
-        addonEvents?.Dispose();
-        addonEvents = null;
-        characterButton?.Dispose();
-        characterButton = null;
-        taskHelper?.Abort();
+        ClearTryOn();
         taskHelper?.Dispose();
         taskHelper = null;
         DisposeActionsNativeUI();
-        managerOpen = false;
+        DisposeManagerNativeUI();
         selectedPresetIndex = -1;
         lastGearsetIndex = int.MinValue;
     }
 
     private void OnFrameworkUpdate(IFramework framework)
     {
+        if (!DService.Instance().ClientState.IsLoggedIn)
+        {
+            activeTryOnPreset = null;
+            previewPlayerAddress = nint.Zero;
+            pendingTryOnRestore = false;
+            lastGearsetIndex = int.MinValue;
+            return;
+        }
+
+        var playerAddress = DService.Instance().ObjectTable.LocalPlayer?.Address ?? nint.Zero;
+        if (activeTryOnPreset is not null &&
+            playerAddress != nint.Zero &&
+            playerAddress != previewPlayerAddress)
+        {
+            previewPlayerAddress = playerAddress;
+            pendingTryOnRestore = true;
+            return;
+        }
+
+        TryApplyActiveTryOn();
+
         var gearsetModule = RaptureGearsetModule.Instance();
-        if (!DService.Instance().ClientState.IsLoggedIn || gearsetModule == null)
+        if (gearsetModule == null)
         {
             lastGearsetIndex = int.MinValue;
             return;
@@ -124,39 +149,9 @@ public sealed unsafe partial class BetterGlamourManagement(
         }
     }
 
-    private void OnCharacterAddon(AddonEvent eventType, AddonArgs args)
-    {
-        if (eventType == AddonEvent.PreFinalize)
-        {
-            characterButton?.Dispose();
-            characterButton = null;
-            return;
-        }
-
-        var addon = (AtkUnitBase*)args.Addon.Address;
-        if (addon == null || addon->RootNode == null || !addon->IsAddonAndNodesReady())
-        {
-            return;
-        }
-
-        if (characterButton is null)
-        {
-            characterButton = new()
-            {
-                String = OmniLoc.Get("Feature.BetterGlamourManagement.OpenSaved"),
-                Size = new(92f, 26f),
-                OnClick = () => managerOpen = true
-            };
-            characterButton.AttachNode(addon->RootNode);
-        }
-
-        characterButton.Position = new(18f, MathF.Max(8f, addon->RootNode->Height - 40f));
-    }
-
     private void Draw()
     {
         DrawInspectActions();
-        DrawManagerWindow();
     }
 
     private void DrawInspectActions()
@@ -220,6 +215,15 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     private void SaveInspect()
     {
+        if (config.Presets.Count >= MaxPresetCount)
+        {
+            OmniNotifier.Popup(
+                Info.Title,
+                string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.PresetLimitReached"), MaxPresetCount),
+                NotificationType.Warning);
+            return;
+        }
+
         var preset = CaptureInspectPreset();
         if (preset is null)
         {
@@ -233,6 +237,7 @@ public sealed unsafe partial class BetterGlamourManagement(
         config.Presets.Add(preset);
         selectedPresetIndex = config.Presets.Count - 1;
         saveConfig();
+        managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
         OmniNotifier.Popup(
             Info.Title,
             string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.Saved"), preset.Name),
@@ -277,6 +282,7 @@ public sealed unsafe partial class BetterGlamourManagement(
         if (uiState != null)
         {
             preset.GlassesID = uiState->Inspect.GlassesIds[0];
+            preset.HairstyleID = ResolveInspectHairstyleID(uiState->Inspect.CustomizeData);
         }
 
         return preset.Items.Count == 0 ? null : preset;
@@ -284,49 +290,60 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     private void StartTryOn(BetterGlamourPreset preset)
     {
-        if (taskHelper is null || taskHelper.IsBusy || AgentTryon.Instance() == null)
+        activeTryOnPreset = preset;
+        previewPlayerAddress = DService.Instance().ObjectTable.LocalPlayer?.Address ?? nint.Zero;
+        pendingTryOnRestore = true;
+        TryApplyActiveTryOn();
+    }
+
+    private void TryApplyActiveTryOn()
+    {
+        if (!pendingTryOnRestore ||
+            activeTryOnPreset is null ||
+            taskHelper is null ||
+            taskHelper.IsBusy ||
+            previewPlayerAddress == nint.Zero ||
+            DService.Instance().Condition[ConditionFlag.BetweenAreas] ||
+            DService.Instance().Condition[ConditionFlag.BetweenAreas51])
         {
             return;
         }
 
+        pendingTryOnRestore = false;
         CloseTryOnAddon();
+        var preset = activeTryOnPreset;
         var items = preset.Items
             .Where(static item => item.ItemID != 0)
             .OrderBy(static item => item.Slot)
             .ToArray();
-        taskHelper.Enqueue(() =>
-        {
-            var agent = AgentTryon.Instance();
-            if (agent == null)
-            {
-                return false;
-            }
-
-            agent->SaveDeleteOutfit = true;
-            return true;
-        });
-
         foreach (var item in items)
         {
-            taskHelper.Enqueue(() => AgentTryon.TryOn(0, item.ItemID, item.Stain0, item.Stain1));
+            taskHelper.Enqueue(() =>
+            {
+                itemPreviewService.PreviewEquipment(item.ItemID, item.Slot, item.Stain0, item.Stain1);
+                return true;
+            });
             taskHelper.DelayNext(50);
         }
 
         taskHelper.Enqueue(() =>
         {
-            var agent = AgentTryon.Instance();
-            if (agent == null)
+            itemPreviewService.PreviewGlasses(preset.GlassesID);
+            return true;
+        });
+
+        taskHelper.DelayNext(100);
+        taskHelper.Enqueue(() =>
+        {
+            if (preset.HairstyleID != 0)
             {
-                return false;
+                itemPreviewService.PreviewHairstyle(preset.HairstyleID);
+            }
+            else
+            {
+                itemPreviewService.RestoreHairstylePreview();
             }
 
-            var character = agent->CharaView.GetCharacter();
-            if (character == null)
-            {
-                return false;
-            }
-
-            character->DrawData.SetGlasses(0, preset.GlassesID);
             return true;
         });
     }
@@ -334,8 +351,55 @@ public sealed unsafe partial class BetterGlamourManagement(
     private void ClearTryOn()
     {
         taskHelper?.Abort();
+        activeTryOnPreset = null;
+        previewPlayerAddress = nint.Zero;
+        pendingTryOnRestore = false;
         CloseTryOnAddon();
         itemPreviewService.ClearPreviewResidue();
+    }
+
+    public void OpenManager()
+    {
+        NormalizeSelection();
+        managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
+        if (managerNativeUI is { IsOpen: false })
+        {
+            managerNativeUI.Open();
+        }
+    }
+
+    private void SelectPreset(BetterGlamourPreset preset) =>
+        selectedPresetIndex = config.Presets.IndexOf(preset);
+
+    private void ChangePresetGearset(BetterGlamourPreset preset, int gearsetIndex)
+    {
+        if (gearsetIndex >= 0)
+        {
+            foreach (var other in config.Presets)
+            {
+                if (!ReferenceEquals(other, preset) && other.GearsetIndex == gearsetIndex)
+                {
+                    other.GearsetIndex = -1;
+                }
+            }
+        }
+
+        preset.GearsetIndex = gearsetIndex;
+        saveConfig();
+    }
+
+    private void DeletePreset(BetterGlamourPreset preset)
+    {
+        var index = config.Presets.IndexOf(preset);
+        if (index < 0)
+        {
+            return;
+        }
+
+        config.Presets.RemoveAt(index);
+        selectedPresetIndex = Math.Min(index, config.Presets.Count - 1);
+        saveConfig();
+        managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
     }
 
     private static void CloseTryOnAddon()
@@ -363,6 +427,19 @@ public sealed unsafe partial class BetterGlamourManagement(
         ui.Close();
         ui.Dispose();
     }
+
+    private void DisposeManagerNativeUI()
+    {
+        var ui = managerNativeUI;
+        managerNativeUI = null;
+        if (ui is null)
+        {
+            return;
+        }
+
+        ui.Close();
+        ui.Dispose();
+    }
 }
 
 [Serializable]
@@ -379,6 +456,8 @@ public sealed class BetterGlamourPreset
     public int GearsetIndex { get; set; } = -1;
 
     public ushort GlassesID { get; set; }
+
+    public uint HairstyleID { get; set; }
 
     public List<BetterGlamourItem> Items { get; set; } = [];
 }

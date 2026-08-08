@@ -1,5 +1,6 @@
 using Dalamud.Game.Addon.Lifecycle;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
@@ -12,6 +13,7 @@ using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.ImGuiOm;
@@ -98,8 +100,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         new("craftsmanship", 321, "Feature.AutoSortItems.Condition.Craftsmanship"),
         new("control", 323, "Feature.AutoSortItems.Condition.Control"),
         new("gathering", 325, "Feature.AutoSortItems.Condition.Gathering"),
-        new("perception", 327, "Feature.AutoSortItems.Condition.Perception"),
-        new("tab", 273, "Feature.AutoSortItems.Condition.Tab")
+        new("perception", 327, "Feature.AutoSortItems.Condition.Perception")
     ];
     internal static readonly RuleOption[] Orders =
     [
@@ -115,12 +116,23 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     {
         Title = OmniLoc.Get("AutoSortItemsTitle"),
         Description = OmniLoc.Get("AutoSortItemsDescription"),
-        Category = ModuleCategory.General
+        Category = ModuleCategory.General,
+        RequiresPrivateProvider = true,
+        Commands =
+        [
+            new ModuleCommand("Feature.AutoSortItems.CommandDescription", "/omni 自动整理")
+        ]
     };
 
     public override bool HasSettings => true;
 
-    public override bool DrawSettings() => AutoSortItemsPanel.Draw(config, QueueAllVisible);
+    public override bool DrawSettings() => AutoSortItemsPanel.Draw(config);
+
+    public void RequestSort()
+    {
+        EnsureRules();
+        QueueAllEnabled(true);
+    }
 
     protected override void OnEnable()
     {
@@ -128,7 +140,9 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         taskHelper = new()
         {
             RetryIntervalMS = 100,
-            TimeoutMS = SortTimeoutMs
+            TimeoutMS = SortTimeoutMs,
+            TimeoutAction = ResetQueue,
+            ExceptionAction = ResetQueue
         };
         addonEvents = new(DalamudServices.AddonLifecycle);
         addonEvents.Register(AddonEvent.PostSetup, "ArmouryBoard", (_, _) => QueueArmoury());
@@ -160,15 +174,33 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         }
     }
 
-    private void QueueAllVisible(bool notify)
+    private void QueueAllEnabled(bool notify)
     {
         EnsureRules();
+        var queued = false;
         foreach (var category in config.Rules!
-                     .Where(rule => rule.Enabled && rule.Category is not null && IsCategoryVisible(rule.Category))
+                     .Where(rule => rule.Category is not null)
                      .Select(rule => rule.Category!)
-                     .Distinct(StringComparer.Ordinal))
+                     .Distinct(StringComparer.Ordinal)
+                     .ToArray())
         {
-            QueueCategory(category, notify);
+            var enabled = IsCategoryEnabled(category);
+            var available = category == "inventory" ||
+                            IsArmouryCategory(category) ||
+                            IsCategoryVisible(category);
+            if (enabled && available)
+            {
+                QueueCategory(
+                    category,
+                    false,
+                    config.AutoMerge && category is "saddlebag" or "rightsaddlebag");
+                queued = true;
+            }
+        }
+
+        if (notify && queued && taskHelper is not null)
+        {
+            taskHelper.Enqueue(NotifySortCompleted, "Notify sort completed");
         }
     }
 
@@ -176,9 +208,10 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     {
         EnsureRules();
         foreach (var category in config.Rules!
-                     .Where(rule => rule.Enabled && rule.Category is not null && IsArmouryCategory(rule.Category))
+                     .Where(rule => rule.Category is not null && IsArmouryCategory(rule.Category))
                      .Select(rule => rule.Category!)
-                     .Distinct(StringComparer.Ordinal))
+                     .Distinct(StringComparer.Ordinal)
+                     .Where(IsCategoryEnabled))
         {
             QueueCategory(category, notify);
         }
@@ -189,9 +222,10 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         EnsureRules();
         var queued = new HashSet<string>(StringComparer.Ordinal);
         foreach (var category in config.Rules!
-                     .Where(rule => rule.Enabled && rule.Category is "saddlebag" or "rightsaddlebag")
+                     .Where(rule => rule.Category is "saddlebag" or "rightsaddlebag")
                      .Select(rule => rule.Category!)
-                     .Distinct(StringComparer.Ordinal))
+                     .Distinct(StringComparer.Ordinal)
+                     .Where(IsCategoryEnabled))
         {
             QueueCategory(category, notify);
             queued.Add(category);
@@ -208,17 +242,38 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         }
     }
 
-    private void QueueCategory(string category, bool notify = false)
+    private void QueueCategory(
+        string category,
+        bool notify = false,
+        bool waitForMergeContainers = false)
     {
         EnsureRules();
-        if (taskHelper is null || !queuedCategories.Add(category))
+        var playerState = PlayerState.Instance();
+        if (category == "rightsaddlebag" &&
+            (playerState is null || !playerState->HasPremiumSaddlebag))
+        {
+            return;
+        }
+
+        if (taskHelper is null)
+        {
+            return;
+        }
+
+        if (!queuedCategories.Add(category))
         {
             return;
         }
 
         var rules = config.Rules!
-            .Where(rule => rule.Enabled && string.Equals(rule.Category, category, StringComparison.Ordinal))
+            .Where(rule => string.Equals(rule.Category, category, StringComparison.Ordinal))
             .ToArray();
+        if (rules.Length > 0 && !rules.Any(rule => rule.Enabled))
+        {
+            queuedCategories.Remove(category);
+            return;
+        }
+
         var shouldMerge = config.AutoMerge && GetMergeContainers(category) is not null;
         if (rules.Length == 0 && !shouldMerge)
         {
@@ -226,14 +281,16 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             return;
         }
 
+        if (shouldMerge)
+        {
+            taskHelper.Enqueue(
+                () => MergeNext(category, waitForMergeContainers),
+                $"Merge stacks {category}");
+        }
+
         if (rules.Length > 0)
         {
             taskHelper.Enqueue(() => StartSort(category, rules), $"Start sort {category}");
-        }
-
-        if (shouldMerge)
-        {
-            taskHelper.Enqueue(() => MergeNext(category), $"Merge stacks {category}");
         }
 
         taskHelper.Enqueue(() => FinishSort(category, notify), $"Finish sort {category}");
@@ -252,32 +309,52 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             return true;
         }
 
-        ChatManager.Instance().SendMessage($"/itemsort clear {categoryCommand}");
+        var command = $"/itemsort clear {categoryCommand}";
+        ChatManager.Instance().SendMessage(command);
         foreach (var rule in rules)
         {
             var condition = GetCommand(Conditions, rule.Condition);
             var order = GetCommand(Orders, rule.Order);
             if (!string.IsNullOrEmpty(condition) && !string.IsNullOrEmpty(order))
             {
-                ChatManager.Instance().SendMessage(
-                    $"/itemsort condition {categoryCommand} {condition} {order}");
+                command = $"/itemsort condition {categoryCommand} {condition} {order}";
+                ChatManager.Instance().SendMessage(command);
             }
         }
 
         if (IsCategoryTabbed(category))
         {
-            var tab = GetCommand(Conditions, "tab");
+            var tab = GetCommand(273);
             if (!string.IsNullOrEmpty(tab))
             {
-                ChatManager.Instance().SendMessage($"/itemsort condition {categoryCommand} {tab}");
+                command = $"/itemsort condition {categoryCommand} {tab}";
+                ChatManager.Instance().SendMessage(command);
             }
         }
 
-        ChatManager.Instance().SendMessage($"/itemsort execute {categoryCommand}");
+        command = $"/itemsort execute {categoryCommand}";
+        ChatManager.Instance().SendMessage(command);
         return true;
     }
 
-    private bool MergeNext(string category)
+    private bool NotifySortCompleted()
+    {
+        if (config.SendChat)
+        {
+            OmniNotifier.Chat(OmniLoc.Get("Feature.AutoSortItems.Completed"));
+        }
+
+        if (config.SendNotification)
+        {
+            OmniNotifier.Popup(
+                OmniLoc.Get("AutoSortItemsTitle"),
+                OmniLoc.Get("Feature.AutoSortItems.Completed"));
+        }
+
+        return true;
+    }
+
+    private bool MergeNext(string category, bool waitForContainers)
     {
         if (!CanSort(category))
         {
@@ -296,6 +373,19 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             return true;
         }
 
+        if (waitForContainers)
+        {
+            for (var index = 0; index < containers.Length; index++)
+            {
+                var container = manager->GetInventoryContainer(containers[index]);
+                if (container is null || !container->IsLoaded)
+                {
+                    return false;
+                }
+            }
+        }
+
+        var hasMergeCandidate = false;
         for (var sourceIndex = 0; sourceIndex < containers.Length; sourceIndex++)
         {
             var sourceContainer = manager->GetInventoryContainer(containers[sourceIndex]);
@@ -331,20 +421,23 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
                             continue;
                         }
 
-                        return manager->MoveItemSlot(
-                            containers[sourceIndex],
-                            (ushort)source->Slot,
-                            containers[targetIndex],
-                            (ushort)target->Slot,
-                            true) == 0
-                            ? false
-                            : true;
+                        hasMergeCandidate = true;
+                        var result = manager->MoveItemSlot(
+                                containers[sourceIndex],
+                                (ushort)source->Slot,
+                                containers[targetIndex],
+                                (ushort)target->Slot,
+                                true);
+                        if (result == 0)
+                        {
+                            return false;
+                        }
                     }
                 }
             }
         }
 
-        return true;
+        return !hasMergeCandidate;
     }
 
     private bool FinishSort(string category, bool notify)
@@ -352,17 +445,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         queuedCategories.Remove(category);
         if (notify)
         {
-            if (config.SendChat)
-            {
-                OmniNotifier.Chat(OmniLoc.Get("Feature.AutoSortItems.Completed"));
-            }
-
-            if (config.SendNotification)
-            {
-                OmniNotifier.Popup(
-                    OmniLoc.Get("AutoSortItemsTitle"),
-                    OmniLoc.Get("Feature.AutoSortItems.Completed"));
-            }
+            NotifySortCompleted();
         }
 
         return true;
@@ -387,7 +470,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         right is not null &&
         right->ItemId != 0 &&
         !right->Flags.HasFlag(InventoryItem.ItemFlags.Collectable) &&
-        left->GetBaseItemId() == right->GetBaseItemId() &&
+        left->ItemId == right->ItemId &&
         left->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality) ==
         right->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality);
 
@@ -395,10 +478,34 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     {
         var services = DService.Instance();
         if (!GameState.IsLoggedIn ||
-            !UIModule.IsScreenReady() ||
-            services.Condition.IsOccupiedInEvent ||
-            !services.Condition.IsIdle ||
-            !IsInValidZone())
+            !services.ClientState.IsLoggedIn ||
+            services.ObjectTable.LocalPlayer is null)
+        {
+            return false;
+        }
+
+        if (!UIModule.IsScreenReady())
+        {
+            return false;
+        }
+
+        if (services.Condition.IsOccupiedInEvent)
+        {
+            return false;
+        }
+
+        if (!services.Condition.IsIdle)
+        {
+            return false;
+        }
+
+        if (!IsInValidZone())
+        {
+            return false;
+        }
+
+        if (category is "retainer" or "saddlebag" or "rightsaddlebag" &&
+            !IsCategoryVisible(category))
         {
             return false;
         }
@@ -411,30 +518,58 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
         if (category is "armoury" or "mh" or "oh" or "head" or "body" or "hands" or "legs" or "feet" or "neck" or "ears" or "wrists" or "rings" or "soul")
         {
-            return !module->IsSavePending &&
-                !IsBusy(module->ArmouryMainHandSorter) &&
-                !IsBusy(module->ArmouryHeadSorter) &&
-                !IsBusy(module->ArmouryBodySorter) &&
-                !IsBusy(module->ArmouryHandsSorter) &&
-                !IsBusy(module->ArmouryLegsSorter) &&
-                !IsBusy(module->ArmouryFeetSorter) &&
-                !IsBusy(module->ArmouryOffHandSorter) &&
-                !IsBusy(module->ArmouryEarsSorter) &&
-                !IsBusy(module->ArmouryNeckSorter) &&
-                !IsBusy(module->ArmouryWristsSorter) &&
-                !IsBusy(module->ArmouryRingsSorter) &&
-                !IsBusy(module->ArmourySoulCrystalSorter);
+            if (module->IsSavePending)
+            {
+                return false;
+            }
+
+            if (IsBusy(module->ArmouryMainHandSorter) ||
+                IsBusy(module->ArmouryHeadSorter) ||
+                IsBusy(module->ArmouryBodySorter) ||
+                IsBusy(module->ArmouryHandsSorter) ||
+                IsBusy(module->ArmouryLegsSorter) ||
+                IsBusy(module->ArmouryFeetSorter) ||
+                IsBusy(module->ArmouryOffHandSorter) ||
+                IsBusy(module->ArmouryEarsSorter) ||
+                IsBusy(module->ArmouryNeckSorter) ||
+                IsBusy(module->ArmouryWristsSorter) ||
+                IsBusy(module->ArmouryRingsSorter) ||
+                IsBusy(module->ArmourySoulCrystalSorter))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         var sorter = category switch
         {
             "inventory" => module->InventorySorter,
-            "retainer" => module->GetActiveRetainerSorter(),
+            "retainer" => GetActiveRetainerSorter(module),
             "saddlebag" => module->SaddleBagSorter,
             "rightsaddlebag" => module->PremiumSaddleBagSorter,
             _ => null
         };
-        return sorter is not null && sorter->SortFunctionIndex == -1;
+        if (sorter is null)
+        {
+            return false;
+        }
+
+        if (sorter->SortFunctionIndex != -1)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private static ItemOrderModuleSorter* GetActiveRetainerSorter(ItemOrderModule* itemOrderModule)
+    {
+        var retainerID = itemOrderModule->ActiveRetainerId;
+        return retainerID != 0 &&
+               itemOrderModule->RetainerSorter.TryGetValue(retainerID, out var sorter, false)
+            ? sorter.Value
+            : null;
     }
 
     private static bool IsBusy(ItemOrderModuleSorter* sorter) =>
@@ -454,7 +589,9 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
     private static bool IsCategoryVisible(string category) => category == "retainer"
         ? IsAddonVisible("InventoryRetainer") || IsAddonVisible("InventoryRetainerLarge")
-        : IsAddonVisible(GetAddonName(category));
+        : category == "inventory"
+            ? IsAddonVisible("Inventory") || IsAddonVisible("InventoryLarge") || IsAddonVisible("InventoryExpansion")
+            : IsAddonVisible(GetAddonName(category));
 
     private static string GetAddonName(string category) => category switch
     {
@@ -467,6 +604,9 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     private static bool IsArmouryCategory(string category) => category is
         "armoury" or "mh" or "oh" or "head" or "body" or "hands" or "legs" or "feet" or
         "neck" or "ears" or "wrists" or "rings" or "soul";
+
+    internal static bool SupportsTab(string category) => category is
+        "inventory" or "retainer" or "saddlebag" or "rightsaddlebag";
 
     private static InventoryType[]? GetMergeContainers(string category) => category switch
     {
@@ -485,13 +625,22 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             return string.Empty;
         }
 
-        return LuminaGetter.TryGetRow<TextCommandParam>(option.RowID, out var row)
-            ? row.Param.ToString().ToLowerInvariant()
-            : string.Empty;
+        return GetCommand(option.RowID);
     }
 
+    private static string GetCommand(uint rowID) => LuminaGetter.TryGetRow<TextCommandParam>(rowID, out var row)
+            ? row.Param.ToString().ToLowerInvariant()
+            : string.Empty;
+
+    private void ResetQueue() => queuedCategories.Clear();
+
     private bool IsCategoryTabbed(string category) =>
+        SupportsTab(category) &&
         config.CategoryHeaders?.FirstOrDefault(header => header.Category == category) is { Tab: true };
+
+    private bool IsCategoryEnabled(string category) =>
+        config.Rules!.Any(rule =>
+            rule.Enabled && string.Equals(rule.Category, category, StringComparison.Ordinal));
 
     internal static void EnsureRules(AutoSortItemsConfig config)
     {
@@ -518,7 +667,6 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
     private static List<AutoSortItemsCategoryHeader> CreateDefaultCategoryHeaders() =>
     [
-        new("armoury", true),
         new("inventory", true),
         new("saddlebag", true)
     ];
@@ -572,78 +720,135 @@ public sealed record AutoSortItemsCategoryHeader(
 
 internal static class AutoSortItemsPanel
 {
-    public static bool Draw(AutoSortItemsConfig config, Action<bool> requestSort)
+    public static bool Draw(AutoSortItemsConfig config)
     {
         AutoSortItems.EnsureRules(config);
         var changed = false;
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.AutoSortItems.Sort"), false))
+        using (var optionsTable = ImRaii.Table(
+                   "##autoSortItemsOptions",
+                   4,
+                   ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
+                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
         {
-            requestSort(true);
+            if (optionsTable)
+            {
+                ImGui.TableSetupColumn("##sortArmouryOnJobChange", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##autoMerge", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##sendChat", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableSetupColumn("##sendNotification", ImGuiTableColumnFlags.WidthStretch, 1f);
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+
+                var sortArmouryOnJobChange = config.SortArmouryOnJobChange;
+                if (OmniControls.Checkbox(
+                        OmniLoc.Get("Feature.AutoSortItems.SortArmouryOnJobChange"),
+                        ref sortArmouryOnJobChange))
+                {
+                    config.SortArmouryOnJobChange = sortArmouryOnJobChange;
+                    changed = true;
+                }
+
+                ImGui.TableNextColumn();
+                var autoMerge = config.AutoMerge;
+                if (OmniControls.Checkbox(OmniLoc.Get("Feature.AutoSortItems.AutoMerge"), ref autoMerge))
+                {
+                    config.AutoMerge = autoMerge;
+                    changed = true;
+                }
+
+                ImGui.TableNextColumn();
+                var sendChat = config.SendChat;
+                if (OmniControls.Checkbox(OmniLoc.Get("Feature.AutoSortItems.SendChat"), ref sendChat))
+                {
+                    config.SendChat = sendChat;
+                    changed = true;
+                }
+
+                ImGui.TableNextColumn();
+                var sendNotification = config.SendNotification;
+                if (OmniControls.Checkbox(
+                        OmniLoc.Get("Feature.AutoSortItems.SendNotification"),
+                        ref sendNotification))
+                {
+                    config.SendNotification = sendNotification;
+                    changed = true;
+                }
+            }
         }
 
-        var sortArmouryOnJobChange = config.SortArmouryOnJobChange;
-        if (OmniControls.Checkbox(
-                OmniLoc.Get("Feature.AutoSortItems.SortArmouryOnJobChange"),
-                ref sortArmouryOnJobChange))
-        {
-            config.SortArmouryOnJobChange = sortArmouryOnJobChange;
-            changed = true;
-        }
-
-        ImGui.SameLine();
-        var autoMerge = config.AutoMerge;
-        if (OmniControls.Checkbox(OmniLoc.Get("Feature.AutoSortItems.AutoMerge"), ref autoMerge))
-        {
-            config.AutoMerge = autoMerge;
-            changed = true;
-        }
-
-        ImGui.SameLine();
-        var sendChat = config.SendChat;
-        if (OmniControls.Checkbox(OmniLoc.Get("Feature.AutoSortItems.SendChat"), ref sendChat))
-        {
-            config.SendChat = sendChat;
-            changed = true;
-        }
-
-        ImGui.SameLine();
-        var sendNotification = config.SendNotification;
-        if (OmniControls.Checkbox(
-                OmniLoc.Get("Feature.AutoSortItems.SendNotification"),
-                ref sendNotification))
-        {
-            config.SendNotification = sendNotification;
-            changed = true;
-        }
-
+        var rowContentHeight = MathF.Max(
+            OmniTheme.CheckboxSize(),
+            MathF.Max(OmniTheme.SmallButtonSize().Y, ImGui.GetFrameHeight()));
+        var deleteLabel = OmniLoc.Get("Feature.AutoSortItems.DeleteRule");
+        var deleteSize = OmniControls.CompactButtonSize(deleteLabel);
+        var tabLabel = OmniLoc.Get("Feature.AutoSortItems.Tab");
+        var tabWidth = OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + ImGui.CalcTextSize(tabLabel).X;
+        var rules = config.Rules!;
+        var enableColumnWidth = OmniTheme.CheckboxSize() + ImGui.GetStyle().CellPadding.X * 2f;
+        var visibleRowCount = Math.Min(
+            6,
+            rules.Count + rules
+                .Where(rule => rule.Category is not null)
+                .Select(rule => rule.Category!)
+                .Distinct(StringComparer.Ordinal)
+                .Count());
+        var tableHeight = OmniTheme.SmallButtonSize().Y +
+                          rowContentHeight * visibleRowCount +
+                          ImGui.GetStyle().CellPadding.Y * (visibleRowCount + 1) * 2f +
+                          ImGui.GetStyle().FrameBorderSize * 2f;
         using var table = ImRaii.Table(
             "##autoSortItemsRules",
-            5,
-            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            4,
+            ImGuiTableFlags.Borders |
+            ImGuiTableFlags.RowBg |
+            ImGuiTableFlags.ScrollY |
+            ImGuiTableFlags.SizingStretchProp,
+            new Vector2(ImGui.GetContentRegionAvail().X, tableHeight));
         if (table)
         {
-            ImGui.TableSetupColumn(OmniLoc.Get("Feature.AutoSortItems.Column.ShowHeader"), ImGuiTableColumnFlags.WidthFixed, 56f);
-            ImGui.TableSetupColumn(OmniLoc.Get("Feature.AutoSortItems.Column.Category"), ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn(OmniLoc.Get("Feature.AutoSortItems.Column.Condition"), ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn(OmniLoc.Get("Feature.AutoSortItems.Column.Order"), ImGuiTableColumnFlags.WidthStretch);
-            ImGui.TableSetupColumn(OmniLoc.Get("Feature.AutoSortItems.Column.Actions"), ImGuiTableColumnFlags.WidthFixed, 92f);
-            ImGui.TableHeadersRow();
+            ImGui.TableSetupColumn("##enabled", ImGuiTableColumnFlags.WidthFixed, enableColumnWidth);
+            ImGui.TableSetupColumn(
+                OmniLoc.Get("Feature.AutoSortItems.Column.Category"),
+                ImGuiTableColumnFlags.WidthStretch,
+                1f);
+            ImGui.TableSetupColumn(
+                OmniLoc.Get("Feature.AutoSortItems.Column.Condition"),
+                ImGuiTableColumnFlags.WidthStretch,
+                1.6f);
+            ImGui.TableSetupColumn(
+                OmniLoc.Get("Feature.AutoSortItems.Column.Actions"),
+                ImGuiTableColumnFlags.WidthFixed,
+                MathF.Max(deleteSize.X, tabWidth) + ImGui.GetStyle().CellPadding.X * 2f);
+            ImGui.TableSetupScrollFreeze(0, 1);
+            OmniControls.BeginTableHeaderRow();
+            ImGui.TableNextColumn();
+            ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
+            var allEnabled = rules.Any(rule => rule.Category is not null) &&
+                             rules.Where(rule => rule.Category is not null).All(rule => rule.Enabled);
+            OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), OmniTheme.SmallButtonSize().Y);
+            if (OmniControls.Checkbox("##allEnabled", ref allEnabled))
+            {
+                SetAllCategoriesEnabled(config, allEnabled);
+                changed = true;
+            }
+            OmniControls.TableHeader(OmniLoc.Get("Feature.AutoSortItems.Column.Category"));
+            OmniControls.TableHeader(OmniLoc.Get("Feature.AutoSortItems.Column.Condition"));
+            OmniControls.TableHeader(OmniLoc.Get("Feature.AutoSortItems.Column.Actions"));
 
             var removeIndex = -1;
             var drawnRules = new HashSet<int>();
-            var rules = config.Rules!;
             foreach (var category in rules
-                         .Where(rule => rule.Enabled && rule.Category is not null)
+                         .Where(rule => rule.Category is not null)
                          .Select(rule => rule.Category!)
-                         .Distinct(StringComparer.Ordinal))
+                         .Distinct(StringComparer.Ordinal)
+                         .ToArray())
             {
-                DrawCategoryHeader(config, category, ref changed);
+                DrawCategoryHeader(config, category, rowContentHeight, ref changed);
                 for (var index = 0; index < rules.Count; index++)
                 {
                     if (rules[index].Category == category)
                     {
-                        DrawRule(config, index, ref removeIndex, ref changed);
+                        DrawRule(config, index, rowContentHeight, deleteSize, ref removeIndex, ref changed);
                         drawnRules.Add(index);
                     }
                 }
@@ -653,7 +858,7 @@ internal static class AutoSortItemsPanel
             {
                 if (!drawnRules.Contains(index))
                 {
-                    DrawRule(config, index, ref removeIndex, ref changed);
+                    DrawRule(config, index, rowContentHeight, deleteSize, ref removeIndex, ref changed);
                 }
             }
 
@@ -664,7 +869,7 @@ internal static class AutoSortItemsPanel
             }
         }
 
-        if (ImGui.Button(OmniLoc.Get("Feature.AutoSortItems.AddRule")))
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.AutoSortItems.AddRule"), false))
         {
             config.Rules!.Add(new());
             changed = true;
@@ -673,40 +878,90 @@ internal static class AutoSortItemsPanel
         return changed;
     }
 
-    private static void DrawCategoryHeader(AutoSortItemsConfig config, string category, ref bool changed)
+    private static void DrawCategoryHeader(
+        AutoSortItemsConfig config,
+        string category,
+        float rowContentHeight,
+        ref bool changed)
     {
-        ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
+        ImGui.PushID(category);
+        ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
         ImGui.TableSetColumnIndex(0);
-        ImGui.TextUnformatted(GetRuleOptionLabel(category, AutoSortItems.Categories));
-        ImGui.TableSetColumnIndex(3);
-        var tab = GetCategoryHeader(config, category).Tab;
-        if (ImGui.Checkbox(OmniLoc.Get("Feature.AutoSortItems.Tab"), ref tab))
+        ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
+        var categoryLabel = GetRuleOptionLabel(category, AutoSortItems.Categories);
+        var enabled = IsCategoryEnabled(config, category);
+        OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), rowContentHeight);
+        if (OmniControls.Checkbox($"##{category}Enabled", ref enabled))
         {
-            SetCategoryTab(config, category, tab);
+            SetCategoryEnabled(config, category, enabled);
             changed = true;
         }
+
+        ImGui.TableSetColumnIndex(1);
+        ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
+        OmniControls.CenterTableItem(
+            new Vector2(ImGui.CalcTextSize(categoryLabel).X, ImGui.GetFrameHeight()),
+            rowContentHeight);
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(categoryLabel);
+
+        ImGui.TableSetColumnIndex(2);
+        ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
+
+        ImGui.TableSetColumnIndex(3);
+        ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
+        if (AutoSortItems.SupportsTab(category))
+        {
+            var tabLabel = OmniLoc.Get("Feature.AutoSortItems.Tab");
+            var tab = GetCategoryHeader(config, category).Tab;
+            OmniControls.CenterTableItem(
+                new Vector2(
+                    OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + ImGui.CalcTextSize(tabLabel).X,
+                    OmniTheme.CheckboxSize()),
+                rowContentHeight);
+            if (OmniControls.Checkbox($"{tabLabel}##tab", ref tab))
+            {
+                SetCategoryTab(config, category, tab);
+                changed = true;
+            }
+        }
+
+        ImGui.PopID();
     }
 
-    private static void DrawRule(AutoSortItemsConfig config, int index, ref int removeIndex, ref bool changed)
+    private static void DrawRule(
+        AutoSortItemsConfig config,
+        int index,
+        float rowContentHeight,
+        Vector2 deleteSize,
+        ref int removeIndex,
+        ref bool changed)
     {
         var rule = config.Rules![index];
         ImGui.PushID(index);
-        ImGui.TableNextRow();
+        ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
         ImGui.TableNextColumn();
-        var enabled = rule.Enabled;
-        var rowChanged = ImGui.Checkbox("##showHeader", ref enabled);
+        ImGui.TableNextColumn();
+        var categoryWidth = ImGui.GetContentRegionAvail().X;
+        OmniControls.CenterTableItem(new Vector2(categoryWidth, ImGui.GetFrameHeight()), rowContentHeight);
+        var rowChanged = DrawRuleCombo("category", rule.Category, AutoSortItems.Categories, categoryWidth, out var category);
 
         ImGui.TableNextColumn();
-        rowChanged |= DrawRuleCombo("category", rule.Category, AutoSortItems.Categories, out var category);
-        ImGui.TableNextColumn();
-        rowChanged |= DrawRuleCombo("condition", rule.Condition, AutoSortItems.Conditions, out var condition);
-        ImGui.TableNextColumn();
-        rowChanged |= DrawRuleCombo("order", rule.Order, AutoSortItems.Orders, out var order);
+        var conditionSpacing = ImGui.GetStyle().ItemSpacing.X;
+        var conditionWidth = MathF.Max(1f, (ImGui.GetContentRegionAvail().X - conditionSpacing) * 0.5f);
+        OmniControls.CenterTableItem(
+            new Vector2(conditionWidth * 2f + conditionSpacing, ImGui.GetFrameHeight()),
+            rowContentHeight);
+        rowChanged |= DrawRuleCombo("condition", rule.Condition, AutoSortItems.Conditions, conditionWidth, out var condition);
+        ImGui.SameLine(0f, conditionSpacing);
+        rowChanged |= DrawRuleCombo("order", rule.Order, AutoSortItems.Orders, conditionWidth, out var order);
         if (rowChanged)
         {
             config.Rules[index] = rule with
             {
-                Enabled = enabled,
+                Enabled = string.Equals(category, rule.Category, StringComparison.Ordinal)
+                    ? rule.Enabled
+                    : IsCategoryEnabled(config, category),
                 Category = category,
                 Condition = condition,
                 Order = order
@@ -715,7 +970,11 @@ internal static class AutoSortItemsPanel
         }
 
         ImGui.TableNextColumn();
-        if (ImGui.SmallButton(OmniLoc.Get("Feature.AutoSortItems.DeleteRule")))
+        OmniControls.CenterTableItem(deleteSize, rowContentHeight);
+        if (OmniControls.SmallButton(
+                $"{OmniLoc.Get("Feature.AutoSortItems.DeleteRule")}##delete",
+                false,
+                deleteSize))
         {
             removeIndex = index;
         }
@@ -725,6 +984,34 @@ internal static class AutoSortItemsPanel
 
     private static AutoSortItemsCategoryHeader GetCategoryHeader(AutoSortItemsConfig config, string category) =>
         config.CategoryHeaders!.FirstOrDefault(header => header.Category == category) ?? new(category);
+
+    private static bool IsCategoryEnabled(AutoSortItemsConfig config, string? category) =>
+        category is null ||
+        !config.Rules!.Any(rule => string.Equals(rule.Category, category, StringComparison.Ordinal)) ||
+        config.Rules!.Any(rule =>
+            rule.Enabled && string.Equals(rule.Category, category, StringComparison.Ordinal));
+
+    private static void SetCategoryEnabled(AutoSortItemsConfig config, string category, bool enabled)
+    {
+        for (var index = 0; index < config.Rules!.Count; index++)
+        {
+            if (string.Equals(config.Rules[index].Category, category, StringComparison.Ordinal))
+            {
+                config.Rules[index] = config.Rules[index] with { Enabled = enabled };
+            }
+        }
+    }
+
+    private static void SetAllCategoriesEnabled(AutoSortItemsConfig config, bool enabled)
+    {
+        for (var index = 0; index < config.Rules!.Count; index++)
+        {
+            if (config.Rules[index].Category is not null)
+            {
+                config.Rules[index] = config.Rules[index] with { Enabled = enabled };
+            }
+        }
+    }
 
     private static void SetCategoryTab(AutoSortItemsConfig config, string category, bool tab)
     {
@@ -749,14 +1036,14 @@ internal static class AutoSortItemsPanel
         string id,
         string? current,
         IReadOnlyList<AutoSortItems.RuleOption> options,
+        float width,
         out string? selected)
     {
         selected = current;
         var preview = options.FirstOrDefault(option => option.Key == current) is { } selectedOption
             ? OmniLoc.Get(selectedOption.LocalizationKey)
             : OmniLoc.Get("Feature.AutoSortItems.Unset");
-        ImGui.SetNextItemWidth(-1f);
-        if (!ImGui.BeginCombo($"##{id}", preview))
+        if (!OmniControls.BeginCombo($"##{id}", preview, width))
         {
             return false;
         }

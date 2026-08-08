@@ -29,7 +29,9 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
     {
         Title = OmniLoc.Get("ReadyCheckTitle"),
         Description = OmniLoc.Get("ReadyCheckDescription"),
-        Category = ModuleCategory.General
+        Category = ModuleCategory.General,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/General/ReadyCheck-1.png"
     };
 
     private const uint InvalidEntityID = 0xE0000000;

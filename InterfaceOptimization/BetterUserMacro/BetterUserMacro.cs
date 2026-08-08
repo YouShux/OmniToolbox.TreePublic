@@ -1322,6 +1322,9 @@ public sealed class BetterUserMacroConfig
 
 internal static class BetterUserMacroPanel
 {
+    private const string PreviewImageBaseURL =
+        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/BetterUserMacro-";
+
     public static bool Draw(BetterUserMacroConfig config)
     {
         var changed = false;
@@ -1349,7 +1352,11 @@ internal static class BetterUserMacroPanel
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var tooltips = config.Tooltips;
-        if (DrawCheckbox("Feature.BetterUserMacro.Tooltips", "tooltips", ref tooltips))
+        if (DrawCheckbox(
+                "Feature.BetterUserMacro.Tooltips",
+                "tooltips",
+                ref tooltips,
+                $"{PreviewImageBaseURL}1.png"))
         {
             config.Tooltips = tooltips;
             changed = true;
@@ -1357,7 +1364,11 @@ internal static class BetterUserMacroPanel
 
         ImGui.TableNextColumn();
         var lineNumbers = config.LineNumbers;
-        if (DrawCheckbox("Feature.BetterUserMacro.LineNumbers", "lineNumbers", ref lineNumbers))
+        if (DrawCheckbox(
+                "Feature.BetterUserMacro.LineNumbers",
+                "lineNumbers",
+                ref lineNumbers,
+                $"{PreviewImageBaseURL}2.png"))
         {
             config.LineNumbers = lineNumbers;
             changed = true;
@@ -1373,7 +1384,11 @@ internal static class BetterUserMacroPanel
 
         ImGui.TableNextColumn();
         var customIcons = config.CustomIcons;
-        if (DrawCheckbox("Feature.BetterUserMacro.CustomIcons", "customIcons", ref customIcons))
+        if (DrawCheckbox(
+                "Feature.BetterUserMacro.CustomIcons",
+                "customIcons",
+                ref customIcons,
+                $"{PreviewImageBaseURL}3.png"))
         {
             config.CustomIcons = customIcons;
             changed = true;
@@ -1382,10 +1397,22 @@ internal static class BetterUserMacroPanel
         return changed;
     }
 
-    private static bool DrawCheckbox(string labelKey, string id, ref bool value)
+    private static bool DrawCheckbox(
+        string labelKey,
+        string id,
+        ref bool value,
+        string? previewImageURL = null)
     {
         var changed = OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##betterUserMacro{id}", ref value);
-        ImGuiOm.HelpMarker(OmniLoc.Get($"{labelKey}.Help"));
+        if (previewImageURL is not null)
+        {
+            OmniControls.PreviewImageIcon(previewImageURL);
+        }
+        else
+        {
+            ImGuiOm.HelpMarker(OmniLoc.Get($"{labelKey}.Help"));
+        }
+
         return changed;
     }
 }

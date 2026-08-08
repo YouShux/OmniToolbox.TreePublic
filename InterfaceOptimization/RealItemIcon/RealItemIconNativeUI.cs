@@ -515,9 +515,18 @@ internal sealed unsafe class RealItemIconNativeUI : IDisposable
                 _ => null,
             },
             _ when IsRetainerGridAddon(addon->NameString) || IsRetainerInventoryParent(addon->NameString) =>
-                itemOrderModule->GetActiveRetainerSorter(),
+                GetActiveRetainerSorter(itemOrderModule),
             _ => null,
         };
+
+    private static ItemOrderModuleSorter* GetActiveRetainerSorter(ItemOrderModule* itemOrderModule)
+    {
+        var retainerID = itemOrderModule->ActiveRetainerId;
+        return retainerID != 0 &&
+               itemOrderModule->RetainerSorter.TryGetValue(retainerID, out var sorter, false)
+            ? sorter.Value
+            : null;
+    }
 
     private static int GetInventoryTab(AtkUnitBase* addon) =>
         addon->NameString switch

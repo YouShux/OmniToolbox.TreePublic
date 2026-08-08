@@ -21,7 +21,9 @@ public sealed class DesynthesisEnhancement(
     {
         Title = OmniLoc.Get("DesynthesisEnhancementTitle"),
         Description = OmniLoc.Get("DesynthesisEnhancementDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.InterfaceOptimization,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/DesynthesisEnhancement-1.png"
     };
 
     private DesynthesisEnhancementNativeUI? nativeUI;

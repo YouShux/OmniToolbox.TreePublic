@@ -35,6 +35,8 @@ public sealed unsafe class ArmoireRecord : ModuleBase
         Title = OmniLoc.Get("ArmoireRecordTitle"),
         Description = OmniLoc.Get("ArmoireRecordDescription"),
         Category = ModuleCategory.InterfaceOperation,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOperation/ArmoireRecord-1.png",
         RequiresPrivateProvider = true,
         Commands =
         [

@@ -13,6 +13,9 @@ namespace OmniToolbox.TreePublic;
 
 public sealed class ItemPreview : ModuleBase
 {
+    private const string SupplementPreviewImageBaseURL =
+        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/ItemPreview-";
+
     public override ModuleInfo Info { get; } = new()
     {
         Title = OmniLoc.Get("ItemPreviewTitle"),
@@ -52,6 +55,8 @@ public sealed class ItemPreview : ModuleBase
 
     public bool TryOn(uint itemID) => IsEnabled && itemPreviewService.TryOn(itemID);
 
+    public uint ResolveCollectionIcon(CollectionEntry item) => itemPreviewService.ResolveCollectionIcon(item);
+
     public void ClearPreview() => itemPreviewService.ClearPreview();
 
     public void ClearPreviewResidue() => itemPreviewService.ClearPreviewResidue();
@@ -65,6 +70,8 @@ public sealed class ItemPreview : ModuleBase
         ImGui.Separator();
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
         OmniControls.SectionLabel(OmniLoc.Get("Settings.ImagePreview.Title"));
+        OmniControls.PreviewImageIcon(
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/ItemPreview-1.png");
         ImGui.Spacing();
         if (!DrawImageSettings(out var imageContentChanged) && !tooltipChanged)
         {
@@ -146,7 +153,8 @@ public sealed class ItemPreview : ModuleBase
                 "Settings.Tooltip.ShowConsumableEffects",
                 "##showConsumableEffectsInTooltip",
                 null,
-                ref showConsumableEffects))
+                ref showConsumableEffects,
+                $"{SupplementPreviewImageBaseURL}2.png"))
         {
             config.ShowConsumableEffectsInTooltip = showConsumableEffects;
             changed = true;
@@ -157,8 +165,9 @@ public sealed class ItemPreview : ModuleBase
         if (DrawToggle(
                 "Settings.Tooltip.ShowBlindBoxProgress",
                 "##showBlindBoxProgressInTooltip",
-                "Settings.Tooltip.ShowBlindBoxProgress.Help",
-                ref showBlindBoxProgress))
+                null,
+                ref showBlindBoxProgress,
+                $"{SupplementPreviewImageBaseURL}3.png"))
         {
             config.ShowBlindBoxProgressInTooltip = showBlindBoxProgress;
             changed = true;
@@ -170,7 +179,8 @@ public sealed class ItemPreview : ModuleBase
                 "Settings.Tooltip.ShowFadedOrchestrionProgress",
                 "##showFadedOrchestrionProgressInTooltip",
                 null,
-                ref showFadedOrchestrionProgress))
+                ref showFadedOrchestrionProgress,
+                $"{SupplementPreviewImageBaseURL}4.png"))
         {
             config.ShowFadedOrchestrionProgressInTooltip = showFadedOrchestrionProgress;
             changed = true;
@@ -181,8 +191,9 @@ public sealed class ItemPreview : ModuleBase
         if (DrawToggle(
                 "Settings.Tooltip.ShowCollectableValue",
                 "##showCollectableValueInTooltip",
-                "Settings.Tooltip.ShowCollectableValue.Help",
-                ref showCollectableValue))
+                null,
+                ref showCollectableValue,
+                $"{SupplementPreviewImageBaseURL}5.png"))
         {
             config.ShowCollectableValueInTooltip = showCollectableValue;
             changed = true;
@@ -195,7 +206,8 @@ public sealed class ItemPreview : ModuleBase
                 "Settings.Tooltip.ShowMateriaTotal",
                 "##showMateriaTotalInTooltip",
                 null,
-                ref showMateriaTotal))
+                ref showMateriaTotal,
+                $"{SupplementPreviewImageBaseURL}6.png"))
         {
             config.ShowMateriaTotalInTooltip = showMateriaTotal;
             changed = true;
@@ -206,8 +218,9 @@ public sealed class ItemPreview : ModuleBase
         if (DrawToggle(
                 "Settings.Tooltip.ShowItemSets",
                 "##showItemSetContentsInTooltip",
-                "Settings.Tooltip.ShowItemSets.Help",
-                ref showItemSetContents))
+                null,
+                ref showItemSetContents,
+                $"{SupplementPreviewImageBaseURL}7.png"))
         {
             config.ShowItemSetContentsInTooltip = showItemSetContents;
             changed = true;
@@ -373,9 +386,19 @@ public sealed class ItemPreview : ModuleBase
         return true;
     }
 
-    private static bool DrawToggle(string labelKey, string id, string? helpKey, ref bool value)
+    private static bool DrawToggle(
+        string labelKey,
+        string id,
+        string? helpKey,
+        ref bool value,
+        string? previewImageURL = null)
     {
         var changed = OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}{id}", ref value);
+        if (previewImageURL is not null)
+        {
+            OmniControls.PreviewImageIcon(previewImageURL);
+        }
+
         if (helpKey is not null)
         {
             ImGui.SameLine(0f, OmniTheme.Scale(6f));

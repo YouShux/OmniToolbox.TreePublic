@@ -25,7 +25,9 @@ public sealed class CoordinateNearestAetheryte(
     {
         Title = OmniLoc.Get("CoordinateNearestAetheryteTitle"),
         Description = OmniLoc.Get("CoordinateNearestAetheryteDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.InterfaceOptimization,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/CoordinateNearestAetheryte-1.png"
     };
 
     private FeatureLifetime? runtimeLifetime;

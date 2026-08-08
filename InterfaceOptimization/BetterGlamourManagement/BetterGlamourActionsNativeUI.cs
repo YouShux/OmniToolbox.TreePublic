@@ -11,10 +11,12 @@ internal sealed class BetterGlamourActionsNativeUI : NativeAddon
     private readonly Action onTryOnAll;
     private readonly Action onSave;
     private readonly Action onExport;
+    private readonly Action onManager;
     private readonly Action onClear;
     private TextButtonNode? tryOnAllButton;
     private TextButtonNode? saveButton;
     private TextButtonNode? exportButton;
+    private TextButtonNode? managerButton;
     private TextButtonNode? clearButton;
 
     [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
@@ -22,13 +24,14 @@ internal sealed class BetterGlamourActionsNativeUI : NativeAddon
         Action onTryOnAll,
         Action onSave,
         Action onExport,
+        Action onManager,
         Action onClear)
     {
         InternalName = "OmniBetterGlamourActions";
         Title = OmniLoc.Get("BetterGlamourManagementTitle");
         Subtitle = string.Empty;
-        Size = new(300f, 116f);
-        ContentPadding = new(8f, 0f);
+        Size = new(300f, 168f);
+        ContentPadding = new(8f, 8f);
         RememberClosePosition = false;
         CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
         RespectCloseAll = false;
@@ -36,6 +39,7 @@ internal sealed class BetterGlamourActionsNativeUI : NativeAddon
         this.onTryOnAll = onTryOnAll;
         this.onSave = onSave;
         this.onExport = onExport;
+        this.onManager = onManager;
         this.onClear = onClear;
     }
 
@@ -44,6 +48,7 @@ internal sealed class BetterGlamourActionsNativeUI : NativeAddon
         tryOnAllButton = CreateButton("Feature.BetterGlamourManagement.TryOnAll", onTryOnAll);
         saveButton = CreateButton("Feature.BetterGlamourManagement.Save", onSave);
         exportButton = CreateButton("Feature.BetterGlamourManagement.Export", onExport);
+        managerButton = CreateButton("Feature.BetterGlamourManagement.OpenSaved", onManager);
         clearButton = CreateButton("Feature.BetterGlamourManagement.Clear", onClear);
         ResizeContent();
     }
@@ -55,6 +60,7 @@ internal sealed class BetterGlamourActionsNativeUI : NativeAddon
         tryOnAllButton = null;
         saveButton = null;
         exportButton = null;
+        managerButton = null;
         clearButton = null;
     }
 
@@ -74,11 +80,12 @@ internal sealed class BetterGlamourActionsNativeUI : NativeAddon
         const float gap = 6f;
         var width = MathF.Max(80f, (ContentSize.X - gap) / 2f);
         var x = ContentStartPosition.X;
-        var y = ContentStartPosition.Y + 2f;
+        var y = ContentStartPosition.Y;
         PositionButton(tryOnAllButton, x, y, width);
         PositionButton(saveButton, x + width + gap, y, width);
         PositionButton(exportButton, x, y + 34f, width);
-        PositionButton(clearButton, x + width + gap, y + 34f, width);
+        PositionButton(managerButton, x + width + gap, y + 34f, width);
+        PositionButton(clearButton, x, y + 68f, ContentSize.X);
     }
 
     private static void PositionButton(TextButtonNode? button, float x, float y, float width)

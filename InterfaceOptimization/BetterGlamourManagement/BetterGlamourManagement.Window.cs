@@ -1,16 +1,19 @@
 using System.Text;
+using System.Numerics;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
+using OmniToolbox.Items;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
-using OmniToolbox.UI.Theme;
 using OmenTools.Interop.Game.Lumina;
+using OmenTools.Extensions;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class BetterGlamourManagement
 {
-    private static readonly GlamourPart[] Parts =
+    internal static readonly GlamourPart[] Parts =
     [
         new("Feature.BetterGlamourManagement.Part.Head", 2),
         new("Feature.BetterGlamourManagement.Part.Body", 3),
@@ -26,45 +29,6 @@ public sealed unsafe partial class BetterGlamourManagement
 
     private static List<GlamourDyeOption>? dyeOptions;
 
-    private void DrawManagerWindow()
-    {
-        if (!managerOpen)
-        {
-            return;
-        }
-
-        ImGui.SetNextWindowSize(OmniTheme.Scale(new Vector2(820f, 560f)), ImGuiCond.FirstUseEver);
-        if (!ImGui.Begin(
-                $"{OmniLoc.Get("Feature.BetterGlamourManagement.WindowTitle")}###betterGlamourManagement",
-                ref managerOpen))
-        {
-            ImGui.End();
-            return;
-        }
-
-        NormalizeSelection();
-        var available = ImGui.GetContentRegionAvail();
-        using (var layout = ImRaii.Table(
-                   "##betterGlamourLayout",
-                   2,
-                   ImGuiTableFlags.Resizable | ImGuiTableFlags.BordersInnerV,
-                   new Vector2(available.X, MathF.Max(200f, available.Y - OmniTheme.Scale(38f)))))
-        {
-            if (layout)
-            {
-                ImGui.TableSetupColumn("##presets", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(190f));
-                ImGui.TableSetupColumn("##details", ImGuiTableColumnFlags.WidthStretch);
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                DrawPresetList();
-                ImGui.TableNextColumn();
-                DrawSelectedPreset();
-            }
-        }
-
-        ImGui.End();
-    }
-
     private void NormalizeSelection()
     {
         if (config.Presets.Count == 0)
@@ -77,130 +41,7 @@ public sealed unsafe partial class BetterGlamourManagement
         }
     }
 
-    private void DrawPresetList()
-    {
-        if (config.Presets.Count == 0)
-        {
-            ImGui.TextWrapped(OmniLoc.Get("Feature.BetterGlamourManagement.Empty"));
-            return;
-        }
-
-        for (var index = 0; index < config.Presets.Count; index++)
-        {
-            var name = string.IsNullOrWhiteSpace(config.Presets[index].Name)
-                ? string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.DefaultName"), index + 1)
-                : config.Presets[index].Name;
-            if (ImGui.Selectable($"{name}##glamourPreset{index}", selectedPresetIndex == index))
-            {
-                selectedPresetIndex = index;
-            }
-        }
-    }
-
-    private void DrawSelectedPreset()
-    {
-        if (selectedPresetIndex < 0 || selectedPresetIndex >= config.Presets.Count)
-        {
-            ImGui.TextWrapped(OmniLoc.Get("Feature.BetterGlamourManagement.Empty"));
-            return;
-        }
-
-        var preset = config.Presets[selectedPresetIndex];
-        ImGui.SetNextItemWidth(MathF.Max(160f, ImGui.GetContentRegionAvail().X * 0.55f));
-        var presetName = preset.Name;
-        if (ImGui.InputText(
-            $"{OmniLoc.Get("Feature.BetterGlamourManagement.PresetName")}##presetName",
-            ref presetName,
-            80))
-        {
-            preset.Name = presetName;
-        }
-
-        if (ImGui.IsItemDeactivatedAfterEdit())
-        {
-            preset.Name = preset.Name.Trim();
-            saveConfig();
-        }
-
-        DrawGearsetBinding(preset);
-        ImGui.Spacing();
-        DrawPresetItems(preset);
-        ImGui.Spacing();
-        if (OmniControls.SmallButton(
-                $"{OmniLoc.Get("Feature.BetterGlamourManagement.Apply")}##applyGlamourPreset",
-                false))
-        {
-            StartTryOn(preset);
-        }
-
-        ImGui.SameLine();
-        if (OmniControls.SmallButton(
-                $"{OmniLoc.Get("Feature.BetterGlamourManagement.Export")}##exportGlamourPreset",
-                false))
-        {
-            CopyPreset(preset);
-        }
-
-        ImGui.SameLine();
-        if (OmniControls.SmallButton(
-                $"{OmniLoc.Get("Feature.BetterGlamourManagement.Delete")}##deleteGlamourPreset",
-                false))
-        {
-            config.Presets.RemoveAt(selectedPresetIndex);
-            selectedPresetIndex = Math.Min(selectedPresetIndex, config.Presets.Count - 1);
-            saveConfig();
-        }
-    }
-
-    private void DrawGearsetBinding(BetterGlamourPreset preset)
-    {
-        var preview = preset.GearsetIndex >= 0 && TryGetGearsetName(preset.GearsetIndex, out var gearsetName)
-            ? $"{preset.GearsetIndex + 1}. {gearsetName}"
-            : OmniLoc.Get("Feature.BetterGlamourManagement.Unbound");
-        ImGui.SetNextItemWidth(MathF.Max(160f, ImGui.GetContentRegionAvail().X * 0.55f));
-        if (!ImGui.BeginCombo(
-                $"{OmniLoc.Get("Feature.BetterGlamourManagement.BindGearset")}##presetGearset",
-                preview))
-        {
-            return;
-        }
-
-        if (ImGui.Selectable(
-                $"{OmniLoc.Get("Feature.BetterGlamourManagement.Unbound")}##gearsetNone",
-                preset.GearsetIndex < 0))
-        {
-            preset.GearsetIndex = -1;
-            saveConfig();
-        }
-
-        for (var index = 0; index < 100; index++)
-        {
-            if (!TryGetGearsetName(index, out gearsetName))
-            {
-                continue;
-            }
-
-            if (!ImGui.Selectable($"{index + 1}. {gearsetName}##gearset{index}", preset.GearsetIndex == index))
-            {
-                continue;
-            }
-
-            foreach (var other in config.Presets)
-            {
-                if (!ReferenceEquals(other, preset) && other.GearsetIndex == index)
-                {
-                    other.GearsetIndex = -1;
-                }
-            }
-
-            preset.GearsetIndex = index;
-            saveConfig();
-        }
-
-        ImGui.EndCombo();
-    }
-
-    private static bool TryGetGearsetName(int index, out string name)
+    internal static bool TryGetGearsetName(int index, out string name)
     {
         name = string.Empty;
         var module = RaptureGearsetModule.Instance();
@@ -216,147 +57,7 @@ public sealed unsafe partial class BetterGlamourManagement
         return !string.IsNullOrWhiteSpace(name);
     }
 
-    private void DrawPresetItems(BetterGlamourPreset preset)
-    {
-        using var table = ImRaii.Table(
-            "##betterGlamourItems",
-            4,
-            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
-        if (!table)
-        {
-            return;
-        }
-
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.BetterGlamourManagement.Column.Part"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(72f));
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.BetterGlamourManagement.Column.Item"), ImGuiTableColumnFlags.WidthStretch, 2.4f);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.BetterGlamourManagement.Column.Stain0"), ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.BetterGlamourManagement.Column.Stain1"), ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableHeadersRow();
-
-        DrawWeaponRow(preset);
-        foreach (var part in Parts)
-        {
-            DrawItemRow(preset, part);
-        }
-
-        DrawGlassesRow(preset);
-    }
-
-    private void DrawWeaponRow(BetterGlamourPreset preset)
-    {
-        var mainHand = GetOrCreateItem(preset, 0);
-        var offHand = GetOrCreateItem(preset, 1);
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.BetterGlamourManagement.Part.Weapon"));
-        ImGui.TableNextColumn();
-        DrawItemID(mainHand, OmniLoc.Get("Feature.BetterGlamourManagement.MainHand"), "mainHand");
-        DrawItemID(offHand, OmniLoc.Get("Feature.BetterGlamourManagement.OffHand"), "offHand");
-        ImGui.TableNextColumn();
-        DrawDye(mainHand, true, "mainHand0");
-        DrawDye(offHand, true, "offHand0");
-        ImGui.TableNextColumn();
-        DrawDye(mainHand, false, "mainHand1");
-        DrawDye(offHand, false, "offHand1");
-    }
-
-    private void DrawItemRow(BetterGlamourPreset preset, GlamourPart part)
-    {
-        var item = GetOrCreateItem(preset, part.Slot);
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        ImGui.TextUnformatted(OmniLoc.Get(part.TextKey));
-        ImGui.TableNextColumn();
-        DrawItemID(item, string.Empty, $"slot{part.Slot}");
-        ImGui.TableNextColumn();
-        DrawDye(item, true, $"slot{part.Slot}Stain0");
-        ImGui.TableNextColumn();
-        DrawDye(item, false, $"slot{part.Slot}Stain1");
-    }
-
-    private void DrawGlassesRow(BetterGlamourPreset preset)
-    {
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.BetterGlamourManagement.Part.Glasses"));
-        ImGui.TableNextColumn();
-        var glassesID = (int)preset.GlassesID;
-        ImGui.SetNextItemWidth(OmniTheme.Scale(92f));
-        if (ImGui.InputInt("##glassesID", ref glassesID))
-        {
-            preset.GlassesID = (ushort)Math.Clamp(glassesID, 0, ushort.MaxValue);
-        }
-
-        if (ImGui.IsItemDeactivatedAfterEdit())
-        {
-            saveConfig();
-        }
-
-        ImGui.SameLine();
-        ImGui.TextUnformatted(GetGlassesName(preset.GlassesID));
-        ImGui.TableNextColumn();
-        ImGui.TextDisabled(OmniLoc.Get("Feature.BetterGlamourManagement.None"));
-        ImGui.TableNextColumn();
-        ImGui.TextDisabled(OmniLoc.Get("Feature.BetterGlamourManagement.None"));
-    }
-
-    private void DrawItemID(BetterGlamourItem item, string prefix, string id)
-    {
-        if (!string.IsNullOrEmpty(prefix))
-        {
-            ImGui.TextDisabled(prefix);
-            ImGui.SameLine();
-        }
-
-        var itemID = (int)item.ItemID;
-        ImGui.SetNextItemWidth(OmniTheme.Scale(92f));
-        if (ImGui.InputInt($"##item{id}", ref itemID))
-        {
-            item.ItemID = (uint)Math.Max(0, itemID);
-        }
-
-        if (ImGui.IsItemDeactivatedAfterEdit())
-        {
-            saveConfig();
-        }
-
-        ImGui.SameLine();
-        ImGui.TextUnformatted(GetItemName(item.ItemID));
-    }
-
-    private void DrawDye(BetterGlamourItem item, bool first, string id)
-    {
-        var stainID = first ? item.Stain0 : item.Stain1;
-        ImGui.SetNextItemWidth(-1f);
-        if (!ImGui.BeginCombo($"##dye{id}", GetDyeName(stainID)))
-        {
-            return;
-        }
-
-        foreach (var dye in DyeOptions)
-        {
-            if (!ImGui.Selectable($"{dye.Name}##dye{id}-{dye.ID}", stainID == dye.ID))
-            {
-                continue;
-            }
-
-            if (first)
-            {
-                item.Stain0 = dye.ID;
-            }
-            else
-            {
-                item.Stain1 = dye.ID;
-            }
-
-            saveConfig();
-        }
-
-        ImGui.EndCombo();
-    }
-
-    private static BetterGlamourItem GetOrCreateItem(BetterGlamourPreset preset, int slot)
+    internal static BetterGlamourItem GetOrCreateItem(BetterGlamourPreset preset, int slot)
     {
         var item = preset.Items.Find(entry => entry.Slot == slot);
         if (item is not null)
@@ -372,6 +73,10 @@ public sealed unsafe partial class BetterGlamourManagement
     private void CopyPreset(BetterGlamourPreset preset)
     {
         var builder = new StringBuilder();
+        builder.AppendLine(string.Format(
+            OmniLoc.Get("Feature.BetterGlamourManagement.Export.Single"),
+            OmniLoc.Get("Feature.BetterGlamourManagement.Hairstyle"),
+            GetHairstyleName(preset.HairstyleID)));
         builder.AppendLine(string.Format(
             OmniLoc.Get("Feature.BetterGlamourManagement.Export.Weapon"),
             FormatWeapon(preset)));
@@ -432,7 +137,7 @@ public sealed unsafe partial class BetterGlamourManagement
         };
     }
 
-    private static string GetItemName(uint itemID)
+    internal static string GetItemName(uint itemID)
     {
         if (itemID == 0)
         {
@@ -445,7 +150,7 @@ public sealed unsafe partial class BetterGlamourManagement
             : name;
     }
 
-    private static string GetGlassesName(ushort glassesID)
+    internal static string GetGlassesName(ushort glassesID)
     {
         if (glassesID == 0)
         {
@@ -464,13 +169,67 @@ public sealed unsafe partial class BetterGlamourManagement
         return string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.UnknownGlasses"), glassesID);
     }
 
-    private static string GetDyeName(byte stainID) => stainID == 0
+    internal static string GetHairstyleName(uint hairstyleID)
+    {
+        if (hairstyleID == 0)
+        {
+            return OmniLoc.Get("Feature.BetterGlamourManagement.None");
+        }
+
+        if (LuminaGetter.TryGetRow<CharaMakeCustomize>(hairstyleID, out var hairstyle))
+        {
+            var name = HairstyleData.GetUnlockItem(hairstyle)?.Name.ExtractText();
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                return name;
+            }
+
+            return $"{OmniLoc.Get("Feature.BetterGlamourManagement.Hairstyle")} {hairstyle.FeatureID}";
+        }
+
+        return string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.UnknownHairstyle"), hairstyleID);
+    }
+
+    internal static uint GetItemIcon(uint itemID) =>
+        LuminaGetter.TryGetRow<Item>(itemID, out var item) ? (uint)item.Icon : 0;
+
+    internal static uint GetGlassesIcon(ushort glassesID) =>
+        LuminaGetter.TryGetRow<Glasses>(glassesID, out var glasses) ? (uint)glasses.Icon : 0;
+
+    internal static uint GetHairstyleIcon(uint hairstyleID) =>
+        LuminaGetter.TryGetRow<CharaMakeCustomize>(hairstyleID, out var hairstyle) ? (uint)hairstyle.Icon : 0;
+
+    internal static uint ResolveInspectHairstyleID(CustomizeData customizeData)
+    {
+        foreach (var hairMakeType in LuminaGetter.Get<HairMakeType>())
+        {
+            if (hairMakeType.Tribe.RowId != customizeData.Tribe || hairMakeType.Gender != customizeData.Sex)
+            {
+                continue;
+            }
+
+            foreach (var rowID in hairMakeType.CharaMakeStruct[0].SubMenuParam)
+            {
+                if (LuminaGetter.TryGetRow<CharaMakeCustomize>(rowID, out var hairstyle) &&
+                    hairstyle.FeatureID == customizeData.Hairstyle)
+                {
+                    return hairstyle.RowId;
+                }
+            }
+
+            break;
+        }
+
+        return 0;
+    }
+
+    internal static string GetDyeName(byte stainID) => stainID == 0
         ? OmniLoc.Get("Feature.BetterGlamourManagement.NoDye")
         : DyeOptions.Find(option => option.ID == stainID) is { } dye
             ? dye.Name
             : stainID.ToString();
 
-    private static List<GlamourDyeOption> DyeOptions
+    internal static List<GlamourDyeOption> DyeOptions
     {
         get
         {
@@ -479,7 +238,7 @@ public sealed unsafe partial class BetterGlamourManagement
                 return dyeOptions;
             }
 
-            dyeOptions = [new(0, OmniLoc.Get("Feature.BetterGlamourManagement.NoDye"))];
+            dyeOptions = [new(0, OmniLoc.Get("Feature.BetterGlamourManagement.NoDye"), Vector4.Zero)];
             foreach (var stain in LuminaGetter.Get<Stain>())
             {
                 if (stain.RowId is 0 or > byte.MaxValue)
@@ -490,7 +249,7 @@ public sealed unsafe partial class BetterGlamourManagement
                 var name = stain.Name.ExtractText();
                 if (!string.IsNullOrWhiteSpace(name))
                 {
-                    dyeOptions.Add(new((byte)stain.RowId, name));
+                    dyeOptions.Add(new((byte)stain.RowId, name, stain.Color.ReverseToVector4()));
                 }
             }
 
@@ -498,7 +257,7 @@ public sealed unsafe partial class BetterGlamourManagement
         }
     }
 
-    private readonly record struct GlamourPart(string TextKey, int Slot);
+    internal readonly record struct GlamourPart(string TextKey, int Slot);
 
-    private readonly record struct GlamourDyeOption(byte ID, string Name);
+    internal readonly record struct GlamourDyeOption(byte ID, string Name, Vector4 Color);
 }

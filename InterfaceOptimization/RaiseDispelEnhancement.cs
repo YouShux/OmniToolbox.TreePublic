@@ -30,7 +30,9 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     {
         Title = OmniLoc.Get("RaiseDispelEnhancementTitle"),
         Description = OmniLoc.Get("RaiseDispelEnhancementDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.InterfaceOptimization,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/RaiseDispelEnhancement-1.png"
     };
 
     private const uint RaiseStatusID = 148;

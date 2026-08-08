@@ -14,7 +14,9 @@ public sealed class BetterCharacterPanel(BetterCharacterPanelConfig config) : Mo
     {
         Title = OmniLoc.Get("BetterCharacterPanelTitle"),
         Description = OmniLoc.Get("BetterCharacterPanelDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.InterfaceOptimization,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/BetterCharacterPanel-1.png"
     };
 
     private BetterCharacterPanelNativeUI? nativeUI;

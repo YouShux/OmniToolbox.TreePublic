@@ -16,7 +16,9 @@ public sealed class ItemPriceQuery : ModuleBase
     {
         Title = OmniLoc.Get("ItemPriceQueryTitle"),
         Description = OmniLoc.Get("ItemPriceQueryDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.InterfaceOptimization,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/ItemPriceQuery-1.png"
     };
 
     private readonly MarketConfig config;
@@ -98,6 +100,10 @@ public sealed class ItemPriceQuery : ModuleBase
             config.ShowWorldAverageSalePriceInTooltip = showWorldAverage;
             changed = true;
         }
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        ImGui.Spacing();
 
         var showRegionVelocity = config.IsDailySaleVelocityVisible(MarketMetricScope.Region);
         var showDataCenterVelocity = config.IsDailySaleVelocityVisible(MarketMetricScope.DataCenter);

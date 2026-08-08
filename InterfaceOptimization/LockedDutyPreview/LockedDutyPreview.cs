@@ -26,6 +26,8 @@ public sealed unsafe class LockedDutyPreview(
         Title = OmniLoc.Get("LockedDutyPreviewTitle"),
         Description = OmniLoc.Get("LockedDutyPreviewDescription"),
         Category = ModuleCategory.InterfaceOptimization,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/LockedDutyPreview-1.png",
         RequiresPrivateProvider = true
     };
 
