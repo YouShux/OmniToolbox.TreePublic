@@ -148,6 +148,32 @@ public sealed class ItemPreview : ModuleBase
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var changed = false;
+        var showShopSource = config.ShowShopSourceInTooltip;
+        if (DrawToggle(
+                "Settings.Tooltip.ShowShopSource",
+                "##showShopSourceInTooltip",
+                null,
+                ref showShopSource,
+                $"{SupplementPreviewImageBaseURL}8.png"))
+        {
+            config.ShowShopSourceInTooltip = showShopSource;
+            changed = true;
+        }
+
+        ImGui.TableNextColumn();
+        var showDutySource = config.ShowDutySourceInTooltip;
+        if (DrawToggle(
+                "Settings.Tooltip.ShowDutySource",
+                "##showDutySourceInTooltip",
+                null,
+                ref showDutySource,
+                $"{SupplementPreviewImageBaseURL}9.png"))
+        {
+            config.ShowDutySourceInTooltip = showDutySource;
+            changed = true;
+        }
+
+        ImGui.TableNextColumn();
         var showConsumableEffects = config.ShowConsumableEffectsInTooltip;
         if (DrawToggle(
                 "Settings.Tooltip.ShowConsumableEffects",
@@ -173,6 +199,7 @@ public sealed class ItemPreview : ModuleBase
             changed = true;
         }
 
+        ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var showFadedOrchestrionProgress = config.ShowFadedOrchestrionProgressInTooltip;
         if (DrawToggle(
@@ -199,7 +226,6 @@ public sealed class ItemPreview : ModuleBase
             changed = true;
         }
 
-        ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var showMateriaTotal = config.ShowMateriaTotalInTooltip;
         if (DrawToggle(

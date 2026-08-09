@@ -51,7 +51,7 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
     private readonly HideMinimapIconsConfig config;
     private readonly List<uint> displayIconIDs = [];
     private readonly HashSet<nint> hiddenNodes = [];
-    private readonly Dictionary<nint, (uint IconID, Vector2 Scale)> originalMarkerScales = [];
+    private readonly Dictionary<nint, (uint IconID, Vector2 Scale)> originalIconScales = [];
     private FeatureLifetime? runtimeLifetime;
 
     public HideMinimapIcons(HideMinimapIconsConfig config)
@@ -86,7 +86,7 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
 
             ImGui.TableSetupColumn("##hideMinimapIconsMinimap", ImGuiTableColumnFlags.WidthStretch, 1f);
             ImGui.TableSetupColumn("##hideMinimapIconsAreaMap", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##hideMinimapIconsUnused1", ImGuiTableColumnFlags.WidthStretch, 1f);
+            ImGui.TableSetupColumn("##hideMinimapIconsIconScale", ImGuiTableColumnFlags.WidthStretch, 1f);
             ImGui.TableSetupColumn("##hideMinimapIconsUnused2", ImGuiTableColumnFlags.WidthStretch, 1f);
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
@@ -111,24 +111,30 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
                 mapSettingsChanged = true;
             }
 
-            ImGui.TableNextRow();
             ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted(OmniLoc.Get("Feature.HideMinimapIcons.IconScale"));
-            ImGui.TableNextColumn();
+            var iconScaleLabel = OmniLoc.Get("Feature.HideMinimapIcons.IconScale");
             var iconScale = Math.Clamp(config.IconScale, 0f, 3f);
+            var iconScaleWidth = MathF.Max(
+                1f,
+                ImGui.GetContentRegionAvail().X -
+                ImGui.GetStyle().ItemSpacing.X -
+                ImGui.CalcTextSize(iconScaleLabel).X);
             if (OmniControls.SliderFloat(
                     "##hideMinimapIconsIconScale",
                     ref iconScale,
                     0f,
                     3f,
                     "%.1f",
-                    ImGui.GetContentRegionAvail().X))
+                    iconScaleWidth))
             {
                 config.IconScale = iconScale;
                 changed = true;
                 mapSettingsChanged = true;
             }
+
+            ImGui.SameLine();
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(iconScaleLabel);
         }
 
         if (mapSettingsChanged)
@@ -232,7 +238,7 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
         runtimeLifetime = null;
         ApplyCurrentMaps(true);
         hiddenNodes.Clear();
-        originalMarkerScales.Clear();
+        originalIconScales.Clear();
     }
 
     private bool DrawIconOption(
@@ -310,6 +316,7 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
 
             ApplyMarkerNode(
                 marker.ComponentNode,
+                GetMarkerImageNode(marker.ComponentNode),
                 config.HiddenIconIDs.Contains(marker.IconId) ? marker.IconId : marker.SecondaryIconId,
                 restore,
                 config.HideOnMinimap);
@@ -345,12 +352,17 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
             var imageNode = GetMarkerImageNode(markerNode);
             if (imageNode != null)
             {
-                ApplyMarkerNode(markerNode, imageNode->IconId, restore, config.HideOnAreaMap);
+                ApplyMarkerNode(markerNode, imageNode, imageNode->IconId, restore, config.HideOnAreaMap);
             }
         }
     }
 
-    private void ApplyMarkerNode(AtkComponentNode* node, uint iconID, bool restore, bool hideEnabled)
+    private void ApplyMarkerNode(
+        AtkComponentNode* node,
+        AtkImageNode* imageNode,
+        uint iconID,
+        bool restore,
+        bool hideEnabled)
     {
         var address = (nint)node;
         var hidden = !restore && hideEnabled && config.HiddenIconIDs.Contains(iconID);
@@ -367,34 +379,40 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
             node->AtkResNode.Color.A = byte.MaxValue;
         }
 
+        if (imageNode == null)
+        {
+            return;
+        }
+
+        var imageAddress = (nint)imageNode;
         var iconScale = Math.Clamp(config.IconScale, 0f, 3f);
         if (restore || hidden || Math.Abs(iconScale - 1f) < 0.001f)
         {
-            if (originalMarkerScales.Remove(address, out var originalScale))
+            if (originalIconScales.Remove(imageAddress, out var originalScale))
             {
-                node->AtkResNode.SetScale(originalScale.Scale.X, originalScale.Scale.Y);
+                imageNode->AtkResNode.SetScale(originalScale.Scale.X, originalScale.Scale.Y);
             }
 
             return;
         }
 
-        var hasOriginalScale = originalMarkerScales.TryGetValue(address, out var markerScale);
-        if (!hasOriginalScale || markerScale.IconID != iconID)
+        var hasOriginalScale = originalIconScales.TryGetValue(imageAddress, out var iconNodeScale);
+        if (!hasOriginalScale || iconNodeScale.IconID != iconID)
         {
             if (hasOriginalScale)
             {
-                node->AtkResNode.SetScale(markerScale.Scale.X, markerScale.Scale.Y);
+                imageNode->AtkResNode.SetScale(iconNodeScale.Scale.X, iconNodeScale.Scale.Y);
             }
 
-            markerScale = (iconID, new Vector2(
-                node->AtkResNode.GetScaleX(),
-                node->AtkResNode.GetScaleY()));
-            originalMarkerScales[address] = markerScale;
+            iconNodeScale = (iconID, new Vector2(
+                imageNode->AtkResNode.GetScaleX(),
+                imageNode->AtkResNode.GetScaleY()));
+            originalIconScales[imageAddress] = iconNodeScale;
         }
 
-        node->AtkResNode.SetScale(
-            markerScale.Scale.X * iconScale,
-            markerScale.Scale.Y * iconScale);
+        imageNode->AtkResNode.SetScale(
+            iconNodeScale.Scale.X * iconScale,
+            iconNodeScale.Scale.Y * iconScale);
     }
 
     private static AtkImageNode* GetMarkerImageNode(AtkComponentNode* markerNode)
