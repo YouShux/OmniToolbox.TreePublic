@@ -134,7 +134,16 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
         }
     }
 
-    protected override void OnInterruptAutomation() => pendingInvites.Clear();
+    protected override bool OnInterruptAutomation()
+    {
+        if (pendingInvites.Count == 0)
+        {
+            return false;
+        }
+
+        pendingInvites.Clear();
+        return true;
+    }
 
     private void OnAddMsgSourceEntry(
         RaptureLogModule* logModule,

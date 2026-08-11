@@ -157,14 +157,20 @@ public sealed unsafe class ArmoireRecord : ModuleBase
         }
     }
 
-    protected override void OnInterruptAutomation()
+    protected override bool OnInterruptAutomation()
     {
+        if (!isStoring && !retrieveRequested)
+        {
+            return false;
+        }
+
         isStoring = false;
         retrieveRequested = false;
         nextStoreTick = 0;
         storeQueue.Clear();
         storeRows.Clear();
         RefreshWindow();
+        return true;
     }
 
     private void OnCabinetAddon(AddonEvent type, AddonArgs _)

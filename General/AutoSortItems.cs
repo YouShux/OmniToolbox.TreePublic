@@ -166,10 +166,16 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         queuedCategories.Clear();
     }
 
-    protected override void OnInterruptAutomation()
+    protected override bool OnInterruptAutomation()
     {
+        if (taskHelper?.IsBusy != true && queuedCategories.Count == 0)
+        {
+            return false;
+        }
+
         taskHelper?.Abort();
         ResetQueue();
+        return true;
     }
 
     private void OnClassJobChanged(uint _)

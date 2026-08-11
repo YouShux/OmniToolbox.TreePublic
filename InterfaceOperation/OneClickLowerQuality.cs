@@ -104,11 +104,17 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
         skipCurrent = false;
     }
 
-    protected override void OnInterruptAutomation()
+    protected override bool OnInterruptAutomation()
     {
+        if (taskHelper?.IsBusy != true && pendingSlots.Count == 0)
+        {
+            return false;
+        }
+
         pendingSlots.Clear();
         taskHelper?.Abort();
         skipCurrent = false;
+        return true;
     }
 
     private void OnMenuOpened(IMenuOpenedArgs args)
