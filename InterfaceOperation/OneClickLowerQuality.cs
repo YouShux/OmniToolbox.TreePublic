@@ -1,6 +1,5 @@
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
-using Dalamud.Game.ClientState.Keys;
 using Dalamud.Game.Gui.ContextMenu;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
@@ -105,6 +104,13 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
         skipCurrent = false;
     }
 
+    protected override void OnInterruptAutomation()
+    {
+        pendingSlots.Clear();
+        taskHelper?.Abort();
+        skipCurrent = false;
+    }
+
     private void OnMenuOpened(IMenuOpenedArgs args)
     {
         if (args.Target is not MenuTargetInventory targetInventory ||
@@ -141,7 +147,7 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
 
     private void Begin(uint itemID, InventoryType sourceContainer)
     {
-        if (taskHelper is null || taskHelper.IsBusy || IsAbortKeyDown())
+        if (taskHelper is null || taskHelper.IsBusy)
         {
             return;
         }
@@ -166,7 +172,7 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
 
     private void EnqueueNext()
     {
-        if (taskHelper is null || ShouldCancel())
+        if (taskHelper is null)
         {
             return;
         }
@@ -259,28 +265,7 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
     }
 
     private bool ShouldSkipCurrent()
-    {
-        if (skipCurrent)
-        {
-            return true;
-        }
-
-        return ShouldCancel();
-    }
-
-    private bool ShouldCancel()
-    {
-        if (!IsAbortKeyDown())
-        {
-            return false;
-        }
-
-        pendingSlots.Clear();
-        taskHelper?.Abort();
-        return true;
-    }
-
-    private static bool IsAbortKeyDown() => DService.Instance().KeyState[VirtualKey.SHIFT];
+        => skipCurrent;
 
     private void SkipCurrent() => skipCurrent = true;
 

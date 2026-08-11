@@ -36,11 +36,12 @@ public sealed unsafe class LockedDutyPreview(
 
     private readonly LockedDutyPreviewResolver resolver = new();
     private readonly List<LockedDutyPreviewRow> lockedRows = [];
+    private readonly List<LockedDutyPreviewRow> incompleteRows = [];
     private readonly List<LockedDutyPreviewRow> excludedRows = [];
     private FeatureLifetime? runtimeLifetime;
     private LockedDutyPreviewNativeUI? nativeUI;
     private bool contentsFinderWasVisible;
-    private bool showExcludedView;
+    private LockedDutyPreviewView currentView;
     private long nextRefreshTick;
 
     public override bool HasSettings => true;
@@ -95,8 +96,9 @@ public sealed unsafe class LockedDutyPreview(
         {
             contentsFinderWasVisible = false;
             nextRefreshTick = 0;
-            showExcludedView = false;
+            currentView = LockedDutyPreviewView.Locked;
             lockedRows.Clear();
+            incompleteRows.Clear();
             excludedRows.Clear();
         }
     }
@@ -198,6 +200,7 @@ public sealed unsafe class LockedDutyPreview(
     private void RebuildRows()
     {
         lockedRows.Clear();
+        incompleteRows.Clear();
         excludedRows.Clear();
         var duties = resolver.Duties;
         for (var index = 0; index < duties.Count; index++)
@@ -212,6 +215,11 @@ public sealed unsafe class LockedDutyPreview(
             if (!duty.IsUnlocked && !isExcluded)
             {
                 lockedRows.Add(new(duty.ContentFinderConditionID, duty.Name, false));
+            }
+
+            if (duty.IsUnlocked && !duty.IsCompleted && !isExcluded)
+            {
+                incompleteRows.Add(new(duty.ContentFinderConditionID, duty.Name, false));
             }
         }
     }
@@ -228,14 +236,20 @@ public sealed unsafe class LockedDutyPreview(
                 OmniLoc.Get("Feature.LockedDutyPreview.Summary"),
                 resolver.UnlockedCount,
                 lockedRows.Count,
+                incompleteRows.Count,
                 excludedRows.Count),
-            showExcludedView ? excludedRows : lockedRows,
-            showExcludedView);
+            currentView switch
+            {
+                LockedDutyPreviewView.Incomplete => incompleteRows,
+                LockedDutyPreviewView.Excluded => excludedRows,
+                _ => lockedRows
+            },
+            currentView);
     }
 
-    private void OnViewChanged(bool showExcluded)
+    private void OnViewChanged(LockedDutyPreviewView view)
     {
-        showExcludedView = showExcluded;
+        currentView = view;
         UpdateNativeUIData();
     }
 

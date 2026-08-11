@@ -9,7 +9,8 @@ namespace OmniToolbox.TreePublic;
 internal readonly record struct LockedDutyPreviewDuty(
     uint ContentFinderConditionID,
     string Name,
-    bool IsUnlocked);
+    bool IsUnlocked,
+    bool IsCompleted);
 
 internal readonly record struct LockedDutyPreviewDefinition(
     uint ContentFinderConditionID,
@@ -19,8 +20,9 @@ internal readonly record struct LockedDutyPreviewDefinition(
 internal sealed unsafe class LockedDutyPreviewResolver
 {
     private const uint BeginnerTrainingInstanceContentType = 8;
-    private const uint PvpContentType = 3;
-    private const uint GoldSaucerContentType = 4;
+    private const uint PvpContentType = 6;
+    private const uint GoldSaucerContentType = 19;
+    private const ushort InternalDutySortKey = 9997;
 
     private readonly List<LockedDutyPreviewDefinition> definitions = [];
     private readonly List<LockedDutyPreviewDuty> duties = [];
@@ -44,50 +46,59 @@ internal sealed unsafe class LockedDutyPreviewResolver
         {
             var definition = definitions[index];
             var isUnlocked = UIState.IsInstanceContentUnlocked(definition.InstanceContentID);
+            var isCompleted = isUnlocked &&
+                              UIState.IsInstanceContentCompleted(definition.InstanceContentID);
             if (isUnlocked)
             {
                 UnlockedCount++;
             }
 
-            duties.Add(new(definition.ContentFinderConditionID, definition.Name, isUnlocked));
+            duties.Add(new(
+                definition.ContentFinderConditionID,
+                definition.Name,
+                isUnlocked,
+                isCompleted));
         }
     }
 
     private void BuildDefinitions()
     {
-        var instanceContentIds = new Dictionary<uint, uint>();
+        var instanceContentIds = new HashSet<uint>();
 
         foreach (var instanceContent in LuminaGetter.Get<LuminaInstanceContent>())
         {
-        if (instanceContent.RowId == 0 ||
-            instanceContent.InstanceContentType.RowId == BeginnerTrainingInstanceContentType)
+            if (instanceContent.RowId == 0 ||
+                instanceContent.InstanceContentType.RowId == BeginnerTrainingInstanceContentType)
             {
                 continue;
             }
 
-        var contentFinderConditionID = instanceContent.ContentFinderCondition.RowId;
-            if (contentFinderConditionID == 0)
-            {
-                continue;
-            }
-
-        instanceContentIds.TryAdd(contentFinderConditionID, instanceContent.RowId);
+            instanceContentIds.Add(instanceContent.RowId);
         }
 
         foreach (var condition in LuminaGetter.Get<ContentFinderCondition>())
         {
-        if (condition.RowId == 0 ||
-            !instanceContentIds.TryGetValue(condition.RowId, out var instanceContentId))
+            var instanceContentID = condition.Content.RowId;
+            if (condition.RowId == 0 ||
+                !instanceContentIds.Contains(instanceContentID))
             {
                 continue;
             }
 
-            if ((condition.ContentType.ValueNullable?.RowId ?? 0) is PvpContentType or GoldSaucerContentType)
+            if (!condition.IsInDutyFinder ||
+                condition.SortKey >= InternalDutySortKey ||
+                condition.ContentType.RowId is PvpContentType or GoldSaucerContentType)
             {
                 continue;
             }
 
-        definitions.Add(new(condition.RowId, instanceContentId, condition.Name.ExtractText()));
+            var name = condition.Name.ExtractText();
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            definitions.Add(new(condition.RowId, instanceContentID, name));
         }
 
         definitions.Sort(static (left, right) =>

@@ -166,6 +166,12 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         queuedCategories.Clear();
     }
 
+    protected override void OnInterruptAutomation()
+    {
+        taskHelper?.Abort();
+        ResetQueue();
+    }
+
     private void OnClassJobChanged(uint _)
     {
         if (config.SortArmouryOnJobChange && IsAddonVisible("ArmouryBoard"))

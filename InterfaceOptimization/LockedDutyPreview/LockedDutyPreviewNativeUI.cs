@@ -11,6 +11,13 @@ internal readonly record struct LockedDutyPreviewRow(
     string Name,
     bool IsExcluded);
 
+internal enum LockedDutyPreviewView
+{
+    Locked,
+    Incomplete,
+    Excluded
+}
+
 internal sealed class LockedDutyPreviewNativeUI : NativeAddon
 {
     private const float ItemSpacing = 2f;
@@ -19,10 +26,11 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
     private TextNode? summaryNode;
     private ListNode<LockedDutyPreviewRow, LockedDutyPreviewListItemNode>? listNode;
     private TextButtonNode? lockedTabButton;
+    private TextButtonNode? incompleteTabButton;
     private TextButtonNode? excludedTabButton;
-    private bool showExcludedView;
+    private LockedDutyPreviewView currentView;
     private string summaryText = string.Empty;
-    private readonly Action<bool> onViewChanged;
+    private readonly Action<LockedDutyPreviewView> onViewChanged;
     private readonly Action<LockedDutyPreviewRow> onExclude;
     private readonly Action<LockedDutyPreviewRow> onRestore;
     private readonly Action<LockedDutyPreviewRow> onWiki;
@@ -30,7 +38,7 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
 
     [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
     public LockedDutyPreviewNativeUI(
-        Action<bool> onViewChanged,
+        Action<LockedDutyPreviewView> onViewChanged,
         Action<LockedDutyPreviewRow> onExclude,
         Action<LockedDutyPreviewRow> onRestore,
         Action<LockedDutyPreviewRow> onWiki,
@@ -67,7 +75,7 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
         {
             ItemSpacing = ItemSpacing,
             Position = new(ContentStartPosition.X + 2f, ContentStartPosition.Y + 30f),
-            Size = new(ContentSize.X - 4f, ContentSize.Y - 75f),
+            Size = new(ContentSize.X - 4f, ContentSize.Y - 72f),
             OptionsList = rows,
             OnItemSelected = item => onCopyName(item.Name)
         };
@@ -76,14 +84,21 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
         lockedTabButton = new()
         {
             String = OmniLoc.Get("Feature.LockedDutyPreview.Tab.Locked"),
-            OnClick = () => SetView(false)
+            OnClick = () => SetView(LockedDutyPreviewView.Locked)
         };
         lockedTabButton.AttachNode(this);
+
+        incompleteTabButton = new()
+        {
+            String = OmniLoc.Get("Feature.LockedDutyPreview.Tab.Incomplete"),
+            OnClick = () => SetView(LockedDutyPreviewView.Incomplete)
+        };
+        incompleteTabButton.AttachNode(this);
 
         excludedTabButton = new()
         {
             String = OmniLoc.Get("Feature.LockedDutyPreview.Tab.Excluded"),
-            OnClick = () => SetView(true)
+            OnClick = () => SetView(LockedDutyPreviewView.Excluded)
         };
         excludedTabButton.AttachNode(this);
 
@@ -103,13 +118,17 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
         summaryNode = null;
         listNode = null;
         lockedTabButton = null;
+        incompleteTabButton = null;
         excludedTabButton = null;
     }
 
-    public void UpdateData(string summary, List<LockedDutyPreviewRow> rows, bool showExcluded)
+    public void UpdateData(
+        string summary,
+        List<LockedDutyPreviewRow> rows,
+        LockedDutyPreviewView view)
     {
         summaryText = summary;
-        showExcludedView = showExcluded;
+        currentView = view;
         this.rows = rows;
         ApplyData();
     }
@@ -119,15 +138,15 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
         LockedDutyPreviewListItemNode.ClearCallbacks();
     }
 
-    private void SetView(bool showExcluded)
+    private void SetView(LockedDutyPreviewView view)
     {
-        if (showExcludedView == showExcluded)
+        if (currentView == view)
         {
             return;
         }
 
-        showExcludedView = showExcluded;
-        onViewChanged(showExcluded);
+        currentView = view;
+        onViewChanged(view);
         ApplyData();
     }
 
@@ -145,12 +164,17 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
 
         if (lockedTabButton is not null)
         {
-            lockedTabButton.IsChecked = !showExcludedView;
+            lockedTabButton.IsChecked = currentView == LockedDutyPreviewView.Locked;
+        }
+
+        if (incompleteTabButton is not null)
+        {
+            incompleteTabButton.IsChecked = currentView == LockedDutyPreviewView.Incomplete;
         }
 
         if (excludedTabButton is not null)
         {
-            excludedTabButton.IsChecked = showExcludedView;
+            excludedTabButton.IsChecked = currentView == LockedDutyPreviewView.Excluded;
         }
     }
 
@@ -164,21 +188,29 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
         if (listNode is not null)
         {
             listNode.Position = new(ContentStartPosition.X + 2f, ContentStartPosition.Y + 30f);
-            listNode.Size = new(ContentSize.X - 4f, MathF.Max(60f, ContentSize.Y - 75f));
+            listNode.Size = new(ContentSize.X - 4f, MathF.Max(60f, ContentSize.Y - 72f));
         }
 
         var bottomY = ContentStartPosition.Y + ContentSize.Y - 32f;
         var tabGap = 4f;
-        var tabWidth = MathF.Max(80f, (ContentSize.X - tabGap) * 0.5f);
+        var tabWidth = MathF.Max(80f, (ContentSize.X - (tabGap * 2f)) / 3f);
         if (lockedTabButton is not null)
         {
             lockedTabButton.Position = new(ContentStartPosition.X, bottomY);
             lockedTabButton.Size = new(tabWidth, 28f);
         }
 
+        if (incompleteTabButton is not null)
+        {
+            incompleteTabButton.Position = new(ContentStartPosition.X + tabWidth + tabGap, bottomY);
+            incompleteTabButton.Size = new(tabWidth, 28f);
+        }
+
         if (excludedTabButton is not null)
         {
-            excludedTabButton.Position = new(ContentStartPosition.X + tabWidth + tabGap, bottomY);
+            excludedTabButton.Position = new(
+                ContentStartPosition.X + ((tabWidth + tabGap) * 2f),
+                bottomY);
             excludedTabButton.Size = new(tabWidth, 28f);
         }
     }

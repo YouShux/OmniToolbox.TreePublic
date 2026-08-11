@@ -134,6 +134,8 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
         }
     }
 
+    protected override void OnInterruptAutomation() => pendingInvites.Clear();
+
     private void OnAddMsgSourceEntry(
         RaptureLogModule* logModule,
         ulong contentID,
