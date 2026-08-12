@@ -129,6 +129,14 @@ internal static unsafe class BetterCharacterPanelState
         new(420, 412, 2428), new(425, 414, 2516), new(430, 416, 2604), new(435, 418, 2692), new(440, 420, 2780)
     ];
 
+    internal static double CalculateGcd(int level, int speed, int speedModifier) =>
+        CalculateSpeed(
+                speed,
+                LevelTable[Math.Clamp(level, 1, 100)],
+                null,
+                speedModifier == 0 ? null : new(speedModifier, null))
+            .MainGcd.DisplayValue;
+
     public static BetterCharacterPanelStats Calculate(PlayerState* playerState)
     {
         var level = Math.Clamp((int)playerState->CurrentLevel, 1, 100);
