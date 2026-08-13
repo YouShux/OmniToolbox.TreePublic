@@ -34,6 +34,8 @@ public sealed unsafe partial class BestInSlotGear
         bool IsUnique,
         bool OccupiesOffHand,
         IReadOnlyList<MateriaDisplay> Materia,
+        IReadOnlyList<MateriaSelection?> Melds,
+        IReadOnlyList<CustomStatValue>? CustomStats,
         string StatText);
 
     private sealed record GearOption(
@@ -48,7 +50,13 @@ public sealed unsafe partial class BestInSlotGear
         uint ItemLevel,
         bool IsHighQuality,
         IReadOnlyList<ItemParameterBonus> Bonuses);
-    private sealed record FoodResult(string Name, uint IconID, uint ItemLevel, bool IsHighQuality, string EffectText);
+    private sealed record FoodResult(
+        uint ItemID,
+        string Name,
+        uint IconID,
+        uint ItemLevel,
+        bool IsHighQuality,
+        string EffectText);
     private readonly record struct ItemDisplay(string Name, uint IconID, uint ItemLevel, bool IsHighQuality);
     private sealed record SearchSolution(GearOption[] Options, StatBlock Stats, double Damage, FoodResult? Food);
     private sealed record SearchState(StatBlock Stats, DamageKey Key, SearchState? Previous, GearOption? Option);
@@ -195,6 +203,7 @@ public sealed unsafe partial class BestInSlotGear
     private readonly record struct WeaponSearchNode(
         int Start,
         int Count,
+        StatBlock LowerBound,
         StatBlock UpperBound,
         int LeftChild,
         int RightChild);
@@ -209,11 +218,15 @@ public sealed unsafe partial class BestInSlotGear
     }
     private readonly record struct MateriaDisplay(string Name, uint IconID, int Count);
     private readonly record struct MateriaGradeOption(
+        uint ParameterID,
+        byte Grade,
         int Value,
         uint RequiredItemLevel,
         string Name,
         uint IconID,
         byte AdvancedSlotMask);
+    private readonly record struct MateriaSelection(uint ParameterID, byte Grade);
+    private readonly record struct CustomStatValue(uint ParameterID, int Value);
     private readonly record struct CustomStatAllocation(uint ParameterID, int BigValue, int SmallValue);
     private readonly record struct CustomStatSelection(uint FirstBigParameterID, uint SecondBigParameterID, uint SmallParameterID);
     private sealed record CustomStatBudget(int Total, int MaxEachStat, CustomStatParameter[] Parameters);
@@ -267,15 +280,20 @@ public sealed unsafe partial class BestInSlotGear
         GearStage GearStage,
         bool PreserveSpeed,
         string GameDataVersion,
+        long SourceRevision,
         int SolverVersion)
     {
-        public static CandidateCacheKey Create(CalculationRequest request, string gameDataVersion) => new(
+        public static CandidateCacheKey Create(
+            CalculationRequest request,
+            string gameDataVersion,
+            long sourceRevision) => new(
             request.JobID,
             request.SyncItemLevel,
             request.TribeID,
             request.GearStage,
             request.OptimizationTarget == OptimizationTarget.SpecificGcd,
             gameDataVersion,
+            request.GearStage == GearStage.Opening ? sourceRevision : 0,
             BestInSlotGear.SolverVersion);
     }
 
@@ -297,6 +315,7 @@ public sealed unsafe partial class BestInSlotGear
         public int GearStage { get; set; }
         public int OptimizationTarget { get; set; }
         public int TargetGcdHundredths { get; set; }
+        public long SourceRevision { get; set; }
         public DateTime LastUsedUTC { get; set; }
         public BestInSlotGearConfig.SavedCalculation Calculation { get; set; } = new();
 
@@ -308,7 +327,10 @@ public sealed unsafe partial class BestInSlotGear
             OptimizationTarget == (int)request.OptimizationTarget &&
             TargetGcdHundredths == request.TargetGcdHundredths;
 
-        public static CachedResultEntry Create(CalculationRequest request, CalculationResult calculation) => new()
+        public static CachedResultEntry Create(
+            CalculationRequest request,
+            CalculationResult calculation,
+            long sourceRevision) => new()
         {
             JobID = request.JobID,
             SyncItemLevel = request.SyncItemLevel,
@@ -316,6 +338,7 @@ public sealed unsafe partial class BestInSlotGear
             GearStage = (int)request.GearStage,
             OptimizationTarget = (int)request.OptimizationTarget,
             TargetGcdHundredths = request.TargetGcdHundredths,
+            SourceRevision = request.GearStage == BestInSlotGear.GearStage.Opening ? sourceRevision : 0,
             LastUsedUTC = DateTime.UtcNow,
             Calculation = SaveCalculation(calculation)
         };
@@ -356,8 +379,6 @@ public sealed unsafe partial class BestInSlotGear
         public bool PreserveSpeed => CacheKey.PreserveSpeed;
         public Dictionary<GearSlot, List<GearOption>> OptionsBySlot { get; } = [];
         public int CandidateIndex { get; set; }
-        public int ItemBuildCount { get; set; }
-        public int UpperBoundPrunedBuildCount { get; set; }
     }
 
     private sealed class JobCalculationPreparation(
@@ -571,6 +592,8 @@ public sealed class BestInSlotGearConfig
         public bool IsUnique { get; set; }
         public bool OccupiesOffHand { get; set; }
         public List<SavedMateria> Materia { get; set; } = [];
+        public List<SavedMeld?> Melds { get; set; } = [];
+        public List<SavedCustomStat>? CustomStats { get; set; }
         public string StatText { get; set; } = string.Empty;
     }
 
@@ -579,6 +602,18 @@ public sealed class BestInSlotGearConfig
         public string Name { get; set; } = string.Empty;
         public uint IconID { get; set; }
         public int Count { get; set; }
+    }
+
+    public sealed class SavedMeld
+    {
+        public uint ParameterID { get; set; }
+        public byte Grade { get; set; }
+    }
+
+    public sealed class SavedCustomStat
+    {
+        public uint ParameterID { get; set; }
+        public int Value { get; set; }
     }
 
     public sealed class SavedStats
@@ -596,6 +631,7 @@ public sealed class BestInSlotGearConfig
 
     public sealed class SavedFood
     {
+        public uint ItemID { get; set; }
         public string Name { get; set; } = string.Empty;
         public uint IconID { get; set; }
         public uint ItemLevel { get; set; }

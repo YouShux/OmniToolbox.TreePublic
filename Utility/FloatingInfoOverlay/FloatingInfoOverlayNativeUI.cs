@@ -358,8 +358,8 @@ internal sealed class FloatingInfoOverlayNativeUI(
             lineBuffer.Add(new(
                 Format(
                     "Feature.FloatingInfoOverlay.Line.Health",
-                    item.CurrentHp,
-                    item.MaxHp,
+                    OmniNumberFormatter.Format(item.CurrentHp),
+                    OmniNumberFormatter.Format(item.MaxHp),
                     percentage),
                 percentage switch
                 {
@@ -367,7 +367,7 @@ internal sealed class FloatingInfoOverlayNativeUI(
                     > 0.3f => KnownColor.Gold.ToVector4(),
                     _ => KnownColor.OrangeRed.ToVector4()
                 },
-                $"{item.CurrentHp}/{item.MaxHp}"));
+                $"{OmniNumberFormatter.Format(item.CurrentHp)}/{OmniNumberFormatter.Format(item.MaxHp)}"));
         }
 
         if (config.ShowMana && item.MaxMp > 0)
@@ -376,8 +376,8 @@ internal sealed class FloatingInfoOverlayNativeUI(
             lineBuffer.Add(new(
                 Format(
                     "Feature.FloatingInfoOverlay.Line.Mana",
-                    item.CurrentMp,
-                    item.MaxMp,
+                    OmniNumberFormatter.Format(item.CurrentMp),
+                    OmniNumberFormatter.Format(item.MaxMp),
                     percentage),
                 percentage switch
                 {
@@ -385,7 +385,7 @@ internal sealed class FloatingInfoOverlayNativeUI(
                     > 0.3f => KnownColor.MediumPurple.ToVector4(),
                     _ => KnownColor.DarkOrchid.ToVector4()
                 },
-                $"{item.CurrentMp}/{item.MaxMp}"));
+                $"{OmniNumberFormatter.Format(item.CurrentMp)}/{OmniNumberFormatter.Format(item.MaxMp)}"));
         }
 
         if (config.ShowCastInfo && item.IsCasting)

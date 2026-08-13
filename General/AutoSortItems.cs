@@ -131,6 +131,14 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     public void RequestSort()
     {
         EnsureRules();
+        taskHelper?.Abort();
+        ResetQueue();
+        if (GameState.ContentFinderCondition != 0)
+        {
+            QueueCategory("inventory", true, allowInDuty: true);
+            return;
+        }
+
         QueueAllEnabled(true);
     }
 
@@ -196,16 +204,12 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
                      .Distinct(StringComparer.Ordinal)
                      .ToArray())
         {
-            var enabled = IsCategoryEnabled(category);
-            var available = category == "inventory" ||
-                            IsArmouryCategory(category) ||
-                            IsCategoryVisible(category);
-            if (enabled && available)
+            if (IsCategoryEnabled(category) &&
+                (category == "inventory" || IsArmouryCategory(category) || IsCategoryVisible(category)))
             {
                 QueueCategory(
                     category,
-                    false,
-                    config.AutoMerge && category is "saddlebag" or "rightsaddlebag");
+                    waitForMergeContainers: config.AutoMerge && category is "saddlebag" or "rightsaddlebag");
                 queued = true;
             }
         }
@@ -257,7 +261,8 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     private void QueueCategory(
         string category,
         bool notify = false,
-        bool waitForMergeContainers = false)
+        bool waitForMergeContainers = false,
+        bool allowInDuty = false)
     {
         EnsureRules();
         var playerState = PlayerState.Instance();
@@ -296,21 +301,21 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         if (shouldMerge)
         {
             taskHelper.Enqueue(
-                () => MergeNext(category, waitForMergeContainers),
+                () => MergeNext(category, waitForMergeContainers, allowInDuty),
                 $"Merge stacks {category}");
         }
 
         if (rules.Length > 0)
         {
-            taskHelper.Enqueue(() => StartSort(category, rules), $"Start sort {category}");
+            taskHelper.Enqueue(() => StartSort(category, rules, allowInDuty), $"Start sort {category}");
         }
 
         taskHelper.Enqueue(() => FinishSort(category, notify), $"Finish sort {category}");
     }
 
-    private bool StartSort(string category, IReadOnlyList<AutoSortItemsRule> rules)
+    private bool StartSort(string category, IReadOnlyList<AutoSortItemsRule> rules, bool allowInDuty)
     {
-        if (!CanSort(category))
+        if (!CanSort(category, allowInDuty))
         {
             return false;
         }
@@ -366,9 +371,9 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         return true;
     }
 
-    private bool MergeNext(string category, bool waitForContainers)
+    private bool MergeNext(string category, bool waitForContainers, bool allowInDuty)
     {
-        if (!CanSort(category))
+        if (!CanSort(category, allowInDuty))
         {
             return false;
         }
@@ -486,7 +491,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         left->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality) ==
         right->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality);
 
-    private static bool CanSort(string category)
+    private static bool CanSort(string category, bool allowInDuty)
     {
         var services = DService.Instance();
         if (!GameState.IsLoggedIn ||
@@ -506,18 +511,23 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             return false;
         }
 
-        if (!services.Condition.IsIdle)
+        if (!allowInDuty && !services.Condition.IsIdle)
         {
             return false;
         }
 
-        if (!IsInValidZone())
+        if (!IsInValidZone(allowInDuty))
         {
             return false;
         }
 
         if (category is "retainer" or "saddlebag" or "rightsaddlebag" &&
             !IsCategoryVisible(category))
+        {
+            return false;
+        }
+
+        if (category is "saddlebag" or "rightsaddlebag" && !AreContainersLoaded(category))
         {
             return false;
         }
@@ -587,11 +597,32 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     private static bool IsBusy(ItemOrderModuleSorter* sorter) =>
         sorter is not null && sorter->SortFunctionIndex != -1;
 
-    private static bool IsInValidZone() =>
+    private static bool AreContainersLoaded(string category)
+    {
+        var containers = GetMergeContainers(category);
+        var manager = InventoryManager.Instance();
+        if (containers is null || manager is null)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < containers.Length; index++)
+        {
+            var container = manager->GetInventoryContainer(containers[index]);
+            if (container is null || !container->IsLoaded)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool IsInValidZone(bool allowInDuty) =>
         GameState.Map != 0 &&
         GameState.TerritoryType != 0 &&
         !GameState.IsInPVPArea &&
-        GameState.ContentFinderCondition == 0;
+        (allowInDuty || GameState.ContentFinderCondition == 0);
 
     private static bool IsAddonVisible(string addonName)
     {
@@ -648,7 +679,8 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
     private bool IsCategoryTabbed(string category) =>
         SupportsTab(category) &&
-        config.CategoryHeaders?.FirstOrDefault(header => header.Category == category) is { Tab: true };
+        (config.CategoryHeaders?.FirstOrDefault(header => header.Category == category)?.Tab ??
+         category is "inventory" or "saddlebag" or "rightsaddlebag");
 
     private bool IsCategoryEnabled(string category) =>
         config.Rules!.Any(rule =>
@@ -657,7 +689,26 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     internal static void EnsureRules(AutoSortItemsConfig config)
     {
         config.Rules ??= CreateDefaultRules();
-        config.CategoryHeaders ??= CreateDefaultCategoryHeaders();
+        if (config.CategoryHeaders is null)
+        {
+            config.CategoryHeaders = CreateDefaultCategoryHeaders();
+            return;
+        }
+
+        if (!config.CategoryHeaders.Any(header => header.Category == "inventory"))
+        {
+            config.CategoryHeaders.Add(new("inventory", true));
+        }
+
+        if (!config.CategoryHeaders.Any(header => header.Category == "saddlebag"))
+        {
+            config.CategoryHeaders.Add(new("saddlebag", true));
+        }
+
+        if (!config.CategoryHeaders.Any(header => header.Category == "rightsaddlebag"))
+        {
+            config.CategoryHeaders.Add(new("rightsaddlebag", true));
+        }
     }
 
     private void EnsureRules() => EnsureRules(config);
@@ -680,7 +731,8 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     private static List<AutoSortItemsCategoryHeader> CreateDefaultCategoryHeaders() =>
     [
         new("inventory", true),
-        new("saddlebag", true)
+        new("saddlebag", true),
+        new("rightsaddlebag", true)
     ];
 
     internal sealed record RuleOption(string Key, uint RowID, string LocalizationKey);
@@ -995,7 +1047,8 @@ internal static class AutoSortItemsPanel
     }
 
     private static AutoSortItemsCategoryHeader GetCategoryHeader(AutoSortItemsConfig config, string category) =>
-        config.CategoryHeaders!.FirstOrDefault(header => header.Category == category) ?? new(category);
+        config.CategoryHeaders!.FirstOrDefault(header => header.Category == category) ??
+        new(category, category is "inventory" or "saddlebag" or "rightsaddlebag");
 
     private static bool IsCategoryEnabled(AutoSortItemsConfig config, string? category) =>
         category is null ||

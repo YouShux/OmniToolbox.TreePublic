@@ -401,9 +401,9 @@ internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelCo
         SetTooltip(tenacityDamage, BetterCharacterPanelTooltip.Tenacity, stats);
         SetRowText(manaPerTick, stats.Piety.DisplayValue.ToString("F0", CultureInfo.CurrentCulture));
         SetTooltip(manaPerTick, BetterCharacterPanelTooltip.Piety, stats);
-        SetRowText(expectedDamage, stats.Expected.AverageDamage.ToString("N0", CultureInfo.CurrentCulture));
+        SetRowText(expectedDamage, OmniNumberFormatter.Format((long)Math.Round(stats.Expected.AverageDamage)));
         SetTooltip(expectedDamage, BetterCharacterPanelTooltip.ExpectedDamage, stats);
-        SetRowText(expectedHeal, stats.Expected.AverageHeal.ToString("N0", CultureInfo.CurrentCulture));
+        SetRowText(expectedHeal, OmniNumberFormatter.Format((long)Math.Round(stats.Expected.AverageHeal)));
         SetTooltip(expectedHeal, BetterCharacterPanelTooltip.ExpectedHeal, stats);
     }
 

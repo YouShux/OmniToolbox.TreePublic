@@ -48,6 +48,10 @@ public sealed class FoodReminder : ModuleBase
     {
         this.config = config;
         this.saveConfig = saveConfig;
+        if (FoodReminderPanel.NormalizeConfig(config))
+        {
+            saveConfig();
+        }
     }
 
     public override bool HasSettings => true;
@@ -289,8 +293,9 @@ public sealed class FoodReminder : ModuleBase
     }
 
     private bool IsAllowedTerritory() =>
-        config.AllowedTerritoryIds.Count > 0 &&
-        config.AllowedTerritoryIds.Contains(DService.Instance().ClientState.TerritoryType);
+        config.UseWhitelist
+            ? config.WhitelistTerritoryIds.Contains(DService.Instance().ClientState.TerritoryType)
+            : !config.BlacklistTerritoryIds.Contains(DService.Instance().ClientState.TerritoryType);
 
     private static float GetFoodRemainingSeconds(IBattleChara? target)
     {
@@ -364,10 +369,20 @@ internal static class FoodReminderPanel
         return changed;
     }
 
-    private static bool NormalizeConfig(FoodReminderConfig config)
+    internal static bool NormalizeConfig(FoodReminderConfig config)
     {
         var changed = false;
         config.AllowedTerritoryIds ??= [];
+        config.BlacklistTerritoryIds ??= [];
+        config.WhitelistTerritoryIds ??= [];
+        if (config.AllowedTerritoryIds.Count > 0)
+        {
+            config.WhitelistTerritoryIds.UnionWith(config.AllowedTerritoryIds);
+            config.AllowedTerritoryIds.Clear();
+            config.UseWhitelist = true;
+            changed = true;
+        }
+
         if (config.TargetNameMode is < 0 or > 1)
         {
             config.TargetNameMode = Math.Clamp(config.TargetNameMode, 0, 1);
@@ -471,10 +486,40 @@ internal static class FoodReminderPanel
         return changed;
     }
 
-    private static bool DrawTerritorySelector(FoodReminderConfig config) =>
-        TerritorySelector.Draw(
-            config.AllowedTerritoryIds,
-            OmniLoc.Get("Feature.FoodReminder.TerritorySelector.Empty"));
+    private static bool DrawTerritorySelector(FoodReminderConfig config)
+    {
+        ImGui.Spacing();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Territory.WorkMode"));
+        ImGui.SameLine();
+        var changed = false;
+        if (ImGui.RadioButton(
+                $"{OmniLoc.Get("Feature.FoodReminder.Territory.Blacklist")}##foodReminderBlacklist",
+                !config.UseWhitelist))
+        {
+            config.UseWhitelist = false;
+            changed = true;
+        }
+
+        ImGui.SameLine();
+        if (ImGui.RadioButton(
+                $"{OmniLoc.Get("Feature.FoodReminder.Territory.Whitelist")}##foodReminderWhitelist",
+                config.UseWhitelist))
+        {
+            config.UseWhitelist = true;
+            changed = true;
+        }
+
+        ImGui.SameLine();
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.Territory.WorkMode.Help"));
+        ImGui.Spacing();
+        changed |= TerritorySelector.Draw(
+            config.UseWhitelist ? config.WhitelistTerritoryIds : config.BlacklistTerritoryIds,
+            OmniLoc.Get(config.UseWhitelist
+                ? "Feature.FoodReminder.Territory.Whitelist.Empty"
+                : "Feature.FoodReminder.Territory.Blacklist.Empty"));
+        return changed;
+    }
 }
 
 [Serializable]
@@ -485,6 +530,12 @@ public sealed class FoodReminderConfig
     public string PartyMessage { get; set; } = "吃一下食物！";
 
     public int ThresholdSeconds { get; set; } = 480;
+
+    public bool UseWhitelist { get; set; }
+
+    public HashSet<uint> BlacklistTerritoryIds { get; set; } = [];
+
+    public HashSet<uint> WhitelistTerritoryIds { get; set; } = [];
 
     public HashSet<uint> AllowedTerritoryIds { get; set; } = [];
 }

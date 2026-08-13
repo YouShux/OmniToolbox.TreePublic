@@ -726,7 +726,7 @@ public sealed unsafe partial class BestInSlotGear
         foreach (var materia in LuminaGetter.Get<Materia>())
         {
             var parameterID = materia.BaseParam.RowId;
-            if (parameterID is not (CriticalHitParamID or DeterminationParamID or DirectHitParamID or
+            if (parameterID is not (PietyParamID or CriticalHitParamID or DeterminationParamID or DirectHitParamID or
                 TenacityParamID or SkillSpeedParamID or SpellSpeedParamID))
             {
                 continue;
@@ -768,6 +768,8 @@ public sealed unsafe partial class BestInSlotGear
                 }
 
                 options.Add(new(
+                    parameterID,
+                    (byte)(grade + 1),
                     materia.Value[grade],
                     materiaItem.LevelItem.RowId,
                     materiaItem.Name.ExtractText(),
@@ -795,10 +797,8 @@ public sealed unsafe partial class BestInSlotGear
         uint[] parameterIDs,
         IReadOnlyDictionary<uint, List<MateriaGradeOption>> materiaCatalog,
         ItemLevel syncItemLevel,
-        bool preserveSpeed,
-        out bool upperBoundPruned)
+        bool preserveSpeed)
     {
-        upperBoundPruned = false;
         if (TryBuildItemUpperBound(
                 item,
                 baseStats,
@@ -810,7 +810,6 @@ public sealed unsafe partial class BestInSlotGear
             optionsBySlot.TryGetValue(slot, out var existingOptions) &&
             IsDominatedInSlot(existingOptions, upperBound, item, slot, job, preserveSpeed))
         {
-            upperBoundPruned = true;
             return [];
         }
 
@@ -934,14 +933,6 @@ public sealed unsafe partial class BestInSlotGear
 
         if (IsCustomizableItem(item, baseStats))
         {
-            if (unsupportedCustomItemIDs.Add(item.RowId))
-            {
-                DalamudServices.PluginLog.Warning(
-                    "[BIS] Unsupported customizable item excluded: item={ItemID} ({ItemName}).",
-                    item.RowId,
-                    item.Name.ExtractText());
-            }
-
             return [];
         }
 
@@ -1088,7 +1079,19 @@ public sealed unsafe partial class BestInSlotGear
                         allocations[small].ParameterID);
                     unique.TryAdd(
                         (DamageKey.From(stats, job, preserveSpeed), selection),
-                        CreateItemOption(item, slot, stats, job, [], customStatSelection: selection));
+                        CreateItemOption(
+                            item,
+                            slot,
+                            stats,
+                            job,
+                            [],
+                            customStatSelection: selection,
+                            customStatValues:
+                            [
+                                new(allocations[first].ParameterID, allocations[first].BigValue),
+                                new(allocations[second].ParameterID, allocations[second].BigValue),
+                                new(allocations[small].ParameterID, allocations[small].SmallValue)
+                            ]));
                 }
             }
         }
@@ -1205,7 +1208,8 @@ public sealed unsafe partial class BestInSlotGear
         JobProfile job,
         IReadOnlyList<MateriaGradeOption?> materias,
         CustomStatBudget? customStats = null,
-        CustomStatSelection? customStatSelection = null) => new(
+        CustomStatSelection? customStatSelection = null,
+        IReadOnlyList<CustomStatValue>? customStatValues = null) => new(
             [new(
                 item.RowId,
                 slot,
@@ -1216,6 +1220,8 @@ public sealed unsafe partial class BestInSlotGear
                 item.IsUnique,
                 slot == GearSlot.MainHand && item.EquipSlotCategory.Value.OffHand != 0,
                 BuildMateriaDisplay(materias),
+                BuildMateriaSelections(materias),
+                customStatValues,
                 BuildStatText(stats, job))],
             stats,
             customStats,
@@ -1282,6 +1288,21 @@ public sealed unsafe partial class BestInSlotGear
             }
 
             result.Add(new(current.Name, current.IconID, 1));
+        }
+
+        return result;
+    }
+
+    private static IReadOnlyList<MateriaSelection?> BuildMateriaSelections(
+        IReadOnlyList<MateriaGradeOption?> materias)
+    {
+        var result = new MateriaSelection?[materias.Count];
+        for (var index = 0; index < materias.Count; index++)
+        {
+            if (materias[index] is { } materia)
+            {
+                result[index] = new(materia.ParameterID, materia.Grade);
+            }
         }
 
         return result;
@@ -1354,11 +1375,6 @@ public sealed unsafe partial class BestInSlotGear
             return false;
         }
 
-        DalamudServices.PluginLog.Information(
-            "[BIS] Ring options prepared: items={ItemCount}, options={OptionCount}, pairs={PairCount}.",
-            rings.SelectMany(static option => option.Pieces).Select(static piece => piece.ItemID).Distinct().Count(),
-            rings.Count,
-            ringPairs.Count);
         groups.Add(ringPairs);
         groups.Sort(CompareDecisionGroups);
         missingSlot = default;
@@ -1679,9 +1695,9 @@ public sealed unsafe partial class BestInSlotGear
         StatBlock baseStats,
         JobProfile job,
         LevelProfile level,
+        bool preserveSpeed,
         CancellationToken cancellationToken)
     {
-        var stopwatch = Stopwatch.StartNew();
         GetOptionGroupBounds(weapons, job, out var weaponMinimum, out var weaponMaximum);
         for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
         {
@@ -1699,7 +1715,6 @@ public sealed unsafe partial class BestInSlotGear
                 continuationMaximum += maximum;
             }
 
-            var before = groups[groupIndex].Count;
             groups[groupIndex] = PruneFactorDominated(
                 groups[groupIndex],
                 continuationMinimum,
@@ -1707,13 +1722,8 @@ public sealed unsafe partial class BestInSlotGear
                 foods,
                 job,
                 level,
+                preserveSpeed,
                 cancellationToken);
-            DalamudServices.PluginLog.Information(
-                "[BIS] Exact factor dominance: slots={Slots}, before={Before}, after={After}, removed={Removed}.",
-                GetDecisionGroupName(groups[groupIndex]),
-                before,
-                groups[groupIndex].Count,
-                before - groups[groupIndex].Count);
         }
 
         var weaponContinuationMinimum = baseStats;
@@ -1725,20 +1735,15 @@ public sealed unsafe partial class BestInSlotGear
             weaponContinuationMaximum += maximum;
         }
 
-        var prunedWeapons = PruneFactorDominated(
+        return PruneFactorDominated(
             weapons,
             weaponContinuationMinimum,
             weaponContinuationMaximum,
             foods,
             job,
             level,
+            preserveSpeed,
             cancellationToken);
-        DalamudServices.PluginLog.Information(
-            "[BIS] Exact factor dominance prepared: weaponsBefore={Before}, weaponsAfter={After}, elapsedMs={ElapsedMilliseconds}.",
-            weapons.Count,
-            prunedWeapons.Count,
-            stopwatch.ElapsedMilliseconds);
-        return prunedWeapons;
     }
 
     private static List<GearOption> PruneFactorDominated(
@@ -1748,6 +1753,7 @@ public sealed unsafe partial class BestInSlotGear
         IReadOnlyList<FoodOption> foods,
         JobProfile job,
         LevelProfile level,
+        bool preserveSpeed,
         CancellationToken cancellationToken)
     {
         if (options.Count < 2)
@@ -1780,6 +1786,7 @@ public sealed unsafe partial class BestInSlotGear
                     removed[candidateIndex] ||
                     options[candidateIndex].CustomStats is not null ||
                     options[candidateIndex].CustomStatSelection is not null ||
+                    preserveSpeed && options[candidateIndex].Stats.Speed != options[targetIndex].Stats.Speed ||
                     !DominatesForAllCompletions(
                         options[candidateIndex].Stats,
                         options[targetIndex].Stats,
@@ -2063,43 +2070,18 @@ public sealed unsafe partial class BestInSlotGear
         CancellationToken cancellationToken,
         Action<float> reportProgress)
     {
-        var speedCap = target == OptimizationTarget.SpecificGcd
-            ? FindMaximumSpeedForGcd(level, job, targetGcd)
-            : int.MaxValue;
-        if (target == OptimizationTarget.MaxDamage)
-        {
-            weapons = PruneFactorDominatedSearchOptions(
-                groups,
-                weapons,
-                foods,
-                baseStats,
-                job,
-                level,
-                cancellationToken);
-            return FindBestMaxDamageSolution(
-                groups,
-                weapons,
-                foods,
-                baseStats,
-                job,
-                level,
-                cancellationToken,
-                reportProgress);
-        }
-
-        var frontier = BuildGearFrontier(
+        weapons = PruneFactorDominatedSearchOptions(
             groups,
+            weapons,
+            foods,
             baseStats,
             job,
+            level,
             target == OptimizationTarget.SpecificGcd,
-            speedCap,
-            cancellationToken,
-            reportProgress,
-            0.62f,
-            0.9f);
-        return FindBestGearSolution(
-            frontier,
-            groups.Count,
+            cancellationToken);
+
+        return FindBestExactSolution(
+            groups,
             weapons,
             foods,
             baseStats,
@@ -2108,32 +2090,50 @@ public sealed unsafe partial class BestInSlotGear
             target,
             targetGcd,
             cancellationToken,
-            reportProgress,
-            0.9f,
-            0.99f);
+            reportProgress);
     }
 
-    private static SearchSolution? FindBestMaxDamageSolution(
+    private static SearchSolution? FindBestExactSolution(
         List<List<GearOption>> groups,
         IReadOnlyList<GearOption> weapons,
         IReadOnlyList<FoodOption> foods,
         StatBlock baseStats,
         JobProfile job,
         LevelProfile level,
+        OptimizationTarget target,
+        double targetGcd,
         CancellationToken cancellationToken,
         Action<float> reportProgress)
     {
+        var preserveSpeed = target == OptimizationTarget.SpecificGcd;
+        var minimumSpeed = preserveSpeed ? FindMinimumSpeedForGcd(level, job, targetGcd) : 0;
+        var maximumSpeed = preserveSpeed ? FindMaximumSpeedForGcd(level, job, targetGcd) : int.MaxValue;
+        if (minimumSpeed > maximumSpeed)
+        {
+            return null;
+        }
+
+        if (preserveSpeed)
+        {
+            groups.Sort(static (left, right) => left.Count.CompareTo(right.Count));
+        }
+
+        var suffixLowerBounds = new StatBlock[groups.Count + 1];
         var suffixUpperBounds = new StatBlock[groups.Count + 1];
         for (var index = groups.Count - 1; index >= 0; index--)
         {
+            GetOptionGroupBounds(groups[index], job, out var minimum, out var maximum);
+            suffixLowerBounds[index] = suffixLowerBounds[index + 1] + minimum;
             suffixUpperBounds[index] = suffixUpperBounds[index + 1] +
-                                       GetOptionGroupUpperBound(groups[index], job);
+                                       maximum;
         }
 
-        var weaponUpperBound = GetOptionGroupUpperBound(weapons, job);
+        GetOptionGroupBounds(weapons, job, out var weaponLowerBound, out var weaponUpperBound);
+        var remainingLowerBounds = new StatBlock[suffixLowerBounds.Length];
         var remainingUpperBounds = new StatBlock[suffixUpperBounds.Length];
         for (var index = 0; index < remainingUpperBounds.Length; index++)
         {
+            remainingLowerBounds[index] = suffixLowerBounds[index] + weaponLowerBound;
             remainingUpperBounds[index] = suffixUpperBounds[index] + weaponUpperBound;
         }
 
@@ -2202,16 +2202,34 @@ public sealed unsafe partial class BestInSlotGear
 
         var selected = new GearOption[groups.Count];
         GearOption[]? bestOptions = null;
-        FoodEvaluation? bestFood = BuildInitialMaxDamageSolution(
-            groups,
-            weaponCandidates,
-            foods,
-            baseStats,
-            job,
-            level,
-            selected,
-            out bestOptions,
-            cancellationToken);
+        FoodEvaluation? bestFood = preserveSpeed
+            ? BuildInitialSpecificGcdSolution(
+                groups,
+                weaponCandidates,
+                foods,
+                baseStats,
+                job,
+                level,
+                targetGcd,
+                minimumSpeed,
+                maximumSpeed,
+                suffixLowerBounds,
+                suffixUpperBounds,
+                weaponLowerBound,
+                weaponUpperBound,
+                selected,
+                out bestOptions,
+                cancellationToken)
+            : BuildInitialMaxDamageSolution(
+                groups,
+                weaponCandidates,
+                foods,
+                baseStats,
+                job,
+                level,
+                selected,
+                out bestOptions,
+                cancellationToken);
         var seenByDepth = new Dictionary<DamageKey, int>[groups.Count + 1];
         for (var index = 0; index < seenByDepth.Length; index++)
         {
@@ -2219,23 +2237,6 @@ public sealed unsafe partial class BestInSlotGear
         }
 
         long visited = 0;
-        long boundPruned = 0;
-        long duplicatePruned = 0;
-        long weaponBoundPruned = 0;
-        long evaluated = 0;
-        var stopwatch = Stopwatch.StartNew();
-        var nextProgressLog = 3_000L;
-        var currentRootOptionIndex = 0;
-
-        DalamudServices.PluginLog.Information(
-            "[BIS] Exact max-damage search started: armorGroups={GroupCount}, groupOptions={GroupOptions}, order={GroupOrder}, weapons={WeaponCount}, weaponNodes={WeaponNodeCount}, foods={FoodCount}, initialDamage={InitialDamage:F9}.",
-            groups.Count,
-            string.Join(",", groups.Select(static group => group.Count)),
-            string.Join(",", groups.Select(GetDecisionGroupName)),
-            weapons.Count,
-            weaponSearchNodes.Count,
-            foods.Count,
-            bestFood?.Damage ?? 0d);
         Search(0, baseStats);
 
         void Search(int depth, StatBlock stats)
@@ -2243,31 +2244,26 @@ public sealed unsafe partial class BestInSlotGear
             if ((++visited & 8191) == 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (stopwatch.ElapsedMilliseconds >= nextProgressLog)
-                {
-                    DalamudServices.PluginLog.Information(
-                        "[BIS] Exact max-damage progress: root={RootIndex}/{RootCount}, depth={Depth}/{GroupCount}, visited={Visited}, boundPruned={BoundPruned}, duplicatePruned={DuplicatePruned}, weaponBoundPruned={WeaponBoundPruned}, evaluated={Evaluated}, elapsedMs={ElapsedMilliseconds}.",
-                        currentRootOptionIndex,
-                        groups[0].Count,
-                        depth,
-                        groups.Count,
-                        visited,
-                        boundPruned,
-                        duplicatePruned,
-                        weaponBoundPruned,
-                        evaluated,
-                        stopwatch.ElapsedMilliseconds);
-                    nextProgressLog = stopwatch.ElapsedMilliseconds + 3_000L;
-                }
+            }
+
+            if (preserveSpeed &&
+                !CanReachTargetGcd(
+                    stats.Speed + remainingLowerBounds[depth].Speed,
+                    stats.Speed + remainingUpperBounds[depth].Speed,
+                    foods,
+                    job,
+                    minimumSpeed,
+                    maximumSpeed))
+            {
+                return;
             }
 
             ref var seenUtility = ref CollectionsMarshal.GetValueRefOrAddDefault(
                 seenByDepth[depth],
-                DamageKey.From(stats, job, false),
+                DamageKey.From(stats, job, preserveSpeed, maximumSpeed),
                 out var exists);
             if (exists && seenUtility >= stats.Utility)
             {
-                duplicatePruned++;
                 return;
             }
 
@@ -2281,7 +2277,6 @@ public sealed unsafe partial class BestInSlotGear
                     damageFactors,
                     tankBest))
             {
-                boundPruned++;
                 return;
             }
 
@@ -2293,6 +2288,18 @@ public sealed unsafe partial class BestInSlotGear
                 void SearchWeapons(int nodeIndex)
                 {
                     var node = weaponSearchNodes[nodeIndex];
+                    if (preserveSpeed &&
+                        !CanReachTargetGcd(
+                            stats.Speed + node.LowerBound.Speed,
+                            stats.Speed + node.UpperBound.Speed,
+                            foods,
+                            job,
+                            minimumSpeed,
+                            maximumSpeed))
+                    {
+                        return;
+                    }
+
                     if (bestFood is { } currentWeaponBest &&
                         IsUpperBoundPrunable(
                             stats + node.UpperBound,
@@ -2300,7 +2307,6 @@ public sealed unsafe partial class BestInSlotGear
                             damageFactors,
                             currentWeaponBest))
                     {
-                        weaponBoundPruned += node.Count;
                         return;
                     }
 
@@ -2314,6 +2320,18 @@ public sealed unsafe partial class BestInSlotGear
                     for (var weaponIndex = node.Start; weaponIndex < node.Start + node.Count; weaponIndex++)
                     {
                         var weaponCandidate = weaponCandidates[weaponIndex];
+                        if (preserveSpeed &&
+                            !CanReachTargetGcd(
+                                stats.Speed + weaponCandidate.Option.Stats.Speed,
+                                stats.Speed + weaponCandidate.UpperBound.Speed,
+                                foods,
+                                job,
+                                minimumSpeed,
+                                maximumSpeed))
+                        {
+                            continue;
+                        }
+
                         if (bestFood is { } weaponBest &&
                             IsUpperBoundPrunable(
                                 stats + weaponCandidate.UpperBound,
@@ -2321,16 +2339,22 @@ public sealed unsafe partial class BestInSlotGear
                                 damageFactors,
                                 weaponBest))
                         {
-                            weaponBoundPruned++;
                             continue;
                         }
 
-                        evaluated++;
                         var weapon = weaponCandidate.Option;
                         GearEvaluation? evaluation;
                         if (weapon.CustomStats is null)
                         {
-                            evaluation = new(weapon, FindBestFood(stats + weapon.Stats, foods, job, level));
+                            evaluation = FindGearEvaluation(
+                                weapon,
+                                stats,
+                                foods,
+                                job,
+                                level,
+                                target,
+                                targetGcd,
+                                cancellationToken);
                         }
                         else
                         {
@@ -2340,8 +2364,8 @@ public sealed unsafe partial class BestInSlotGear
                                 foods,
                                 job,
                                 level,
-                                OptimizationTarget.MaxDamage,
-                                0d,
+                                target,
+                                targetGcd,
                                 cancellationToken);
                         }
 
@@ -2365,11 +2389,6 @@ public sealed unsafe partial class BestInSlotGear
             var group = groups[depth];
             for (var optionIndex = 0; optionIndex < group.Count; optionIndex++)
             {
-                if (depth == 0)
-                {
-                    currentRootOptionIndex = optionIndex + 1;
-                }
-
                 if (!job.IsTank &&
                     bestFood is { } currentBest &&
                     IsUpperBoundPrunable(
@@ -2378,7 +2397,6 @@ public sealed unsafe partial class BestInSlotGear
                         damageFactors,
                         currentBest))
                 {
-                    boundPruned++;
                     if (depth == 0)
                     {
                         reportProgress(0.62f + 0.37f * (optionIndex + 1) / group.Count);
@@ -2397,20 +2415,106 @@ public sealed unsafe partial class BestInSlotGear
             }
         }
 
-        DalamudServices.PluginLog.Information(
-            "[BIS] Exact max-damage search ended: armorGroups={GroupCount}, weapons={WeaponCount}, visited={Visited}, boundPruned={BoundPruned}, duplicatePruned={DuplicatePruned}, weaponBoundPruned={WeaponBoundPruned}, evaluated={Evaluated}, seenByDepth={SeenByDepth}, elapsedMs={ElapsedMilliseconds}.",
-            groups.Count,
-            weapons.Count,
-            visited,
-            boundPruned,
-            duplicatePruned,
-            weaponBoundPruned,
-            evaluated,
-            string.Join(',', seenByDepth.Select(static seen => seen.Count)),
-            stopwatch.ElapsedMilliseconds);
         return bestOptions is null || bestFood is null
             ? null
             : BuildSearchSolution(bestOptions, bestFood.Value, baseStats, job);
+    }
+
+    private static FoodEvaluation? BuildInitialSpecificGcdSolution(
+        IReadOnlyList<List<GearOption>> groups,
+        IReadOnlyList<WeaponSearchCandidate> weapons,
+        IReadOnlyList<FoodOption> foods,
+        StatBlock baseStats,
+        JobProfile job,
+        LevelProfile level,
+        double targetGcd,
+        int minimumSpeed,
+        int maximumSpeed,
+        IReadOnlyList<StatBlock> suffixLowerBounds,
+        IReadOnlyList<StatBlock> suffixUpperBounds,
+        StatBlock weaponLowerBound,
+        StatBlock weaponUpperBound,
+        GearOption[] selected,
+        out GearOption[]? bestOptions,
+        CancellationToken cancellationToken)
+    {
+        GearOption[]? initialOptions = null;
+        FoodEvaluation? result = null;
+        var seenSpeeds = new HashSet<int>[groups.Count + 1];
+        for (var index = 0; index < seenSpeeds.Length; index++)
+        {
+            seenSpeeds[index] = [];
+        }
+
+        Search(0, baseStats);
+        bestOptions = initialOptions;
+        return result;
+
+        bool Search(int depth, StatBlock stats)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!seenSpeeds[depth].Add(stats.Speed) ||
+                !CanReachTargetGcd(
+                    stats.Speed + suffixLowerBounds[depth].Speed + weaponLowerBound.Speed,
+                    stats.Speed + suffixUpperBounds[depth].Speed + weaponUpperBound.Speed,
+                    foods,
+                    job,
+                    minimumSpeed,
+                    maximumSpeed))
+            {
+                return false;
+            }
+
+            if (depth < groups.Count)
+            {
+                foreach (var option in groups[depth])
+                {
+                    selected[depth] = option;
+                    if (Search(depth + 1, stats + option.Stats))
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            foreach (var weapon in weapons)
+            {
+                if (!CanReachTargetGcd(
+                        stats.Speed + weapon.Option.Stats.Speed,
+                        stats.Speed + weapon.UpperBound.Speed,
+                        foods,
+                        job,
+                        minimumSpeed,
+                        maximumSpeed))
+                {
+                    continue;
+                }
+
+                var evaluation = FindGearEvaluation(
+                    weapon.Option,
+                    stats,
+                    foods,
+                    job,
+                    level,
+                    OptimizationTarget.SpecificGcd,
+                    targetGcd,
+                    cancellationToken);
+                if (evaluation is null)
+                {
+                    continue;
+                }
+
+                result = evaluation.Food;
+                initialOptions = new GearOption[selected.Length + 1];
+                Array.Copy(selected, initialOptions, selected.Length);
+                initialOptions[^1] = evaluation.Option;
+                return true;
+            }
+
+            return false;
+        }
     }
 
     private static List<WeaponSearchNode> BuildWeaponSearchTree(
@@ -2422,9 +2526,11 @@ public sealed unsafe partial class BestInSlotGear
 
         int Build(int start, int count)
         {
+            var lowerBound = candidates[start].Option.Stats;
             var upperBound = candidates[start].UpperBound;
             for (var index = start + 1; index < start + count; index++)
             {
+                lowerBound = Minimum(lowerBound, candidates[index].Option.Stats);
                 upperBound = Maximum(upperBound, candidates[index].UpperBound);
             }
 
@@ -2432,7 +2538,7 @@ public sealed unsafe partial class BestInSlotGear
             nodes.Add(default);
             if (count <= 4)
             {
-                nodes[nodeIndex] = new(start, count, upperBound, -1, -1);
+                nodes[nodeIndex] = new(start, count, lowerBound, upperBound, -1, -1);
                 return nodeIndex;
             }
 
@@ -2440,6 +2546,7 @@ public sealed unsafe partial class BestInSlotGear
             nodes[nodeIndex] = new(
                 start,
                 count,
+                lowerBound,
                 upperBound,
                 Build(start, leftCount),
                 Build(start + leftCount, count - leftCount));
@@ -2514,9 +2621,6 @@ public sealed unsafe partial class BestInSlotGear
                foodUpperBounds.Speed[stats.Speed] +
                foodUpperBounds.Piety[stats.Piety] <= best.Stats.Utility;
     }
-
-    private static string GetDecisionGroupName(IReadOnlyList<GearOption> group) =>
-        string.Join('+', group[0].Pieces.Select(static piece => piece.Slot).Distinct());
 
     private static DamageUpperBound GetMaximumDamageUpperBound(
         StatBlock stats,
@@ -2673,19 +2777,8 @@ public sealed unsafe partial class BestInSlotGear
         for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
         {
             var group = groups[groupIndex];
-            var groupName = string.Join("+", group[0].Pieces.Select(static piece => piece.Slot.ToString()));
-            var groupStopwatch = Stopwatch.StartNew();
-            var inputFrontierCount = frontier.Count;
             var groupProgressRange = (progressEnd - progressStart) / groups.Count;
             var groupProgressStart = progressStart + groupProgressRange * groupIndex;
-            DalamudServices.PluginLog.Information(
-                "[BIS] Frontier group {GroupIndex}/{GroupCount} started: slots={Slots}, frontier={FrontierCount}, options={OptionCount}, combinations={CombinationCount}.",
-                groupIndex + 1,
-                groups.Count,
-                groupName,
-                inputFrontierCount,
-                group.Count,
-                (long)inputFrontierCount * group.Count);
             var unique = new Dictionary<DamageKey, SearchState>();
             var visited = 0;
             foreach (var state in frontier)
@@ -2711,27 +2804,11 @@ public sealed unsafe partial class BestInSlotGear
                 }
             }
 
-            DalamudServices.PluginLog.Information(
-                "[BIS] Frontier group {GroupIndex}/{GroupCount} expanded: slots={Slots}, unique={UniqueCount}, elapsedMs={ElapsedMilliseconds}.",
-                groupIndex + 1,
-                groups.Count,
-                groupName,
-                unique.Count,
-                groupStopwatch.ElapsedMilliseconds);
             reportProgress(groupProgressStart + groupProgressRange * 0.1f);
-            var pruneStopwatch = Stopwatch.StartNew();
             frontier = PruneSearchStates(
                 unique,
                 cancellationToken,
                 progress => reportProgress(groupProgressStart + groupProgressRange * (0.1f + 0.9f * progress)));
-            DalamudServices.PluginLog.Information(
-                "[BIS] Frontier group {GroupIndex}/{GroupCount} pruned: slots={Slots}, frontier={FrontierCount}, pruneMs={PruneMilliseconds}, totalMs={TotalMilliseconds}.",
-                groupIndex + 1,
-                groups.Count,
-                groupName,
-                frontier.Count,
-                pruneStopwatch.ElapsedMilliseconds,
-                groupStopwatch.ElapsedMilliseconds);
             reportProgress(groupProgressStart + groupProgressRange);
         }
 
@@ -2817,7 +2894,6 @@ public sealed unsafe partial class BestInSlotGear
             roundIndex++;
         }
 
-        var roundStopwatch = Stopwatch.StartNew();
         var frontiers = new List<SearchState>[initialBatchCount];
         RunRound(initialBatchCount, index =>
         {
@@ -2828,22 +2904,10 @@ public sealed unsafe partial class BestInSlotGear
                 Math.Min(SearchPruneBatchSize, candidates.Count - start),
                 cancellationToken);
         });
-        DalamudServices.PluginLog.Information(
-            "[BIS] Pareto prune round {RoundIndex}/{RoundCount}: batches={BatchCount}, input={InputCount}, output={OutputCount}, parallelism={Parallelism}, elapsedMs={ElapsedMilliseconds}.",
-            roundIndex,
-            roundCount,
-            frontiers.Length,
-            candidates.Count,
-            frontiers.Sum(static frontier => frontier.Count),
-            SearchPruneParallelism,
-            roundStopwatch.ElapsedMilliseconds);
-
         while (frontiers.Length > 1)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var next = new List<SearchState>[(frontiers.Length + 1) / 2];
-            var inputCount = frontiers.Sum(static frontier => frontier.Count);
-            roundStopwatch.Restart();
             RunRound(next.Length, index =>
             {
                 var left = frontiers[index * 2];
@@ -2856,15 +2920,6 @@ public sealed unsafe partial class BestInSlotGear
                 var right = frontiers[index * 2 + 1];
                 next[index] = MergeSortedSearchFrontiers(left, right, cancellationToken);
             });
-            DalamudServices.PluginLog.Information(
-                "[BIS] Pareto prune round {RoundIndex}/{RoundCount}: batches={BatchCount}, input={InputCount}, output={OutputCount}, parallelism={Parallelism}, elapsedMs={ElapsedMilliseconds}.",
-                roundIndex,
-                roundCount,
-                next.Length,
-                inputCount,
-                next.Sum(static frontier => frontier.Count),
-                SearchPruneParallelism,
-                roundStopwatch.ElapsedMilliseconds);
             frontiers = next;
         }
 
@@ -3299,7 +3354,20 @@ public sealed unsafe partial class BestInSlotGear
         }
 
         var pieces = (GearPiece[])option.Pieces.Clone();
-        pieces[0] = pieces[0] with { StatText = BuildStatText(itemStats, job) };
+        var customStats = new List<CustomStatValue>(option.CustomStats.Parameters.Length);
+        for (var index = 0; index < option.CustomStats.Parameters.Length; index++)
+        {
+            if (allocation[index] > 0)
+            {
+                customStats.Add(new(option.CustomStats.Parameters[index].ParameterID, allocation[index]));
+            }
+        }
+
+        pieces[0] = pieces[0] with
+        {
+            CustomStats = customStats,
+            StatText = BuildStatText(itemStats, job)
+        };
         var allocatedOption = new GearOption(pieces, itemStats);
         var stats = baseStats + itemStats;
         if (food is not null)
@@ -3399,6 +3467,39 @@ public sealed unsafe partial class BestInSlotGear
         return lower;
     }
 
+    private static bool CanReachTargetGcd(
+        int minimumRawSpeed,
+        int maximumRawSpeed,
+        IReadOnlyList<FoodOption> foods,
+        JobProfile job,
+        int minimumSpeed,
+        int maximumSpeed)
+    {
+        if (RangesOverlap(minimumRawSpeed, maximumRawSpeed, minimumSpeed, maximumSpeed))
+        {
+            return true;
+        }
+
+        var parameterID = job.UsesSpellSpeed ? SpellSpeedParamID : SkillSpeedParamID;
+        foreach (var food in foods)
+        {
+            var bonus = GetFoodBonus(food, parameterID);
+            if (RangesOverlap(
+                    ApplyFoodBonus(minimumRawSpeed, bonus),
+                    ApplyFoodBonus(maximumRawSpeed, bonus),
+                    minimumSpeed,
+                    maximumSpeed))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool RangesOverlap(int leftMinimum, int leftMaximum, int rightMinimum, int rightMaximum) =>
+        leftMinimum <= rightMaximum && leftMaximum >= rightMinimum;
+
     private static bool IsTargetGcd(LevelProfile level, StatBlock stats, JobProfile job, double targetGcd) =>
         Math.Abs(CalculateGcd(level, stats, job) - targetGcd) < 0.0001d;
 
@@ -3461,7 +3562,9 @@ public sealed unsafe partial class BestInSlotGear
             }
 
             var damage = CalculateDamage(job, level, foodStats);
-            if (best is null || damage > best.Value.Damage)
+            if (best is null ||
+                damage > best.Value.Damage ||
+                damage == best.Value.Damage && foodStats.Utility > best.Value.Stats.Utility)
             {
                 best = new(food, foodStats, damage);
             }
@@ -3512,7 +3615,7 @@ public sealed unsafe partial class BestInSlotGear
             }
         }
 
-        return new(food.Name, food.IconID, food.ItemLevel, food.IsHighQuality, string.Join("  ", effects));
+        return new(food.ItemID, food.Name, food.IconID, food.ItemLevel, food.IsHighQuality, string.Join("  ", effects));
     }
 
     private static bool IsDamageParameter(uint parameterID, JobProfile job) =>

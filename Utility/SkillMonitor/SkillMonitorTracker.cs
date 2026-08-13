@@ -100,7 +100,9 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
             ApplyAction(action);
         }
 
-        UpdateVisualStates(Environment.TickCount64);
+        var now = Environment.TickCount64;
+        UpdateLocalCooldowns(now);
+        UpdateVisualStates(now);
     }
 
     private void UpdateMembers(AgentHUD* agentHud)
@@ -219,6 +221,51 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
 
                 states[memberIndex, definitionIndex] = state;
             }
+        }
+    }
+
+    private void UpdateLocalCooldowns(long now)
+    {
+        var localEntityID = DService.Instance().ObjectTable.LocalPlayer?.EntityID ?? 0;
+        var actionManager = ActionManager.Instance();
+        if (localEntityID == 0 || actionManager == null)
+        {
+            return;
+        }
+
+        for (var memberIndex = 0; memberIndex < members.Length; memberIndex++)
+        {
+            if (!members[memberIndex].Visible || members[memberIndex].EntityID != localEntityID)
+            {
+                continue;
+            }
+
+            for (var definitionIndex = 0; definitionIndex < definitions.Length; definitionIndex++)
+            {
+                var definition = definitions[definitionIndex];
+                if (definition.StatusOnly || !definition.AppliesTo(members[memberIndex].ClassJobID))
+                {
+                    continue;
+                }
+
+                var state = states[memberIndex, definitionIndex];
+                state.CooldownKnown = true;
+                if (actionManager->IsRecastTimerActive(ActionType.Action, definition.ActionID))
+                {
+                    state.ReadyAtTick = now + (long)Math.Max(
+                        0f,
+                        actionManager->GetRecastTime(ActionType.Action, definition.ActionID) -
+                        actionManager->GetRecastTimeElapsed(ActionType.Action, definition.ActionID)) * 1_000L;
+                }
+                else
+                {
+                    state.ReadyAtTick = now;
+                }
+
+                states[memberIndex, definitionIndex] = state;
+            }
+
+            return;
         }
     }
 

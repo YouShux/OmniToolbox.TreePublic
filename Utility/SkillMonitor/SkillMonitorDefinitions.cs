@@ -18,6 +18,8 @@ internal readonly record struct SkillMonitorDefinition(
 
     public bool StatusOnly => ActionID == 0;
 
+    public bool IsFood => ActionID == 0 && StatusID == 48;
+
     public bool AppliesTo(uint classJobID) =>
         classJobID < 64 && (ClassJobs & (1UL << (int)classJobID)) != 0;
 }

@@ -3,11 +3,13 @@ using System.Linq;
 using Dalamud.Game.Text;
 using Dalamud.Interface;
 using Dalamud.Interface.ImGuiSeStringRenderer;
+using Dalamud.Interface.ImGuiNotification;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Excel.Sheets;
 using Lumina.Text;
 using OmniToolbox.Host;
+using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
@@ -23,6 +25,7 @@ public sealed unsafe partial class BestInSlotGear
     private void DrawWindow()
     {
         ProcessWarmup();
+        ProcessPendingCalculation();
         if (!isWindowOpen)
         {
             return;
@@ -127,6 +130,13 @@ public sealed unsafe partial class BestInSlotGear
         }
 
         DrawWindowContent(framePosition, frameSize);
+        if (openImportPopup)
+        {
+            ImGui.OpenPopup("##bestInSlotGearImport");
+            openImportPopup = false;
+        }
+
+        DrawImportPopup();
         ImGui.End();
     }
 
@@ -285,7 +295,7 @@ public sealed unsafe partial class BestInSlotGear
                 OmniTheme.Tokens.Text);
         }
 
-        if (!isCalculating && (result is { Error: null } || config.SavedResults.Count > 0))
+        if (!isCalculating)
         {
             ImGui.Spacing();
             DrawSavedResultsControls(controlSpacing);
@@ -383,22 +393,82 @@ public sealed unsafe partial class BestInSlotGear
             }
         }
 
-        if (loaded is null)
+        if (loaded is not null)
+        {
+            var deleteLabel = OmniLoc.Get("Feature.BestInSlotGear.DeleteSaved");
+            var deleteSize = OmniControls.CompactButtonSize(deleteLabel);
+            ContinueControlRow(deleteSize.X, spacing);
+            if (OmniControls.SmallButton(deleteLabel, false, deleteSize))
+            {
+                config.SavedResults.Remove(loaded);
+                loadedSavedResultID = null;
+                saveConfig();
+            }
+        }
+
+        if (result is { Error: null, JobResults.Count: 0 })
+        {
+            var exportLabel = OmniLoc.Get("Feature.BestInSlotGear.Export");
+            var exportSize = OmniControls.CompactButtonSize(exportLabel);
+            ContinueControlRow(exportSize.X, spacing);
+            if (OmniControls.SmallButton(exportLabel, false, exportSize) &&
+                !TryExportCurrentResult(out var exportError))
+            {
+                OmniNotifier.Popup(Info.Title, exportError, NotificationType.Error);
+            }
+        }
+
+        var importLabel = OmniLoc.Get("Feature.BestInSlotGear.Import");
+        var importSize = OmniControls.CompactButtonSize(importLabel);
+        ContinueControlRow(importSize.X, spacing);
+        if (OmniControls.SmallButton(importLabel, false, importSize))
+        {
+            importShareText = ImGui.GetClipboardText() ?? string.Empty;
+            importShareError = string.Empty;
+            openImportPopup = true;
+        }
+    }
+
+    private void DrawImportPopup()
+    {
+        using var colors = ImRaii.PushColor(ImGuiCol.PopupBg, OmniTheme.Tokens.Background)
+            .Push(ImGuiCol.Border, OmniTheme.Tokens.Border);
+        using var border = ImRaii.PushStyle(ImGuiStyleVar.PopupBorderSize, OmniTheme.BorderThickness());
+        if (!ImGui.BeginPopup("##bestInSlotGearImport", ImGuiWindowFlags.AlwaysAutoResize))
         {
             return;
         }
 
-        var deleteLabel = OmniLoc.Get("Feature.BestInSlotGear.DeleteSaved");
-        var deleteSize = OmniControls.CompactButtonSize(deleteLabel);
-        ContinueControlRow(deleteSize.X, spacing);
-        if (!OmniControls.SmallButton(deleteLabel, false, deleteSize))
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.BestInSlotGear.Share.ImportPrompt"));
+        OmniControls.InputTextMultiline(
+            "##bestInSlotGearImportText",
+            ref importShareText,
+            4096,
+            OmniTheme.Scale(new Vector2(600f, 96f)));
+        if (!string.IsNullOrEmpty(importShareError))
         {
-            return;
+            ImGui.TextWrapped(importShareError);
         }
 
-        config.SavedResults.Remove(loaded);
-        loadedSavedResultID = null;
-        saveConfig();
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.BestInSlotGear.Import"), false))
+        {
+            if (TryImportShare(importShareText, out importShareError))
+            {
+                OmniNotifier.Popup(
+                    Info.Title,
+                    OmniLoc.Get("Feature.BestInSlotGear.Share.Imported"),
+                    NotificationType.Success);
+                ImGui.CloseCurrentPopup();
+            }
+        }
+
+        ImGui.SameLine();
+        if (OmniControls.SmallButton(OmniLoc.Get("Common.Cancel"), false))
+        {
+            ImGui.CloseCurrentPopup();
+        }
+
+        ImGui.EndPopup();
     }
 
     private void SaveCurrentResult()
@@ -500,6 +570,18 @@ public sealed unsafe partial class BestInSlotGear
                 IconID = materia.IconID,
                 Count = materia.Count
             }).ToList(),
+            Melds = item.Melds.Select(static meld => meld is null
+                ? null
+                : new BestInSlotGearConfig.SavedMeld
+                {
+                    ParameterID = meld.Value.ParameterID,
+                    Grade = meld.Value.Grade
+                }).ToList(),
+            CustomStats = item.CustomStats?.Select(static stat => new BestInSlotGearConfig.SavedCustomStat
+            {
+                ParameterID = stat.ParameterID,
+                Value = stat.Value
+            }).ToList(),
             StatText = item.StatText
         }).ToList(),
         Stats = new()
@@ -520,6 +602,7 @@ public sealed unsafe partial class BestInSlotGear
             ? null
             : new()
             {
+                ItemID = current.Food.ItemID,
                 Name = current.Food.Name,
                 IconID = current.Food.IconID,
                 ItemLevel = current.Food.ItemLevel,
@@ -545,6 +628,10 @@ public sealed unsafe partial class BestInSlotGear
             item.IsUnique,
             item.OccupiesOffHand,
             item.Materia.Select(static materia => new MateriaDisplay(materia.Name, materia.IconID, materia.Count)).ToList(),
+            item.Melds.Select(static meld => meld is null
+                ? (MateriaSelection?)null
+                : new MateriaSelection(meld.ParameterID, meld.Grade)).ToList(),
+            item.CustomStats?.Select(static stat => new CustomStatValue(stat.ParameterID, stat.Value)).ToList(),
             item.StatText)).ToList(),
         new(
             saved.Stats.MainStat,
@@ -561,6 +648,7 @@ public sealed unsafe partial class BestInSlotGear
         saved.Food is null
             ? null
             : new(
+                saved.Food.ItemID,
                 saved.Food.Name,
                 saved.Food.IconID,
                 saved.Food.ItemLevel,

@@ -33,7 +33,7 @@ internal static class MitigationRecordCopyText
                 source,
                 record.ActionName,
                 target,
-                record.Damage);
+                OmniNumberFormatter.Format(record.Damage));
         }
 
         if (record.Invulnerable)
@@ -45,7 +45,7 @@ internal static class MitigationRecordCopyText
                 source,
                 record.ActionName,
                 target,
-                record.Damage,
+                OmniNumberFormatter.Format(record.Damage),
                 MitigationText.GetDamageKindText(record.DamageKind));
         }
 
@@ -56,10 +56,10 @@ internal static class MitigationRecordCopyText
             source,
             record.ActionName,
             target,
-            record.Damage,
+            OmniNumberFormatter.Format(record.Damage),
             MitigationText.GetDamageKindText(record.DamageKind),
             record.MitigationPercent,
-            record.ShieldValue,
+            OmniNumberFormatter.Format(record.ShieldValue),
             BuildStatusSuffix(record));
     }
 
@@ -81,8 +81,8 @@ internal static class MitigationRecordCopyText
             OmniLoc.Get(key),
             MitigationText.FormatElapsed(record.Elapsed),
             record.ActionName,
-            record.CurrentHp,
-            record.ShieldValue,
+            OmniNumberFormatter.Format(record.CurrentHp),
+            OmniNumberFormatter.Format(record.ShieldValue),
             record.MitigationPercent,
             BuildStatusSuffix(record));
     }

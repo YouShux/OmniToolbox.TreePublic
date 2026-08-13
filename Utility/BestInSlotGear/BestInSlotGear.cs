@@ -43,7 +43,7 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
     private const int MinimumSyncItemLevel = 345;
     private const int MinimumCandidateItemLevel = 320;
     private const int CandidateItemLevelWindow = 25;
-    private const int SolverVersion = 25;
+    private const int SolverVersion = 28;
     private const int CacheSchemaVersion = 3;
     private const int CandidateCacheCapacity = 4;
     private const int ResultCacheCapacity = 24;
@@ -67,7 +67,6 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
     private readonly Dictionary<uint, List<Item>> warmedGearItemsByJob = [];
     private readonly Dictionary<uint, List<MateriaGradeOption>> warmedMateriaCatalog = [];
     private readonly List<FoodOption> warmedFoodOptions = [];
-    private readonly HashSet<uint> unsupportedCustomItemIDs = [];
     private readonly Dictionary<CandidateCacheKey, LinkedListNode<CandidateCacheEntry>> candidateCache = [];
     private readonly LinkedList<CandidateCacheEntry> candidateCacheLru = [];
     private readonly List<CachedResultEntry> cachedResults = [];
@@ -80,6 +79,9 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
     private CalculationRequest? activeCalculation;
     private CalculationResult? result;
     private string? loadedSavedResultID;
+    private string importShareText = string.Empty;
+    private string importShareError = string.Empty;
+    private bool openImportPopup;
     private string gameDataVersion = string.Empty;
     private uint openingStageItemLevelLimit = 999;
     private Vector2 expandedWindowSize;
@@ -161,7 +163,6 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
         warmedGearItemsByJob.Clear();
         warmedMateriaCatalog.Clear();
         warmedFoodOptions.Clear();
-        unsupportedCustomItemIDs.Clear();
         candidateCache.Clear();
         candidateCacheLru.Clear();
         warmupComplete = false;
@@ -181,7 +182,6 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
         warmedGearItemsByJob.Clear();
         warmedMateriaCatalog.Clear();
         warmedFoodOptions.Clear();
-        unsupportedCustomItemIDs.Clear();
         openingStageItemLevelLimit = 999;
         BuildMateriaCatalog(warmedMateriaCatalog);
         warmupEnumerator = LuminaGetter.Get<Item>().GetEnumerator();
@@ -253,6 +253,21 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
         }
     }
 
+    private void ProcessPendingCalculation()
+    {
+        if (!warmupComplete ||
+            calculationPreparation is not null ||
+            calculationTask is not null ||
+            pendingCalculation is not { } request ||
+            request.GearStage == GearStage.Opening && collectionSourceService.IsExchangeIndexBuilding)
+        {
+            return;
+        }
+
+        pendingCalculation = null;
+        BeginCalculationPreparation(request);
+    }
+
     private static string GetGameDataVersion()
     {
         var versions = new List<string>(DalamudServices.DataManager.GameData.Repositories.Count + 1)
@@ -292,9 +307,8 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
             document.Results.Sort(static (left, right) => right.LastUsedUTC.CompareTo(left.LastUsedUTC));
             cachedResults.AddRange(document.Results.Take(ResultCacheCapacity));
         }
-        catch (Exception exception)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(exception, "Best-in-slot result cache load failed: {Path}", ResultCachePath);
         }
     }
 
@@ -302,7 +316,9 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
     {
         for (var index = 0; index < cachedResults.Count; index++)
         {
-            if (!cachedResults[index].Matches(request))
+            if (!cachedResults[index].Matches(request) ||
+                cachedResults[index].SourceRevision !=
+                (request.GearStage == GearStage.Opening ? collectionSourceService.Revision : 0))
             {
                 continue;
             }
@@ -319,7 +335,7 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
     private void CacheCompletedResult(CalculationRequest request, CalculationResult calculation)
     {
         cachedResults.RemoveAll(entry => entry.Matches(request));
-        cachedResults.Add(CachedResultEntry.Create(request, calculation));
+        cachedResults.Add(CachedResultEntry.Create(request, calculation, collectionSourceService.Revision));
         cachedResults.Sort(static (left, right) => right.LastUsedUTC.CompareTo(left.LastUsedUTC));
         if (cachedResults.Count > ResultCacheCapacity)
         {
@@ -343,9 +359,8 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
                 Utf8);
             File.Move(tempPath, path, true);
         }
-        catch (Exception exception)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(exception, "Best-in-slot result cache save failed: {Path}", path);
         }
         finally
         {
@@ -355,12 +370,8 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
                 {
                     File.Delete(tempPath);
                 }
-                catch (Exception exception)
+                catch (Exception)
                 {
-                    DalamudServices.PluginLog.Warning(
-                        exception,
-                        "Best-in-slot temporary cache cleanup failed: {Path}",
-                        tempPath);
                 }
             }
         }
@@ -426,21 +437,9 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
             return;
         }
 
-        DalamudServices.PluginLog.Information(
-            "[BIS] Calculation requested: solverVersion={SolverVersion}, job={JobID}, sync={SyncItemLevel}, stage={GearStage}, target={OptimizationTarget}, targetGcd={TargetGcd:F2}.",
-            SolverVersion,
-            request.JobID,
-            request.SyncItemLevel,
-            request.GearStage,
-            request.OptimizationTarget,
-            request.TargetGcd);
         result = null;
         if (TryGetCachedResult(request, out var cached))
         {
-            DalamudServices.PluginLog.Information(
-                "[BIS] Completed-result cache hit: job={JobID}, sync={SyncItemLevel}.",
-                request.JobID,
-                request.SyncItemLevel);
             result = cached;
             ShowCompletionPopup();
             return;
@@ -449,36 +448,30 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
         activeCalculation = request;
         calculationProgress = 0.02f;
         calculationStatusKey = "Feature.BestInSlotGear.Progress.Collecting";
-        var cacheKey = CandidateCacheKey.Create(request, gameDataVersion);
+        var cacheKey = CandidateCacheKey.Create(request, gameDataVersion, collectionSourceService.Revision);
         if (TryGetCandidateCache(cacheKey, out var prepared))
         {
-            DalamudServices.PluginLog.Information(
-                "[BIS] Candidate cache hit: job={JobID}, sync={SyncItemLevel}.",
-                request.JobID,
-                request.SyncItemLevel);
             StartCalculationTask(prepared, request);
             return;
         }
 
         if (!warmupComplete)
         {
-            DalamudServices.PluginLog.Information(
-                "[BIS] Candidate cache miss; waiting for item-data warmup: job={JobID}, sync={SyncItemLevel}.",
-                request.JobID,
-                request.SyncItemLevel);
             pendingCalculation = request;
             return;
         }
 
-        DalamudServices.PluginLog.Information(
-            "[BIS] Candidate cache miss; preparing options: job={JobID}, sync={SyncItemLevel}.",
-            request.JobID,
-            request.SyncItemLevel);
         BeginCalculationPreparation(request);
     }
 
     private void BeginCalculationPreparation(CalculationRequest request)
     {
+        if (request.GearStage == GearStage.Opening && collectionSourceService.IsExchangeIndexBuilding)
+        {
+            pendingCalculation = request;
+            return;
+        }
+
         if (request.JobID is TankPresetID or HealerPresetID)
         {
             BeginCommonCalculation(request);
@@ -555,7 +548,7 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
             job,
             levelProfile,
             request,
-            CandidateCacheKey.Create(request, gameDataVersion),
+            CandidateCacheKey.Create(request, gameDataVersion, collectionSourceService.Revision),
             null);
         calculationProgress = 0.1f;
         calculationStatusKey = "Feature.BestInSlotGear.Progress.BuildingOptions";
@@ -657,7 +650,7 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
             representative.Job,
             levelProfile,
             request,
-            CandidateCacheKey.Create(request, gameDataVersion),
+            CandidateCacheKey.Create(request, gameDataVersion, collectionSourceService.Revision),
             commonJobs);
         calculationProgress = 0.1f;
         calculationStatusKey = "Feature.BestInSlotGear.Progress.BuildingOptions";
@@ -730,7 +723,7 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
         while (preparation.CandidateIndex < preparation.Candidates.Count && stopwatch.ElapsedMilliseconds < 4)
         {
             var item = preparation.Candidates[preparation.CandidateIndex++];
-            if (item.LevelEquip > preparation.Level || !TryGetSlot(item.EquipSlotCategory.Value, out var slot))
+            if (!TryGetSlot(item.EquipSlotCategory.Value, out var slot))
             {
                 continue;
             }
@@ -750,13 +743,7 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
                         preparation.MeldParameterIDs,
                         preparation.MateriaCatalog,
                         preparation.SyncItemLevelStats,
-                        preparation.PreserveSpeed,
-                        out var sharedUpperBoundPruned);
-                    preparation.ItemBuildCount++;
-                    if (sharedUpperBoundPruned)
-                    {
-                        preparation.UpperBoundPrunedBuildCount++;
-                    }
+                        preparation.PreserveSpeed);
 
                     AddOptions(
                         preparation.OptionsBySlot,
@@ -794,13 +781,7 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
                         preparation.MeldParameterIDs,
                         preparation.MateriaCatalog,
                         preparation.SyncItemLevelStats,
-                        preparation.PreserveSpeed,
-                        out var jobUpperBoundPruned);
-                    preparation.ItemBuildCount++;
-                    if (jobUpperBoundPruned)
-                    {
-                        preparation.UpperBoundPrunedBuildCount++;
-                    }
+                        preparation.PreserveSpeed);
 
                     AddOptions(
                         commonJob.OptionsBySlot,
@@ -823,13 +804,7 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
                 preparation.MeldParameterIDs,
                 preparation.MateriaCatalog,
                 preparation.SyncItemLevelStats,
-                preparation.PreserveSpeed,
-                out var itemUpperBoundPruned);
-            preparation.ItemBuildCount++;
-            if (itemUpperBoundPruned)
-            {
-                preparation.UpperBoundPrunedBuildCount++;
-            }
+                preparation.PreserveSpeed);
 
             AddOptions(
                 preparation.OptionsBySlot,
@@ -845,21 +820,6 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
             return;
         }
 
-        DalamudServices.PluginLog.Information(
-            "[BIS] Options prepared: job={JobName} ({JobID}), candidates={CandidateCount}, candidateItemLevels={MinimumCandidateItemLevel}-{MaximumCandidateItemLevel}, itemBuilds={ItemBuildCount}, upperBoundPruned={UpperBoundPrunedBuildCount}, foods={FoodCount}, slots=[{SlotOptions}].",
-            preparation.JobName,
-            preparation.JobID,
-            preparation.Candidates.Count,
-            preparation.Candidates.Min(static item => item.LevelItem.RowId),
-            preparation.Candidates.Max(static item => item.LevelItem.RowId),
-            preparation.ItemBuildCount,
-            preparation.UpperBoundPrunedBuildCount,
-            preparation.Foods.Count,
-            string.Join(
-                ", ",
-                preparation.OptionsBySlot
-                    .OrderBy(static entry => entry.Key)
-                    .Select(static entry => $"{entry.Key}={entry.Value.Count}")));
         calculationPreparation = null;
         var prepared = new PreparedCalculationData(
             preparation.JobID,
@@ -895,29 +855,9 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
             request.TargetGcd,
             prepared.CommonJobs);
         var cancellationToken = calculationCancellation!.Token;
-        calculationTask = Task.Run(() =>
-        {
-            var stopwatch = Stopwatch.StartNew();
-            DalamudServices.PluginLog.Information(
-                "[BIS] Solver started: job={JobName} ({JobID}), sync={SyncItemLevel}, target={OptimizationTarget}.",
-                input.JobName,
-                input.JobID,
-                input.ItemLevelLimit,
-                input.OptimizationTarget);
-            try
-            {
-                return Calculate(input, cancellationToken, progress => calculationProgress = progress);
-            }
-            finally
-            {
-                DalamudServices.PluginLog.Information(
-                    "[BIS] Solver task ended: job={JobName} ({JobID}), sync={SyncItemLevel}, elapsedMs={ElapsedMilliseconds}.",
-                    input.JobName,
-                    input.JobID,
-                    input.ItemLevelLimit,
-                    stopwatch.ElapsedMilliseconds);
-            }
-        }, cancellationToken);
+        calculationTask = Task.Run(
+            () => Calculate(input, cancellationToken, progress => calculationProgress = progress),
+            cancellationToken);
     }
 
     private static void AddOptions(
@@ -1031,9 +971,8 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
         catch (OperationCanceledException)
         {
         }
-        catch (Exception exception)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Error(exception, "Failed to calculate best-in-slot gear.");
             result = CalculationResult.Failed(OmniLoc.Get("Feature.BestInSlotGear.CalculationFailed"));
         }
         finally

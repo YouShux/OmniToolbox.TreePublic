@@ -667,7 +667,11 @@ internal static unsafe class BetterCharacterPanelState
     {
         using var rented = new RentedSeStringBuilder();
         AppendColored(rented, OmniLoc.Get(titleKey), TooltipTitleColor);
-        rented.Builder.Append("\n").Append(Format(bodyKey, normal, critical, average));
+        rented.Builder.Append("\n").Append(Format(
+            bodyKey,
+            OmniNumberFormatter.Format((long)Math.Round(normal)),
+            OmniNumberFormatter.Format((long)Math.Round(critical)),
+            OmniNumberFormatter.Format((long)Math.Round(average))));
         return rented.Builder.ToReadOnlySeString();
     }
 

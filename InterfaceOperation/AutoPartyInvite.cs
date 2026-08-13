@@ -84,10 +84,13 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
         }
     }
 
-    public AutoPartyInvite(AutoPartyInviteConfig config)
+    public AutoPartyInvite(AutoPartyInviteConfig config, System.Action saveConfig)
     {
         this.config = config;
-        AutoPartyInvitePanel.NormalizeConfig(config);
+        if (AutoPartyInvitePanel.NormalizeConfig(config))
+        {
+            saveConfig();
+        }
     }
 
     public override bool HasSettings => true;
@@ -296,8 +299,9 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
     }
 
     private bool IsInAllowedTerritory() =>
-        config.AllowedTerritoryIds.Count > 0 &&
-        config.AllowedTerritoryIds.Contains(DService.Instance().ClientState.TerritoryType);
+        config.UseWhitelist
+            ? config.WhitelistTerritoryIds.Contains(DService.Instance().ClientState.TerritoryType)
+            : !config.BlacklistTerritoryIds.Contains(DService.Instance().ClientState.TerritoryType);
 
     private bool IsAllowedChannel(XivChatType chatType) =>
         SupportedChannelIds.Contains((ushort)chatType) &&
@@ -361,10 +365,13 @@ internal readonly record struct AutoPartyInviteChannel(XivChatType Type, string 
 [Serializable]
 public sealed class AutoPartyInviteConfig
 {
+    public bool UseWhitelist { get; set; } = true;
     public bool ChannelsInitialized { get; set; }
     public HashSet<ushort> EnabledChannels { get; set; } = [];
     public HashSet<int> EnabledDigits { get; set; } = [1];
     public List<AutoPartyInviteTrigger> CustomTriggers { get; set; } = [];
+    public HashSet<uint> BlacklistTerritoryIds { get; set; } = [];
+    public HashSet<uint> WhitelistTerritoryIds { get; set; } = [];
     public HashSet<uint> AllowedTerritoryIds { get; set; } = [];
 }
 
@@ -389,9 +396,7 @@ internal static class AutoPartyInvitePanel
     {
         var changed = DrawTriggers(config);
         ImGui.Spacing();
-        changed |= TerritorySelector.Draw(
-            config.AllowedTerritoryIds,
-            OmniLoc.Get("Feature.AutoPartyInvite.Territory.EmptySelection"));
+        changed |= DrawTerritorySelector(config);
         ImGui.Spacing();
         changed |= DrawChannels(config);
         return changed;
@@ -404,6 +409,15 @@ internal static class AutoPartyInvitePanel
         config.EnabledDigits ??= [];
         config.CustomTriggers ??= [];
         config.AllowedTerritoryIds ??= [];
+        config.BlacklistTerritoryIds ??= [];
+        config.WhitelistTerritoryIds ??= [];
+        if (config.AllowedTerritoryIds.Count > 0)
+        {
+            config.WhitelistTerritoryIds.UnionWith(config.AllowedTerritoryIds);
+            config.AllowedTerritoryIds.Clear();
+            config.UseWhitelist = true;
+            changed = true;
+        }
 
         changed |= config.EnabledDigits.RemoveWhere(static digit => digit is < 0 or > 9) > 0;
 
@@ -438,6 +452,40 @@ internal static class AutoPartyInvitePanel
             break;
         }
 
+        return changed;
+    }
+
+    private static bool DrawTerritorySelector(AutoPartyInviteConfig config)
+    {
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.AutoPartyInvite.Territory.WorkMode"));
+        ImGui.SameLine();
+        var changed = false;
+        if (ImGui.RadioButton(
+                $"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.Blacklist")}##autoPartyInviteBlacklist",
+                !config.UseWhitelist))
+        {
+            config.UseWhitelist = false;
+            changed = true;
+        }
+
+        ImGui.SameLine();
+        if (ImGui.RadioButton(
+                $"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.Whitelist")}##autoPartyInviteWhitelist",
+                config.UseWhitelist))
+        {
+            config.UseWhitelist = true;
+            changed = true;
+        }
+
+        ImGui.SameLine();
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.AutoPartyInvite.Territory.WorkMode.Help"));
+        ImGui.Spacing();
+        changed |= TerritorySelector.Draw(
+            config.UseWhitelist ? config.WhitelistTerritoryIds : config.BlacklistTerritoryIds,
+            OmniLoc.Get(config.UseWhitelist
+                ? "Feature.AutoPartyInvite.Territory.Whitelist.Empty"
+                : "Feature.AutoPartyInvite.Territory.Blacklist.Empty"));
         return changed;
     }
 

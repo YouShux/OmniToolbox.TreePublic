@@ -44,7 +44,12 @@ public sealed class SkillMonitor : ModuleBase
         config.Offset = defaults.Offset;
         config.IconScale = defaults.IconScale;
         config.IconSpacing = defaults.IconSpacing;
-        config.ShowSelf = defaults.ShowSelf;
+        config.ShowDefault = defaults.ShowDefault;
+        config.ShowActive = defaults.ShowActive;
+        config.ShowOnCooldown = defaults.ShowOnCooldown;
+        config.ShowOffCooldown = defaults.ShowOffCooldown;
+        config.HideOutOfCombat = defaults.HideOutOfCombat;
+        config.HideWeaponSheathed = defaults.HideWeaponSheathed;
         config.EnabledActions = [];
         NormalizeConfig();
         return true;
@@ -210,12 +215,7 @@ internal static class SkillMonitorPanel
             }
         }
 
-        var showSelf = config.ShowSelf;
-        if (OmniControls.Checkbox(OmniLoc.Get("Feature.SkillMonitor.ShowSelf"), ref showSelf))
-        {
-            config.ShowSelf = showSelf;
-            changed = true;
-        }
+        changed |= DrawVisibilitySettings(config);
 
         using var table = ImRaii.Table(
             "##skillMonitorActions",
@@ -264,7 +264,14 @@ internal static class SkillMonitorPanel
             }
 
             ImGui.TableNextColumn();
-            FramedGameIcon.Draw(definition.IconID, ImGui.GetCursorScreenPos(), iconSize);
+            var previewSize = definition.IsFood ? iconSize * 0.75f : iconSize;
+            var previewPosition = ImGui.GetCursorScreenPos() + new Vector2(0f, (iconSize.Y - previewSize.Y) * 0.5f);
+            FramedGameIcon.Draw(
+                definition.IconID,
+                previewPosition,
+                previewSize,
+                drawFrame: !definition.IsFood,
+                preserveAspectRatio: definition.IsFood);
             ImGui.Dummy(iconSize);
             ImGui.SameLine();
             ImGui.AlignTextToFramePadding();
@@ -273,6 +280,89 @@ internal static class SkillMonitorPanel
 
         return changed;
     }
+
+    private static bool DrawVisibilitySettings(SkillMonitorConfig config)
+    {
+        var changed = false;
+        using var table = ImRaii.Table(
+            "##skillMonitorVisibilitySettings",
+            2,
+            ImGuiTableFlags.NoSavedSettings | ImGuiTableFlags.SizingStretchSame);
+        if (!table)
+        {
+            return false;
+        }
+
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
+        using (var child = ImRaii.Child(
+                   "##skillMonitorShowWhen",
+                   new(ImGui.GetContentRegionAvail().X, ImGui.GetTextLineHeightWithSpacing() + ImGui.GetFrameHeightWithSpacing() * 4f),
+                   true))
+        {
+            if (child)
+            {
+                ImGui.TextUnformatted(OmniLoc.Get("Feature.SkillMonitor.ShowWhen"));
+                var showDefault = config.ShowDefault;
+                if (DrawCheckbox("Default", ref showDefault))
+                {
+                    config.ShowDefault = showDefault;
+                    changed = true;
+                }
+
+                var showActive = config.ShowActive;
+                if (DrawCheckbox("Active", ref showActive))
+                {
+                    config.ShowActive = showActive;
+                    changed = true;
+                }
+
+                var showOnCooldown = config.ShowOnCooldown;
+                if (DrawCheckbox("OnCooldown", ref showOnCooldown))
+                {
+                    config.ShowOnCooldown = showOnCooldown;
+                    changed = true;
+                }
+
+                var showOffCooldown = config.ShowOffCooldown;
+                if (DrawCheckbox("OffCooldown", ref showOffCooldown))
+                {
+                    config.ShowOffCooldown = showOffCooldown;
+                    changed = true;
+                }
+            }
+        }
+
+        ImGui.TableNextColumn();
+        using (var child = ImRaii.Child(
+                   "##skillMonitorHideWhen",
+                   new(ImGui.GetContentRegionAvail().X, ImGui.GetTextLineHeightWithSpacing() + ImGui.GetFrameHeightWithSpacing() * 4f),
+                   true))
+        {
+            if (child)
+            {
+                ImGui.TextUnformatted(OmniLoc.Get("Feature.SkillMonitor.HideWhen"));
+                var hideOutOfCombat = config.HideOutOfCombat;
+                if (DrawCheckbox("OutOfCombat", ref hideOutOfCombat))
+                {
+                    config.HideOutOfCombat = hideOutOfCombat;
+                    changed = true;
+                }
+
+                var hideWeaponSheathed = config.HideWeaponSheathed;
+                if (DrawCheckbox("WeaponSheathed", ref hideWeaponSheathed))
+                {
+                    config.HideWeaponSheathed = hideWeaponSheathed;
+                    changed = true;
+                }
+            }
+        }
+
+        return changed;
+    }
+
+    private static bool DrawCheckbox(string name, ref bool value) =>
+        OmniControls.Checkbox($"{OmniLoc.Get($"Feature.SkillMonitor.{name}")}##skillMonitor{name}", ref value);
 }
 
 [Serializable]
@@ -281,6 +371,11 @@ public sealed class SkillMonitorConfig
     public Vector2 Offset { get; set; }
     public float IconScale { get; set; } = 1f;
     public float IconSpacing { get; set; } = 2f;
-    public bool ShowSelf { get; set; } = true;
+    public bool ShowDefault { get; set; } = true;
+    public bool ShowActive { get; set; } = true;
+    public bool ShowOnCooldown { get; set; } = true;
+    public bool ShowOffCooldown { get; set; } = true;
+    public bool HideOutOfCombat { get; set; }
+    public bool HideWeaponSheathed { get; set; }
     public Dictionary<uint, bool> EnabledActions { get; set; } = [];
 }

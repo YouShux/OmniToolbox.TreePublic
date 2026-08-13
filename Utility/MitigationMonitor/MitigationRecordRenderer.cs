@@ -206,7 +206,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             ? OmniLoc.Get("Feature.MitigationMonitor.Damage.Miss")
             : record.Invulnerable
                 ? OmniLoc.Get("Feature.MitigationMonitor.Damage.Invulnerable")
-                : record.Damage.ToString("N0", CultureInfo.InvariantCulture);
+                : OmniNumberFormatter.Format(record.Damage);
         var iconSize = OmniTheme.Scale(new Vector2(18f));
         var spacing = OmniTheme.Scale(4f);
         var display = FitText(text, MathF.Max(OmniTheme.Scale(10f), width - iconSize.X - OmniTheme.Scale(8f)));
