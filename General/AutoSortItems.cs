@@ -133,6 +133,23 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         EnsureRules();
         taskHelper?.Abort();
         ResetQueue();
+        if (IsCategoryVisible("retainer"))
+        {
+            QueueCategory("retainer", true);
+            return;
+        }
+
+        if (IsCategoryVisible("saddlebag"))
+        {
+            if (IsCategoryVisible("inventory"))
+            {
+                QueueCategory("inventory");
+            }
+
+            QueueSaddlebags(true);
+            return;
+        }
+
         if (GameState.ContentFinderCondition != 0)
         {
             QueueCategory("inventory", true, allowInDuty: true);
@@ -153,13 +170,14 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             ExceptionAction = ResetQueue
         };
         addonEvents = new(DalamudServices.AddonLifecycle);
-        addonEvents.Register(AddonEvent.PostSetup, "ArmouryBoard", (_, _) => QueueArmoury());
-        addonEvents.Register(AddonEvent.PostSetup, "Inventory", (_, _) => QueueCategory("inventory"));
-        addonEvents.Register(AddonEvent.PostSetup, "InventoryLarge", (_, _) => QueueCategory("inventory"));
-        addonEvents.Register(AddonEvent.PostSetup, "InventoryExpansion", (_, _) => QueueCategory("inventory"));
-        addonEvents.Register(AddonEvent.PostSetup, "InventoryRetainer", (_, _) => QueueCategory("retainer"));
-        addonEvents.Register(AddonEvent.PostSetup, "InventoryRetainerLarge", (_, _) => QueueCategory("retainer"));
-        addonEvents.Register(AddonEvent.PostSetup, "InventoryBuddy", (_, _) => QueueSaddlebags());
+        RegisterAutoSortAddon("ArmouryBoard", () => QueueArmoury());
+        RegisterAutoSortAddon("Inventory", () => QueueCategory("inventory"));
+        RegisterAutoSortAddon("InventoryLarge", () => QueueCategory("inventory"));
+        RegisterAutoSortAddon("InventoryExpansion", () => QueueCategory("inventory"));
+        RegisterAutoSortAddon("InventoryRetainer", () => QueueCategory("retainer"));
+        RegisterAutoSortAddon("InventoryRetainerLarge", () => QueueCategory("retainer"));
+        RegisterAutoSortAddon("InventoryBuddy", () => QueueSaddlebags());
+        RegisterAutoSortAddon("InventoryBuddy2", () => QueueSaddlebags());
         DService.Instance().ClientState.ClassJobChanged += OnClassJobChanged;
     }
 
@@ -185,6 +203,9 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         ResetQueue();
         return true;
     }
+
+    private void RegisterAutoSortAddon(string addonName, System.Action queueAction) =>
+        addonEvents!.Register(AddonEvent.PostShow, addonName, (_, _) => queueAction());
 
     private void OnClassJobChanged(uint _)
     {
@@ -243,18 +264,24 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
                      .Distinct(StringComparer.Ordinal)
                      .Where(IsCategoryEnabled))
         {
-            QueueCategory(category, notify);
+            QueueCategory(category);
             queued.Add(category);
         }
 
         if (queued.Add("saddlebag"))
         {
-            QueueCategory("saddlebag", notify);
+            QueueCategory("saddlebag");
         }
 
         if (queued.Add("rightsaddlebag"))
         {
-            QueueCategory("rightsaddlebag", notify);
+            QueueCategory("rightsaddlebag");
+        }
+
+        if (notify && taskHelper is not null &&
+            (queuedCategories.Contains("saddlebag") || queuedCategories.Contains("rightsaddlebag")))
+        {
+            taskHelper.Enqueue(NotifySortCompleted, "Notify sort completed");
         }
     }
 
@@ -506,12 +533,14 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             return false;
         }
 
-        if (services.Condition.IsOccupiedInEvent)
+        var isVisibleInventoryInteraction = category is "inventory" or "retainer" or "saddlebag" or "rightsaddlebag" &&
+                                            IsCategoryVisible(category);
+        if (!isVisibleInventoryInteraction && services.Condition.IsOccupiedInEvent)
         {
             return false;
         }
 
-        if (!allowInDuty && !services.Condition.IsIdle)
+        if (!allowInDuty && !isVisibleInventoryInteraction && !services.Condition.IsIdle)
         {
             return false;
         }
@@ -630,11 +659,15 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         return addon is not null && addon->IsVisible;
     }
 
-    private static bool IsCategoryVisible(string category) => category == "retainer"
-        ? IsAddonVisible("InventoryRetainer") || IsAddonVisible("InventoryRetainerLarge")
-        : category == "inventory"
-            ? IsAddonVisible("Inventory") || IsAddonVisible("InventoryLarge") || IsAddonVisible("InventoryExpansion")
-            : IsAddonVisible(GetAddonName(category));
+    private static bool IsCategoryVisible(string category) => category switch
+    {
+        "retainer" => IsAddonVisible("InventoryRetainer") || IsAddonVisible("InventoryRetainerLarge"),
+        "saddlebag" or "rightsaddlebag" =>
+            IsAddonVisible("InventoryBuddy") || IsAddonVisible("InventoryBuddy2"),
+        "inventory" =>
+            IsAddonVisible("Inventory") || IsAddonVisible("InventoryLarge") || IsAddonVisible("InventoryExpansion"),
+        _ => IsAddonVisible(GetAddonName(category))
+    };
 
     private static string GetAddonName(string category) => category switch
     {
