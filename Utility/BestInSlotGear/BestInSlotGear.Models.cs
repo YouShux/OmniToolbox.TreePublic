@@ -59,120 +59,25 @@ public sealed unsafe partial class BestInSlotGear
         string EffectText);
     private readonly record struct ItemDisplay(string Name, uint IconID, uint ItemLevel, bool IsHighQuality);
     private sealed record SearchSolution(GearOption[] Options, StatBlock Stats, double Damage, FoodResult? Food);
-    private sealed record SearchState(StatBlock Stats, DamageKey Key, SearchState? Previous, GearOption? Option);
-    private sealed class DominanceIndex
-    {
-        private readonly IReadOnlyList<SearchState> states;
-        private readonly List<DamageBounds[]> levels = [];
-
-        public DominanceIndex(IReadOnlyList<SearchState> states)
-        {
-            this.states = states;
-            var bounds = BuildLeafBounds(states);
-            levels.Add(bounds);
-            while (bounds.Length > 1)
-            {
-                bounds = BuildParentBounds(bounds);
-                levels.Add(bounds);
-            }
-        }
-
-        public bool ContainsDominator(DamageKey candidate) =>
-            states.Count > 0 && ContainsDominator(levels.Count - 1, 0, candidate);
-
-        private bool ContainsDominator(int level, int nodeIndex, DamageKey candidate)
-        {
-            var bounds = levels[level][nodeIndex];
-            if (!bounds.Maximum.Covers(candidate))
-            {
-                return false;
-            }
-
-            if (bounds.Minimum.Covers(candidate))
-            {
-                return true;
-            }
-
-            var childStart = nodeIndex * DominanceIndexFanout;
-            if (level == 0)
-            {
-                var childEnd = Math.Min(childStart + DominanceIndexFanout, states.Count);
-                for (var index = childStart; index < childEnd; index++)
-                {
-                    if (states[index].Key.Covers(candidate))
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-
-            var children = levels[level - 1];
-            var end = Math.Min(childStart + DominanceIndexFanout, children.Length);
-            for (var index = childStart; index < end; index++)
-            {
-                if (ContainsDominator(level - 1, index, candidate))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static DamageBounds[] BuildLeafBounds(IReadOnlyList<SearchState> states)
-        {
-            var bounds = new DamageBounds[(states.Count + DominanceIndexFanout - 1) / DominanceIndexFanout];
-            for (var index = 0; index < bounds.Length; index++)
-            {
-                var start = index * DominanceIndexFanout;
-                var end = Math.Min(start + DominanceIndexFanout, states.Count);
-                bounds[index] = DamageBounds.Create(states[start].Key);
-                for (var stateIndex = start + 1; stateIndex < end; stateIndex++)
-                {
-                    bounds[index] = bounds[index].Include(states[stateIndex].Key);
-                }
-            }
-
-            return bounds;
-        }
-
-        private static DamageBounds[] BuildParentBounds(IReadOnlyList<DamageBounds> children)
-        {
-            var bounds = new DamageBounds[(children.Count + DominanceIndexFanout - 1) / DominanceIndexFanout];
-            for (var index = 0; index < bounds.Length; index++)
-            {
-                var start = index * DominanceIndexFanout;
-                var end = Math.Min(start + DominanceIndexFanout, children.Count);
-                bounds[index] = children[start];
-                for (var childIndex = start + 1; childIndex < end; childIndex++)
-                {
-                    bounds[index] = bounds[index].Include(children[childIndex]);
-                }
-            }
-
-            return bounds;
-        }
-    }
-
-    private readonly record struct DamageBounds(DamageKey Minimum, DamageKey Maximum)
-    {
-        public static DamageBounds Create(DamageKey key) => new(key, key);
-
-        public DamageBounds Include(DamageKey key) => new(
-            DamageKey.MinimumOf(Minimum, key),
-            DamageKey.MaximumOf(Maximum, key));
-
-        public DamageBounds Include(DamageBounds bounds) => new(
-            DamageKey.MinimumOf(Minimum, bounds.Minimum),
-            DamageKey.MaximumOf(Maximum, bounds.Maximum));
-    }
     private sealed record GearEvaluation(GearOption Option, FoodEvaluation Food);
     private sealed record CommonJobSearchState(
         JobCalculationPreparation Preparation,
         List<GearOption> Weapons,
         double PersonalBestDamage);
+    private sealed record CommonJobSearchContext(
+        CommonJobSearchState State,
+        StatBlock[] SharedLowerBounds,
+        StatBlock[] SharedUpperBounds,
+        StatBlock WeaponLowerBound,
+        StatBlock WeaponUpperBound,
+        List<WeaponSearchCandidate> Weapons,
+        List<WeaponSearchNode> WeaponNodes,
+        FoodUpperBoundTable FoodUpperBounds,
+        DamageFactorTable DamageFactors,
+        double[] SharedDamageMultipliers,
+        double WeaponDamageMultiplier,
+        int MinimumSpeed,
+        int MaximumSpeed);
     private sealed record CommonSearchSolution(
         GearOption[] SharedOptions,
         StatBlock SharedStats,

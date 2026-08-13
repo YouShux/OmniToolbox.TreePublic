@@ -21,7 +21,7 @@ internal sealed class FloatingInfoOverlay(
     {
         Title = OmniLoc.Get("FloatingInfoOverlayTitle"),
         Description = OmniLoc.Get("FloatingInfoOverlayDescription"),
-        Category = ModuleCategory.Utility,
+        Category = ModuleCategory.Debug,
         RequiresPrivateProvider = true
     };
 
@@ -568,6 +568,9 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
             MathF.Min(
                 OmniTheme.Scale(260f),
                 ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(label).X - ImGui.GetStyle().ItemSpacing.X));
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(label);
+        ImGui.SameLine();
         var changed = OmniControls.SliderFloat(
             $"##floatingInfo{id}",
             ref value,
@@ -575,9 +578,6 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
             maximum,
             format,
             width);
-        ImGui.SameLine();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(label);
         return changed;
     }
 
@@ -594,6 +594,9 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
             MathF.Min(
                 OmniTheme.Scale(260f),
                 ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(label).X - ImGui.GetStyle().ItemSpacing.X));
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(label);
+        ImGui.SameLine();
         var changed = OmniControls.SliderInt(
             $"##floatingInfo{id}",
             ref value,
@@ -601,9 +604,6 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
             maximum,
             "%d",
             width);
-        ImGui.SameLine();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(label);
         return changed;
     }
 

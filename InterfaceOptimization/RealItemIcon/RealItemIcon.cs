@@ -15,7 +15,7 @@ public sealed class RealItemIcon(
     {
         Title = OmniLoc.Get("RealItemIconTitle"),
         Description = OmniLoc.Get("RealItemIconDescription"),
-        Category = ModuleCategory.InterfaceOptimization,
+        Category = ModuleCategory.Item,
         RequiresPrivateProvider = true
     };
 

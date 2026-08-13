@@ -16,7 +16,7 @@ public sealed class DalamudDirectoryCleanup : ModuleBase
     {
         Title = OmniLoc.Get("DalamudDirectoryCleanupTitle"),
         Description = OmniLoc.Get("DalamudDirectoryCleanupDescription"),
-        Category = ModuleCategory.Utility
+        Category = ModuleCategory.Daily
     };
 
     public override bool HasSettings => true;

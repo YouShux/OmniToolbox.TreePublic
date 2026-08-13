@@ -79,6 +79,12 @@ public sealed unsafe partial class BestInSlotGear
             return;
         }
 
+        var closeWithEscape =
+            ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows) &&
+            ImGui.IsKeyPressed(ImGuiKey.Escape, false) &&
+            !ImGui.IsPopupOpen("##bestInSlotGearExport") &&
+            !ImGui.IsPopupOpen("##bestInSlotGearImport");
+
         var windowPosition = ImGui.GetWindowPos();
         var windowSize = ImGui.GetWindowSize();
         if (!isCollapsed)
@@ -117,7 +123,7 @@ public sealed unsafe partial class BestInSlotGear
             framePosition + new Vector2(
                 titleBarSize.X - OmniTheme.TitleCloseIconRight(),
                 OmniTheme.TitleIconTop()));
-        if (OmniControls.CloseButton("##closeBestInSlotGear", OmniTheme.TitleIconSize()))
+        if (OmniControls.CloseButton("##closeBestInSlotGear", OmniTheme.TitleIconSize()) || closeWithEscape)
         {
             CancelCalculation();
             isWindowOpen = false;
@@ -130,12 +136,19 @@ public sealed unsafe partial class BestInSlotGear
         }
 
         DrawWindowContent(framePosition, frameSize);
+        if (openExportPopup)
+        {
+            ImGui.OpenPopup("##bestInSlotGearExport");
+            openExportPopup = false;
+        }
+
         if (openImportPopup)
         {
             ImGui.OpenPopup("##bestInSlotGearImport");
             openImportPopup = false;
         }
 
+        DrawExportPopup();
         DrawImportPopup();
         ImGui.End();
     }
@@ -406,15 +419,21 @@ public sealed unsafe partial class BestInSlotGear
             }
         }
 
-        if (result is { Error: null, JobResults.Count: 0 })
+        if (result is { Error: null } current)
         {
             var exportLabel = OmniLoc.Get("Feature.BestInSlotGear.Export");
             var exportSize = OmniControls.CompactButtonSize(exportLabel);
             ContinueControlRow(exportSize.X, spacing);
-            if (OmniControls.SmallButton(exportLabel, false, exportSize) &&
-                !TryExportCurrentResult(out var exportError))
+            if (OmniControls.SmallButton(exportLabel, false, exportSize))
             {
-                OmniNotifier.Popup(Info.Title, exportError, NotificationType.Error);
+                if (current.JobResults.Count > 0)
+                {
+                    openExportPopup = true;
+                }
+                else if (!TryExportResult(current, out var exportError))
+                {
+                    OmniNotifier.Popup(Info.Title, exportError, NotificationType.Error);
+                }
             }
         }
 
@@ -427,6 +446,40 @@ public sealed unsafe partial class BestInSlotGear
             importShareError = string.Empty;
             openImportPopup = true;
         }
+    }
+
+    private void DrawExportPopup()
+    {
+        using var colors = ImRaii.PushColor(ImGuiCol.PopupBg, OmniTheme.Tokens.Background)
+            .Push(ImGuiCol.Border, OmniTheme.Tokens.Border);
+        using var border = ImRaii.PushStyle(ImGuiStyleVar.PopupBorderSize, OmniTheme.BorderThickness());
+        if (!ImGui.BeginPopup("##bestInSlotGearExport", ImGuiWindowFlags.AlwaysAutoResize))
+        {
+            return;
+        }
+
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.BestInSlotGear.Share.SelectExportJob"));
+        if (result is { Error: null } current)
+        {
+            foreach (var jobResult in current.JobResults)
+            {
+                if (!ImGui.MenuItem(jobResult.JobName))
+                {
+                    continue;
+                }
+
+                if (!TryExportResult(
+                        jobResult with { Items = [.. current.Items, .. jobResult.Items] },
+                        out var exportError))
+                {
+                    OmniNotifier.Popup(Info.Title, exportError, NotificationType.Error);
+                }
+
+                ImGui.CloseCurrentPopup();
+            }
+        }
+
+        ImGui.EndPopup();
     }
 
     private void DrawImportPopup()

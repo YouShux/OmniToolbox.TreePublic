@@ -21,7 +21,7 @@ public sealed class ItemTooltipRemark : ModuleBase
     {
         Title = OmniLoc.Get("ItemTooltipRemarkTitle"),
         Description = OmniLoc.Get("ItemTooltipRemarkDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Item
     };
 
     private readonly ItemTooltipRemarkConfig config;

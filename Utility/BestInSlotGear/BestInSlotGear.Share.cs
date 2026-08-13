@@ -53,9 +53,9 @@ public sealed unsafe partial class BestInSlotGear
         new(42, [CriticalHitParamID, DeterminationParamID, DirectHitParamID, SpellSpeedParamID])
     ];
 
-    private bool TryExportCurrentResult(out string error)
+    private bool TryExportResult(CalculationResult current, out string error)
     {
-        if (result is not { Error: null } current)
+        if (current.Error is not null)
         {
             error = OmniLoc.Get("Feature.BestInSlotGear.Share.NoResult");
             return false;

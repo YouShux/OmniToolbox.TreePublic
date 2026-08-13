@@ -22,7 +22,7 @@ public sealed unsafe class DirectionalActionRelease : ModuleBase
     {
         Title = OmniLoc.Get("DirectionalActionReleaseTitle"),
         Description = OmniLoc.Get("DirectionalActionReleaseDescription"),
-        Category = ModuleCategory.Action,
+        Category = ModuleCategory.Combat,
         RequiresPrivateProvider = true
     };
 

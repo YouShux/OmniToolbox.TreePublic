@@ -19,7 +19,7 @@ public sealed class CopyItemName : ModuleBase
     {
         Title = OmniLoc.Get("CopyItemNameTitle"),
         Description = OmniLoc.Get("CopyItemNameDescription"),
-        Category = ModuleCategory.General
+        Category = ModuleCategory.Item
     };
 
     private bool hotkeyHeld;

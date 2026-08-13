@@ -20,7 +20,7 @@ public sealed class BackgroundChatReminder : ModuleBase
     {
         Title = OmniLoc.Get("BackgroundChatReminderTitle"),
         Description = OmniLoc.Get("BackgroundChatReminderDescription"),
-        Category = ModuleCategory.General
+        Category = ModuleCategory.Daily
     };
 
     private const uint FlashAll = 3;

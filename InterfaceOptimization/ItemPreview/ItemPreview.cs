@@ -14,13 +14,13 @@ namespace OmniToolbox.TreePublic;
 public sealed class ItemPreview : ModuleBase
 {
     private const string SupplementPreviewImageBaseURL =
-        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/ItemPreview-";
+        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Item/ItemPreview-";
 
     public override ModuleInfo Info { get; } = new()
     {
         Title = OmniLoc.Get("ItemPreviewTitle"),
         Description = OmniLoc.Get("ItemPreviewDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Item
     };
 
     private readonly ItemConfig config;
@@ -71,7 +71,7 @@ public sealed class ItemPreview : ModuleBase
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
         OmniControls.SectionLabel(OmniLoc.Get("Settings.ImagePreview.Title"));
         OmniControls.PreviewImageIcon(
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/ItemPreview-1.png");
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Item/ItemPreview-1.png");
         ImGui.Spacing();
         if (!DrawImageSettings(out var imageContentChanged) && !tooltipChanged)
         {

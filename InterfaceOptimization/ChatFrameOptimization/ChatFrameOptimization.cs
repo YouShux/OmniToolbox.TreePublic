@@ -37,7 +37,7 @@ public sealed unsafe class ChatFrameOptimization(
     {
         Title = OmniLoc.Get("ChatFrameOptimizationTitle"),
         Description = OmniLoc.Get("ChatFrameOptimizationDescription"),
-        Category = ModuleCategory.InterfaceOptimization,
+        Category = ModuleCategory.Interface,
         Commands =
         [
             new("Feature.ChatFrameOptimization.CommandDescription", "/omni 日志回放")

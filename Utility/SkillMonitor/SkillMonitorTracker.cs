@@ -7,6 +7,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
 using OmenTools;
 using OmenTools.OmenService;
 using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
@@ -139,6 +140,9 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
 
                 var state = states[memberIndex, definitionIndex];
                 state.StatusActive = true;
+                state.StatusRemainingMilliseconds = status.RemainingTime > 0f
+                    ? (int)Math.Ceiling(status.RemainingTime * 1_000f)
+                    : 0;
                 states[memberIndex, definitionIndex] = state;
             }
         }
@@ -170,6 +174,7 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
             var state = states[memberIndex, definitionIndex];
             state.CooldownKnown = true;
             state.ReadyAtTick = action.Tick + definitions[definitionIndex].CooldownMilliseconds;
+            state.CooldownMilliseconds = definitions[definitionIndex].CooldownMilliseconds;
             state.ActiveUntilTick = action.Tick + definitions[definitionIndex].ActiveMilliseconds;
             states[memberIndex, definitionIndex] = state;
             return;
@@ -192,31 +197,52 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
                 {
                     state.DisplayState = SkillMonitorDisplayState.Active;
                     state.CooldownText = string.Empty;
+                    state.CooldownProgress = 0f;
+                    var statusSeconds = (int)Math.Ceiling(state.StatusRemainingMilliseconds / 1_000d);
+                    if (statusSeconds != state.DisplaySeconds)
+                    {
+                        state.DisplaySeconds = statusSeconds;
+                        state.StatusText = statusSeconds > 0
+                            ? FormatDuration(statusSeconds)
+                            : string.Empty;
+                    }
                 }
                 else if (state.CooldownKnown && state.ReadyAtTick > now)
                 {
                     state.DisplayState = SkillMonitorDisplayState.Cooldown;
-                    var seconds = (int)Math.Ceiling((state.ReadyAtTick - now) / 1_000d);
+                    var remainingMilliseconds = state.ReadyAtTick - now;
+                    var seconds = (int)Math.Ceiling(remainingMilliseconds / 1_000d);
                     if (seconds != state.DisplaySeconds)
                     {
                         state.DisplaySeconds = seconds;
                         state.CooldownText = seconds.ToString(CultureInfo.InvariantCulture);
                     }
+
+                    state.CooldownProgress = state.CooldownMilliseconds > 0
+                        ? Math.Clamp((float)remainingMilliseconds / state.CooldownMilliseconds, 0f, 1f)
+                        : 0f;
+                    state.StatusText = string.Empty;
                 }
                 else if (state.CooldownKnown)
                 {
                     state.DisplayState = SkillMonitorDisplayState.Ready;
                     state.CooldownText = string.Empty;
+                    state.CooldownProgress = 0f;
+                    state.StatusText = string.Empty;
                 }
                 else if (definitions[definitionIndex].StatusOnly)
                 {
                     state.DisplayState = SkillMonitorDisplayState.Inactive;
                     state.CooldownText = string.Empty;
+                    state.CooldownProgress = 0f;
+                    state.StatusText = string.Empty;
                 }
                 else
                 {
                     state.DisplayState = SkillMonitorDisplayState.Unknown;
                     state.CooldownText = string.Empty;
+                    state.CooldownProgress = 0f;
+                    state.StatusText = string.Empty;
                 }
 
                 states[memberIndex, definitionIndex] = state;
@@ -252,6 +278,9 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
                 state.CooldownKnown = true;
                 if (actionManager->IsRecastTimerActive(ActionType.Action, definition.ActionID))
                 {
+                    state.CooldownMilliseconds = (int)(Math.Max(
+                        0f,
+                        actionManager->GetRecastTime(ActionType.Action, definition.ActionID)) * 1_000f);
                     state.ReadyAtTick = now + (long)Math.Max(
                         0f,
                         actionManager->GetRecastTime(ActionType.Action, definition.ActionID) -
@@ -260,6 +289,7 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
                 else
                 {
                     state.ReadyAtTick = now;
+                    state.CooldownMilliseconds = definition.CooldownMilliseconds;
                 }
 
                 states[memberIndex, definitionIndex] = state;
@@ -275,6 +305,7 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
         {
             var state = states[memberIndex, definitionIndex];
             state.StatusActive = false;
+            state.StatusRemainingMilliseconds = 0;
             states[memberIndex, definitionIndex] = state;
         }
     }
@@ -320,6 +351,13 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
         return result;
     }
 
+    private static string FormatDuration(int seconds)
+    {
+        return seconds >= 60
+            ? string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.SkillMonitor.Duration.Minutes"), seconds / 60)
+            : string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.SkillMonitor.Duration.Seconds"), seconds);
+    }
+
     private readonly record struct ActionUse(uint CasterEntityID, uint ActionID, long Tick);
 }
 
@@ -331,8 +369,12 @@ internal struct SkillMonitorRuntimeState
     public bool StatusActive;
     public long ReadyAtTick;
     public long ActiveUntilTick;
+    public int CooldownMilliseconds;
+    public int StatusRemainingMilliseconds;
     public int DisplaySeconds;
     public string? CooldownText;
+    public string? StatusText;
+    public float CooldownProgress;
     public SkillMonitorDisplayState DisplayState;
 }
 

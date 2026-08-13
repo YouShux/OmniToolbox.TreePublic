@@ -52,10 +52,10 @@ public sealed unsafe class ChocoboColorPreview(
     {
         Title = OmniLoc.Get("ChocoboColorPreviewTitle"),
         Description = OmniLoc.Get("ChocoboColorPreviewDescription"),
-        Category = ModuleCategory.General,
+        Category = ModuleCategory.Daily,
         RequiresPrivateProvider = true,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/General/ChocoboColorPreview-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Daily/ChocoboColorPreview-1.png"
     };
 
     protected override void OnEnable()

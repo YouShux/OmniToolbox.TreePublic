@@ -32,7 +32,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
     {
         Title = OmniLoc.Get("BetterUserMacroTitle"),
         Description = OmniLoc.Get("BetterUserMacroDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Interface
     };
 
     private const uint MacroPageCount = 2;
@@ -1323,7 +1323,7 @@ public sealed class BetterUserMacroConfig
 internal static class BetterUserMacroPanel
 {
     private const string PreviewImageBaseURL =
-        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/BetterUserMacro-";
+        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Interface/BetterUserMacro-";
 
     public static bool Draw(BetterUserMacroConfig config)
     {

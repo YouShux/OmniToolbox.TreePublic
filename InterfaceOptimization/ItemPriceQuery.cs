@@ -16,9 +16,9 @@ public sealed class ItemPriceQuery : ModuleBase
     {
         Title = OmniLoc.Get("ItemPriceQueryTitle"),
         Description = OmniLoc.Get("ItemPriceQueryDescription"),
-        Category = ModuleCategory.InterfaceOptimization,
+        Category = ModuleCategory.Item,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/ItemPriceQuery-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Item/ItemPriceQuery-1.png"
     };
 
     private readonly MarketConfig config;

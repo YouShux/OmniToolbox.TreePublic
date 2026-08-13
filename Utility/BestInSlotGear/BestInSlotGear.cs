@@ -43,15 +43,10 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
     private const int MinimumSyncItemLevel = 345;
     private const int MinimumCandidateItemLevel = 320;
     private const int CandidateItemLevelWindow = 25;
-    private const int SolverVersion = 28;
+    private const int SolverVersion = 31;
     private const int CacheSchemaVersion = 3;
     private const int CandidateCacheCapacity = 4;
     private const int ResultCacheCapacity = 24;
-    private const int SearchPruneBatchSize = 1024;
-    private const int DominanceIndexFanout = 32;
-
-    private static readonly int SearchPruneParallelism = Math.Clamp(Environment.ProcessorCount / 2, 1, 4);
-
     private static readonly Encoding Utf8 = new UTF8Encoding(false);
     private static readonly JsonSerializerSettings CacheSerializerSettings = new()
     {
@@ -81,6 +76,7 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
     private string? loadedSavedResultID;
     private string importShareText = string.Empty;
     private string importShareError = string.Empty;
+    private bool openExportPopup;
     private bool openImportPopup;
     private string gameDataVersion = string.Empty;
     private uint openingStageItemLevelLimit = 999;
@@ -129,7 +125,7 @@ public sealed unsafe partial class BestInSlotGear : ModuleBase
     {
         Title = OmniLoc.Get("BestInSlotGearTitle"),
         Description = OmniLoc.Get("BestInSlotGearDescription"),
-        Category = ModuleCategory.Utility,
+        Category = ModuleCategory.Item,
         SupportUrls =
         [
             "https://www.kdocs.cn/l/ceEcTzlFQBUy",

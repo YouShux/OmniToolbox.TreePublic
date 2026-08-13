@@ -33,7 +33,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     {
         Title = OmniLoc.Get("AutoHideModelTitle"),
         Description = OmniLoc.Get("AutoHideModelDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Interface
     };
 
     private const int ObjectScanStart = 1;

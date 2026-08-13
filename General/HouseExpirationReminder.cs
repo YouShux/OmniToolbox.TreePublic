@@ -22,7 +22,7 @@ public sealed unsafe class HouseExpirationReminder(
     {
         Title = OmniLoc.Get("HouseExpirationReminderTitle"),
         Description = OmniLoc.Get("HouseExpirationReminderDescription"),
-        Category = ModuleCategory.General
+        Category = ModuleCategory.Daily
     };
 
     internal const int AutoDemolitionDays = 45;
@@ -478,6 +478,9 @@ internal static class HouseExpirationReminderPanel
         }
 
         ImGui.TableNextColumn();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.HouseExpirationReminder.WarnDays"));
+        ImGui.SameLine();
         ImGui.SetNextItemWidth(OmniTheme.Scale(76f));
         var warnDays = HouseExpirationReminder.NormalizeWarnDays(config.WarnDays);
         if (OmniControls.InputInt("##houseExpirationWarnDays", ref warnDays))
@@ -489,9 +492,6 @@ internal static class HouseExpirationReminderPanel
         }
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
-        ImGui.SameLine();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.HouseExpirationReminder.WarnDays"));
 
         ImGui.TableNextColumn();
         if (OmniControls.SmallButton(

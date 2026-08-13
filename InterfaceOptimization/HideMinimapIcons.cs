@@ -64,7 +64,7 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
     {
         Title = OmniLoc.Get("HideMinimapIconsTitle"),
         Description = OmniLoc.Get("HideMinimapIconsDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Interface
     };
 
     public override bool HasSettings => true;
@@ -119,6 +119,9 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
                 ImGui.GetContentRegionAvail().X -
                 ImGui.GetStyle().ItemSpacing.X -
                 ImGui.CalcTextSize(iconScaleLabel).X);
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(iconScaleLabel);
+            ImGui.SameLine();
             if (OmniControls.SliderFloat(
                     "##hideMinimapIconsIconScale",
                     ref iconScale,
@@ -131,10 +134,6 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
                 changed = true;
                 mapSettingsChanged = true;
             }
-
-            ImGui.SameLine();
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted(iconScaleLabel);
         }
 
         if (mapSettingsChanged)

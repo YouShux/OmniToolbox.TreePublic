@@ -27,7 +27,7 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
     {
         Title = OmniLoc.Get("AutoPartyInviteTitle"),
         Description = OmniLoc.Get("AutoPartyInviteDescription"),
-        Category = ModuleCategory.InterfaceOperation,
+        Category = ModuleCategory.Automation,
         RequiresPrivateProvider = true
     };
 

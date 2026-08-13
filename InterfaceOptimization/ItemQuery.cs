@@ -16,7 +16,7 @@ public sealed class ItemQuery : ModuleBase
     {
         Title = OmniLoc.Get("ItemQueryTitle"),
         Description = OmniLoc.Get("ItemQueryDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Item
     };
 
     private readonly ItemConfig itemConfig;

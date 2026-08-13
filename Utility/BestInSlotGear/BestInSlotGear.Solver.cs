@@ -1,9 +1,7 @@
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Component.Exd;
@@ -120,14 +118,23 @@ public sealed unsafe partial class BestInSlotGear
             }
 
             var progressStart = 0.62f + 0.12f * preparedJobs / input.CommonJobs.Count;
-            var personalBest = FindBestSolution(
+            weapons = PruneFactorDominatedSearchOptions(
                 personalGroups,
                 weapons,
                 commonJob.Foods,
                 commonJob.BaseStats,
                 commonJob.Job,
                 input.LevelProfile,
-                OptimizationTarget.MaxDamage,
+                preserveSpeed,
+                cancellationToken);
+            var personalBest = FindBestExactSolution(
+                personalGroups,
+                weapons,
+                commonJob.Foods,
+                commonJob.BaseStats,
+                commonJob.Job,
+                input.LevelProfile,
+                input.OptimizationTarget,
                 input.TargetGcd,
                 cancellationToken,
                 progress => reportProgress(
@@ -205,86 +212,322 @@ public sealed unsafe partial class BestInSlotGear
             return null;
         }
 
-        var speedCap = int.MaxValue;
-        if (target == OptimizationTarget.SpecificGcd)
+        var preserveSpeed = target == OptimizationTarget.SpecificGcd;
+        PruneCommonFactorDominatedSearchOptions(
+            groups,
+            jobs,
+            level,
+            preserveSpeed,
+            cancellationToken);
+        groups.Sort(static (left, right) => left.Count.CompareTo(right.Count));
+        var contexts = new CommonJobSearchContext[jobs.Count];
+        for (var jobIndex = 0; jobIndex < jobs.Count; jobIndex++)
         {
-            speedCap = 0;
-            foreach (var state in jobs)
+            var state = jobs[jobIndex];
+            var suffixLowerBounds = new StatBlock[groups.Count + 1];
+            var suffixUpperBounds = new StatBlock[groups.Count + 1];
+            for (var groupIndex = groups.Count - 1; groupIndex >= 0; groupIndex--)
             {
-                speedCap = Math.Max(speedCap, FindMaximumSpeedForGcd(level, state.Preparation.Job, targetGcd));
+                GetOptionGroupBounds(
+                    groups[groupIndex],
+                    state.Preparation.Job,
+                    out var minimum,
+                    out var maximum);
+                suffixLowerBounds[groupIndex] = suffixLowerBounds[groupIndex + 1] + minimum;
+                suffixUpperBounds[groupIndex] = suffixUpperBounds[groupIndex + 1] + maximum;
+            }
+
+            GetOptionGroupBounds(
+                state.Weapons,
+                state.Preparation.Job,
+                out var weaponLowerBound,
+                out var weaponUpperBound);
+            var foodUpperBounds = BuildFoodUpperBounds(
+                state.Preparation.Foods,
+                state.Preparation.Job,
+                state.Preparation.BaseStats + suffixUpperBounds[0] + weaponUpperBound);
+            var damageFactors = BuildDamageFactors(state.Preparation.Job, level, foodUpperBounds);
+            var factorRatioCache = new Dictionary<
+                (DamageFactorKind Kind, int Delta, int Minimum, int Maximum),
+                double>();
+            var sharedDamageMultipliers = new double[groups.Count + 1];
+            sharedDamageMultipliers[^1] = 1d;
+            for (var groupIndex = groups.Count - 1; groupIndex >= 0; groupIndex--)
+            {
+                var continuationMinimum = state.Preparation.BaseStats + weaponLowerBound;
+                var continuationMaximum = state.Preparation.BaseStats + weaponUpperBound;
+                for (var otherIndex = 0; otherIndex < groups.Count; otherIndex++)
+                {
+                    if (otherIndex == groupIndex)
+                    {
+                        continue;
+                    }
+
+                    GetOptionGroupBounds(
+                        groups[otherIndex],
+                        state.Preparation.Job,
+                        out var otherMinimum,
+                        out var otherMaximum);
+                    continuationMinimum += otherMinimum;
+                    continuationMaximum += otherMaximum;
+                }
+
+                GetOptionGroupBounds(
+                    groups[groupIndex],
+                    state.Preparation.Job,
+                    out var minimum,
+                    out _);
+                sharedDamageMultipliers[groupIndex] = sharedDamageMultipliers[groupIndex + 1] *
+                    GetMaximumOptionDamageRatio(
+                        groups[groupIndex],
+                        minimum,
+                        continuationMinimum,
+                        continuationMaximum,
+                        state.Preparation.Job,
+                        damageFactors,
+                        factorRatioCache);
+            }
+
+            var weaponContinuationMinimum = state.Preparation.BaseStats;
+            var weaponContinuationMaximum = state.Preparation.BaseStats;
+            foreach (var group in groups)
+            {
+                GetOptionGroupBounds(group, state.Preparation.Job, out var minimum, out var maximum);
+                weaponContinuationMinimum += minimum;
+                weaponContinuationMaximum += maximum;
+            }
+
+            var weaponDamageMultiplier = GetMaximumOptionDamageRatio(
+                state.Weapons,
+                weaponLowerBound,
+                weaponContinuationMinimum,
+                weaponContinuationMaximum,
+                state.Preparation.Job,
+                damageFactors,
+                factorRatioCache);
+            var weapons = new List<WeaponSearchCandidate>(state.Weapons.Count);
+            foreach (var weapon in state.Weapons)
+            {
+                var upperBound = GetOptionUpperBound(weapon, state.Preparation.Job);
+                weapons.Add(new(
+                    weapon,
+                    upperBound,
+                    GetMaximumDamageUpperBound(
+                        state.Preparation.BaseStats + suffixUpperBounds[0] + upperBound,
+                        foodUpperBounds,
+                        damageFactors)));
+            }
+
+            weapons.Sort(static (left, right) =>
+            {
+                var damage = right.SearchUpperBound.Damage.CompareTo(left.SearchUpperBound.Damage);
+                return damage != 0
+                    ? damage
+                    : right.SearchUpperBound.Utility.CompareTo(left.SearchUpperBound.Utility);
+            });
+            var minimumSpeed = preserveSpeed
+                ? FindMinimumSpeedForGcd(level, state.Preparation.Job, targetGcd)
+                : 0;
+            var maximumSpeed = preserveSpeed
+                ? FindMaximumSpeedForGcd(level, state.Preparation.Job, targetGcd)
+                : int.MaxValue;
+            if (minimumSpeed > maximumSpeed)
+            {
+                return null;
+            }
+
+            contexts[jobIndex] = new(
+                state,
+                suffixLowerBounds,
+                suffixUpperBounds,
+                weaponLowerBound,
+                weaponUpperBound,
+                weapons,
+                BuildWeaponSearchTree(weapons),
+                foodUpperBounds,
+                damageFactors,
+                sharedDamageMultipliers,
+                weaponDamageMultiplier,
+                minimumSpeed,
+                maximumSpeed);
+        }
+
+        Array.Sort(contexts, static (left, right) => left.Weapons.Count.CompareTo(right.Weapons.Count));
+
+        for (var depth = 0; depth < groups.Count; depth++)
+        {
+            var ranked = new List<(GearOption Option, double MaximumLoss, double AverageLoss, int Index)>(
+                groups[depth].Count);
+            for (var optionIndex = 0; optionIndex < groups[depth].Count; optionIndex++)
+            {
+                var maximumLoss = 0d;
+                var totalLoss = 0d;
+                foreach (var context in contexts)
+                {
+                    var damage = GetCommonDamageUpperBound(
+                        context,
+                        depth + 1,
+                        GetOptionUpperBound(groups[depth][optionIndex], context.State.Preparation.Job));
+                    var loss = Math.Max(0d, 1d - damage / context.State.PersonalBestDamage);
+                    maximumLoss = Math.Max(maximumLoss, loss);
+                    totalLoss += loss;
+                }
+
+                ranked.Add((groups[depth][optionIndex], maximumLoss, totalLoss / contexts.Length, optionIndex));
+            }
+
+            ranked.Sort(static (left, right) =>
+            {
+                var maximumLoss = left.MaximumLoss.CompareTo(right.MaximumLoss);
+                if (maximumLoss != 0)
+                {
+                    return maximumLoss;
+                }
+
+                var averageLoss = left.AverageLoss.CompareTo(right.AverageLoss);
+                return averageLoss != 0 ? averageLoss : left.Index.CompareTo(right.Index);
+            });
+            for (var optionIndex = 0; optionIndex < ranked.Count; optionIndex++)
+            {
+                groups[depth][optionIndex] = ranked[optionIndex].Option;
             }
         }
 
-        var frontier = BuildGearFrontier(
-            groups,
-            default,
-            jobs[0].Preparation.Job,
-            target == OptimizationTarget.SpecificGcd,
-            speedCap,
-            cancellationToken,
-            reportProgress,
-            0.74f,
-            0.9f);
-        SearchState? bestState = null;
+        var selected = new GearOption[groups.Count];
+        GearOption[]? bestOptions = null;
         Dictionary<uint, SearchSolution>? bestJobSolutions = null;
+        var evaluatedJobSolutions = new SearchSolution?[jobs.Count];
         var bestMaximumLoss = double.MaxValue;
         var bestAverageLoss = double.MaxValue;
-        for (var index = 0; index < frontier.Count; index++)
+        var seenByDepth = new HashSet<StatBlock>[groups.Count + 1];
+        for (var index = 0; index < seenByDepth.Length; index++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var state = frontier[index];
-            var jobSolutions = new Dictionary<uint, SearchSolution>(jobs.Count);
-            var hasSolution = true;
-            var maximumLoss = 0d;
-            var totalLoss = 0d;
-            foreach (var jobState in jobs)
-            {
-                var jobSolution = FindBestWeaponSolution(
-                    jobState,
-                    state.Stats,
-                    level,
-                    target,
-                    targetGcd,
-                    cancellationToken);
-                if (jobSolution is null)
-                {
-                    hasSolution = false;
-                    break;
-                }
+            seenByDepth[index] = [];
+        }
 
-                var loss = Math.Max(0d, 1d - jobSolution.Damage / jobState.PersonalBestDamage);
-                maximumLoss = Math.Max(maximumLoss, loss);
-                totalLoss += loss;
-                jobSolutions.Add(jobState.Preparation.JobID, jobSolution);
+        long visited = 0;
+        Search(0, default);
+
+        void Search(int depth, StatBlock sharedStats)
+        {
+            if ((++visited & 8191) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
-            if (hasSolution)
+            if (!seenByDepth[depth].Add(sharedStats))
             {
-                var averageLoss = totalLoss / jobs.Count;
-                if (maximumLoss < bestMaximumLoss - 0.0000001d ||
-                    Math.Abs(maximumLoss - bestMaximumLoss) <= 0.0000001d &&
-                    averageLoss < bestAverageLoss - 0.0000001d)
-                {
-                    bestMaximumLoss = maximumLoss;
-                    bestAverageLoss = averageLoss;
-                    bestJobSolutions = jobSolutions;
-                    bestState = state;
-                }
+                return;
             }
 
-            if ((index & 255) == 0 || index + 1 == frontier.Count)
+            var branchMaximumLoss = 0d;
+            var branchTotalLoss = 0d;
+            foreach (var context in contexts)
             {
-                reportProgress(0.9f + 0.09f * (index + 1) / frontier.Count);
+                if (preserveSpeed &&
+                    !CanReachTargetGcd(
+                        context.State.Preparation.BaseStats.Speed + sharedStats.Speed +
+                        context.SharedLowerBounds[depth].Speed + context.WeaponLowerBound.Speed,
+                        context.State.Preparation.BaseStats.Speed + sharedStats.Speed +
+                        context.SharedUpperBounds[depth].Speed + context.WeaponUpperBound.Speed,
+                        context.State.Preparation.Foods,
+                        context.State.Preparation.Job,
+                        context.MinimumSpeed,
+                        context.MaximumSpeed))
+                {
+                    return;
+                }
+
+                var damage = GetCommonDamageUpperBound(context, depth, sharedStats);
+                var loss = Math.Max(0d, 1d - damage / context.State.PersonalBestDamage);
+                branchMaximumLoss = Math.Max(branchMaximumLoss, loss);
+                branchTotalLoss += loss;
+            }
+
+            var branchAverageLoss = branchTotalLoss / contexts.Length;
+            if (branchMaximumLoss > bestMaximumLoss + 0.0000001d ||
+                Math.Abs(branchMaximumLoss - bestMaximumLoss) <= 0.0000001d &&
+                branchAverageLoss >= bestAverageLoss - 0.0000001d)
+            {
+                return;
+            }
+
+            if (depth == groups.Count)
+            {
+                var maximumLoss = 0d;
+                var totalLoss = 0d;
+                for (var jobIndex = 0; jobIndex < contexts.Length; jobIndex++)
+                {
+                    var solution = FindBestWeaponSolution(
+                        contexts[jobIndex],
+                        sharedStats,
+                        level,
+                        target,
+                        targetGcd,
+                        cancellationToken);
+                    if (solution is null)
+                    {
+                        return;
+                    }
+
+                    evaluatedJobSolutions[jobIndex] = solution;
+                    var loss = Math.Max(
+                        0d,
+                        1d - solution.Damage / contexts[jobIndex].State.PersonalBestDamage);
+                    maximumLoss = Math.Max(maximumLoss, loss);
+                    totalLoss += loss;
+                    if (maximumLoss > bestMaximumLoss + 0.0000001d ||
+                        Math.Abs(maximumLoss - bestMaximumLoss) <= 0.0000001d &&
+                        totalLoss / contexts.Length >= bestAverageLoss - 0.0000001d)
+                    {
+                        return;
+                    }
+                }
+
+                var averageLoss = totalLoss / contexts.Length;
+                if (maximumLoss >= bestMaximumLoss - 0.0000001d &&
+                    (Math.Abs(maximumLoss - bestMaximumLoss) > 0.0000001d ||
+                     averageLoss >= bestAverageLoss - 0.0000001d))
+                {
+                    return;
+                }
+
+                bestMaximumLoss = maximumLoss;
+                bestAverageLoss = averageLoss;
+                bestOptions = (GearOption[])selected.Clone();
+                bestJobSolutions = new Dictionary<uint, SearchSolution>(contexts.Length);
+                for (var jobIndex = 0; jobIndex < contexts.Length; jobIndex++)
+                {
+                    bestJobSolutions.Add(
+                        contexts[jobIndex].State.Preparation.JobID,
+                        evaluatedJobSolutions[jobIndex]!);
+                }
+
+                return;
+            }
+
+            var group = groups[depth];
+            for (var optionIndex = 0; optionIndex < group.Count; optionIndex++)
+            {
+                selected[depth] = group[optionIndex];
+                Search(depth + 1, sharedStats + group[optionIndex].Stats);
+                if (depth == 0)
+                {
+                    reportProgress(0.74f + 0.25f * (optionIndex + 1) / group.Count);
+                }
             }
         }
 
-        return bestJobSolutions is null || bestState is null
+        return bestJobSolutions is null || bestOptions is null
             ? null
-            : new(GetSearchOptions(bestState, groups.Count), bestState.Stats, bestJobSolutions);
+            : new(
+                bestOptions,
+                bestOptions.Aggregate(default(StatBlock), static (stats, option) => stats + option.Stats),
+                bestJobSolutions);
     }
 
     private static SearchSolution? FindBestWeaponSolution(
-        CommonJobSearchState state,
+        CommonJobSearchContext context,
         StatBlock sharedStats,
         LevelProfile level,
         OptimizationTarget target,
@@ -292,36 +535,80 @@ public sealed unsafe partial class BestInSlotGear
         CancellationToken cancellationToken)
     {
         GearEvaluation? bestEvaluation = null;
-        foreach (var weapon in state.Weapons)
+        var baseStats = context.State.Preparation.BaseStats + sharedStats;
+        SearchWeapons(0);
+
+        void SearchWeapons(int nodeIndex)
         {
-            var evaluation = FindGearEvaluation(
-                weapon,
-                state.Preparation.BaseStats + sharedStats,
-                state.Preparation.Foods,
-                state.Preparation.Job,
-                level,
-                target,
-                targetGcd,
-                cancellationToken);
-            if (evaluation is null)
+            var node = context.WeaponNodes[nodeIndex];
+            if (target == OptimizationTarget.SpecificGcd &&
+                !CanReachTargetGcd(
+                    baseStats.Speed + node.LowerBound.Speed,
+                    baseStats.Speed + node.UpperBound.Speed,
+                    context.State.Preparation.Foods,
+                    context.State.Preparation.Job,
+                    context.MinimumSpeed,
+                    context.MaximumSpeed) ||
+                bestEvaluation is { } current &&
+                IsUpperBoundPrunable(
+                    baseStats + node.UpperBound,
+                    context.FoodUpperBounds,
+                    context.DamageFactors,
+                    current.Food))
             {
-                continue;
+                return;
             }
 
-            if (!IsBetterGearEvaluation(evaluation, bestEvaluation))
+            if (node.LeftChild >= 0)
             {
-                continue;
+                SearchWeapons(node.LeftChild);
+                SearchWeapons(node.RightChild);
+                return;
             }
 
-            bestEvaluation = evaluation;
+            for (var weaponIndex = node.Start; weaponIndex < node.Start + node.Count; weaponIndex++)
+            {
+                var weapon = context.Weapons[weaponIndex];
+                if (target == OptimizationTarget.SpecificGcd &&
+                    !CanReachTargetGcd(
+                        baseStats.Speed + weapon.Option.Stats.Speed,
+                        baseStats.Speed + weapon.UpperBound.Speed,
+                        context.State.Preparation.Foods,
+                        context.State.Preparation.Job,
+                        context.MinimumSpeed,
+                        context.MaximumSpeed) ||
+                    bestEvaluation is { } currentWeaponBest &&
+                    IsUpperBoundPrunable(
+                        baseStats + weapon.UpperBound,
+                        context.FoodUpperBounds,
+                        context.DamageFactors,
+                        currentWeaponBest.Food))
+                {
+                    continue;
+                }
+
+                var evaluation = FindGearEvaluation(
+                    weapon.Option,
+                    baseStats,
+                    context.State.Preparation.Foods,
+                    context.State.Preparation.Job,
+                    level,
+                    target,
+                    targetGcd,
+                    cancellationToken);
+                if (evaluation is not null && IsBetterGearEvaluation(evaluation, bestEvaluation))
+                {
+                    bestEvaluation = evaluation;
+                }
+            }
         }
 
         return bestEvaluation is { } selected
             ? BuildSearchSolution(
                 [selected.Option],
                 selected.Food,
-                state.Preparation.BaseStats + sharedStats,
-                state.Preparation.Job)
+                baseStats,
+                context.State.Preparation.Job)
             : null;
     }
 
@@ -1746,6 +2033,128 @@ public sealed unsafe partial class BestInSlotGear
             cancellationToken);
     }
 
+    private static void PruneCommonFactorDominatedSearchOptions(
+        List<List<GearOption>> groups,
+        IReadOnlyList<CommonJobSearchState> jobs,
+        LevelProfile level,
+        bool preserveSpeed,
+        CancellationToken cancellationToken)
+    {
+        for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+        {
+            var options = groups[groupIndex];
+            if (options.Count < 2)
+            {
+                continue;
+            }
+
+            var continuations = new (StatBlock Minimum, StatBlock Maximum)[jobs.Count];
+            for (var jobIndex = 0; jobIndex < jobs.Count; jobIndex++)
+            {
+                GetOptionGroupBounds(
+                    jobs[jobIndex].Weapons,
+                    jobs[jobIndex].Preparation.Job,
+                    out var minimum,
+                    out var maximum);
+                minimum += jobs[jobIndex].Preparation.BaseStats;
+                maximum += jobs[jobIndex].Preparation.BaseStats;
+                for (var otherIndex = 0; otherIndex < groups.Count; otherIndex++)
+                {
+                    if (otherIndex == groupIndex)
+                    {
+                        continue;
+                    }
+
+                    GetOptionGroupBounds(
+                        groups[otherIndex],
+                        jobs[jobIndex].Preparation.Job,
+                        out var groupMinimum,
+                        out var groupMaximum);
+                    minimum += groupMinimum;
+                    maximum += groupMaximum;
+                }
+
+                continuations[jobIndex] = (minimum, maximum);
+            }
+
+            var removed = new bool[options.Count];
+            var factorMinimums = new Dictionary<
+                (DamageFactorKind Kind, int Delta, int Minimum, int Maximum, int Value, int Cap, bool Relative),
+                double>[jobs.Count];
+            for (var jobIndex = 0; jobIndex < jobs.Count; jobIndex++)
+            {
+                factorMinimums[jobIndex] = [];
+            }
+            var comparisons = 0;
+            for (var targetIndex = 0; targetIndex < options.Count; targetIndex++)
+            {
+                if (removed[targetIndex] ||
+                    options[targetIndex].CustomStats is not null ||
+                    options[targetIndex].CustomStatSelection is not null)
+                {
+                    continue;
+                }
+
+                for (var candidateIndex = 0; candidateIndex < options.Count; candidateIndex++)
+                {
+                    if ((++comparisons & 1023) == 0)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+
+                    if (candidateIndex == targetIndex ||
+                        removed[candidateIndex] ||
+                        options[candidateIndex].CustomStats is not null ||
+                        options[candidateIndex].CustomStatSelection is not null ||
+                        preserveSpeed && options[candidateIndex].Stats.Speed != options[targetIndex].Stats.Speed)
+                    {
+                        continue;
+                    }
+
+                    var dominatesAllJobs = true;
+                    for (var jobIndex = 0; jobIndex < jobs.Count; jobIndex++)
+                    {
+                        var job = jobs[jobIndex];
+                        if (DominatesForAllCompletions(
+                                options[candidateIndex].Stats,
+                                options[targetIndex].Stats,
+                                continuations[jobIndex].Minimum,
+                                continuations[jobIndex].Maximum,
+                                job.Preparation.Foods,
+                                job.Preparation.Job,
+                                level,
+                                factorMinimums[jobIndex]))
+                        {
+                            continue;
+                        }
+
+                        dominatesAllJobs = false;
+                        break;
+                    }
+
+                    if (!dominatesAllJobs)
+                    {
+                        continue;
+                    }
+
+                    removed[targetIndex] = true;
+                    break;
+                }
+            }
+
+            var result = new List<GearOption>(options.Count);
+            for (var index = 0; index < options.Count; index++)
+            {
+                if (!removed[index])
+                {
+                    result.Add(options[index]);
+                }
+            }
+
+            groups[groupIndex] = result;
+        }
+    }
+
     private static List<GearOption> PruneFactorDominated(
         IReadOnlyList<GearOption> options,
         StatBlock continuationMinimum,
@@ -2518,20 +2927,27 @@ public sealed unsafe partial class BestInSlotGear
     }
 
     private static List<WeaponSearchNode> BuildWeaponSearchTree(
-        IReadOnlyList<WeaponSearchCandidate> candidates)
+        List<WeaponSearchCandidate> candidates)
     {
         var nodes = new List<WeaponSearchNode>((candidates.Count * 2) - 1);
-        Build(0, candidates.Count);
+        Build(0, candidates.Count, out _);
         return nodes;
 
-        int Build(int start, int count)
+        int Build(int start, int count, out DamageUpperBound searchUpperBound)
         {
             var lowerBound = candidates[start].Option.Stats;
             var upperBound = candidates[start].UpperBound;
+            searchUpperBound = candidates[start].SearchUpperBound;
             for (var index = start + 1; index < start + count; index++)
             {
                 lowerBound = Minimum(lowerBound, candidates[index].Option.Stats);
                 upperBound = Maximum(upperBound, candidates[index].UpperBound);
+                if (candidates[index].SearchUpperBound.Damage > searchUpperBound.Damage ||
+                    candidates[index].SearchUpperBound.Damage == searchUpperBound.Damage &&
+                    candidates[index].SearchUpperBound.Utility > searchUpperBound.Utility)
+                {
+                    searchUpperBound = candidates[index].SearchUpperBound;
+                }
             }
 
             var nodeIndex = nodes.Count;
@@ -2542,15 +2958,166 @@ public sealed unsafe partial class BestInSlotGear
                 return nodeIndex;
             }
 
+            var splitParameter = 0;
+            var maximumRange = 0;
+            for (var parameter = 0; parameter < 9; parameter++)
+            {
+                var minimum = GetStatValue(candidates[start].UpperBound, parameter);
+                var maximum = minimum;
+                for (var index = start + 1; index < start + count; index++)
+                {
+                    var value = GetStatValue(candidates[index].UpperBound, parameter);
+                    minimum = Math.Min(minimum, value);
+                    maximum = Math.Max(maximum, value);
+                }
+
+                if (maximum - minimum > maximumRange)
+                {
+                    maximumRange = maximum - minimum;
+                    splitParameter = parameter;
+                }
+            }
+
+            candidates.Sort(
+                start,
+                count,
+                Comparer<WeaponSearchCandidate>.Create((left, right) =>
+                    GetStatValue(left.UpperBound, splitParameter)
+                        .CompareTo(GetStatValue(right.UpperBound, splitParameter))));
             var leftCount = count / 2;
+            var leftChild = Build(start, leftCount, out var leftUpperBound);
+            var rightChild = Build(start + leftCount, count - leftCount, out var rightUpperBound);
+            if (rightUpperBound.Damage > leftUpperBound.Damage ||
+                rightUpperBound.Damage == leftUpperBound.Damage &&
+                rightUpperBound.Utility > leftUpperBound.Utility)
+            {
+                (leftChild, rightChild) = (rightChild, leftChild);
+            }
+
             nodes[nodeIndex] = new(
                 start,
                 count,
                 lowerBound,
                 upperBound,
-                Build(start, leftCount),
-                Build(start + leftCount, count - leftCount));
+                leftChild,
+                rightChild);
             return nodeIndex;
+        }
+    }
+
+    private static int GetStatValue(StatBlock stats, int parameter) => parameter switch
+    {
+        0 => stats.MainStat,
+        1 => stats.Vitality,
+        2 => stats.CriticalHit,
+        3 => stats.Determination,
+        4 => stats.DirectHit,
+        5 => stats.Speed,
+        6 => stats.Piety,
+        7 => stats.Tenacity,
+        _ => stats.WeaponDamage
+    };
+
+    private static double GetCommonDamageUpperBound(
+        CommonJobSearchContext context,
+        int depth,
+        StatBlock stats)
+    {
+        var baseStats = context.State.Preparation.BaseStats + stats +
+                        context.SharedLowerBounds[depth] + context.WeaponLowerBound;
+        return GetMaximumDamage(baseStats, context.DamageFactors) *
+               context.SharedDamageMultipliers[depth] *
+               context.WeaponDamageMultiplier;
+    }
+
+    private static double GetMaximumOptionDamageRatio(
+        IReadOnlyList<GearOption> options,
+        StatBlock minimumOption,
+        StatBlock continuationMinimum,
+        StatBlock continuationMaximum,
+        JobProfile job,
+        DamageFactorTable damageFactors,
+        Dictionary<(DamageFactorKind Kind, int Delta, int Minimum, int Maximum), double> cache)
+    {
+        var maximum = 1d;
+        foreach (var option in options)
+        {
+            var upper = GetOptionUpperBound(option, job);
+            maximum = Math.Max(
+                maximum,
+                GetMaximumFactorRatio(
+                    DamageFactorKind.MainStat,
+                    upper.MainStat - minimumOption.MainStat,
+                    continuationMinimum.MainStat + minimumOption.MainStat,
+                    continuationMaximum.MainStat + minimumOption.MainStat,
+                    damageFactors.MainStat) *
+                GetMaximumFactorRatio(
+                    DamageFactorKind.CriticalHit,
+                    upper.CriticalHit - minimumOption.CriticalHit,
+                    continuationMinimum.CriticalHit + minimumOption.CriticalHit,
+                    continuationMaximum.CriticalHit + minimumOption.CriticalHit,
+                    damageFactors.CriticalHit) *
+                GetMaximumFactorRatio(
+                    DamageFactorKind.Determination,
+                    upper.Determination - minimumOption.Determination,
+                    continuationMinimum.Determination + minimumOption.Determination,
+                    continuationMaximum.Determination + minimumOption.Determination,
+                    damageFactors.Determination) *
+                GetMaximumFactorRatio(
+                    DamageFactorKind.DirectHit,
+                    upper.DirectHit - minimumOption.DirectHit,
+                    continuationMinimum.DirectHit + minimumOption.DirectHit,
+                    continuationMaximum.DirectHit + minimumOption.DirectHit,
+                    damageFactors.DirectHit) *
+                (job.IsTank
+                    ? GetMaximumFactorRatio(
+                        DamageFactorKind.Tenacity,
+                        upper.Tenacity - minimumOption.Tenacity,
+                        continuationMinimum.Tenacity + minimumOption.Tenacity,
+                        continuationMaximum.Tenacity + minimumOption.Tenacity,
+                        damageFactors.Tenacity)
+                    : 1d) *
+                GetMaximumFactorRatio(
+                    DamageFactorKind.WeaponDamage,
+                    upper.WeaponDamage - minimumOption.WeaponDamage,
+                    continuationMinimum.WeaponDamage + minimumOption.WeaponDamage,
+                    continuationMaximum.WeaponDamage + minimumOption.WeaponDamage,
+                    damageFactors.MainStat));
+        }
+
+        return maximum;
+
+        double GetMaximumFactorRatio(
+            DamageFactorKind kind,
+            int delta,
+            int minimum,
+            int maximumValue,
+            double[] factors)
+        {
+            if (delta <= 0)
+            {
+                return 1d;
+            }
+
+            var key = (kind, delta, minimum, maximumValue);
+            if (cache.TryGetValue(key, out var cached))
+            {
+                return cached;
+            }
+
+            var ratio = 1d;
+            for (var value = minimum; value <= maximumValue; value++)
+            {
+                ratio = Math.Max(
+                    ratio,
+                    kind == DamageFactorKind.WeaponDamage
+                        ? (damageFactors.WeaponDamageBase + value + delta) /
+                          (damageFactors.WeaponDamageBase + value)
+                        : factors[value + delta] / factors[value]);
+            }
+
+            cache[key] = ratio;
+            return ratio;
         }
     }
 
@@ -2761,290 +3328,6 @@ public sealed unsafe partial class BestInSlotGear
         Math.Min(left.Tenacity, right.Tenacity),
         Math.Min(left.WeaponDamage, right.WeaponDamage));
 
-    private static List<SearchState> BuildGearFrontier(
-        IReadOnlyList<List<GearOption>> groups,
-        StatBlock baseStats,
-        JobProfile job,
-        bool preserveSpeed,
-        int speedCap,
-        CancellationToken cancellationToken,
-        Action<float> reportProgress,
-        float progressStart,
-        float progressEnd)
-    {
-        var rootKey = DamageKey.From(baseStats, job, preserveSpeed, speedCap);
-        var frontier = new List<SearchState> { new(baseStats, rootKey, null, null) };
-        for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
-        {
-            var group = groups[groupIndex];
-            var groupProgressRange = (progressEnd - progressStart) / groups.Count;
-            var groupProgressStart = progressStart + groupProgressRange * groupIndex;
-            var unique = new Dictionary<DamageKey, SearchState>();
-            var visited = 0;
-            foreach (var state in frontier)
-            {
-                foreach (var option in group)
-                {
-                    if ((++visited & 2047) == 0)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                    }
-
-                    var stats = state.Stats + option.Stats;
-                    if (preserveSpeed && stats.Speed > speedCap)
-                    {
-                        continue;
-                    }
-
-                    var key = DamageKey.From(stats, job, preserveSpeed, speedCap);
-                    if (!unique.TryGetValue(key, out var existing) || stats.Utility > existing.Stats.Utility)
-                    {
-                        unique[key] = new(stats, key, state, option);
-                    }
-                }
-            }
-
-            reportProgress(groupProgressStart + groupProgressRange * 0.1f);
-            frontier = PruneSearchStates(
-                unique,
-                cancellationToken,
-                progress => reportProgress(groupProgressStart + groupProgressRange * (0.1f + 0.9f * progress)));
-            reportProgress(groupProgressStart + groupProgressRange);
-        }
-
-        return frontier;
-    }
-
-    private static List<SearchState> PruneSearchStates(
-        IReadOnlyDictionary<DamageKey, SearchState> unique,
-        CancellationToken cancellationToken,
-        Action<float> reportProgress)
-    {
-        var candidates = unique.Values.ToList();
-        candidates.Sort(static (left, right) =>
-        {
-            var comparison = right.Key.WeaponDamage.CompareTo(left.Key.WeaponDamage);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-
-            comparison = right.Key.MainStat.CompareTo(left.Key.MainStat);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-
-            comparison = right.Key.CriticalHit.CompareTo(left.Key.CriticalHit);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-
-            comparison = right.Key.Determination.CompareTo(left.Key.Determination);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-
-            comparison = right.Key.DirectHit.CompareTo(left.Key.DirectHit);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-
-            comparison = right.Key.Tenacity.CompareTo(left.Key.Tenacity);
-            return comparison != 0 ? comparison : right.Key.Speed.CompareTo(left.Key.Speed);
-        });
-
-        if (candidates.Count <= SearchPruneBatchSize)
-        {
-            var frontier = PruneSortedSearchStates(candidates, 0, candidates.Count, cancellationToken);
-            reportProgress(1f);
-            return frontier;
-        }
-
-        var initialBatchCount = (candidates.Count + SearchPruneBatchSize - 1) / SearchPruneBatchSize;
-        var roundCount = 1;
-        for (var count = initialBatchCount; count > 1; count = (count + 1) / 2)
-        {
-            roundCount++;
-        }
-
-        var roundIndex = 0;
-        var parallelOptions = new ParallelOptions
-        {
-            CancellationToken = cancellationToken,
-            MaxDegreeOfParallelism = SearchPruneParallelism
-        };
-
-        void RunRound(int batchCount, Action<int> processBatch)
-        {
-            var completedBatches = 0;
-            var progressLock = new object();
-            Parallel.For(0, batchCount, parallelOptions, index =>
-            {
-                processBatch(index);
-                lock (progressLock)
-                {
-                    completedBatches++;
-                    reportProgress((roundIndex + (float)completedBatches / batchCount) / roundCount);
-                }
-            });
-            roundIndex++;
-        }
-
-        var frontiers = new List<SearchState>[initialBatchCount];
-        RunRound(initialBatchCount, index =>
-        {
-            var start = index * SearchPruneBatchSize;
-            frontiers[index] = PruneSortedSearchStates(
-                candidates,
-                start,
-                Math.Min(SearchPruneBatchSize, candidates.Count - start),
-                cancellationToken);
-        });
-        while (frontiers.Length > 1)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var next = new List<SearchState>[(frontiers.Length + 1) / 2];
-            RunRound(next.Length, index =>
-            {
-                var left = frontiers[index * 2];
-                if (index * 2 + 1 >= frontiers.Length)
-                {
-                    next[index] = left;
-                    return;
-                }
-
-                var right = frontiers[index * 2 + 1];
-                next[index] = MergeSortedSearchFrontiers(left, right, cancellationToken);
-            });
-            frontiers = next;
-        }
-
-        return frontiers[0];
-    }
-
-    private static List<SearchState> MergeSortedSearchFrontiers(
-        List<SearchState> left,
-        List<SearchState> right,
-        CancellationToken cancellationToken)
-    {
-        var result = new List<SearchState>(left.Count + right.Count);
-        result.AddRange(left);
-        var dominanceIndex = new DominanceIndex(left);
-        for (var index = 0; index < right.Count; index++)
-        {
-            if ((index & 1023) == 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-
-            // 属性已经按降序排列，只需检查右侧结果是否被左侧淘汰。
-            if (!dominanceIndex.ContainsDominator(right[index].Key))
-            {
-                result.Add(right[index]);
-            }
-        }
-
-        return result;
-    }
-
-    private static List<SearchState> PruneSortedSearchStates(
-        IReadOnlyList<SearchState> candidates,
-        int start,
-        int count,
-        CancellationToken cancellationToken)
-    {
-        var frontier = new List<SearchState>();
-        var visited = 0;
-        for (var candidateIndex = start; candidateIndex < start + count; candidateIndex++)
-        {
-            if ((++visited & 1023) == 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-            }
-
-            var candidate = candidates[candidateIndex];
-            var dominated = false;
-            for (var index = frontier.Count - 1; index >= 0; index--)
-            {
-                if (frontier[index].Key.Dominates(candidate.Key))
-                {
-                    dominated = true;
-                    break;
-                }
-            }
-
-            if (!dominated)
-            {
-                frontier.Add(candidate);
-            }
-        }
-
-        return frontier;
-    }
-
-    private static SearchSolution? FindBestGearSolution(
-        IReadOnlyList<SearchState> frontier,
-        int groupCount,
-        IReadOnlyList<GearOption> weapons,
-        IReadOnlyList<FoodOption> foods,
-        StatBlock baseStats,
-        JobProfile job,
-        LevelProfile level,
-        OptimizationTarget target,
-        double targetGcd,
-        CancellationToken cancellationToken,
-        Action<float> reportProgress,
-        float progressStart,
-        float progressEnd)
-    {
-        SearchState? bestState = null;
-        GearEvaluation? bestEvaluation = null;
-        for (var stateIndex = 0; stateIndex < frontier.Count; stateIndex++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            foreach (var weapon in weapons)
-            {
-                var evaluation = FindGearEvaluation(
-                    weapon,
-                    frontier[stateIndex].Stats,
-                    foods,
-                    job,
-                    level,
-                    target,
-                    targetGcd,
-                    cancellationToken);
-                if (evaluation is null)
-                {
-                    continue;
-                }
-
-                if (!IsBetterGearEvaluation(evaluation, bestEvaluation))
-                {
-                    continue;
-                }
-
-                bestState = frontier[stateIndex];
-                bestEvaluation = evaluation;
-            }
-
-            reportProgress(progressStart + (progressEnd - progressStart) * (stateIndex + 1) / frontier.Count);
-        }
-
-        if (bestState is null || bestEvaluation is null)
-        {
-            return null;
-        }
-
-        var options = GetSearchOptions(bestState, groupCount);
-        Array.Resize(ref options, options.Length + 1);
-        options[^1] = bestEvaluation.Option;
-        return BuildSearchSolution(options, bestEvaluation.Food, baseStats, job);
-    }
-
     private static GearEvaluation? FindGearEvaluation(
         GearOption option,
         StatBlock baseStats,
@@ -3087,18 +3370,6 @@ public sealed unsafe partial class BestInSlotGear
         return candidate.Food.Damage > current.Food.Damage ||
                candidate.Food.Damage == current.Food.Damage &&
                candidate.Food.Stats.Utility > current.Food.Stats.Utility;
-    }
-
-    private static GearOption[] GetSearchOptions(SearchState state, int groupCount)
-    {
-        var options = new GearOption[groupCount];
-        for (var index = groupCount - 1; index >= 0; index--)
-        {
-            options[index] = state.Option!;
-            state = state.Previous!;
-        }
-
-        return options;
     }
 
     private static GearEvaluation? FindBestCustomGearEvaluation(

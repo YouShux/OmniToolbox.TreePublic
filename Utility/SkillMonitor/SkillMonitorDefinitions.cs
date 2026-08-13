@@ -1,3 +1,4 @@
+using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
@@ -12,7 +13,8 @@ internal readonly record struct SkillMonitorDefinition(
     ulong ClassJobs,
     uint IconID,
     string Name,
-    SkillMonitorGroup Group)
+    SkillMonitorGroup Group,
+    bool IsCustom = false)
 {
     public uint ConfigID => ActionID == 0 ? 0x80000000u | StatusID : ActionID;
 
@@ -24,7 +26,7 @@ internal readonly record struct SkillMonitorDefinition(
         classJobID < 64 && (ClassJobs & (1UL << (int)classJobID)) != 0;
 }
 
-internal enum SkillMonitorGroup
+public enum SkillMonitorGroup
 {
     Tank,
     Healer,
@@ -40,6 +42,13 @@ internal static class SkillMonitorDefinitions
     private const ulong Ranged = (1UL << 23) | (1UL << 31) | (1UL << 38);
     private const ulong Casters = (1UL << 25) | (1UL << 27) | (1UL << 35) | (1UL << 42);
     private const ulong AllCombat = Tanks | Healers | Melee | Ranged | Casters | (1UL << 36);
+
+    internal static readonly (SkillMonitorGroup Group, uint[] JobIDs)[] JobGroups =
+    [
+        (SkillMonitorGroup.Tank, [19, 21, 32, 37]),
+        (SkillMonitorGroup.Healer, [33, 24, 40, 28]),
+        (SkillMonitorGroup.Dps, [20, 22, 30, 34, 39, 41, 23, 31, 38, 25, 27, 35, 42])
+    ];
 
     private static readonly RawDefinition[] Defaults =
     [
@@ -107,9 +116,9 @@ internal static class SkillMonitorDefinitions
         new(0, 48, 0, 0, AllCombat, SkillMonitorGroup.General)
     ];
 
-    public static SkillMonitorDefinition[] Create()
+    public static SkillMonitorDefinition[] Create(IReadOnlyList<SkillMonitorCustomActionConfig>? customActions = null)
     {
-        var definitions = new SkillMonitorDefinition[Defaults.Length];
+        var definitions = new List<SkillMonitorDefinition>(Defaults.Length + (customActions?.Count ?? 0));
         for (var index = 0; index < Defaults.Length; index++)
         {
             var raw = Defaults[index];
@@ -131,7 +140,7 @@ internal static class SkillMonitorDefinitions
                 name = (raw.ActionID == 0 ? raw.StatusID : raw.ActionID).ToString();
             }
 
-            definitions[index] = new(
+            definitions.Add(new(
                 raw.ActionID,
                 raw.StatusID,
                 raw.CooldownSeconds * 1_000,
@@ -139,10 +148,92 @@ internal static class SkillMonitorDefinitions
                 raw.ClassJobs,
                 iconID,
                 name,
-                raw.Group);
+                raw.Group));
         }
 
-        return definitions;
+        if (customActions is not null)
+        {
+            for (var index = 0; index < customActions.Count; index++)
+            {
+                if (TryCreateCustom(customActions[index], out var definition))
+                {
+                    definitions.Add(definition);
+                }
+            }
+        }
+
+        return definitions.ToArray();
+    }
+
+    public static bool TryCreateCustom(
+        SkillMonitorCustomActionConfig config,
+        out SkillMonitorDefinition definition)
+    {
+        definition = default;
+        if (config.ActionID == 0 ||
+            !LuminaGetter.TryGetRow<LuminaAction>(config.ActionID, out var action) ||
+            action.Icon == 0 ||
+            action.Recast100ms == 0 ||
+            string.IsNullOrWhiteSpace(action.Name.ToString()))
+        {
+            return false;
+        }
+
+        ulong classJobs = 0;
+        if (action.ClassJobCategory.IsValid)
+        {
+            for (uint classJobID = 1; classJobID < 64; classJobID++)
+            {
+                if (action.ClassJobCategory.Value.IsClassJobIn(classJobID))
+                {
+                    classJobs |= 1UL << (int)classJobID;
+                }
+            }
+        }
+
+        classJobs &= AllCombat;
+        if (classJobs == 0)
+        {
+            classJobs = AllCombat;
+        }
+
+        definition = new(
+            config.ActionID,
+            0,
+            action.Recast100ms * 100,
+            1_000,
+            classJobs,
+            action.Icon,
+            action.Name.ToString(),
+            GetGroup(classJobs),
+            true);
+        return true;
+    }
+
+    private static SkillMonitorGroup GetGroup(ulong classJobs)
+    {
+        var isTank = (classJobs & Tanks) != 0;
+        var isHealer = (classJobs & Healers) != 0;
+        var isDPS = (classJobs & (Melee | Ranged | Casters)) != 0;
+        if ((isTank ? 1 : 0) + (isHealer ? 1 : 0) + (isDPS ? 1 : 0) != 1)
+        {
+            return SkillMonitorGroup.General;
+        }
+
+        return isTank ? SkillMonitorGroup.Tank : isHealer ? SkillMonitorGroup.Healer : SkillMonitorGroup.Dps;
+    }
+
+    public static bool IsDefaultAction(uint actionID)
+    {
+        for (var index = 0; index < Defaults.Length; index++)
+        {
+            if (Defaults[index].ActionID == actionID)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private readonly record struct RawDefinition(

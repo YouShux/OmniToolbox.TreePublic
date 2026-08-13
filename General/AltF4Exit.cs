@@ -17,7 +17,7 @@ public sealed unsafe class AltF4Exit : ModuleBase
     {
         Title = OmniLoc.Get("AltF4ExitTitle"),
         Description = OmniLoc.Get("AltF4ExitDescription"),
-        Category = ModuleCategory.General
+        Category = ModuleCategory.Daily
     };
 
     private const int WmClose = 0x10;

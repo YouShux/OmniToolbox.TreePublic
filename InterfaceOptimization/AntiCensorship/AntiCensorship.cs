@@ -27,7 +27,7 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
     {
         Title = OmniLoc.Get("AntiCensorshipTitle"),
         Description = OmniLoc.Get("AntiCensorshipDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Interface
     };
 
     private static readonly CompSig GetFilteredUtf8StringSig = new(

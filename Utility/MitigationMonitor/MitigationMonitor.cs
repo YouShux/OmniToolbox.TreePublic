@@ -19,9 +19,9 @@ public sealed class MitigationMonitor : ModuleBase
     {
         Title = OmniLoc.Get("MitigationMonitorTitle"),
         Description = OmniLoc.Get("MitigationMonitorDescription"),
-        Category = ModuleCategory.Utility,
+        Category = ModuleCategory.Combat,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Utility/MitigationMonitor-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Combat/MitigationMonitor-1.png"
     };
 
     private readonly MitigationMonitorConfig config;
@@ -181,8 +181,11 @@ internal static class MitigationMonitorPanel
         changed |= hotkey.DrawSettings();
 
         var opacity = config.Opacity * 100f;
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Opacity"));
+        ImGui.SameLine();
         if (OmniControls.SliderFloat(
-                $"{OmniLoc.Get("Feature.MitigationMonitor.Opacity")}##mitigationOpacity",
+                "##mitigationOpacity",
                 ref opacity,
                 0f,
                 100f,
@@ -195,8 +198,11 @@ internal static class MitigationMonitorPanel
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         ImGui.SameLine();
         var replaySaveCount = config.ReplaySaveCount;
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.ReplaySaveCount"));
+        ImGui.SameLine();
         if (OmniControls.InputInt(
-                $"{OmniLoc.Get("Feature.MitigationMonitor.ReplaySaveCount")}##mitigationReplaySaveCount",
+                "##mitigationReplaySaveCount",
                 ref replaySaveCount,
                 OmniTheme.Scale(96f)))
         {

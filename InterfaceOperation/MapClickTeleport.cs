@@ -12,7 +12,7 @@ public sealed class MapClickTeleport : ModuleBase
     {
         Title = OmniLoc.Get("MapClickTeleportTitle"),
         Description = OmniLoc.Get("MapClickTeleportDescription"),
-        Category = ModuleCategory.InterfaceOperation
+        Category = ModuleCategory.Daily
     };
 
     private readonly TeleportConfig config;

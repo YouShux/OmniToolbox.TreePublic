@@ -25,7 +25,7 @@ public sealed unsafe class DuplicateStatusPrevention : ModuleBase
     {
         Title = OmniLoc.Get("DuplicateStatusPreventionTitle"),
         Description = OmniLoc.Get("DuplicateStatusPreventionDescription"),
-        Category = ModuleCategory.Action
+        Category = ModuleCategory.Combat
     };
 
     private readonly DuplicateStatusPreventionConfig config;

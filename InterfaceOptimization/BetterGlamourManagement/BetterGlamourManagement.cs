@@ -31,9 +31,9 @@ public sealed unsafe partial class BetterGlamourManagement(
     {
         Title = OmniLoc.Get("BetterGlamourManagementTitle"),
         Description = OmniLoc.Get("BetterGlamourManagementDescription"),
-        Category = ModuleCategory.InterfaceOptimization,
+        Category = ModuleCategory.Item,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/BetterGlamourManagement-1.png?v=a2e7f88",
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Item/BetterGlamourManagement-1.png?v=a2e7f88",
         RequiresPrivateProvider = true,
         Commands =
         [

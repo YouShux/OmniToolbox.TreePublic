@@ -20,7 +20,7 @@ public sealed class DisplayIDInformation(
     {
         Title = OmniLoc.Get("DisplayIdInformationTitle"),
         Description = OmniLoc.Get("DisplayIdInformationDescription"),
-        Category = ModuleCategory.Utility,
+        Category = ModuleCategory.Debug,
         Commands =
         [
             new ModuleCommand("Feature.DisplayIdInformation.CommandDescription", "/omni 图标浏览器")

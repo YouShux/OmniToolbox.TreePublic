@@ -26,7 +26,7 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
     {
         Title = OmniLoc.Get("ShieldOnHPTitle"),
         Description = OmniLoc.Get("ShieldOnHPDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Combat
     };
 
     private const string ParameterWidgetAddonName = "_ParameterWidget";

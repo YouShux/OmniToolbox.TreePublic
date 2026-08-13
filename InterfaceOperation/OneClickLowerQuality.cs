@@ -30,7 +30,8 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
     {
         Title = OmniLoc.Get("OneClickLowerQualityTitle"),
         Description = OmniLoc.Get("OneClickLowerQualityDescription"),
-        Category = ModuleCategory.InterfaceOperation
+        Category = ModuleCategory.Item,
+        RequiresPrivateProvider = true
     };
 
     public override bool HasSettings => true;

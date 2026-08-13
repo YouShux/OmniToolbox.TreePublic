@@ -36,7 +36,7 @@ public sealed unsafe class FastSearchResults(
     {
         Title = OmniLoc.Get("FastSearchResultsTitle"),
         Description = OmniLoc.Get("FastSearchResultsDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Interface
     };
 
     private static readonly CompSig ItemSearchUpdateSignature = new(

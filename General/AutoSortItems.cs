@@ -116,7 +116,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     {
         Title = OmniLoc.Get("AutoSortItemsTitle"),
         Description = OmniLoc.Get("AutoSortItemsDescription"),
-        Category = ModuleCategory.General,
+        Category = ModuleCategory.Item,
         RequiresPrivateProvider = true,
         Commands =
         [

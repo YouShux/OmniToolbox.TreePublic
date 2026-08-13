@@ -30,9 +30,9 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     {
         Title = OmniLoc.Get("RaiseDispelEnhancementTitle"),
         Description = OmniLoc.Get("RaiseDispelEnhancementDescription"),
-        Category = ModuleCategory.InterfaceOptimization,
+        Category = ModuleCategory.Combat,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/InterfaceOptimization/RaiseDispelEnhancement-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Combat/RaiseDispelEnhancement-1.png"
     };
 
     private const uint RaiseStatusID = 148;
@@ -179,16 +179,15 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         Action<uint> setter)
     {
         var color = ImGui.ColorConvertU32ToFloat4(current);
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get(labelKey));
+        ImGui.SameLine(0f, OmniTheme.Scale(8f));
         if (!OmniControls.ColorEdit($"##raiseDispel{id}", ref color))
         {
-            ImGui.SameLine(0f, OmniTheme.Scale(8f));
-            ImGui.TextUnformatted(OmniLoc.Get(labelKey));
             return false;
         }
 
         setter(ImGui.ColorConvertFloat4ToU32(color));
-        ImGui.SameLine(0f, OmniTheme.Scale(8f));
-        ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         return true;
     }
 
@@ -199,6 +198,9 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         Action<float> setter)
     {
         var value = Math.Clamp(current <= 0f ? 1f : current, 0.3f, 3f);
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get(labelKey));
+        ImGui.SameLine(0f, OmniTheme.Scale(8f));
         var changed = OmniControls.SliderFloat(
             $"##raiseDispel{id}",
             ref value,
@@ -206,8 +208,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             3f,
             "%.2f",
             OmniTheme.Scale(128f));
-        ImGui.SameLine(0f, OmniTheme.Scale(8f));
-        ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         if (changed)
         {
             setter(value);

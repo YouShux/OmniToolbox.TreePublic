@@ -17,7 +17,7 @@ public sealed unsafe class WidescreenCutscene : ModuleBase
     {
         Title = OmniLoc.Get("WidescreenCutsceneTitle"),
         Description = OmniLoc.Get("WidescreenCutsceneDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Interface
     };
 
     private const int LetterboxFlag = 1 << 5;

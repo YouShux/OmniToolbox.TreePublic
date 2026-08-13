@@ -27,7 +27,7 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
     {
         Title = OmniLoc.Get("ChatHotbarLockTitle"),
         Description = OmniLoc.Get("ChatHotbarLockDescription"),
-        Category = ModuleCategory.InterfaceOptimization
+        Category = ModuleCategory.Interface
     };
 
     private static readonly string[] ChatAddonNames =

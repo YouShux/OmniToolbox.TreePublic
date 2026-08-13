@@ -18,7 +18,7 @@ public sealed unsafe class BackgroundFPSLimit(BackgroundFPSLimitConfig config) :
     {
         Title = OmniLoc.Get("BackgroundFPSLimitTitle"),
         Description = OmniLoc.Get("BackgroundFPSLimitDescription"),
-        Category = ModuleCategory.General
+        Category = ModuleCategory.Daily
     };
 
     private bool hasOriginalState;
