@@ -87,7 +87,10 @@ internal sealed unsafe class SkillMonitorOverlay(
         var iconNode = partyMember.ClassJobIcon;
         var classJobIconScale = iconNode->AtkResNode.GetScale();
         var classJobIconSize = iconNode->Height * classJobIconScale.Y;
-        var iconSize = new Vector2(classJobIconSize * Math.Clamp(config.IconScale, 0.5f, 2f));
+        var iconSize = new Vector2(classJobIconSize * Math.Clamp(
+            config.IconScale,
+            SkillMonitorConfig.DefaultIconScale * 0.5f,
+            SkillMonitorConfig.DefaultIconScale * 2f));
         var spacing = Math.Clamp(config.IconSpacing, 0f, 12f) * partyList->Scale;
         var groupWidth = (visibleCount - 1) * spacing;
         for (var index = 0; index < definitionIndexes.Length; index++)
@@ -104,7 +107,7 @@ internal sealed unsafe class SkillMonitorOverlay(
             memberNode->AtkResNode.ScreenX - spacing - groupWidth + config.Offset.X * partyList->Scale,
             iconNode->ScreenY + config.Offset.Y * partyList->Scale);
 
-        for (var index = 0; index < definitionIndexes.Length; index++)
+        for (var index = definitionIndexes.Length - 1; index >= 0; index--)
         {
             var definitionIndex = definitionIndexes[index];
             var definition = definitions[definitionIndex];
@@ -335,6 +338,7 @@ internal sealed unsafe class SkillMonitorOverlay(
         SkillMonitorDisplayState.Active => config.ShowActive,
         SkillMonitorDisplayState.Cooldown => config.ShowOnCooldown,
         SkillMonitorDisplayState.Ready => config.ShowOffCooldown,
+        SkillMonitorDisplayState.Unknown => config.ShowOffCooldown,
         _ => false
     };
 

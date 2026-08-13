@@ -377,7 +377,9 @@ public sealed unsafe class FastSearchResults(
 
     private void DrawFreeCompanyDefaultPage()
     {
-        if (!AddonHelper.TryGetByName("FreeCompanyChest", out AtkUnitBase* addon) || !addon->IsVisible)
+        if (!freeCompanySessionActive ||
+            !AddonHelper.TryGetByName("FreeCompanyChest", out AtkUnitBase* addon) ||
+            !addon->IsVisible)
         {
             return;
         }

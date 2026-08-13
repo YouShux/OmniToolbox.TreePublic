@@ -63,10 +63,11 @@ public sealed class SkillMonitor : ModuleBase
         config.ShowOffCooldown = defaults.ShowOffCooldown;
         config.HideOutOfCombat = defaults.HideOutOfCombat;
         config.HideWeaponSheathed = defaults.HideWeaponSheathed;
+        config.ShowGeneralSkillsFirst = defaults.ShowGeneralSkillsFirst;
         config.CustomActions = [];
         config.EnabledActions = [];
         config.JobActionOrder = [];
-        config.JobDisabledActions = [];
+        config.JobDisabledActions = defaults.JobDisabledActions;
         NormalizeConfig();
         RebuildRuntime();
         return true;
@@ -117,14 +118,16 @@ public sealed class SkillMonitor : ModuleBase
 
     private void NormalizeConfig()
     {
-        config.IconScale = Math.Clamp(config.IconScale <= 0f ? 1f : config.IconScale, 0.5f, 2f);
+        config.IconScale = Math.Clamp(
+            config.IconScale <= 0f ? SkillMonitorConfig.DefaultIconScale : config.IconScale,
+            SkillMonitorConfig.DefaultIconScale * 0.5f,
+            SkillMonitorConfig.DefaultIconScale * 2f);
         config.IconSpacing = Math.Clamp(config.IconSpacing, 0f, 12f);
         config.CustomActions ??= [];
         var seenActionIDs = new HashSet<uint>();
         for (var index = config.CustomActions.Count - 1; index >= 0; index--)
         {
             if (!seenActionIDs.Add(config.CustomActions[index].ActionID) ||
-                SkillMonitorDefinitions.IsDefaultAction(config.CustomActions[index].ActionID) ||
                 !SkillMonitorDefinitions.TryCreateCustom(config.CustomActions[index], out _))
             {
                 config.CustomActions.RemoveAt(index);
@@ -226,8 +229,17 @@ public sealed class SkillMonitor : ModuleBase
             {
                 var jobID = group.JobIDs[jobIndex];
                 var indexes = new List<int>();
-                AddScopeIndexes(indexes, jobID, jobID);
-                AddScopeIndexes(indexes, 0, jobID);
+                if (config.ShowGeneralSkillsFirst)
+                {
+                    AddScopeIndexes(indexes, 0, jobID);
+                    AddScopeIndexes(indexes, jobID, jobID);
+                }
+                else
+                {
+                    AddScopeIndexes(indexes, jobID, jobID);
+                    AddScopeIndexes(indexes, 0, jobID);
+                }
+
                 indexesByJob[jobID] = indexes.ToArray();
             }
         }
@@ -289,7 +301,7 @@ public sealed class SkillMonitor : ModuleBase
 internal static class SkillMonitorPanel
 {
     private const string ReorderPayload = "SkillMonitorReorder";
-    private static readonly Vector2 DefaultOffset = new(25f, 0f);
+    private static readonly Vector2 DefaultOffset = new(17f, 0f);
     private static readonly int[] CustomActionInputs = new int[4];
     private static readonly string[] CustomActionErrors = new string[4];
     private static readonly SkillMonitorGroup[] GroupOrder =
@@ -308,7 +320,7 @@ internal static class SkillMonitorPanel
         var changed = false;
         definitionsChanged = false;
         changed |= DrawVisibilitySettings(config);
-        changed |= DrawLayoutSettings(config);
+        changed |= DrawLayoutSettings(config, ref definitionsChanged);
 
         if (!ImGui.BeginTabBar("##skillMonitorGroups"))
         {
@@ -389,8 +401,9 @@ internal static class SkillMonitorPanel
 
         if (!string.IsNullOrEmpty(CustomActionErrors[groupIndex]))
         {
+            ImGui.SameLine();
             using var errorColor = ImRaii.PushColor(ImGuiCol.Text, OmniTheme.Tokens.Error);
-            ImGui.TextWrapped(CustomActionErrors[groupIndex]);
+            ImGui.TextUnformatted(CustomActionErrors[groupIndex]);
         }
 
         if (group == SkillMonitorGroup.General)
@@ -709,7 +722,7 @@ internal static class SkillMonitorPanel
         return changed;
     }
 
-    private static bool DrawLayoutSettings(SkillMonitorConfig config)
+    private static bool DrawLayoutSettings(SkillMonitorConfig config, ref bool definitionsChanged)
     {
         var changed = false;
         using var table = ImRaii.Table(
@@ -725,7 +738,7 @@ internal static class SkillMonitorPanel
         ImGui.TableSetupColumn("##skillMonitorScale", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableSetupColumn("##skillMonitorSpacing", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableSetupColumn("##skillMonitorOffset", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##skillMonitorLayoutEmpty", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##skillMonitorGeneralPosition", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var iconScaleLabel = OmniLoc.Get("Feature.SkillMonitor.IconScale");
@@ -734,7 +747,7 @@ internal static class SkillMonitorPanel
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(iconScaleLabel);
         ImGui.SameLine();
-        var iconScale = config.IconScale;
+        var iconScale = config.IconScale / SkillMonitorConfig.DefaultIconScale;
         if (OmniControls.DragFloat(
                 "##skillMonitorIconScale",
                 ref iconScale,
@@ -745,7 +758,7 @@ internal static class SkillMonitorPanel
                 iconScaleWidth,
                 ImGuiSliderFlags.AlwaysClamp))
         {
-            config.IconScale = iconScale;
+            config.IconScale = iconScale * SkillMonitorConfig.DefaultIconScale;
         }
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
@@ -792,6 +805,41 @@ internal static class SkillMonitorPanel
         }
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
+        ImGui.TableNextColumn();
+        var generalPositionLabel = OmniLoc.Get("Feature.SkillMonitor.GeneralPosition");
+        var generalPositionWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(generalPositionLabel).X -
+                                   ImGui.GetStyle().ItemSpacing.X;
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(generalPositionLabel);
+        ImGui.SameLine();
+        if (OmniControls.BeginCombo(
+                "##skillMonitorGeneralPosition",
+                OmniLoc.Get(config.ShowGeneralSkillsFirst
+                    ? "Feature.SkillMonitor.GeneralPosition.First"
+                    : "Feature.SkillMonitor.GeneralPosition.Last"),
+                generalPositionWidth))
+        {
+            if (ImGui.Selectable(
+                    OmniLoc.Get("Feature.SkillMonitor.GeneralPosition.First"),
+                    config.ShowGeneralSkillsFirst))
+            {
+                config.ShowGeneralSkillsFirst = true;
+                definitionsChanged = true;
+                changed = true;
+            }
+
+            if (ImGui.Selectable(
+                    OmniLoc.Get("Feature.SkillMonitor.GeneralPosition.Last"),
+                    !config.ShowGeneralSkillsFirst))
+            {
+                config.ShowGeneralSkillsFirst = false;
+                definitionsChanged = true;
+                changed = true;
+            }
+
+            ImGui.EndCombo();
+        }
+
         return changed;
     }
 
@@ -805,18 +853,28 @@ internal static class SkillMonitorPanel
 [Serializable]
 public sealed class SkillMonitorConfig
 {
-    public Vector2 Offset { get; set; } = new(25f, 0f);
-    public float IconScale { get; set; } = 1f;
+    internal const float DefaultIconScale = 0.9f;
+
+    public Vector2 Offset { get; set; } = new(17f, 0f);
+    public float IconScale { get; set; } = DefaultIconScale;
     public float IconSpacing { get; set; } = 3f;
     public bool ShowActive { get; set; } = true;
     public bool ShowOnCooldown { get; set; } = true;
     public bool ShowOffCooldown { get; set; } = true;
     public bool HideOutOfCombat { get; set; }
     public bool HideWeaponSheathed { get; set; } = true;
+    public bool ShowGeneralSkillsFirst { get; set; } = true;
     public List<SkillMonitorCustomActionConfig> CustomActions { get; set; } = [];
     public Dictionary<uint, bool> EnabledActions { get; set; } = [];
     public Dictionary<uint, List<uint>> JobActionOrder { get; set; } = [];
-    public Dictionary<uint, List<uint>> JobDisabledActions { get; set; } = [];
+    public Dictionary<uint, List<uint>> JobDisabledActions { get; set; } = new()
+    {
+        [0] = [3],
+        [19] = [7531, 7535, 7548],
+        [21] = [7531, 7535, 7548],
+        [32] = [7531, 7535, 7548],
+        [37] = [7531, 7535, 7548]
+    };
 }
 
 [Serializable]

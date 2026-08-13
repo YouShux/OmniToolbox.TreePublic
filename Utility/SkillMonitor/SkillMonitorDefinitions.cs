@@ -81,21 +81,24 @@ internal static class SkillMonitorDefinitions
         new(16160, 1839, 90, 15, 1UL << 37, SkillMonitorGroup.Tank),
 
         new(16536, 1872, 120, 20, 1UL << 24, SkillMonitorGroup.Healer),
+        new(7433, 0, 0, 1, 1UL << 24, SkillMonitorGroup.Healer),
+        new(3569, 1911, 0, 1, 1UL << 24, SkillMonitorGroup.Healer),
         new(25861, 2708, 60, 8, 1UL << 24, SkillMonitorGroup.Healer),
-        new(7432, 1218, 30, 15, 1UL << 24, SkillMonitorGroup.Healer),
         new(188, 299, 30, 15, 1UL << 28, SkillMonitorGroup.Healer),
         new(25868, 2711, 120, 20, 1UL << 28, SkillMonitorGroup.Healer),
+        new(37014, 3884, 0, 1, 1UL << 28, SkillMonitorGroup.Healer),
+        new(16545, 0, 0, 1, 1UL << 28, SkillMonitorGroup.Healer),
         new(25867, 2710, 60, 10, 1UL << 28, SkillMonitorGroup.Healer),
-        new(3613, 849, 60, 18, 1UL << 33, SkillMonitorGroup.Healer),
         new(16559, 1892, 120, 20, 1UL << 33, SkillMonitorGroup.Healer),
+        new(25874, 2718, 0, 1, 1UL << 33, SkillMonitorGroup.Healer),
+        new(3613, 849, 60, 18, 1UL << 33, SkillMonitorGroup.Healer),
         new(25873, 2717, 60, 8, 1UL << 33, SkillMonitorGroup.Healer),
-        new(16556, 1889, 30, 30, 1UL << 33, SkillMonitorGroup.Healer),
         new(24298, 2618, 30, 15, 1UL << 40, SkillMonitorGroup.Healer),
-        new(24311, 2613, 120, 15, 1UL << 40, SkillMonitorGroup.Healer),
         new(24310, 3003, 120, 20, 1UL << 40, SkillMonitorGroup.Healer),
+        new(37035, 3898, 0, 1, 1UL << 40, SkillMonitorGroup.Healer),
+        new(24311, 2613, 120, 15, 1UL << 40, SkillMonitorGroup.Healer),
         new(24303, 2619, 45, 15, 1UL << 40, SkillMonitorGroup.Healer),
-        new(24305, 2612, 120, 15, 1UL << 40, SkillMonitorGroup.Healer),
-        new(24317, 2622, 60, 10, 1UL << 40, SkillMonitorGroup.Healer),
+        new(7561, 167, 0, 1, Healers, SkillMonitorGroup.Healer),
 
         new(7549, 1195, 90, 10, Melee, SkillMonitorGroup.Dps),
         new(7560, 1203, 90, 10, Casters, SkillMonitorGroup.Dps),
@@ -105,10 +108,15 @@ internal static class SkillMonitorDefinitions
         new(36962, 3853, 15, 4, 1UL << 34, SkillMonitorGroup.Dps),
         new(24404, 2598, 30, 5, 1UL << 39, SkillMonitorGroup.Dps),
         new(7405, 1934, 120, 15, 1UL << 23, SkillMonitorGroup.Dps),
+        new(7408, 1202, 120, 15, 1UL << 23, SkillMonitorGroup.Dps),
         new(16889, 1951, 120, 15, 1UL << 31, SkillMonitorGroup.Dps),
+        new(2887, 860, 120, 10, 1UL << 31, SkillMonitorGroup.Dps),
         new(16012, 1826, 120, 15, 1UL << 38, SkillMonitorGroup.Dps),
+        new(16014, 1827, 120, 15, 1UL << 38, SkillMonitorGroup.Dps),
+        new(16015, 0, 60, 1, 1UL << 38, SkillMonitorGroup.Dps),
         new(157, 168, 120, 20, 1UL << 25, SkillMonitorGroup.Dps),
         new(25799, 2702, 60, 30, 1UL << 27, SkillMonitorGroup.Dps),
+        new(25857, 2707, 120, 10, 1UL << 35, SkillMonitorGroup.Dps),
         new(34685, 3686, 120, 10, 1UL << 42, SkillMonitorGroup.Dps),
         new(34686, 3687, 1, 10, 1UL << 42, SkillMonitorGroup.Dps),
 
@@ -124,10 +132,15 @@ internal static class SkillMonitorDefinitions
             var raw = Defaults[index];
             uint iconID;
             string name;
+            var cooldownMilliseconds = raw.CooldownSeconds * 1_000;
             if (raw.ActionID != 0 && LuminaGetter.TryGetRow<LuminaAction>(raw.ActionID, out var action))
             {
                 iconID = action.Icon;
                 name = action.Name.ToString();
+                if (cooldownMilliseconds == 0)
+                {
+                    cooldownMilliseconds = action.Recast100ms * 100;
+                }
             }
             else if (raw.StatusID != 0 && LuminaGetter.TryGetRow<LuminaStatus>(raw.StatusID, out var status))
             {
@@ -143,7 +156,7 @@ internal static class SkillMonitorDefinitions
             definitions.Add(new(
                 raw.ActionID,
                 raw.StatusID,
-                raw.CooldownSeconds * 1_000,
+                cooldownMilliseconds,
                 raw.ActiveSeconds * 1_000,
                 raw.ClassJobs,
                 iconID,
@@ -221,19 +234,6 @@ internal static class SkillMonitorDefinitions
         }
 
         return isTank ? SkillMonitorGroup.Tank : isHealer ? SkillMonitorGroup.Healer : SkillMonitorGroup.Dps;
-    }
-
-    public static bool IsDefaultAction(uint actionID)
-    {
-        for (var index = 0; index < Defaults.Length; index++)
-        {
-            if (Defaults[index].ActionID == actionID)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private readonly record struct RawDefinition(

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Dalamud.Interface.Textures;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Group;
@@ -44,7 +43,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     private FeatureLifetime? runtimeLifetime;
     private ISharedImmediateTexture? dispelIcon;
     private uint defaultRaiseIconID;
-    private long nextScanTick;
 
     public override bool HasSettings => true;
 
@@ -223,7 +221,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         var lifetime = new FeatureLifetime();
         try
         {
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
+            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 80))
             {
                 throw new InvalidOperationException("Raise/dispel enhancement update registration failed.");
             }
@@ -264,13 +262,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             return;
         }
 
-        var now = Stopwatch.GetTimestamp();
-        if (now < nextScanTick)
-        {
-            return;
-        }
-
-        nextScanTick = now + 80 * Stopwatch.Frequency / 1000;
         try
         {
             ScanActors();
@@ -936,7 +927,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         states.Clear();
         names.Clear();
         positions.Clear();
-        nextScanTick = 0;
     }
 
     private enum CastType : byte

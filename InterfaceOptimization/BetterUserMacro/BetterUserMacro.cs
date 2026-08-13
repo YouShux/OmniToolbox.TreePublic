@@ -815,11 +815,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         return agent is not null && IsMacroAddonVisible(addon) && set < MacroPageCount && index < MacroSlotsPerPage;
     }
 
-    private static AgentMacro* GetMacroAgent()
-    {
-        var agentModule = AgentModule.Instance();
-        return agentModule is null ? null : (AgentMacro*)agentModule->GetAgentByInternalId(AgentId.Macro);
-    }
+    private static AgentMacro* GetMacroAgent() => AgentMacro.Instance();
 
     private static uint GetCurrentMacroSet()
     {

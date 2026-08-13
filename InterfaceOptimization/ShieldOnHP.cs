@@ -165,8 +165,8 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
 
     private static void DrawShieldValue()
     {
-        if (!TryGetHpBarComponent(out var hpBar, out _) ||
-            !TryGetShieldMetrics(out var metrics) ||
+        if (!TryGetShieldMetrics(out var metrics) ||
+            !TryGetHpBarComponent(out var hpBar, out _) ||
             metrics.ShieldAmount == 0)
         {
             return;
@@ -428,7 +428,7 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
         for (var index = 0; index < manager->NodeListCount; index++)
         {
             var node = manager->NodeList[index];
-        if (node != null && node->NodeId == nodeID && node->Type == nodeType)
+            if (node != null && node->NodeId == nodeID && node->Type == nodeType)
             {
                 return (T*)node;
             }

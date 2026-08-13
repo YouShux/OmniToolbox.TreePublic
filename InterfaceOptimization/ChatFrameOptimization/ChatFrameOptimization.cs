@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Dalamud.Game.Chat;
 using Dalamud.Game.Text;
@@ -64,14 +63,6 @@ public sealed unsafe class ChatFrameOptimization(
     private uint urlCommandID;
 
     private delegate void* ScrollToBottomDelegate(LogViewer* logViewer);
-
-    [StructLayout(LayoutKind.Explicit, Size = 0x128)]
-    private struct LogViewer
-    {
-        [FieldOffset(0x10)] public AddonChatLogPanel* ChatLogPanel;
-        [FieldOffset(0x50)] public uint LastLineVisible;
-        [FieldOffset(0x5C)] public uint TotalLineCount;
-    }
 
     public override bool HasSettings => true;
 

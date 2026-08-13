@@ -30,7 +30,9 @@ public sealed unsafe class RetainerEntrustMemory(
     {
         Title = OmniLoc.Get("RetainerEntrustMemoryTitle"),
         Description = OmniLoc.Get("RetainerEntrustMemoryDescription"),
-        Category = ModuleCategory.Item
+        Category = ModuleCategory.Item,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Item/RetainerEntrustMemory-1.png"
     };
 
     protected override void OnEnable()

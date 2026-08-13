@@ -393,8 +393,8 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
             foreach (var member in members)
             {
                 if (!TryGetHudPosition(
-            member.ContentID,
-            member.EntityID,
+                        member.ContentID,
+                        member.EntityID,
                         infoProxy,
                         groupManager,
                         agentHud,
