@@ -19,6 +19,7 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
 {
     private const string NaviMapAddonName = "_NaviMap";
     private const string AreaMapAddonName = "AreaMap";
+    private const string TeleportTownAddonName = "TelepotTown";
     private const int MaxVisibleRows = 6;
 
     private static readonly uint[] KnownIconIDs =
@@ -220,6 +221,10 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
             AddonEvent.PostUpdate,
             AreaMapAddonName,
             OnAreaMapUpdate);
+        DalamudServices.AddonLifecycle.RegisterListener(
+            AddonEvent.PostUpdate,
+            TeleportTownAddonName,
+            OnTeleportTownUpdate);
         runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
             AddonEvent.PostUpdate,
             NaviMapAddonName,
@@ -228,6 +233,10 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
             AddonEvent.PostUpdate,
             AreaMapAddonName,
             OnAreaMapUpdate));
+        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostUpdate,
+            TeleportTownAddonName,
+            OnTeleportTownUpdate));
         ApplyCurrentMaps(false);
     }
 
@@ -288,6 +297,9 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
     private void OnAreaMapUpdate(AddonEvent type, AddonArgs args) =>
         ApplyAreaMap((AddonAreaMap*)args.Addon.Address, false);
 
+    private void OnTeleportTownUpdate(AddonEvent type, AddonArgs args) =>
+        ApplyTeleportTown((AddonTeleportTown*)args.Addon.Address, false);
+
     private void ApplyCurrentMaps(bool restore)
     {
         var unitManager = RaptureAtkUnitManager.Instance();
@@ -295,6 +307,7 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
         {
             ApplyMinimap((AddonNaviMap*)unitManager->GetAddonByName(NaviMapAddonName), restore);
             ApplyAreaMap((AddonAreaMap*)unitManager->GetAddonByName(AreaMapAddonName), restore);
+            ApplyTeleportTown((AddonTeleportTown*)unitManager->GetAddonByName(TeleportTownAddonName), restore);
         }
     }
 
@@ -324,25 +337,35 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
 
     private void ApplyAreaMap(AddonAreaMap* addon, bool restore)
     {
-        if (addon == null ||
-            !addon->AtkUnitBase.IsVisible ||
-            addon->AtkUnitBase.UldManager.NodeList == null ||
-            addon->AtkUnitBase.UldManager.NodeListCount <= 3)
+        if (addon == null || !addon->AtkUnitBase.IsVisible)
         {
             return;
         }
 
-        var mapNode = (AtkComponentNode*)addon->AtkUnitBase.UldManager.NodeList[3];
-        if (mapNode == null ||
-            mapNode->Component == null ||
-            mapNode->Component->UldManager.NodeList == null)
+        ApplyAreaMapMarkers(addon->ComponentMap, restore);
+    }
+
+    private void ApplyTeleportTown(AddonTeleportTown* addon, bool restore)
+    {
+        if (addon == null || !addon->AtkUnitBase.IsVisible)
         {
             return;
         }
 
-        for (var index = 6; index < mapNode->Component->UldManager.NodeListCount; index++)
+        ApplyAreaMapMarkers(addon->ComponentMap, restore);
+    }
+
+    private void ApplyAreaMapMarkers(AtkComponentMap* componentMap, bool restore)
+    {
+        var component = (AtkComponentBase*)componentMap;
+        if (component == null || component->UldManager.NodeList == null)
         {
-            var markerNode = (AtkComponentNode*)mapNode->Component->UldManager.NodeList[index];
+            return;
+        }
+
+        for (var index = 6; index < component->UldManager.NodeListCount; index++)
+        {
+            var markerNode = (AtkComponentNode*)component->UldManager.NodeList[index];
             if (markerNode == null || !markerNode->AtkResNode.IsVisible())
             {
                 continue;

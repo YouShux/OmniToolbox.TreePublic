@@ -49,6 +49,7 @@ public sealed class DalamudDirectoryCleanup : ModuleBase
             .EnumerateDirectories()
             .Select(static directory => directory.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        installedPluginNames.Add("AEAssistV3");
         var deleted = 0;
         var failed = 0;
 

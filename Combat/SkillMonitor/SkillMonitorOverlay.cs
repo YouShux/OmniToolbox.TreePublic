@@ -141,8 +141,9 @@ internal sealed unsafe class SkillMonitorOverlay(
             position,
             size,
             dimmed: state.DisplayState == SkillMonitorDisplayState.Inactive,
-            drawFrame: false,
-            preserveAspectRatio: false);
+            active: state.DisplayState == SkillMonitorDisplayState.Active,
+            drawFrame: !definition.IsFood,
+            preserveAspectRatio: definition.IsFood);
 
         if (definition.IsFood)
         {
@@ -157,14 +158,9 @@ internal sealed unsafe class SkillMonitorOverlay(
         if (state.DisplayState == SkillMonitorDisplayState.Cooldown)
         {
             DrawCooldownMask(drawList, position, size, state.CooldownProgress);
+            FramedGameIcon.DrawFrame(drawList, position, size);
             DrawCenteredText(drawList, state.CooldownText ?? string.Empty, position, size);
         }
-        var framePadding = size * 0.045f;
-        FramedGameIcon.DrawFrame(
-            drawList,
-            position - framePadding,
-            size + framePadding * 2f,
-            state.DisplayState == SkillMonitorDisplayState.Active);
     }
 
     private static void DrawCenteredText(ImDrawListPtr drawList, string text, Vector2 position, Vector2 size)
