@@ -99,17 +99,6 @@ public sealed unsafe partial class BetterGlamourManagement(
         lastGearsetIndex = int.MinValue;
     }
 
-    protected override bool OnInterruptAutomation()
-    {
-        if (activeTryOnPreset is null && !pendingTryOnRestore && taskHelper?.IsBusy != true)
-        {
-            return false;
-        }
-
-        ClearTryOn();
-        return true;
-    }
-
     private void OnFrameworkUpdate(IFramework framework)
     {
         if (!DService.Instance().ClientState.IsLoggedIn)

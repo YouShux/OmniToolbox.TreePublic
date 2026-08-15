@@ -176,7 +176,7 @@ internal sealed unsafe class SkillMonitorOverlay(
                 : FontManager.Instance().TrumpGothicFont184).Push();
         var textSize = ImGui.CalcTextSize(text);
         var textPosition = position + (size - textSize) * 0.5f;
-        DrawOutlinedText(drawList, text, textPosition, OmniTheme.Color(OmniTheme.Tokens.Text));
+        DrawOutlinedText(drawList, text, textPosition, OmniTheme.Color(Vector4.One));
     }
 
     private static void DrawFoodDuration(ImDrawListPtr drawList, string text, Vector2 position, Vector2 size)
