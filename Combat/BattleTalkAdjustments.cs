@@ -44,59 +44,28 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         var settingsChanged = false;
         using var table = ImRaii.Table(
             "##battleTalkAdjustmentsSettings",
-            2,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX);
+            4,
+            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
+            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##battleTalkAdjustmentsLabel", ImGuiTableColumnFlags.WidthFixed);
-        ImGui.TableSetupColumn("##battleTalkAdjustmentsValue", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn("##battleTalkAdjustmentsScaleColumn", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##battleTalkAdjustmentsOffsetColumn", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##battleTalkAdjustmentsEmptyColumn1", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##battleTalkAdjustmentsEmptyColumn2", ImGuiTableColumnFlags.WidthStretch, 1f);
 
-        ImGui.TableNextRow();
+        ImGui.TableNextRow(ImGuiTableRowFlags.None, ImGui.GetFrameHeight());
         ImGui.TableNextColumn();
+        var scaleLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Scale");
+        var scaleWidth = MathF.Max(
+            1f,
+            ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemInnerSpacing.X - ImGui.CalcTextSize(scaleLabel).X);
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.BattleTalkAdjustments.OffsetX"));
-        ImGui.TableNextColumn();
-        var offsetX = config.OffsetX;
-        if (OmniControls.InputInt(
-                "##battleTalkAdjustmentsOffsetX",
-                ref offsetX,
-                ImGui.GetContentRegionAvail().X,
-                1,
-                10))
-        {
-            config.OffsetX = offsetX;
-            settingsChanged = true;
-        }
-
-        changed |= ImGui.IsItemDeactivatedAfterEdit();
-
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.BattleTalkAdjustments.OffsetY"));
-        ImGui.TableNextColumn();
-        var offsetY = config.OffsetY;
-        if (OmniControls.InputInt(
-                "##battleTalkAdjustmentsOffsetY",
-                ref offsetY,
-                ImGui.GetContentRegionAvail().X,
-                1,
-                10))
-        {
-            config.OffsetY = offsetY;
-            settingsChanged = true;
-        }
-
-        changed |= ImGui.IsItemDeactivatedAfterEdit();
-
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.BattleTalkAdjustments.Scale"));
-        ImGui.TableNextColumn();
+        ImGui.TextUnformatted(scaleLabel);
+        ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
         var scale = config.Scale;
         if (OmniControls.SliderFloat(
                 "##battleTalkAdjustmentsScale",
@@ -104,12 +73,56 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
                 0.01f,
                 3f,
                 "%.2fx",
-                ImGui.GetContentRegionAvail().X))
+                scaleWidth))
         {
             config.Scale = scale;
             settingsChanged = true;
             changed = true;
         }
+
+        ImGui.TableNextColumn();
+        var offsetLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Offset");
+        var offsetXLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.OffsetX");
+        var offsetYLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.OffsetY");
+        var offsetInputWidth = MathF.Max(
+            1f,
+            (ImGui.GetContentRegionAvail().X -
+             ImGui.CalcTextSize(offsetLabel).X -
+             ImGui.CalcTextSize(offsetXLabel).X -
+             ImGui.CalcTextSize(offsetYLabel).X -
+             ImGui.GetStyle().ItemInnerSpacing.X * 5f) / 2f);
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(offsetLabel);
+        ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
+        ImGui.TextUnformatted(offsetXLabel);
+        ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
+        var offsetX = config.OffsetX;
+        if (OmniControls.InputInt(
+                "##battleTalkAdjustmentsOffsetX",
+                ref offsetX,
+                offsetInputWidth))
+        {
+            config.OffsetX = offsetX;
+            settingsChanged = true;
+        }
+
+        changed |= ImGui.IsItemDeactivatedAfterEdit();
+
+        ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(offsetYLabel);
+        ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
+        var offsetY = config.OffsetY;
+        if (OmniControls.InputInt(
+                "##battleTalkAdjustmentsOffsetY",
+                ref offsetY,
+                offsetInputWidth))
+        {
+            config.OffsetY = offsetY;
+            settingsChanged = true;
+        }
+
+        changed |= ImGui.IsItemDeactivatedAfterEdit();
 
         if (settingsChanged && (!previewTimer.IsRunning || previewTimer.ElapsedMilliseconds > 10000))
         {

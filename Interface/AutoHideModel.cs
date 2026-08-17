@@ -40,6 +40,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private const int ObjectScanEnd = 200;
     private const int UnimportantNPCScanStart = 489;
     private const int UnimportantNPCScanEnd = 630;
+    private const float UnimportantNPCVisibilityDistanceSquared = 25f;
     private const uint InvalidEntityID = 0xE0000000;
     private const uint EarthlyStarNameID = 6565;
     private const uint AsylumActionID = 3569;
@@ -373,6 +374,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         if ((namePlate == null || !namePlate->IsVisible) &&
             !DService.Instance().Condition[ConditionFlag.Performing])
         {
+            ShowAll();
             return;
         }
 
@@ -392,7 +394,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
             if (index >= UnimportantNPCScanStart)
             {
-        SetVisibility(gameObject, !ShouldHideUnimportantNPC(gameObject));
+                SetVisibility(gameObject, !ShouldHideUnimportantNPC(gameObject, localGameObject));
                 continue;
             }
 
@@ -775,10 +777,12 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
     private void OnTerritoryChanged(uint _) => Refresh();
 
-    private bool ShouldHideUnimportantNPC(GameObject* gameObject) =>
+    private bool ShouldHideUnimportantNPC(GameObject* gameObject, GameObject* localGameObject) =>
         config.HideUnimportantNpcs &&
         !gameObject->TargetableStatus.HasFlag(ObjectTargetableFlags.IsTargetable) &&
-        gameObject->EventHandler == null;
+        gameObject->EventHandler == null &&
+        Vector3.DistanceSquared(gameObject->Position, localGameObject->Position) >
+        UnimportantNPCVisibilityDistanceSquared;
 
     private static bool ShouldHide(AutoHideUnitConfig unitConfig) =>
         unitConfig.HideAll ||
@@ -796,6 +800,8 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         var condition = DService.Instance().Condition;
         return condition[ConditionFlag.BetweenAreas] ||
                condition[ConditionFlag.BetweenAreas51] ||
+               condition[ConditionFlag.OccupiedInEvent] ||
+               condition[ConditionFlag.OccupiedInQuestEvent] ||
                condition[ConditionFlag.OccupiedInCutSceneEvent] ||
                condition[ConditionFlag.WatchingCutscene] ||
                condition[ConditionFlag.WatchingCutscene78] ||

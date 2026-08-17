@@ -44,7 +44,6 @@ public sealed unsafe partial class BetterGlamourManagement(
     };
 
     private const string CharacterInspectAddonName = "CharacterInspect";
-    private const string TryOnAddonName = "Tryon";
     private const float ScreenPadding = 8f;
     internal const int MaxPresetCount = 100;
 
@@ -54,6 +53,7 @@ public sealed unsafe partial class BetterGlamourManagement(
     private BetterGlamourManagerNativeUI? managerNativeUI;
     private TaskHelper? taskHelper;
     private BetterGlamourPreset? activeTryOnPreset;
+    private BetterGlamourPreset? boundTryOnPreset;
     private nint previewPlayerAddress;
     private bool pendingTryOnRestore;
     private int selectedPresetIndex = -1;
@@ -95,6 +95,7 @@ public sealed unsafe partial class BetterGlamourManagement(
         taskHelper = null;
         DisposeActionsNativeUI();
         DisposeManagerNativeUI();
+        boundTryOnPreset = null;
         selectedPresetIndex = -1;
         lastGearsetIndex = int.MinValue;
     }
@@ -104,10 +105,31 @@ public sealed unsafe partial class BetterGlamourManagement(
         if (!DService.Instance().ClientState.IsLoggedIn)
         {
             activeTryOnPreset = null;
+            boundTryOnPreset = null;
             previewPlayerAddress = nint.Zero;
             pendingTryOnRestore = false;
             lastGearsetIndex = int.MinValue;
             return;
+        }
+
+        var gearsetModule = RaptureGearsetModule.Instance();
+        if (gearsetModule == null)
+        {
+            lastGearsetIndex = int.MinValue;
+        }
+        else
+        {
+            var currentGearsetIndex = gearsetModule->CurrentGearsetIndex;
+            if (lastGearsetIndex != currentGearsetIndex)
+            {
+                lastGearsetIndex = currentGearsetIndex;
+                SynchronizeBoundTryOn(currentGearsetIndex, true);
+            }
+            else if (boundTryOnPreset is not null &&
+                     !ReferenceEquals(activeTryOnPreset, boundTryOnPreset))
+            {
+                StartTryOn(boundTryOnPreset);
+            }
         }
 
         var playerAddress = DService.Instance().ObjectTable.LocalPlayer?.Address ?? nint.Zero;
@@ -117,36 +139,17 @@ public sealed unsafe partial class BetterGlamourManagement(
         {
             previewPlayerAddress = playerAddress;
             pendingTryOnRestore = true;
-            return;
+        }
+
+        if (!pendingTryOnRestore &&
+            activeTryOnPreset is not null &&
+            taskHelper is { IsBusy: false } &&
+            !IsActiveTryOnApplied())
+        {
+            pendingTryOnRestore = true;
         }
 
         TryApplyActiveTryOn();
-
-        var gearsetModule = RaptureGearsetModule.Instance();
-        if (gearsetModule == null)
-        {
-            lastGearsetIndex = int.MinValue;
-            return;
-        }
-
-        var currentGearsetIndex = gearsetModule->CurrentGearsetIndex;
-        if (lastGearsetIndex == int.MinValue)
-        {
-            lastGearsetIndex = currentGearsetIndex;
-            return;
-        }
-
-        if (lastGearsetIndex == currentGearsetIndex)
-        {
-            return;
-        }
-
-        lastGearsetIndex = currentGearsetIndex;
-        var preset = config.Presets.Find(item => item.GearsetIndex == currentGearsetIndex);
-        if (preset is not null)
-        {
-            StartTryOn(preset);
-        }
     }
 
     private void Draw()
@@ -296,6 +299,26 @@ public sealed unsafe partial class BetterGlamourManagement(
         TryApplyActiveTryOn();
     }
 
+    private bool IsActiveTryOnApplied()
+    {
+        if (activeTryOnPreset is not { } preset)
+        {
+            return true;
+        }
+
+        foreach (var item in preset.Items)
+        {
+            if (item.ItemID != 0 &&
+                !itemPreviewService.IsEquipmentPreviewApplied(item.ItemID, item.Slot, item.Stain0, item.Stain1))
+            {
+                return false;
+            }
+        }
+
+        return itemPreviewService.IsGlassesPreviewApplied(preset.GlassesID) &&
+               (preset.HairstyleID == 0 || itemPreviewService.IsHairstylePreviewApplied(preset.HairstyleID));
+    }
+
     private void TryApplyActiveTryOn()
     {
         if (!pendingTryOnRestore ||
@@ -310,7 +333,6 @@ public sealed unsafe partial class BetterGlamourManagement(
         }
 
         pendingTryOnRestore = false;
-        CloseTryOnAddon();
         var preset = activeTryOnPreset;
         var items = preset.Items
             .Where(static item => item.ItemID != 0)
@@ -354,7 +376,6 @@ public sealed unsafe partial class BetterGlamourManagement(
         activeTryOnPreset = null;
         previewPlayerAddress = nint.Zero;
         pendingTryOnRestore = false;
-        CloseTryOnAddon();
         itemPreviewService.ClearPreviewResidue();
     }
 
@@ -373,6 +394,7 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     private void ChangePresetGearset(BetterGlamourPreset preset, int gearsetIndex)
     {
+        var previousGearsetIndex = preset.GearsetIndex;
         if (gearsetIndex >= 0)
         {
             foreach (var other in config.Presets)
@@ -386,6 +408,36 @@ public sealed unsafe partial class BetterGlamourManagement(
 
         preset.GearsetIndex = gearsetIndex;
         saveConfig();
+
+        var gearsetModule = RaptureGearsetModule.Instance();
+        if (gearsetModule != null)
+        {
+            var currentGearsetIndex = gearsetModule->CurrentGearsetIndex;
+            if (currentGearsetIndex == previousGearsetIndex || currentGearsetIndex == gearsetIndex)
+            {
+                lastGearsetIndex = currentGearsetIndex;
+                SynchronizeBoundTryOn(currentGearsetIndex, true);
+            }
+        }
+    }
+
+    private void SynchronizeBoundTryOn(int gearsetIndex, bool clearIfUnbound)
+    {
+        boundTryOnPreset = config.Presets.Find(item => item.GearsetIndex == gearsetIndex);
+        if (boundTryOnPreset is not null)
+        {
+            if (!ReferenceEquals(activeTryOnPreset, boundTryOnPreset))
+            {
+                StartTryOn(boundTryOnPreset);
+            }
+
+            return;
+        }
+
+        if (clearIfUnbound && activeTryOnPreset is not null)
+        {
+            ClearTryOn();
+        }
     }
 
     private void DeletePreset(BetterGlamourPreset preset)
@@ -397,17 +449,19 @@ public sealed unsafe partial class BetterGlamourManagement(
         }
 
         config.Presets.RemoveAt(index);
+        if (ReferenceEquals(activeTryOnPreset, preset))
+        {
+            ClearTryOn();
+        }
+
+        if (ReferenceEquals(boundTryOnPreset, preset))
+        {
+            boundTryOnPreset = null;
+        }
+
         selectedPresetIndex = Math.Min(index, config.Presets.Count - 1);
         saveConfig();
         managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
-    }
-
-    private static void CloseTryOnAddon()
-    {
-        if (AddonHelper.TryGetByName(TryOnAddonName, out AtkUnitBase* addon) && addon != null)
-        {
-            addon->Close(true);
-        }
     }
 
     private void NotifyNoInspectData() => OmniNotifier.Popup(
