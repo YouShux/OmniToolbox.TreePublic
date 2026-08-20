@@ -8,13 +8,13 @@ using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.Game;
 using OmenTools;
 using OmenTools.OmenService;
 using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 using IBattleChara = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IBattleChara;
 using ICharacter = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.ICharacter;
 using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IGameObject;
-using OmenObjectTable = OmenTools.Dalamud.Services.Game.Object.Abstractions.IObjectTable;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 
 namespace OmniToolbox.TreePublic;
@@ -69,6 +69,7 @@ internal sealed unsafe class MitigationRecorder
         {
             friendlyEntityIds.Clear();
             snapshotBuilder.ClearRuntime();
+            CombatCharacterSnapshot.Clear();
         }
     }
 
@@ -111,7 +112,8 @@ internal sealed unsafe class MitigationRecorder
             return;
         }
 
-        if (services.ObjectTable.SearchByEntityID(casterEntityID, OmenObjectTable.CharactersRange) is not IBattleChara source ||
+        CombatCharacterSnapshot.Refresh();
+        if (FindObject(casterEntityID) is not IBattleChara source ||
             source.ObjectKind != ObjectKind.BattleNpc ||
             combatLog.ShouldSuppressWrites() ||
             !services.Condition[ConditionFlag.InCombat])
@@ -131,7 +133,7 @@ internal sealed unsafe class MitigationRecorder
             for (var index = 0; index < Math.Min((int)header->NumTargets, 32); index++)
             {
                 var targetID = targetEntityIds[index];
-        if (!friendlyEntityIds.Contains(targetID.ObjectId) ||
+                if (!friendlyEntityIds.Contains(targetID.ObjectId) ||
                     FindObject(targetID) is not { } target ||
                     !TryDecodeTargetDamage(&effects[index], out var damage))
                 {
@@ -216,6 +218,7 @@ internal sealed unsafe class MitigationRecorder
     private void RefreshRuntimeCacheNoLock(DateTime now, bool detectDeaths)
     {
         var services = DService.Instance();
+        CombatCharacterSnapshot.Refresh();
         friendlyEntityIds.Clear();
         TrackFriendlyNoLock(services.ObjectTable.LocalPlayer, now, detectDeaths);
         foreach (var partyMember in services.PartyList)
@@ -227,12 +230,12 @@ internal sealed unsafe class MitigationRecorder
 
             friendlyEntityIds.Add(partyMember.EntityId);
             TrackFriendlyNoLock(
-                services.ObjectTable.SearchByEntityID(partyMember.EntityId, OmenObjectTable.CharactersRange),
+                FindObject(partyMember.EntityId),
                 now,
                 detectDeaths);
         }
 
-        snapshotBuilder.RefreshRuntime(now);
+        snapshotBuilder.RefreshRuntime(CombatCharacterSnapshot.BattleCharas, now);
     }
 
     private void TrackFriendlyNoLock(IGameObject? target, DateTime now, bool detectDeaths)
@@ -313,8 +316,13 @@ internal sealed unsafe class MitigationRecorder
     private static IGameObject? FindObject(GameObjectId id)
     {
         var objectTable = DService.Instance().ObjectTable;
-        return objectTable.SearchByID(id.Id) ?? objectTable.SearchByEntityID(id.ObjectId);
+        return CombatCharacterSnapshot.Find(id.Id, id.ObjectId) ??
+               objectTable.SearchByID(id.Id) ??
+               objectTable.SearchByEntityID(id.ObjectId);
     }
+
+    private static IGameObject? FindObject(uint entityID) =>
+        CombatCharacterSnapshot.Find(entityID) ?? DService.Instance().ObjectTable.SearchByEntityID(entityID);
 
     private static string CreateShortName(string name)
     {

@@ -1,8 +1,8 @@
 using System.Collections.Frozen;
 using System.Globalization;
+using OmniToolbox.Game;
 using OmniToolbox.UI;
 using OmenTools;
-using OmenTools.Dalamud.Services.Game.Object.Abstractions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using IBattleChara = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IBattleChara;
@@ -67,13 +67,12 @@ internal sealed unsafe class MitigationSnapshotBuilder
     private readonly List<ActiveMitigation> mitigationBuilder = new(16);
     private readonly HashSet<ulong> seenStatusKeys = [];
 
-    public void RefreshRuntime(DateTime now)
+    public void RefreshRuntime(IReadOnlyList<IBattleChara> battleCharas, DateTime now)
     {
         visibleEnemyDebuffs.Clear();
-        var objectTable = DService.Instance().ObjectTable;
-        for (var index = 0; index < Math.Min(objectTable.Length, IObjectTable.CharactersRange.End.Value); index++)
+        foreach (var enemy in battleCharas)
         {
-            if (objectTable[index] is not IBattleChara enemy || enemy.ObjectKind != ObjectKind.BattleNpc)
+            if (enemy.ObjectKind != ObjectKind.BattleNpc)
             {
                 continue;
             }
@@ -440,6 +439,8 @@ internal sealed unsafe class MitigationSnapshotBuilder
     private static IGameObject? FindObject(uint id)
     {
         var objectTable = DService.Instance().ObjectTable;
-        return objectTable.SearchByID(id) ?? objectTable.SearchByEntityID(id);
+        return CombatCharacterSnapshot.Find(id) ??
+               objectTable.SearchByID(id) ??
+               objectTable.SearchByEntityID(id);
     }
 }

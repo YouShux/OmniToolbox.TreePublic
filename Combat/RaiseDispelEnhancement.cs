@@ -10,6 +10,7 @@ using LuminaStatus = Lumina.Excel.Sheets.Status;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
+using OmniToolbox.Game;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
@@ -250,6 +251,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         finally
         {
             Clear();
+            CombatCharacterSnapshot.Clear();
         }
     }
 
@@ -278,15 +280,9 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         names.Clear();
         positions.Clear();
 
-        foreach (var gameObject in DService.Instance().ObjectTable)
+        CombatCharacterSnapshot.Refresh();
+        foreach (var player in CombatCharacterSnapshot.Players)
         {
-            if (gameObject is not IPlayerCharacter player ||
-                player.EntityID == 0 ||
-                !player.IsValid())
-            {
-                continue;
-            }
-
             var actorKey = GetActorKey(player);
             names[actorKey] = player.Name;
             positions[actorKey] = player.Position;
@@ -868,7 +864,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     private static ulong GetCastTargetKey(IBattleChara player)
     {
         if (player.CastTargetObjectID == 0 ||
-            DService.Instance().ObjectTable.SearchByID(player.CastTargetObjectID) is not IPlayerCharacter target)
+            CombatCharacterSnapshot.Find(player.CastTargetObjectID, 0) is not IPlayerCharacter target)
         {
             return 0;
         }

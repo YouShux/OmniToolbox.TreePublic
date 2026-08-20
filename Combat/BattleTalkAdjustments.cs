@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Numerics;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -21,6 +22,8 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
 
     private readonly BattleTalkAdjustmentsConfig config;
     private readonly Stopwatch previewTimer = new();
+    private Vector2 nativeScale = Vector2.One;
+    private bool hasNativeScale;
     private FeatureLifetime? runtimeLifetime;
 
     public BattleTalkAdjustments(BattleTalkAdjustmentsConfig config)
@@ -60,65 +63,45 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         ImGui.TableNextRow(ImGuiTableRowFlags.None, ImGui.GetFrameHeight());
         ImGui.TableNextColumn();
         var scaleLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Scale");
-        var scaleWidth = MathF.Max(
-            1f,
-            ImGui.GetContentRegionAvail().X - ImGui.GetStyle().ItemInnerSpacing.X - ImGui.CalcTextSize(scaleLabel).X);
+        var scaleWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(scaleLabel).X - ImGui.GetStyle().ItemSpacing.X;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(scaleLabel);
-        ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
+        ImGui.SameLine();
         var scale = config.Scale;
-        if (OmniControls.SliderFloat(
+        if (OmniControls.DragFloat(
                 "##battleTalkAdjustmentsScale",
                 ref scale,
+                0.05f,
                 0.01f,
                 3f,
                 "%.2fx",
-                scaleWidth))
+                MathF.Max(1f, scaleWidth),
+                ImGuiSliderFlags.AlwaysClamp))
         {
             config.Scale = scale;
-            settingsChanged = true;
-            changed = true;
-        }
-
-        ImGui.TableNextColumn();
-        var offsetLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Offset");
-        var offsetXLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.OffsetX");
-        var offsetYLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.OffsetY");
-        var offsetInputWidth = MathF.Max(
-            1f,
-            (ImGui.GetContentRegionAvail().X -
-             ImGui.CalcTextSize(offsetLabel).X -
-             ImGui.CalcTextSize(offsetXLabel).X -
-             ImGui.CalcTextSize(offsetYLabel).X -
-             ImGui.GetStyle().ItemInnerSpacing.X * 5f) / 2f);
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(offsetLabel);
-        ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
-        ImGui.TextUnformatted(offsetXLabel);
-        ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
-        var offsetX = config.OffsetX;
-        if (OmniControls.InputInt(
-                "##battleTalkAdjustmentsOffsetX",
-                ref offsetX,
-                offsetInputWidth))
-        {
-            config.OffsetX = offsetX;
             settingsChanged = true;
         }
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
 
-        ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
+        ImGui.TableNextColumn();
+        var offsetLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Offset");
+        var offsetWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(offsetLabel).X - ImGui.GetStyle().ItemSpacing.X;
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(offsetYLabel);
-        ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
-        var offsetY = config.OffsetY;
-        if (OmniControls.InputInt(
-                "##battleTalkAdjustmentsOffsetY",
-                ref offsetY,
-                offsetInputWidth))
+        ImGui.TextUnformatted(offsetLabel);
+        ImGui.SameLine();
+        var offset = new Vector2(config.OffsetX, config.OffsetY);
+        if (OmniControls.DragFloat2(
+                "##battleTalkAdjustmentsOffset",
+                ref offset,
+                1f,
+                -1500f,
+                1500f,
+                "%.0f",
+                MathF.Max(1f, offsetWidth)))
         {
-            config.OffsetY = offsetY;
+            config.OffsetX = (int)MathF.Round(offset.X);
+            config.OffsetY = (int)MathF.Round(offset.Y);
             settingsChanged = true;
         }
 
@@ -171,21 +154,30 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
             return;
         }
 
+        if (!hasNativeScale)
+        {
+            nativeScale = new(addon->RootNode->ScaleX, addon->RootNode->ScaleY);
+            hasNativeScale = true;
+        }
+
         addon->RootNode->SetPosition(addon->X + config.OffsetX, addon->Y + config.OffsetY);
-        addon->RootNode->SetScale(config.Scale, config.Scale);
+        addon->RootNode->SetScale(nativeScale.X * config.Scale, nativeScale.Y * config.Scale);
     }
 
     private void OnPostUpdate(AddonEvent type, AddonArgs args) => Restore((AtkUnitBase*)args.Addon.Address);
 
-    private static void Restore(AtkUnitBase* addon)
+    private void Restore(AtkUnitBase* addon)
     {
         if (addon == null || addon->RootNode == null)
         {
+            hasNativeScale = false;
             return;
         }
 
         addon->RootNode->SetPosition(addon->X, addon->Y);
-        addon->RootNode->SetScale(1f, 1f);
+        var scale = hasNativeScale ? nativeScale : Vector2.One;
+        addon->RootNode->SetScale(scale.X, scale.Y);
+        hasNativeScale = false;
     }
 }
 

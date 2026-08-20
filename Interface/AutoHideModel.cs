@@ -340,7 +340,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         catch (Exception ex)
         {
             DalamudServices.PluginLog.Warning(ex, "Auto hide model visibility update failed.");
-            ShowAll();
+            RestoreNonPlayerVisibility();
         }
     }
 
@@ -348,7 +348,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     {
         if (ShouldSuspendByCondition())
         {
-            ShowAll();
+            RestoreNonPlayerVisibility();
             return;
         }
 
@@ -366,7 +366,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
         if (ShouldSuspendByTerritory())
         {
-            ShowAll();
+            RestoreNonPlayerVisibility();
             return;
         }
 
@@ -374,7 +374,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         if ((namePlate == null || !namePlate->IsVisible) &&
             !DService.Instance().Condition[ConditionFlag.Performing])
         {
-            ShowAll();
+            RestoreNonPlayerVisibility();
             return;
         }
 
@@ -619,6 +619,18 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         }
 
         hiddenObjects.Clear();
+    }
+
+    private void RestoreNonPlayerVisibility()
+    {
+        foreach (var address in hiddenObjects)
+        {
+            var gameObject = FindGameObject(address);
+            if (gameObject != null && gameObject->ObjectKind != ClientObjectKind.Pc)
+            {
+                gameObject->RenderFlags &= ~InvisibleFlags;
+            }
+        }
     }
 
     private void OnActionEffect(
