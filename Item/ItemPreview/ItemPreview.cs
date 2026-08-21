@@ -55,6 +55,8 @@ public sealed class ItemPreview : ModuleBase
 
     public bool TryOn(uint itemID) => IsEnabled && itemPreviewService.TryOn(itemID);
 
+    public bool ExecuteEmote(uint emoteID) => itemPreviewService.ExecuteEmote(emoteID);
+
     public uint ResolveCollectionIcon(CollectionEntry item) => itemPreviewService.ResolveCollectionIcon(item);
 
     public void ClearPreview() => itemPreviewService.ClearPreview();

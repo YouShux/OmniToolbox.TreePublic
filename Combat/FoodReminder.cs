@@ -1,7 +1,7 @@
-using Dalamud.Game.Addon.Lifecycle;
-using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
+using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Excel.Sheets;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -33,8 +33,6 @@ public sealed class FoodReminder : ModuleBase
             new ModuleCommand("Feature.FoodReminder.CommandDescription", "/omni 食物检查")
         ]
     };
-
-    private const string CountdownAddonName = "ScreenInfo_CountDown";
 
     private readonly FoodReminderConfig config;
     private readonly System.Action saveConfig;
@@ -91,11 +89,12 @@ public sealed class FoodReminder : ModuleBase
         var lifetime = new FeatureLifetime();
         try
         {
-            var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
-            lifetime.Add(addonEvents.Dispose);
-            addonEvents.Register(AddonEvent.PostSetup, CountdownAddonName, OnCountdownAddon);
-            addonEvents.Register(AddonEvent.PostRequestedUpdate, CountdownAddonName, OnCountdownAddon);
-            addonEvents.Register(AddonEvent.PreFinalize, CountdownAddonName, OnCountdownAddon);
+            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
+            {
+                throw new InvalidOperationException("Food reminder update registration failed.");
+            }
+
+            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
             runtimeLifetime = lifetime;
         }
         catch
@@ -121,11 +120,12 @@ public sealed class FoodReminder : ModuleBase
         }
     }
 
-    private void OnCountdownAddon(AddonEvent type, AddonArgs _)
+    private unsafe void OnFrameworkUpdate(IFramework _)
     {
         try
         {
-            if (type == AddonEvent.PreFinalize)
+            var agent = AgentCountDownSettingDialog.Instance();
+            if (agent == null || !agent->Active || agent->TimeRemaining <= 0f)
             {
                 countdownProcessed = false;
                 return;
@@ -143,7 +143,7 @@ public sealed class FoodReminder : ModuleBase
         }
         catch (Exception ex)
         {
-            DalamudServices.PluginLog.Warning(ex, "Food reminder countdown addon handling failed.");
+            DalamudServices.PluginLog.Warning(ex, "Food reminder countdown handling failed.");
         }
     }
 
