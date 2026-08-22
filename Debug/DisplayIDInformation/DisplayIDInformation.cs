@@ -288,6 +288,8 @@ internal static class DisplayIDInformationPanel
                 config.DisplayTargetIDOthers = others;
                 changed = true;
             }
+
+            ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DisplayIdInformation.Others.Help"));
         }
 
         ImGui.Unindent(OmniTheme.Scale(26f));

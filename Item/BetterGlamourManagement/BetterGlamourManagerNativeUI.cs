@@ -21,6 +21,7 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
     private readonly Action<BetterGlamourPreset> onDelete;
     private readonly List<BetterGlamourEditorRow> editorRows = [];
     private readonly List<GearsetOption> gearsetOptions = [];
+    private readonly List<BetterGlamourItemSearchResult> itemSearchResults = [];
     private List<BetterGlamourPreset> presets = [];
     private BetterGlamourPreset? selectedPreset;
     private BetterGlamourItem? selectedDyeItem;
@@ -40,6 +41,9 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
     private TextButtonNode? exportButton;
     private TextButtonNode? deleteButton;
     private BetterGlamourDyePickerNativeUI? dyePicker;
+    private SimpleNineGridNode? itemSearchBackgroundNode;
+    private ListNode<BetterGlamourItemSearchResult, BetterGlamourItemSearchResultNode>? itemSearchResultsNode;
+    private BetterGlamourEditorListItemNode? activeItemSearchRow;
 
     [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
     public BetterGlamourManagerNativeUI(
@@ -53,7 +57,7 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
         InternalName = "OmniBetterGlamourManager";
         Title = OmniLoc.Get("Feature.BetterGlamourManagement.WindowTitle");
         Subtitle = FormatPresetCount(0);
-        Size = new(900f, 540f);
+        Size = new(750f, 600f);
         ContentPadding = new(10f, 8f);
         RememberClosePosition = true;
         CreateWindowNode = static () => new WindowNode { ShowCloseButton = true };
@@ -134,6 +138,28 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
         exportButton = CreateButton("Feature.BetterGlamourManagement.Export", () => Invoke(onExport));
         deleteButton = CreateButton("Feature.BetterGlamourManagement.Delete", () => Invoke(onDelete));
 
+        itemSearchBackgroundNode = new()
+        {
+            TexturePath = "ui/uld/ListB.tex",
+            TextureCoordinates = Vector2.Zero,
+            TextureSize = new(32f, 32f),
+            TopOffset = 10,
+            BottomOffset = 12,
+            LeftOffset = 10,
+            RightOffset = 10
+        };
+        itemSearchBackgroundNode.AttachNode(this);
+        itemSearchBackgroundNode.IsVisible = false;
+
+        itemSearchResultsNode = new()
+        {
+            ItemSpacing = 1f,
+            OptionsList = itemSearchResults,
+            OnItemSelected = SelectItemSearchResult
+        };
+        itemSearchResultsNode.AttachNode(this);
+        itemSearchResultsNode.IsVisible = false;
+
         ResizeContent();
         ApplyData();
     }
@@ -142,6 +168,8 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
     {
         presetListNode?.Update();
         itemListNode?.Update();
+        itemSearchResultsNode?.Update();
+        UpdateItemSearchResults();
         if (pendingDyeSelectionRefresh)
         {
             pendingDyeSelectionRefresh = false;
@@ -171,6 +199,10 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
         itemHeaderNode = null;
         dyeHeaderNode = null;
         itemListNode = null;
+        itemSearchBackgroundNode = null;
+        itemSearchResultsNode = null;
+        activeItemSearchRow = null;
+        itemSearchResults.Clear();
         applyButton = null;
         exportButton = null;
         deleteButton = null;
@@ -283,6 +315,7 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
 
     private void ApplySelection()
     {
+        CloseItemSearch();
         var hasSelection = selectedPreset is not null;
         if (emptyNode is not null)
         {
@@ -334,7 +367,10 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
             true,
             false,
             null,
-            () => onChanged(selectedPreset!)));
+            () => onChanged(selectedPreset!),
+            FocusItemSearch,
+            SearchItems,
+            CloseItemSearch));
         AddItemRow("Feature.BetterGlamourManagement.MainHand", 0);
         AddItemRow("Feature.BetterGlamourManagement.OffHand", 1);
         foreach (var part in BetterGlamourManagement.Parts)
@@ -350,7 +386,10 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
             false,
             false,
             null,
-            () => onChanged(selectedPreset!)));
+            () => onChanged(selectedPreset!),
+            FocusItemSearch,
+            SearchItems,
+            CloseItemSearch));
     }
 
     private void AddItemRow(string textKey, int slot)
@@ -364,7 +403,116 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
             false,
             ReferenceEquals(item, selectedDyeItem),
             () => OpenDyePicker(item),
-            () => onChanged(selectedPreset!)));
+            () => onChanged(selectedPreset!),
+            FocusItemSearch,
+            SearchItems,
+            CloseItemSearch));
+    }
+
+    private void FocusItemSearch(BetterGlamourEditorListItemNode row)
+    {
+        if (!ReferenceEquals(activeItemSearchRow, row))
+        {
+            CloseItemSearch();
+            activeItemSearchRow = row;
+        }
+    }
+
+    private void SearchItems(BetterGlamourEditorListItemNode row, string query)
+    {
+        if (query.Length == 0 && !ReferenceEquals(activeItemSearchRow, row))
+        {
+            return;
+        }
+
+        FocusItemSearch(row);
+        itemSearchResults.Clear();
+        itemSearchResults.AddRange(row.IsHairstyle
+            ? BetterGlamourManagement.SearchHairstyles(query)
+            : row.IsGlasses
+                ? BetterGlamourManagement.SearchGlasses(query)
+                : BetterGlamourManagement.SearchItems(query));
+        if (itemSearchResultsNode is null)
+        {
+            return;
+        }
+
+        itemSearchResultsNode.OptionsList = itemSearchResults;
+        itemSearchResultsNode.IsVisible = itemSearchResults.Count > 0;
+        if (itemSearchBackgroundNode is not null)
+        {
+            itemSearchBackgroundNode.IsVisible = itemSearchResults.Count > 0;
+        }
+        itemSearchResultsNode.Size = new(
+            row.ItemSearchWidth,
+            BetterGlamourItemSearchResultNode.ItemHeight * Math.Min(6, itemSearchResults.Count) + 2f);
+        PositionItemSearchResults();
+    }
+
+    private void SelectItemSearchResult(BetterGlamourItemSearchResult result)
+    {
+        if (activeItemSearchRow is { } row)
+        {
+            row.SetItemSearchResult(result);
+        }
+
+        CloseItemSearch();
+    }
+
+    private void UpdateItemSearchResults()
+    {
+        if (activeItemSearchRow is null)
+        {
+            return;
+        }
+
+        if (!activeItemSearchRow.IsVisible)
+        {
+            CloseItemSearch();
+            return;
+        }
+
+        PositionItemSearchResults();
+    }
+
+    private void PositionItemSearchResults()
+    {
+        if (activeItemSearchRow is null || itemSearchResultsNode is null)
+        {
+            return;
+        }
+
+        itemSearchResultsNode.ScreenX = activeItemSearchRow.ItemSearchInputScreenPosition.X;
+        itemSearchResultsNode.ScreenY = activeItemSearchRow.ItemSearchInputScreenPosition.Y +
+                                       activeItemSearchRow.ItemSearchInputSize.Y +
+                                       2f;
+        if (itemSearchBackgroundNode is not null)
+        {
+            itemSearchBackgroundNode.Size = new(
+                activeItemSearchRow.ItemSearchWidth,
+                itemSearchResultsNode.Height);
+            itemSearchBackgroundNode.ScreenX = itemSearchResultsNode.ScreenX;
+            itemSearchBackgroundNode.ScreenY = itemSearchResultsNode.ScreenY;
+        }
+    }
+
+    private void CloseItemSearch()
+    {
+        var row = activeItemSearchRow;
+        activeItemSearchRow = null;
+        itemSearchResults.Clear();
+        if (itemSearchResultsNode is not null)
+        {
+            itemSearchResultsNode.OptionsList = itemSearchResults;
+            itemSearchResultsNode.IsVisible = false;
+        }
+
+        if (itemSearchBackgroundNode is not null)
+        {
+            itemSearchBackgroundNode.IsVisible = false;
+        }
+
+        row?.ClearItemSearchText();
     }
 
     private void OpenDyePicker(BetterGlamourItem item)
@@ -435,7 +583,7 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
         var columns = BetterGlamourEditorListItemNode.GetColumns(detailWidth);
         PositionHeader(partHeaderNode, detailX, headerY, columns.PartWidth);
         PositionHeader(itemHeaderNode, detailX + columns.PartWidth + rowGap, headerY, columns.ItemWidth);
-        PositionHeader(dyeHeaderNode, detailX + columns.PartWidth + columns.ItemWidth + rowGap * 2f, headerY, columns.DyeWidth);
+        PositionHeader(dyeHeaderNode, detailX + columns.PartWidth + columns.ItemWidth + rowGap * 2f - 16f, headerY, columns.DyeWidth);
 
         var buttonY = contentY + ContentSize.Y - 28f;
         if (itemListNode is not null)
@@ -554,17 +702,20 @@ internal sealed record BetterGlamourEditorRow(
     bool IsHairstyle,
     bool IsDyeSelected,
     Action? OpenDye,
-    Action OnChanged);
+    Action OnChanged,
+    Action<BetterGlamourEditorListItemNode>? OnSearchFocused = null,
+    Action<BetterGlamourEditorListItemNode, string>? OnSearchChanged = null,
+    Action? OnSearchClosed = null);
 
 internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamourEditorRow>, IListItemNode
 {
-    public static float ItemHeight => 40f;
+    public static float ItemHeight => 48f;
 
     private const float Gap = 6f;
     private readonly TextNode partNode;
-    private readonly NumericInputNode itemIDNode;
     private readonly BetterGlamourItemIconNode itemIconNode;
     private readonly TextNode itemNameNode;
+    private readonly TextInputNode itemSearchInputNode;
     private readonly BetterGlamourDyeButtonNode dyeNode;
     private readonly TextNode noDyeNode;
     private BetterGlamourEditorRow? row;
@@ -573,18 +724,26 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
     {
         partNode = CreateTextNode();
         partNode.AlignmentType = AlignmentType.Center;
-        itemIDNode = new()
-        {
-            Min = 0,
-            Max = int.MaxValue,
-            Step = 1,
-            OnValueUpdate = UpdateItemID
-        };
-        itemIDNode.AttachNode(this);
-
         itemIconNode = new();
         itemIconNode.AttachNode(this);
         itemNameNode = CreateTextNode();
+        itemSearchInputNode = new()
+        {
+            ShowLimitText = false,
+            PlaceholderString = OmniLoc.Get("Feature.BetterGlamourManagement.ItemSearch.Placeholder"),
+            OnFocused = () => row?.OnSearchFocused?.Invoke(this),
+            OnInputReceived = value =>
+            {
+                if (!IsSettingNodeData)
+                {
+                    row?.OnSearchChanged?.Invoke(this, value.ExtractText());
+                }
+            },
+            OnUnfocused = () => row?.OnSearchClosed?.Invoke(),
+            OnFocusLost = () => row?.OnSearchClosed?.Invoke(),
+            OnEscapeEntered = () => row?.OnSearchClosed?.Invoke()
+        };
+        itemSearchInputNode.AttachNode(this);
         dyeNode = CreateDyeButton();
         noDyeNode = CreateTextNode();
         noDyeNode.AlignmentType = AlignmentType.Center;
@@ -599,19 +758,13 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
         var x = 0f;
         PositionNode(partNode, x, columns.PartWidth);
         x += columns.PartWidth + Gap;
-        itemIDNode.Position = new(x, (ItemHeight - 28f) / 2f);
-        itemIDNode.Size = new(columns.ItemIDWidth, 28f);
-        itemIDNode.BackgroundNode.Y = 2f;
-        itemIDNode.AddButton.Y = 0f;
-        itemIDNode.SubtractButton.Y = 0f;
-        itemIDNode.ValueTextNode.Position = new(6f, 0f);
-        itemIDNode.ValueTextNode.Size = new(MathF.Max(1f, columns.ItemIDWidth - 58f), 28f);
-        itemIDNode.ValueTextNode.AlignmentType = AlignmentType.Center;
-        x += columns.ItemIDWidth + Gap;
         itemIconNode.Position = new(x, (ItemHeight - columns.ItemIconWidth) / 2f);
         itemIconNode.Size = new(columns.ItemIconWidth, columns.ItemIconWidth);
         x += columns.ItemIconWidth + Gap;
-        PositionNode(itemNameNode, x, columns.ItemNameWidth);
+        itemNameNode.Position = new(x, 0f);
+        itemNameNode.Size = new(columns.ItemNameWidth, 20f);
+        itemSearchInputNode.Position = new(x - 8f, 20f);
+        itemSearchInputNode.Size = new(columns.ItemNameWidth + 8f, 28f);
         x += columns.ItemNameWidth + Gap;
         dyeNode.Position = new(x, (ItemHeight - 28f) / 2f);
         dyeNode.Size = new(columns.DyeWidth, 28f);
@@ -622,22 +775,14 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
     {
         row = itemData;
         partNode.String = itemData.PartName;
-        itemIDNode.Value = itemData.IsHairstyle
-            ? (int)Math.Min(itemData.Preset.HairstyleID, int.MaxValue)
-            : itemData.IsGlasses
-                ? itemData.Preset.GlassesID
-                : (int)Math.Min(itemData.Item!.ItemID, int.MaxValue);
         itemIconNode.IconID = itemData.IsHairstyle
             ? BetterGlamourManagement.GetHairstyleIcon(itemData.Preset.HairstyleID)
             : itemData.IsGlasses
                 ? BetterGlamourManagement.GetGlassesIcon(itemData.Preset.GlassesID)
                 : BetterGlamourManagement.GetItemIcon(itemData.Item!.ItemID);
         itemIconNode.ItemTooltip = itemData.IsGlasses || itemData.IsHairstyle ? 0 : itemData.Item!.ItemID;
-        itemNameNode.String = itemData.IsHairstyle
-            ? BetterGlamourManagement.GetHairstyleName(itemData.Preset.HairstyleID)
-            : itemData.IsGlasses
-                ? BetterGlamourManagement.GetGlassesName(itemData.Preset.GlassesID)
-                : BetterGlamourManagement.GetItemName(itemData.Item!.ItemID);
+        itemNameNode.String = GetCurrentItemName();
+        itemSearchInputNode.String = string.Empty;
         var canDye = !itemData.IsGlasses && !itemData.IsHairstyle;
         dyeNode.IsVisible = canDye;
         noDyeNode.IsVisible = !canDye;
@@ -669,47 +814,69 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
         return node;
     }
 
-    private void UpdateItemID(int value)
+    internal bool IsHairstyle => row?.IsHairstyle ?? false;
+
+    internal bool IsGlasses => row?.IsGlasses ?? false;
+
+    internal float ItemSearchWidth => itemSearchInputNode.Width;
+
+    internal Vector2 ItemSearchInputSize => itemSearchInputNode.Size;
+
+    internal Vector2 ItemSearchInputScreenPosition => itemSearchInputNode.ScreenPosition;
+
+    internal void SetItemSearchResult(BetterGlamourItemSearchResult result)
     {
-        if (row is null || IsSettingNodeData)
+        if (row is null)
         {
             return;
         }
 
         if (row.IsHairstyle)
         {
-            row.Preset.HairstyleID = (uint)Math.Max(0, value);
-            itemIconNode.IconID = BetterGlamourManagement.GetHairstyleIcon(row.Preset.HairstyleID);
-            itemNameNode.String = BetterGlamourManagement.GetHairstyleName(row.Preset.HairstyleID);
+            row.Preset.HairstyleID = result.ItemID;
+            itemIconNode.IconID = BetterGlamourManagement.GetHairstyleIcon(result.ItemID);
         }
         else if (row.IsGlasses)
         {
-            row.Preset.GlassesID = (ushort)Math.Clamp(value, 0, ushort.MaxValue);
+            row.Preset.GlassesID = (ushort)Math.Min(result.ItemID, (uint)ushort.MaxValue);
             itemIconNode.IconID = BetterGlamourManagement.GetGlassesIcon(row.Preset.GlassesID);
-            itemNameNode.String = BetterGlamourManagement.GetGlassesName(row.Preset.GlassesID);
         }
-        else
+        else if (row.Item is { } item)
         {
-            row.Item!.ItemID = (uint)Math.Max(0, value);
-            itemIconNode.IconID = BetterGlamourManagement.GetItemIcon(row.Item.ItemID);
-            itemIconNode.ItemTooltip = row.Item.ItemID;
-            itemNameNode.String = BetterGlamourManagement.GetItemName(row.Item.ItemID);
+            item.ItemID = result.ItemID;
+            itemIconNode.IconID = BetterGlamourManagement.GetItemIcon(item.ItemID);
+            itemIconNode.ItemTooltip = item.ItemID;
         }
 
+        itemNameNode.String = result.Name;
         row.OnChanged();
+    }
+
+    internal void ClearItemSearchText() => itemSearchInputNode.String = string.Empty;
+
+    private string GetCurrentItemName()
+    {
+        if (row is null)
+        {
+            return string.Empty;
+        }
+
+        return row.IsHairstyle
+            ? BetterGlamourManagement.GetHairstyleName(row.Preset.HairstyleID)
+            : row.IsGlasses
+                ? BetterGlamourManagement.GetGlassesName(row.Preset.GlassesID)
+                : BetterGlamourManagement.GetItemName(row.Item!.ItemID);
     }
 
     internal static EditorColumns GetColumns(float width)
     {
         const float partWidth = 76f;
-        const float itemIDWidth = 132f;
-        const float itemIconWidth = 36f;
+        const float itemIconWidth = 44f;
         const float dyeWidth = 148f;
         return new(
             partWidth,
-            itemIDWidth,
             itemIconWidth,
-            MathF.Max(80f, width - partWidth - itemIDWidth - itemIconWidth - dyeWidth - Gap * 4f),
+            MathF.Max(80f, width - partWidth - itemIconWidth - dyeWidth - Gap * 3f),
             dyeWidth);
     }
 
@@ -721,12 +888,47 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
 
     internal readonly record struct EditorColumns(
         float PartWidth,
-        float ItemIDWidth,
         float ItemIconWidth,
         float ItemNameWidth,
         float DyeWidth)
     {
-        public float ItemWidth => ItemIDWidth + ItemIconWidth + ItemNameWidth + Gap * 2f;
+        public float ItemWidth => ItemIconWidth + ItemNameWidth + Gap;
+    }
+}
+
+internal sealed class BetterGlamourItemSearchResultNode : ListItemNode<BetterGlamourItemSearchResult>, IListItemNode
+{
+    public static float ItemHeight => 28f;
+
+    private readonly BetterGlamourItemIconNode iconNode;
+    private readonly TextNode nameNode;
+
+    public BetterGlamourItemSearchResultNode()
+    {
+        iconNode = new();
+        iconNode.AttachNode(this);
+        nameNode = new()
+        {
+            AlignmentType = AlignmentType.Left,
+            TextFlags = TextFlags.Ellipsis
+        };
+        nameNode.AttachNode(this);
+    }
+
+    protected override void OnSizeChanged()
+    {
+        base.OnSizeChanged();
+        iconNode.Position = new(4f, 2f);
+        iconNode.Size = new(24f, 24f);
+        nameNode.Position = new(34f, 0f);
+        nameNode.Size = new(MathF.Max(20f, Width - 34f), Height);
+    }
+
+    protected override void SetNodeData(BetterGlamourItemSearchResult itemData)
+    {
+        iconNode.IconID = itemData.IconID;
+        nameNode.String = itemData.Name;
+        OnSizeChanged();
     }
 }
 

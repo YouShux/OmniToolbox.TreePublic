@@ -13,6 +13,10 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class BetterGlamourManagement
 {
+    private static BetterGlamourItemSearchResult[]? itemSearchIndex;
+    private static BetterGlamourItemSearchResult[]? hairstyleSearchIndex;
+    private static BetterGlamourItemSearchResult[]? glassesSearchIndex;
+
     internal static readonly GlamourPart[] Parts =
     [
         new("Feature.BetterGlamourManagement.Part.Head", 2),
@@ -150,6 +154,118 @@ public sealed unsafe partial class BetterGlamourManagement
             : name;
     }
 
+    internal static List<BetterGlamourItemSearchResult> SearchItems(string query)
+    {
+        itemSearchIndex ??= BuildItemSearchIndex();
+        return SearchItems(query, itemSearchIndex);
+    }
+
+    internal static List<BetterGlamourItemSearchResult> SearchHairstyles(string query)
+    {
+        hairstyleSearchIndex ??= BuildHairstyleSearchIndex();
+        return SearchItems(query, hairstyleSearchIndex);
+    }
+
+    internal static List<BetterGlamourItemSearchResult> SearchGlasses(string query)
+    {
+        glassesSearchIndex ??= BuildGlassesSearchIndex();
+        return SearchItems(query, glassesSearchIndex);
+    }
+
+    private static List<BetterGlamourItemSearchResult> SearchItems(
+        string query,
+        BetterGlamourItemSearchResult[] searchIndex)
+    {
+        query = query.Trim();
+        if (query.Length == 0)
+        {
+            return [];
+        }
+
+        var results = new List<BetterGlamourItemSearchResult>();
+        for (var index = 0; index < searchIndex.Length; index++)
+        {
+            if (searchIndex[index].Name.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+            {
+                results.Add(searchIndex[index]);
+            }
+        }
+
+        for (var index = 0; index < searchIndex.Length; index++)
+        {
+            if (!searchIndex[index].Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                searchIndex[index].Name.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            results.Add(searchIndex[index]);
+        }
+
+        return results;
+    }
+
+    private static BetterGlamourItemSearchResult[] BuildItemSearchIndex()
+    {
+        var items = new List<BetterGlamourItemSearchResult>
+        {
+            new(0, OmniLoc.Get("Feature.BetterGlamourManagement.None"), 0)
+        };
+        foreach (var item in LuminaGetter.Get<Item>())
+        {
+            if (item.RowId == 0 ||
+                item.Name.IsEmpty ||
+                item.EquipSlotCategory.RowId == 0 ||
+                item.ModelMain == 0)
+            {
+                continue;
+            }
+
+            items.Add(new(item.RowId, item.Name.ExtractText(), (uint)item.Icon));
+        }
+
+        return [.. items];
+    }
+
+    private static BetterGlamourItemSearchResult[] BuildHairstyleSearchIndex()
+    {
+        var hairstyles = new List<BetterGlamourItemSearchResult>
+        {
+            new(0, OmniLoc.Get("Feature.BetterGlamourManagement.None"), 0)
+        };
+        foreach (var hairstyle in HairstyleData.GetPurchasableRows())
+        {
+            var name = GetHairstyleName(hairstyle.RowId);
+            if (string.IsNullOrWhiteSpace(name) || name == OmniLoc.Get("Feature.BetterGlamourManagement.None"))
+            {
+                continue;
+            }
+
+            hairstyles.Add(new(hairstyle.RowId, name, (uint)hairstyle.Icon));
+        }
+
+        return [.. hairstyles];
+    }
+
+    private static BetterGlamourItemSearchResult[] BuildGlassesSearchIndex()
+    {
+        var glasses = new List<BetterGlamourItemSearchResult>
+        {
+            new(0, OmniLoc.Get("Feature.BetterGlamourManagement.None"), 0)
+        };
+        foreach (var row in LuminaGetter.Get<Glasses>())
+        {
+            if (row.RowId == 0 || row.Name.IsEmpty)
+            {
+                continue;
+            }
+
+            glasses.Add(new(row.RowId, row.Name.ExtractText(), (uint)row.Icon));
+        }
+
+        return [.. glasses];
+    }
+
     internal static string GetGlassesName(ushort glassesID)
     {
         if (glassesID == 0)
@@ -261,3 +377,5 @@ public sealed unsafe partial class BetterGlamourManagement
 
     internal readonly record struct GlamourDyeOption(byte ID, string Name, Vector4 Color);
 }
+
+internal readonly record struct BetterGlamourItemSearchResult(uint ItemID, string Name, uint IconID);

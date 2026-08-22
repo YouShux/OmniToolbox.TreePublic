@@ -59,6 +59,7 @@ internal static class DisplayIDInformationFormatter
 
     public static bool ShouldDisplayTarget(ObjectKind objectKind, DisplayIDInformationConfig config) => objectKind switch
     {
+        ObjectKind.Pc => false,
         ObjectKind.BattleNpc => config.DisplayTargetIDBattleNPC,
         ObjectKind.EventNpc => config.DisplayTargetIDEventNPC,
         ObjectKind.Companion => config.DisplayTargetIDCompanion,

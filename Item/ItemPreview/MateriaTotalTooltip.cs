@@ -1,9 +1,7 @@
-using Dalamud.Game.Addon.Lifecycle;
-using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Enums;
 using FFXIVClientStructs.FFXIV.Client.UI;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.Exd;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using InteropGenerator.Runtime;
@@ -14,6 +12,7 @@ using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.Tooltips;
 using OmniToolbox.UI;
+using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 
@@ -21,10 +20,8 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class MateriaTotalTooltip
 {
-    private const string AddonName = "ItemDetail";
+    private const int MaxParameterCount = 5;
     private const int ParameterCountIndex = 21;
-    private const int ParameterStartField = 37;
-    private const int MaxParameterCount = 8;
     private const ushort HighlightColor = 506;
     private readonly ItemTooltipInventoryContext inventoryContext;
     private readonly Dictionary<uint, MateriaStat> stats = new(16);
@@ -58,16 +55,15 @@ internal sealed unsafe class MateriaTotalTooltip
 
     private void Enable()
     {
-        var tooltipManager = TooltipManager.Instance();
+        var manager = TooltipManager.Instance();
         var enabledLifetime = new FeatureLifetime();
-        enabledLifetime.Add(tooltipManager.TriggerItemDetailUpdate);
+        enabledLifetime.Add(manager.TriggerItemDetailUpdate);
         try
         {
             enabledLifetime.Add(inventoryContext.Acquire().Dispose);
-            var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
-            enabledLifetime.Add(addonEvents.Dispose);
-            addonEvents.Register(AddonEvent.PreRequestedUpdate, AddonName, OnItemDetailUpdate);
-            tooltipManager.TriggerItemDetailUpdate();
+            manager.RegItem(OnItemTooltip);
+            enabledLifetime.Add(() => manager.Unreg(OnItemTooltip));
+            manager.TriggerItemDetailUpdate();
             lifetime = enabledLifetime;
         }
         catch
@@ -89,61 +85,110 @@ internal sealed unsafe class MateriaTotalTooltip
         }
     }
 
-    private void OnItemDetailUpdate(AddonEvent _, AddonArgs args)
+    private void OnItemTooltip(
+        ItemKind itemKind,
+        uint itemID,
+        ref List<TooltipItemModification> modifications)
     {
         try
         {
-            ApplyMateriaTotals();
+            ApplyMateriaTotals(itemKind, itemID, modifications);
         }
         catch (Exception ex)
         {
-            LogFailure(ex, "update materia totals");
+            LogFailure(ex, "build materia total tooltip");
         }
     }
 
-    private void ApplyMateriaTotals()
+    private void ApplyMateriaTotals(
+        ItemKind itemKind,
+        uint itemID,
+        List<TooltipItemModification> modifications)
     {
-        if (!TryGetActiveItem(out var itemId, out var hq) ||
-            !inventoryContext.TryGet(itemId, out var hoveredItem) ||
+        if (itemKind == ItemKind.EventItem ||
+            itemID == 0 ||
+            !inventoryContext.TryGet(itemID, out var hoveredItem) ||
             hoveredItem.IsSymbolic ||
-            !LuminaGetter.TryGetRow<Item>(itemId, out var item) ||
+            !LuminaGetter.TryGetRow<Item>(itemID, out var item) ||
             item.MateriaSlotCount == 0 ||
-            !BuildStats(item, hq, hoveredItem))
+            !BuildStats(item, itemKind == ItemKind.Hq, hoveredItem))
         {
             return;
         }
 
-        var stage = AtkStage.Instance();
-        if (stage == null)
-        {
-            return;
-        }
-
-        var numberArrayData = stage->GetNumberArrayData(NumberArrayType.ItemDetail);
-        var stringArrayData = stage->GetStringArrayData(StringArrayType.ItemDetail);
+        var numberArrayData = AtkStage.Instance()->GetNumberArrayData(NumberArrayType.ItemDetail);
         if (numberArrayData == null ||
             numberArrayData->IntArray == null ||
-            numberArrayData->Size <= ParameterCountIndex ||
-            stringArrayData == null ||
-            stringArrayData->Size < ParameterStartField + MaxParameterCount)
+            numberArrayData->Size <= ParameterCountIndex)
         {
             return;
         }
 
         appliedParameters.Clear();
-        var parameterCount = Math.Clamp(numberArrayData->IntArray[ParameterCountIndex], 0, MaxParameterCount);
-        for (var index = 0; index < parameterCount; index++)
+        Span<TooltipItemType> preferredTargets = stackalloc TooltipItemType[(MaxParameterCount + 1) / 2];
+        Span<TooltipItemType> fallbackTargets = stackalloc TooltipItemType[MaxParameterCount];
+        var preferredTargetCount = 0;
+        var fallbackTargetCount = 0;
+        var currentParameterCount = Math.Clamp(
+            numberArrayData->IntArray[ParameterCountIndex],
+            0,
+            MaxParameterCount);
+        var requiredParameterCount = currentParameterCount;
+        for (var index = 0; index < MaxParameterCount; index++)
         {
-            if (!TryFindParameter(ReadTooltipText(stringArrayData, ParameterStartField + index), out var parameterID))
+            var target = (TooltipItemType)((int)TooltipItemType.SpecialParam0 + index);
+            var original = index < currentParameterCount
+                ? ReadCurrentItemTooltipText(37 + index)
+                : default;
+            if (index >= currentParameterCount || original.IsEmpty)
             {
+                modifications.Add(new()
+                {
+                    Target = target,
+                    Type = TooltipModificationType.Contribute,
+                    Text = default
+                });
+
+                if ((index & 1) == 0)
+                {
+                    preferredTargets[preferredTargetCount++] = target;
+                }
+                else
+                {
+                    fallbackTargets[fallbackTargetCount++] = target;
+                }
+
                 continue;
             }
 
-            WriteTooltipLine(stringArrayData, ParameterStartField + index, stats[parameterID]);
-            appliedParameters.Add(parameterID);
+            if (TryFindParameter(original.ExtractText(), out var parameterID))
+            {
+                if ((index & 1) == 0)
+                {
+                    modifications.Add(new()
+                    {
+                        Target = target,
+                        Type = TooltipModificationType.Contribute,
+                        Text = BuildTooltipLine(stats[parameterID])
+                    });
+                    appliedParameters.Add(parameterID);
+                }
+                else
+                {
+                    modifications.Add(new()
+                    {
+                        Target = target,
+                        Type = TooltipModificationType.Contribute,
+                        Text = default
+                    });
+                    fallbackTargets[fallbackTargetCount++] = target;
+                }
+            }
         }
 
-        for (var index = 0; index < materiaParameterOrder.Count && parameterCount < MaxParameterCount; index++)
+        var nextPreferredTarget = 0;
+        var nextFallbackTarget = 0;
+        for (var index = 0; index < materiaParameterOrder.Count; index++)
         {
             var parameterID = materiaParameterOrder[index];
             if (!appliedParameters.Add(parameterID))
@@ -151,11 +196,37 @@ internal sealed unsafe class MateriaTotalTooltip
                 continue;
             }
 
-            WriteTooltipLine(stringArrayData, ParameterStartField + parameterCount, stats[parameterID]);
-            parameterCount++;
+            TooltipItemType target;
+            if (nextPreferredTarget < preferredTargetCount)
+            {
+                target = preferredTargets[nextPreferredTarget++];
+            }
+            else if (nextFallbackTarget < fallbackTargetCount)
+            {
+                target = fallbackTargets[nextFallbackTarget++];
+            }
+            else
+            {
+                break;
+            }
+
+            requiredParameterCount = Math.Max(
+                requiredParameterCount,
+                (int)target - (int)TooltipItemType.SpecialParam0 + 1);
+
+            modifications.Add(new()
+            {
+                Target = target,
+                Type = TooltipModificationType.Append,
+                Text = BuildTooltipLine(stats[parameterID])
+            });
+
         }
 
-        numberArrayData->IntArray[ParameterCountIndex] = parameterCount;
+        if (requiredParameterCount > currentParameterCount)
+        {
+            numberArrayData->IntArray[ParameterCountIndex] = requiredParameterCount;
+        }
     }
 
     private bool BuildStats(Item item, bool hq, InventoryItem hoveredItem)
@@ -172,7 +243,7 @@ internal sealed unsafe class MateriaTotalTooltip
         {
             for (var index = 0; index < item.BaseParamSpecial.Count; index++)
             {
-            AddBaseValue(item.BaseParamSpecial[index].RowId, item.BaseParamValueSpecial[index]);
+                AddBaseValue(item.BaseParamSpecial[index].RowId, item.BaseParamValueSpecial[index]);
             }
         }
 
@@ -195,7 +266,7 @@ internal sealed unsafe class MateriaTotalTooltip
                 continue;
             }
 
-        var parameterID = materia.BaseParam.RowId;
+            var parameterID = materia.BaseParam.RowId;
             var delta = materia.Value[grade];
             if (parameterID == 0 || delta <= 0)
             {
@@ -268,11 +339,11 @@ internal sealed unsafe class MateriaTotalTooltip
         return false;
     }
 
-    private static void WriteTooltipLine(StringArrayData* stringArrayData, int field, MateriaStat stat)
+    private static ReadOnlySeString BuildTooltipLine(MateriaStat stat)
     {
         using var rented = new RentedSeStringBuilder();
         rented.Builder.Append(stat.Name).Append('+');
-        AppendValue(rented.Builder, stat.Original, HighlightColor);
+        AppendValue(rented.Builder, stat.Total, HighlightColor);
         rented.Builder
             .Append('\uFF08')
             .Append(OmniLoc.Get("ItemTooltip.MateriaTotal.Granted"));
@@ -284,7 +355,23 @@ internal sealed unsafe class MateriaTotalTooltip
                 : "ItemTooltip.MateriaTotal.Current"));
         AppendValue(rented.Builder, stat.ExceedsMaximum ? stat.Maximum : stat.Total, HighlightColor);
         rented.Builder.Append('\uFF09');
-        stringArrayData->SetValue(field, rented.Builder.GetViewAsSpan(), suppressUpdates: true);
+        return rented.Builder.ToReadOnlySeString();
+    }
+
+    private static ReadOnlySeString ReadCurrentItemTooltipText(int field)
+    {
+        var stringArrayData = AtkStage.Instance()->GetStringArrayData(StringArrayType.ItemDetail);
+        if (stringArrayData == null ||
+            stringArrayData->StringArray == null ||
+            stringArrayData->Size <= field)
+        {
+            return default;
+        }
+
+        var pointer = stringArrayData->StringArray[field];
+        return pointer.HasValue
+            ? new ReadOnlySeString(new CStringPointer(pointer.Value).AsSpan())
+            : default;
     }
 
     private static void AppendValue(SeStringBuilder builder, int value, ushort color)
@@ -293,29 +380,6 @@ internal sealed unsafe class MateriaTotalTooltip
             .PushColorType(color)
             .Append(value.ToString())
             .PopColorType();
-    }
-
-    private static string ReadTooltipText(StringArrayData* stringArrayData, int field)
-    {
-        var pointer = stringArrayData->StringArray[field];
-        return pointer.HasValue
-            ? new ReadOnlySeString(new CStringPointer(pointer.Value).AsSpan()).ExtractText()
-            : string.Empty;
-    }
-
-    private static bool TryGetActiveItem(out uint itemID, out bool hq)
-    {
-        itemID = 0;
-        hq = false;
-        var agent = AgentItemDetail.Instance();
-        if (agent == null || agent->ItemId == 0 || agent->ItemId >= 2_000_000)
-        {
-            return false;
-        }
-
-        hq = agent->ItemId >= 500_000;
-        itemID = ItemUtil.GetBaseId(agent->ItemId).ItemId;
-        return itemID != 0;
     }
 
     private void LogFailure(Exception exception, string operation)
