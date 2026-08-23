@@ -55,6 +55,7 @@ public sealed class MitigationMonitor : ModuleBase
         config.CollapsedPosition = defaults.CollapsedPosition;
         config.Size = defaults.Size;
         config.ReplaySaveCount = defaults.ReplaySaveCount;
+        config.GlobalScale = defaults.GlobalScale;
         config.Opacity = defaults.Opacity;
         config.ShowDotDamage = defaults.ShowDotDamage;
         config.HideHotkey = defaults.HideHotkey;
@@ -136,8 +137,8 @@ public sealed class MitigationMonitor : ModuleBase
     private void NormalizeConfig()
     {
         config.Size = new(
-            Math.Clamp(config.Size.X <= 0f ? 540f : config.Size.X, MitigationMonitorOverlay.MinimumWidth, 900f),
-            Math.Clamp(config.Size.Y <= 0f ? 270f : config.Size.Y, 160f, 720f));
+            MathF.Max(config.Size.X <= 0f ? 540f : config.Size.X, MitigationMonitorOverlay.MinimumWidth),
+            MathF.Max(config.Size.Y <= 0f ? 270f : config.Size.Y, 160f));
         if (config.CollapsedPosition == Vector2.Zero)
         {
             config.CollapsedPosition = config.Position + new Vector2(
@@ -146,6 +147,7 @@ public sealed class MitigationMonitor : ModuleBase
         }
 
         config.ReplaySaveCount = Math.Clamp(config.ReplaySaveCount, 1, 300);
+        config.GlobalScale = Math.Clamp(config.GlobalScale, 0f, 3f);
         config.Opacity = Math.Clamp(config.Opacity, 0f, 1f);
         if (!MitigationMonitorHotkey.IsBindable(config.HideHotkey))
         {
@@ -178,44 +180,30 @@ internal static class MitigationMonitorPanel
         MitigationMonitorHotkey hotkey)
     {
         var changed = false;
-        changed |= hotkey.DrawSettings();
-
-        var opacity = config.Opacity * 100f;
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Opacity"));
-        ImGui.SameLine();
-        if (OmniControls.SliderFloat(
-                "##mitigationOpacity",
-                ref opacity,
-                0f,
-                100f,
-                "%.0f%%",
-                OmniTheme.Scale(150f)))
+        using var table = ImRaii.Table(
+            "##mitigationMonitorSettings",
+            4,
+            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.NoClip,
+            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+        if (!table)
         {
-            config.Opacity = opacity / 100f;
+            return false;
         }
 
-        changed |= ImGui.IsItemDeactivatedAfterEdit();
-        ImGui.SameLine();
-        var replaySaveCount = config.ReplaySaveCount;
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.ReplaySaveCount"));
-        ImGui.SameLine();
-        if (OmniControls.InputInt(
-                "##mitigationReplaySaveCount",
-                ref replaySaveCount,
-                OmniTheme.Scale(96f)))
+        ImGui.TableSetupColumn("##mitigationSettingsColumn1", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##mitigationSettingsColumn2", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##mitigationSettingsColumn3", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableSetupColumn("##mitigationSettingsColumn4", ImGuiTableColumnFlags.WidthStretch, 1f);
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
+        var showDotDamage = config.ShowDotDamage;
+        if (OmniControls.Checkbox(OmniLoc.Get("Feature.MitigationMonitor.ShowDotDamage"), ref showDotDamage))
         {
-            feature.SetReplaySaveCount(replaySaveCount);
+            config.ShowDotDamage = showDotDamage;
+            changed = true;
         }
 
-        changed |= ImGui.IsItemDeactivatedAfterEdit();
-        ImGui.SameLine();
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.MitigationMonitor.Clear"), false))
-        {
-            feature.ClearRecords();
-        }
-
+        ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.TargetDisplayMode"));
         ImGui.SameLine();
@@ -234,12 +222,66 @@ internal static class MitigationMonitorPanel
         changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIconV2, 62128, "Feature.MitigationMonitor.TargetMode.JobIconV2");
         ImGui.SameLine();
         changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIconV3, 62409, "Feature.MitigationMonitor.TargetMode.JobIconV3");
+
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
+        var globalScale = config.GlobalScale;
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.GlobalScale"));
         ImGui.SameLine();
-        var showDotDamage = config.ShowDotDamage;
-        if (OmniControls.Checkbox(OmniLoc.Get("Feature.MitigationMonitor.ShowDotDamage"), ref showDotDamage))
+        if (OmniControls.SliderFloat(
+                "##mitigationGlobalScale",
+                ref globalScale,
+                0f,
+                3f,
+                "%.1fx",
+                OmniTheme.Scale(150f)))
         {
-            config.ShowDotDamage = showDotDamage;
-            changed = true;
+            config.GlobalScale = globalScale;
+        }
+
+        changed |= ImGui.IsItemDeactivatedAfterEdit();
+        ImGui.TableNextColumn();
+        var opacity = config.Opacity * 100f;
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Opacity"));
+        ImGui.SameLine();
+        if (OmniControls.SliderFloat(
+                "##mitigationOpacity",
+                ref opacity,
+                0f,
+                100f,
+                "%.0f%%",
+                OmniTheme.Scale(150f)))
+        {
+            config.Opacity = opacity / 100f;
+        }
+
+        changed |= ImGui.IsItemDeactivatedAfterEdit();
+        ImGui.TableNextColumn();
+        changed |= hotkey.DrawModifierSetting();
+        ImGui.TableNextColumn();
+        changed |= hotkey.DrawKeySetting();
+
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
+        var replaySaveCount = config.ReplaySaveCount;
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.ReplaySaveCount"));
+        ImGui.SameLine();
+        if (OmniControls.InputInt(
+                "##mitigationReplaySaveCount",
+                ref replaySaveCount,
+                OmniTheme.Scale(96f)))
+        {
+            feature.SetReplaySaveCount(replaySaveCount);
+        }
+
+        changed |= ImGui.IsItemDeactivatedAfterEdit();
+        ImGui.SameLine();
+        if (OmniControls.SmallButton(OmniLoc.Get("Feature.MitigationMonitor.Clear"), false))
+        {
+            feature.ClearRecords();
         }
 
         return changed;
@@ -300,6 +342,7 @@ public sealed class MitigationMonitorConfig
     public Vector2 CollapsedPosition { get; set; }
     public Vector2 Size { get; set; } = new(540f, 270f);
     public int ReplaySaveCount { get; set; } = 20;
+    public float GlobalScale { get; set; } = 1f;
     public float Opacity { get; set; } = 0.7f;
     public bool ShowDotDamage { get; set; } = true;
     public int HideHotkey { get; set; }
@@ -310,6 +353,16 @@ public sealed class MitigationMonitorConfig
     public float TargetColumnWidth { get; set; } = 64f;
     public float DamageColumnWidth { get; set; } = 88f;
     public float MitigationColumnWidth { get; set; } = 64f;
+
+    internal float EffectiveScale => MathF.Max(0.01f, GlobalScale);
+
+    internal float ScaleValue => OmniTheme.ScaleValue * EffectiveScale;
+
+    internal float Scale(float value) => value * ScaleValue;
+
+    internal Vector2 Scale(Vector2 value) => value * ScaleValue;
+
+    internal Vector2 Unscale(Vector2 value) => value / ScaleValue;
 }
 
 public enum MitigationHotkeyModifier

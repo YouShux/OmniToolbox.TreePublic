@@ -163,6 +163,17 @@ public sealed class ItemQuery : ModuleBase
             itemConfig.ShowOwnedCountInTooltip = showOwnedCount;
         }
 
+        ImGui.SameLine(0f, OmniTheme.Scale(6f));
+        using (ImRaii.Disabled(!itemConfig.ShowOwnedCountInTooltip))
+        {
+            var locationColorKey = itemConfig.OwnedCountLocationColorKey;
+            if (UIColorPicker.Draw("itemOwnedCountLocation", ref locationColorKey))
+            {
+                itemConfig.OwnedCountLocationColorKey = locationColorKey;
+                changed = true;
+            }
+        }
+
         ImGui.TableNextColumn();
         var showPatchVersion = itemConfig.ShowPatchVersionInTooltip;
         if (DrawTooltipToggle(
