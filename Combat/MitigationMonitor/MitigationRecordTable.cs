@@ -48,15 +48,15 @@ internal sealed class MitigationRecordTable
     {
         RefreshRecords(selectedHistoryKey);
         var available = ImGui.GetContentRegionAvail();
-        var width = MathF.Max(OmniTheme.Scale(240f), available.X);
-        var height = MathF.Max(OmniTheme.Scale(60f), available.Y);
+        var width = MathF.Max(config.Scale(240f), available.X);
+        var height = MathF.Max(config.Scale(60f), available.Y);
         var layout = CalculateLayout(width);
         var headerMin = ImGui.GetCursorScreenPos();
         DrawHeader(headerMin, width, layout, openHistory, collapse, toggleLock, openSettings);
         ImGui.SetCursorScreenPos(headerMin);
-        ImGui.Dummy(new Vector2(width, OmniTheme.Scale(HeaderHeight)));
+        ImGui.Dummy(new Vector2(width, config.Scale(HeaderHeight)));
 
-        var bodyHeight = MathF.Max(OmniTheme.Scale(30f), height - OmniTheme.Scale(HeaderHeight));
+        var bodyHeight = MathF.Max(config.Scale(30f), height - config.Scale(HeaderHeight));
         if (ImGui.BeginChild(
                 "##MitigationRecordsBody",
                 new Vector2(width, bodyHeight),
@@ -196,23 +196,23 @@ internal sealed class MitigationRecordTable
     {
         Span<float> desired =
         [
-            OmniTheme.Scale(config.TimeColumnWidth),
-            OmniTheme.Scale(config.ActionColumnWidth),
-            OmniTheme.Scale(config.TargetColumnWidth),
-            OmniTheme.Scale(config.DamageColumnWidth),
-            OmniTheme.Scale(config.MitigationColumnWidth)
+            config.Scale(config.TimeColumnWidth),
+            config.Scale(config.ActionColumnWidth),
+            config.Scale(config.TargetColumnWidth),
+            config.Scale(config.DamageColumnWidth),
+            config.Scale(config.MitigationColumnWidth)
         ];
         var desiredSum = 0f;
         var minimumSum = 0f;
         for (var index = 0; index < desired.Length; index++)
         {
-            var minimum = OmniTheme.Scale(ColumnMinimumWidths[index]);
+            var minimum = config.Scale(ColumnMinimumWidths[index]);
             desired[index] = MathF.Max(minimum, desired[index]);
             desiredSum += desired[index];
             minimumSum += minimum;
         }
 
-        var statusMinimumWidth = GetHeaderControlsWidth() + OmniTheme.Scale(40f);
+        var statusMinimumWidth = GetHeaderControlsWidth() + config.Scale(40f);
         var firstColumnsWidth = MathF.Min(
             desiredSum,
             MathF.Max(minimumSum, width - statusMinimumWidth));
@@ -230,12 +230,12 @@ internal sealed class MitigationRecordTable
             target,
             damage,
             mitigation,
-            MathF.Max(OmniTheme.Scale(20f), width - time - action - target - damage - mitigation));
+            MathF.Max(config.Scale(20f), width - time - action - target - damage - mitigation));
     }
 
-    private static float ScaleColumnWidth(int index, float desiredWidth, float excessScale)
+    private float ScaleColumnWidth(int index, float desiredWidth, float excessScale)
     {
-        var minimumWidth = OmniTheme.Scale(ColumnMinimumWidths[index]);
+        var minimumWidth = config.Scale(ColumnMinimumWidths[index]);
         return MathF.Max(
             minimumWidth,
             MathF.Floor(minimumWidth + (desiredWidth - minimumWidth) * excessScale));
@@ -250,7 +250,7 @@ internal sealed class MitigationRecordTable
         Action toggleLock,
         Action openSettings)
     {
-        var height = OmniTheme.Scale(HeaderHeight);
+        var height = config.Scale(HeaderHeight);
         ImGui.GetWindowDrawList().AddRectFilled(
             min,
             min + new Vector2(width, height),
@@ -270,7 +270,7 @@ internal sealed class MitigationRecordTable
         DrawHeaderText(
             "Feature.MitigationMonitor.Column.Status",
             x,
-            MathF.Max(OmniTheme.Scale(40f), layout.Status - GetHeaderControlsWidth()),
+            MathF.Max(config.Scale(40f), layout.Status - GetHeaderControlsWidth()),
             min.Y);
         DrawHeaderControls(min, width, openHistory, collapse, toggleLock, openSettings);
         DrawResizeHandles(min, layout, width);
@@ -285,16 +285,16 @@ internal sealed class MitigationRecordTable
         }
     }
 
-    private static void DrawHeaderText(string key, float x, float width, float y)
+    private void DrawHeaderText(string key, float x, float width, float y)
     {
         var text = MitigationRecordRenderer.FitText(
             OmniLoc.Get(key),
-            MathF.Max(OmniTheme.Scale(4f), width - OmniTheme.Scale(8f)));
+            MathF.Max(config.Scale(4f), width - config.Scale(8f)));
         var textSize = ImGui.CalcTextSize(text);
         ImGui.GetWindowDrawList().AddText(
             new Vector2(
                 x + MathF.Max(0f, (width - textSize.X) * 0.5f),
-                y + MathF.Max(OmniTheme.Scale(1f), (OmniTheme.Scale(HeaderHeight) - textSize.Y) * 0.5f)),
+                y + MathF.Max(config.Scale(1f), (config.Scale(HeaderHeight) - textSize.Y) * 0.5f)),
             OmniTheme.Color(KnownColor.White.ToVector4()),
             text);
     }
@@ -302,7 +302,7 @@ internal sealed class MitigationRecordTable
     private void DrawTargetHeader(Vector2 min, float width)
     {
         ImGui.SetCursorScreenPos(min);
-        ImGui.InvisibleButton("##MitigationTargetFilterHeader", new Vector2(width, OmniTheme.Scale(HeaderHeight)));
+        ImGui.InvisibleButton("##MitigationTargetFilterHeader", new Vector2(width, config.Scale(HeaderHeight)));
         var label = OmniLoc.Get("Feature.MitigationMonitor.Column.Target");
         if (selectedTargetName != null)
         {
@@ -321,26 +321,26 @@ internal sealed class MitigationRecordTable
 
         var display = MitigationRecordRenderer.FitText(
             label,
-            MathF.Max(OmniTheme.Scale(4f), width - caretSize.X - OmniTheme.Scale(12f)));
+            MathF.Max(config.Scale(4f), width - caretSize.X - config.Scale(12f)));
         var textSize = ImGui.CalcTextSize(display);
-        var startX = min.X + MathF.Max(0f, (width - textSize.X - caretSize.X - OmniTheme.Scale(4f)) * 0.5f);
+        var startX = min.X + MathF.Max(0f, (width - textSize.X - caretSize.X - config.Scale(4f)) * 0.5f);
         var active = selectedTargetName != null;
         if (ImGui.IsItemHovered() || active)
         {
             ImGui.GetWindowDrawList().AddRectFilled(
-                min + OmniTheme.Scale(new Vector2(2f, 3f)),
-                min + new Vector2(width, OmniTheme.Scale(HeaderHeight)) - OmniTheme.Scale(new Vector2(2f, 3f)),
+                min + config.Scale(new Vector2(2f, 3f)),
+                min + new Vector2(width, config.Scale(HeaderHeight)) - config.Scale(new Vector2(2f, 3f)),
                 OmniTheme.Color((active ? KnownColor.SteelBlue : KnownColor.White).ToVector4() with { W = active ? 0.18f : 0.08f }),
-                OmniTheme.Scale(3f));
+                config.Scale(3f));
         }
 
-        var textY = min.Y + MathF.Max(OmniTheme.Scale(1f), (OmniTheme.Scale(HeaderHeight) - textSize.Y) * 0.5f);
+        var textY = min.Y + MathF.Max(config.Scale(1f), (config.Scale(HeaderHeight) - textSize.Y) * 0.5f);
         ImGui.GetWindowDrawList().AddText(
             new Vector2(startX, textY),
             OmniTheme.Color(active ? KnownColor.LightSkyBlue.ToVector4() : KnownColor.White.ToVector4()),
             display);
         ImGui.GetWindowDrawList().AddText(
-            new Vector2(startX + textSize.X + OmniTheme.Scale(4f), min.Y + MathF.Max(OmniTheme.Scale(1f), (OmniTheme.Scale(HeaderHeight) - caretSize.Y) * 0.5f)),
+            new Vector2(startX + textSize.X + config.Scale(4f), min.Y + MathF.Max(config.Scale(1f), (config.Scale(HeaderHeight) - caretSize.Y) * 0.5f)),
             OmniTheme.Color(KnownColor.White.ToVector4() with { W = ImGui.IsItemHovered() || active ? 1f : 0.72f }),
             caret);
 
@@ -365,12 +365,12 @@ internal sealed class MitigationRecordTable
         Action toggleLock,
         Action openSettings)
     {
-        var buttonSize = OmniTheme.Scale(new Vector2(22f, 20f));
-        var spacing = OmniTheme.Scale(3f);
-        var x = headerMin.X + width - OmniTheme.Scale(4f) - buttonSize.X * 4f - spacing * 3f;
+        var buttonSize = config.Scale(new Vector2(22f, 20f));
+        var spacing = config.Scale(3f);
+        var x = headerMin.X + width - config.Scale(4f) - buttonSize.X * 4f - spacing * 3f;
         var y = headerMin.Y +
-                MathF.Max(OmniTheme.Scale(1f), (OmniTheme.Scale(HeaderHeight) - buttonSize.Y) * 0.5f) +
-                OmniTheme.Scale(1f);
+                MathF.Max(config.Scale(1f), (config.Scale(HeaderHeight) - buttonSize.Y) * 0.5f) +
+                config.Scale(1f);
         DrawIconButton(FontAwesomeIcon.History, "##MitigationHistory", "Feature.MitigationMonitor.History.Title", new(x, y), buttonSize, openHistory);
         x += buttonSize.X + spacing;
         var collapsePosition = new Vector2(x, y);
@@ -421,7 +421,7 @@ internal sealed class MitigationRecordTable
         }
     }
 
-    private static float GetHeaderControlsWidth() => OmniTheme.Scale(22f * 4f + 3f * 3f + 8f);
+    private float GetHeaderControlsWidth() => config.Scale(22f * 4f + 3f * 3f + 8f);
 
     private void DrawResizeHandles(Vector2 headerMin, MitigationTableLayout layout, float totalWidth)
     {
@@ -436,12 +436,12 @@ internal sealed class MitigationRecordTable
 
     private void DrawResizeHandle(int index, float x, float y, MitigationTableLayout layout, float totalWidth)
     {
-        var handleWidth = OmniTheme.Scale(7f);
+        var handleWidth = config.Scale(7f);
         var min = new Vector2(x - handleWidth * 0.5f, y);
         ImGui.SetCursorScreenPos(min);
         ImGui.InvisibleButton(
             $"##MitigationColumnResize{index}",
-            new Vector2(handleWidth, OmniTheme.Scale(HeaderHeight)));
+            new Vector2(handleWidth, config.Scale(HeaderHeight)));
         var hovered = ImGui.IsItemHovered();
         var active = ImGui.IsItemActive();
         if (hovered || active)
@@ -450,13 +450,13 @@ internal sealed class MitigationRecordTable
         }
 
         ImGui.GetWindowDrawList().AddLine(
-            new Vector2(x, y + OmniTheme.Scale(hovered || active ? 2f : 6f)),
-            new Vector2(x, y + OmniTheme.Scale(HeaderHeight - (hovered || active ? 2f : 6f))),
+            new Vector2(x, y + config.Scale(hovered || active ? 2f : 6f)),
+            new Vector2(x, y + config.Scale(HeaderHeight - (hovered || active ? 2f : 6f))),
             OmniTheme.Color((hovered || active ? KnownColor.LightSkyBlue : KnownColor.LightSlateGray).ToVector4() with
             {
                 W = active ? 0.95f : hovered ? 0.65f : 0.46f
             }),
-            OmniTheme.Scale(hovered || active ? 2f : 1f));
+            config.Scale(hovered || active ? 2f : 1f));
 
         if (active && MathF.Abs(ImGui.GetIO().MouseDelta.X) > 0.01f)
         {
@@ -476,8 +476,8 @@ internal sealed class MitigationRecordTable
         {
             var applied = Math.Clamp(
                 delta,
-                OmniTheme.Scale(ColumnMinimumWidths[index]) - widths[index],
-                widths[index + 1] - OmniTheme.Scale(ColumnMinimumWidths[index + 1]));
+                config.Scale(ColumnMinimumWidths[index]) - widths[index],
+                widths[index + 1] - config.Scale(ColumnMinimumWidths[index + 1]));
             widths[index] += applied;
             widths[index + 1] -= applied;
         }
@@ -485,60 +485,60 @@ internal sealed class MitigationRecordTable
         {
             var usedBeforeMitigation = widths[0] + widths[1] + widths[2] + widths[3];
             var maximum = MathF.Max(
-                OmniTheme.Scale(ColumnMinimumWidths[4]),
+                config.Scale(ColumnMinimumWidths[4]),
                 totalWidth -
                 usedBeforeMitigation -
                 GetHeaderControlsWidth() -
-                OmniTheme.Scale(40f));
+                config.Scale(40f));
             widths[4] = Math.Clamp(
                 widths[4] + delta,
-                OmniTheme.Scale(ColumnMinimumWidths[4]),
+                config.Scale(ColumnMinimumWidths[4]),
                 maximum);
         }
 
-        config.TimeColumnWidth = widths[0] / OmniTheme.ScaleValue;
-        config.ActionColumnWidth = widths[1] / OmniTheme.ScaleValue;
-        config.TargetColumnWidth = widths[2] / OmniTheme.ScaleValue;
-        config.DamageColumnWidth = widths[3] / OmniTheme.ScaleValue;
-        config.MitigationColumnWidth = widths[4] / OmniTheme.ScaleValue;
+        config.TimeColumnWidth = widths[0] / config.ScaleValue;
+        config.ActionColumnWidth = widths[1] / config.ScaleValue;
+        config.TargetColumnWidth = widths[2] / config.ScaleValue;
+        config.DamageColumnWidth = widths[3] / config.ScaleValue;
+        config.MitigationColumnWidth = widths[4] / config.ScaleValue;
     }
 
-    private static void DrawNoData(Vector2 bodyMin, Vector2 bodySize)
+    private void DrawNoData(Vector2 bodyMin, Vector2 bodySize)
     {
         var center = bodyMin + bodySize * 0.5f;
         var color = OmniTheme.Color(KnownColor.Gainsboro.ToVector4() with { W = 0.72f });
         var shadow = OmniTheme.Color(KnownColor.Black.ToVector4() with { W = 0.42f });
-        var iconSize = OmniTheme.Scale(new Vector2(32f, 24f));
+        var iconSize = config.Scale(new Vector2(32f, 24f));
         var iconMin = new Vector2(
             MathF.Floor(center.X - iconSize.X * 0.5f),
-            MathF.Floor(center.Y - OmniTheme.Scale(34f)));
+            MathF.Floor(center.Y - config.Scale(34f)));
         var iconMax = iconMin + iconSize;
         ImGui.GetWindowDrawList().AddRect(
-            iconMin + OmniTheme.Scale(new Vector2(1f)),
-            iconMax + OmniTheme.Scale(new Vector2(1f)),
+            iconMin + config.Scale(new Vector2(1f)),
+            iconMax + config.Scale(new Vector2(1f)),
             shadow,
-            OmniTheme.Scale(4f),
+            config.Scale(4f),
             ImDrawFlags.None,
-            OmniTheme.Scale(2.5f));
+            config.Scale(2.5f));
         ImGui.GetWindowDrawList().AddRect(
             iconMin,
             iconMax,
             color,
-            OmniTheme.Scale(4f),
+            config.Scale(4f),
             ImDrawFlags.None,
-            OmniTheme.Scale(2.5f));
+            config.Scale(2.5f));
         ImGui.GetWindowDrawList().AddRectFilled(
-            new Vector2(iconMin.X + OmniTheme.Scale(7f), iconMin.Y + OmniTheme.Scale(13f)),
-            new Vector2(iconMax.X - OmniTheme.Scale(7f), iconMax.Y - OmniTheme.Scale(5f)),
+            new Vector2(iconMin.X + config.Scale(7f), iconMin.Y + config.Scale(13f)),
+            new Vector2(iconMax.X - config.Scale(7f), iconMax.Y - config.Scale(5f)),
             color,
-            OmniTheme.Scale(2f));
+            config.Scale(2f));
 
         var text = OmniLoc.Get("Feature.MitigationMonitor.NoData");
         var textSize = ImGui.CalcTextSize(text);
         var textPosition = new Vector2(
             MathF.Floor(center.X - textSize.X * 0.5f),
-            MathF.Floor(iconMax.Y + OmniTheme.Scale(10f)));
-        ImGui.GetWindowDrawList().AddText(textPosition + OmniTheme.Scale(new Vector2(1f)), shadow, text);
+            MathF.Floor(iconMax.Y + config.Scale(10f)));
+        ImGui.GetWindowDrawList().AddText(textPosition + config.Scale(new Vector2(1f)), shadow, text);
         ImGui.GetWindowDrawList().AddText(textPosition, color, text);
     }
 
@@ -549,6 +549,7 @@ internal sealed class MitigationRecordTable
             return;
         }
 
+        ImGui.SetWindowFontScale(config.EffectiveScale);
         if (ImGui.Selectable(OmniLoc.Get("Feature.MitigationMonitor.TargetFilter.All"), selectedTargetName == null))
         {
             selectedTargetName = null;

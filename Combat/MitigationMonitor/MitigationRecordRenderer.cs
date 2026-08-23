@@ -28,7 +28,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
     private readonly Dictionary<uint, ISharedImmediateTexture> iconTextures = [];
 
     public float CalculateRowHeight(MitigationRecord record, float statusWidth) =>
-        MathF.Max(OmniTheme.Scale(40f), CalculateStatusHeight(record, statusWidth));
+        MathF.Max(config.Scale(40f), CalculateStatusHeight(record, statusWidth));
 
     public void Draw(
         MitigationRecord record,
@@ -58,7 +58,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             rowMin + new Vector2(width, rowHeight),
             OmniTheme.Color(rowColor));
 
-        var offset = pressed ? new Vector2(0f, OmniTheme.Scale(1f)) : Vector2.Zero;
+        var offset = pressed ? new Vector2(0f, config.Scale(1f)) : Vector2.Zero;
         var x = rowMin.X;
         DrawText(MitigationText.FormatElapsed(record.Elapsed), new(x, rowMin.Y), layout.Time, rowHeight, null, true, offset);
         x += layout.Time;
@@ -82,7 +82,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 
     public void ResetRuntime() => iconTextures.Clear();
 
-    private static void DrawText(
+    private void DrawText(
         string text,
         Vector2 min,
         float width,
@@ -91,17 +91,17 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         bool centered = false,
         Vector2 offset = default)
     {
-        var display = FitText(text, MathF.Max(OmniTheme.Scale(4f), width - OmniTheme.Scale(8f)));
+        var display = FitText(text, MathF.Max(config.Scale(4f), width - config.Scale(8f)));
         var textSize = ImGui.CalcTextSize(display);
         ImGui.GetWindowDrawList().AddText(
             min + offset + new Vector2(
-                centered ? MathF.Max(0f, (width - textSize.X) * 0.5f) : OmniTheme.Scale(4f),
+                centered ? MathF.Max(0f, (width - textSize.X) * 0.5f) : config.Scale(4f),
                 MathF.Max(0f, (rowHeight - textSize.Y) * 0.5f)),
             OmniTheme.Color(color ?? KnownColor.White.ToVector4()),
             display);
     }
 
-    private static void DrawAction(
+    private void DrawAction(
         MitigationRecord record,
         Vector2 min,
         float width,
@@ -123,9 +123,9 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         }
 
         var icon = record.Kind == MitigationRecordKind.Defeated ? FontAwesomeIcon.Skull : FontAwesomeIcon.HandPaper;
-        var iconWidth = OmniTheme.Scale(17f);
-        var spacing = OmniTheme.Scale(5f);
-        var display = FitText(record.ActionName, MathF.Max(OmniTheme.Scale(4f), width - iconWidth - OmniTheme.Scale(12f)));
+        var iconWidth = config.Scale(17f);
+        var spacing = config.Scale(5f);
+        var display = FitText(record.ActionName, MathF.Max(config.Scale(4f), width - iconWidth - config.Scale(12f)));
         var textSize = ImGui.CalcTextSize(display);
         var startX = min.X + MathF.Max(0f, (width - iconWidth - spacing - textSize.X) * 0.5f);
         var iconText = icon.ToIconString();
@@ -169,7 +169,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         }
         else if (GetIconHandle(iconID) is { } handle)
         {
-            var size = OmniTheme.Scale(new Vector2(24f));
+            var size = config.Scale(new Vector2(24f));
             var iconMin = min + offset + new Vector2(
                 MathF.Max(0f, (width - size.X) * 0.5f),
                 MathF.Max(0f, (rowHeight - size.Y) * 0.5f));
@@ -207,9 +207,9 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             : record.Invulnerable
                 ? OmniLoc.Get("Feature.MitigationMonitor.Damage.Invulnerable")
                 : OmniNumberFormatter.Format(record.Damage);
-        var iconSize = OmniTheme.Scale(new Vector2(18f));
-        var spacing = OmniTheme.Scale(4f);
-        var display = FitText(text, MathF.Max(OmniTheme.Scale(10f), width - iconSize.X - OmniTheme.Scale(8f)));
+        var iconSize = config.Scale(new Vector2(18f));
+        var spacing = config.Scale(4f);
+        var display = FitText(text, MathF.Max(config.Scale(10f), width - iconSize.X - config.Scale(8f)));
         var textSize = ImGui.CalcTextSize(display);
         var startX = min.X + MathF.Max(0f, (width - iconSize.X - spacing - textSize.X) * 0.5f);
         if (GetIconHandle(iconID) is { } handle)
@@ -236,12 +236,12 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             return 0f;
         }
 
-        var iconWidth = OmniTheme.Scale(26f);
-        var lineHeight = OmniTheme.Scale(28f + StatusIconTextGap) + ImGui.GetFontSize() * 0.82f;
-        var availableWidth = MathF.Max(iconWidth, statusWidth - OmniTheme.Scale(8f));
+        var iconWidth = config.Scale(26f);
+        var lineHeight = config.Scale(28f + StatusIconTextGap) + ImGui.GetFontSize() * 0.82f;
+        var availableWidth = MathF.Max(iconWidth, statusWidth - config.Scale(8f));
         var lineCount = 1;
         var usedWidth = 0f;
-        var gap = OmniTheme.Scale(-3f);
+        var gap = config.Scale(-3f);
         foreach (var status in record.Statuses)
         {
             var slotWidth = GetStatusSlotWidth(status, iconWidth);
@@ -256,7 +256,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             usedWidth = nextWidth;
         }
 
-        return lineCount * lineHeight + (lineCount - 1) * OmniTheme.Scale(2f) + OmniTheme.Scale(4f);
+        return lineCount * lineHeight + (lineCount - 1) * config.Scale(2f) + config.Scale(4f);
     }
 
     private void DrawStatuses(
@@ -276,13 +276,13 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             return;
         }
 
-        var iconSlotSize = OmniTheme.Scale(new Vector2(26f, 28f));
+        var iconSlotSize = config.Scale(new Vector2(26f, 28f));
         var iconSize = OmniTheme.StatusIconSize(iconSlotSize.Y);
         var smallFontSize = ImGui.GetFontSize() * 0.76f;
-        var lineHeight = iconSlotSize.Y + OmniTheme.Scale(StatusIconTextGap) + smallFontSize;
+        var lineHeight = iconSlotSize.Y + config.Scale(StatusIconTextGap) + smallFontSize;
         var y = min.Y + MathF.Max(0f, (rowHeight - CalculateStatusHeight(record, width)) * 0.5f);
-        var availableWidth = MathF.Max(iconSlotSize.X, width - OmniTheme.Scale(8f));
-        var gap = OmniTheme.Scale(-3f);
+        var availableWidth = MathF.Max(iconSlotSize.X, width - config.Scale(8f));
+        var gap = config.Scale(-3f);
         var statusIndex = 0;
         while (statusIndex < record.Statuses.Length)
         {
@@ -301,7 +301,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                 statusIndex++;
             }
 
-            var x = min.X + OmniTheme.Scale(4f);
+            var x = min.X + config.Scale(4f);
             for (var index = lineStart; index < statusIndex; index++)
             {
                 var status = record.Statuses[index];
@@ -321,13 +321,13 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                         iconMin,
                         iconMax,
                         OmniTheme.Color(KnownColor.Black.ToVector4() with { W = 0.56f }),
-                        OmniTheme.Scale(2f));
+                        config.Scale(2f));
                 }
 
                 ImGui.GetWindowDrawList().AddText(
                     ImGui.GetFont(),
                     smallFontSize,
-                    new Vector2(x + (slotWidth - textSize.X) * 0.5f, iconMax.Y + OmniTheme.Scale(StatusIconTextGap)),
+                    new Vector2(x + (slotWidth - textSize.X) * 0.5f, iconMax.Y + config.Scale(StatusIconTextGap)),
                     OmniTheme.Color(status.Category switch
                     {
                         MitigationStatusCategory.Mitigation => KnownColor.LightSkyBlue.ToVector4(),
@@ -343,7 +343,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                 x += slotWidth + gap;
             }
 
-            y += lineHeight + OmniTheme.Scale(2f);
+            y += lineHeight + config.Scale(2f);
         }
     }
 

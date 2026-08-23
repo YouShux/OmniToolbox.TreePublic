@@ -52,7 +52,7 @@ internal sealed class MitigationMonitorHotkey(
         lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
     }
 
-    public bool DrawSettings()
+    public bool DrawModifierSetting()
     {
         var changed = false;
         ImGui.AlignTextToFramePadding();
@@ -75,7 +75,12 @@ internal sealed class MitigationMonitorHotkey(
             ImGui.EndCombo();
         }
 
-        ImGui.SameLine();
+        return changed;
+    }
+
+    public bool DrawKeySetting()
+    {
+        var changed = false;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Key"));
         ImGui.SameLine();
