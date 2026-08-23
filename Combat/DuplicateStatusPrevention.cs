@@ -11,6 +11,7 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Config;
+using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
@@ -29,6 +30,7 @@ public sealed unsafe class DuplicateStatusPrevention : ModuleBase
     };
 
     private readonly DuplicateStatusPreventionConfig config;
+    private long lastNotificationTick;
 
     public DuplicateStatusPrevention(DuplicateStatusPreventionConfig config)
     {
@@ -59,6 +61,7 @@ public sealed unsafe class DuplicateStatusPrevention : ModuleBase
 
     protected override void OnEnable()
     {
+        lastNotificationTick = 0;
         if (!UseActionManager.Instance().RegPreUseAction(OnPreUseAction))
         {
             throw new InvalidOperationException("Duplicate status prevention registration failed.");
@@ -103,9 +106,35 @@ public sealed unsafe class DuplicateStatusPrevention : ModuleBase
             detectionTarget = DService.Instance().ObjectTable.LocalPlayer;
         }
 
-        if (ShouldPrevent(rule, detectionTarget))
+        if (!ShouldPrevent(rule, detectionTarget))
         {
-            isPrevented = true;
+            return;
+        }
+
+        isPrevented = true;
+        if (!config.ChatNotify && !config.PopupNotify)
+        {
+            return;
+        }
+
+        var currentTick = Environment.TickCount64;
+        if (lastNotificationTick != 0 && currentTick - lastNotificationTick < 5000)
+        {
+            return;
+        }
+
+        lastNotificationTick = currentTick;
+        var details = string.Format(
+            OmniLoc.Get("Feature.DuplicateStatusPrevention.Prevented"),
+            action.Name);
+        if (config.ChatNotify)
+        {
+            OmniNotifier.Chat($"{Info.Title} {details}");
+        }
+
+        if (config.PopupNotify)
+        {
+            OmniNotifier.Popup(Info.Title, details);
         }
     }
 
@@ -191,6 +220,26 @@ internal static class DuplicateStatusPreventionPanel
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         OmenTools.ImGuiOm.ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DuplicateStatusPrevention.OverlapThreshold.Help"));
+        ImGui.SameLine();
+        var chatNotify = config.ChatNotify;
+        if (OmniControls.Checkbox(
+                OmniLoc.Get("Feature.DuplicateStatusPrevention.ChatNotify"),
+                ref chatNotify))
+        {
+            config.ChatNotify = chatNotify;
+            changed = true;
+        }
+
+        ImGui.SameLine();
+        var popupNotify = config.PopupNotify;
+        if (OmniControls.Checkbox(
+                OmniLoc.Get("Feature.DuplicateStatusPrevention.PopupNotify"),
+                ref popupNotify))
+        {
+            config.PopupNotify = popupNotify;
+            changed = true;
+        }
+
         ImGui.Spacing();
 
         var enabledCount = 0;
@@ -422,5 +471,7 @@ internal static class DuplicateStatusPreventionRules
 public sealed class DuplicateStatusPreventionConfig
 {
     public float OverlapThreshold { get; set; } = 5f;
+    public bool ChatNotify { get; set; } = true;
+    public bool PopupNotify { get; set; }
     public Dictionary<uint, bool> EnabledActions { get; set; } = [];
 }

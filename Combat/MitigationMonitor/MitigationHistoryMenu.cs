@@ -5,6 +5,7 @@ using OmniToolbox.UI;
 namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationHistoryMenu(
+    MitigationMonitorConfig config,
     MitigationCombatLog combatLog,
     MitigationReplayStore replayStore)
 {
@@ -26,6 +27,7 @@ internal sealed class MitigationHistoryMenu(
             return;
         }
 
+        ImGui.SetWindowFontScale(config.EffectiveScale);
         RefreshItems();
         if (ImGui.Selectable(
                 OmniLoc.Get("Feature.MitigationMonitor.History.Realtime"),
@@ -148,6 +150,7 @@ internal sealed class MitigationHistoryMenu(
             return;
         }
 
+        ImGui.SetWindowFontScale(config.EffectiveScale);
         if (importFiles.Length == 0)
         {
             ImGui.TextDisabled(OmniLoc.Get("Feature.MitigationMonitor.History.NoImportFiles"));
