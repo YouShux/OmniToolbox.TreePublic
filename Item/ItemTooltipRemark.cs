@@ -157,10 +157,14 @@ public sealed class ItemTooltipRemark : ModuleBase
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.Color"));
         ImGui.SameLine();
-        var colorID = config.ColorKey;
-        if (UIColorPicker.Draw("itemTooltipRemark", ref colorID))
+        var color = UIColorPicker.Resolve(config.ColorKey, config.UseCustomColor, config.Color);
+        if (UIColorPicker.Draw(
+                "itemTooltipRemark",
+                ref color,
+                ImGuiColorEditFlags.DisplayRgb))
         {
-            config.ColorKey = colorID;
+            config.Color = color;
+            config.UseCustomColor = true;
             tooltipManager?.TriggerItemDetailUpdate();
             changed = true;
         }
@@ -332,8 +336,13 @@ public sealed class ItemTooltipRemark : ModuleBase
                 ? TooltipItemType.ClassJobLevel
                 : TooltipItemType.Effect;
         var colorKey = (ushort)Math.Clamp(config.ColorKey, 0, ushort.MaxValue);
+        var useCustomColor = config.UseCustomColor;
         using var builder = new RentedSeStringBuilder();
-        if (colorKey != 0)
+        if (useCustomColor)
+        {
+            builder.Builder.PushColorRgba(UIColorPicker.ToRgba(config.Color));
+        }
+        else if (colorKey != 0)
         {
             builder.Builder.PushColorType(colorKey);
         }
@@ -341,7 +350,11 @@ public sealed class ItemTooltipRemark : ModuleBase
         builder.Builder
             .Append(OmniLoc.Get("Feature.ItemTooltipRemark.Prefix"))
             .Append(remark);
-        if (colorKey != 0)
+        if (useCustomColor)
+        {
+            builder.Builder.PopColor();
+        }
+        else if (colorKey != 0)
         {
             builder.Builder.PopColorType();
         }
@@ -409,6 +422,10 @@ public sealed class ItemTooltipRemark : ModuleBase
 public sealed class ItemTooltipRemarkConfig
 {
     public int ColorKey { get; set; } = 1;
+
+    public bool UseCustomColor { get; set; }
+
+    public Vector3 Color { get; set; } = Vector3.One;
 
     public Dictionary<uint, string> Remarks { get; set; } = [];
 }
