@@ -107,10 +107,18 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
         }
 
         ImGui.SameLine();
-        var colorID = config.HighlightColor;
-        if (UIColorPicker.Draw("antiCensorship", ref colorID, KnownColor.Red.ToVector4()))
+        var color = UIColorPicker.Resolve(
+            config.HighlightColor,
+            config.UseCustomHighlightColor,
+            config.HighlightColorValue,
+            KnownColor.Red.ToVector4());
+        if (UIColorPicker.Draw(
+                "antiCensorship",
+                ref color,
+                ImGuiColorEditFlags.DisplayRgb))
         {
-            config.HighlightColor = colorID;
+            config.HighlightColorValue = color;
+            config.UseCustomHighlightColor = true;
             changed = true;
         }
 
@@ -367,5 +375,7 @@ public sealed class AntiCensorshipConfig
     public bool EnableColoring { get; set; }
     public bool EnableAutoHandle { get; set; } = true;
     public int HighlightColor { get; set; } = 17;
+    public bool UseCustomHighlightColor { get; set; }
+    public Vector3 HighlightColorValue { get; set; } = new(1f, 0f, 0f);
     public char Separator { get; set; } = '.';
 }

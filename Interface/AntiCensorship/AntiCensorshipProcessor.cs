@@ -2,6 +2,7 @@ using System.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using OmniToolbox.Config;
+using OmniToolbox.UI.Controls;
 using TinyPinyin;
 
 namespace OmniToolbox.TreePublic;
@@ -10,6 +11,9 @@ internal sealed class AntiCensorshipProcessor(AntiCensorshipConfig config, Func<
 {
     private readonly Dictionary<string, byte[]> highlightCache = new(StringComparer.Ordinal);
     private readonly Queue<string> highlightOrder = new();
+    private Vector3 cachedHighlightColor;
+    private RawPayload? customColorStart;
+    private RawPayload? customColorEnd;
 
     public void Bypass(ref SeString text)
     {
@@ -79,7 +83,7 @@ internal sealed class AntiCensorshipProcessor(AntiCensorshipConfig config, Func<
 
     public void RememberAutoHandledHighlight(SeString handled, SeString original)
     {
-        if (!config.EnableColoring || config.HighlightColor <= 0)
+        if (!config.EnableColoring || (!config.UseCustomHighlightColor && config.HighlightColor <= 0))
         {
             return;
         }
@@ -202,12 +206,12 @@ internal sealed class AntiCensorshipProcessor(AntiCensorshipConfig config, Func<
             var censored = index < filtered.Length && filtered[index] == '*' && originalText[index] != '*';
             if (censored && !insideCensored)
             {
-                builder.Add(new UIForegroundPayload((ushort)config.HighlightColor));
+                PushHighlightColor(builder);
                 insideCensored = true;
             }
             else if (!censored && insideCensored)
             {
-                builder.Add(UIForegroundPayload.UIForegroundOff);
+                PopHighlightColor(builder);
                 insideCensored = false;
             }
 
@@ -216,7 +220,7 @@ internal sealed class AntiCensorshipProcessor(AntiCensorshipConfig config, Func<
 
         if (insideCensored)
         {
-            builder.Add(UIForegroundPayload.UIForegroundOff);
+            PopHighlightColor(builder);
         }
 
         return builder.Build();
@@ -247,7 +251,7 @@ internal sealed class AntiCensorshipProcessor(AntiCensorshipConfig config, Func<
 
     private SeString BuildBypassedAndHighlighted(string originalText)
     {
-        if (config.HighlightColor <= 0 || string.IsNullOrEmpty(originalText))
+        if ((!config.UseCustomHighlightColor && config.HighlightColor <= 0) || string.IsNullOrEmpty(originalText))
         {
             return Bypass(originalText);
         }
@@ -293,13 +297,49 @@ internal sealed class AntiCensorshipProcessor(AntiCensorshipConfig config, Func<
                 index++;
             }
 
-            builder.Add(new UIForegroundPayload((ushort)config.HighlightColor));
+            PushHighlightColor(builder);
             builder.Append(Bypass(originalText[start..index]));
-            builder.Add(UIForegroundPayload.UIForegroundOff);
+            PopHighlightColor(builder);
             index--;
         }
 
         return builder.Build();
+    }
+
+    private void PushHighlightColor(SeStringBuilder builder)
+    {
+        if (!config.UseCustomHighlightColor)
+        {
+            builder.Add(new UIForegroundPayload((ushort)config.HighlightColor));
+            return;
+        }
+
+        EnsureCustomColorPayloads();
+        builder.Add(customColorStart!);
+    }
+
+    private void PopHighlightColor(SeStringBuilder builder)
+    {
+        if (!config.UseCustomHighlightColor)
+        {
+            builder.Add(UIForegroundPayload.UIForegroundOff);
+            return;
+        }
+
+        EnsureCustomColorPayloads();
+        builder.Add(customColorEnd!);
+    }
+
+    private void EnsureCustomColorPayloads()
+    {
+        if (customColorStart is not null && customColorEnd is not null && cachedHighlightColor == config.HighlightColorValue)
+        {
+            return;
+        }
+
+        cachedHighlightColor = config.HighlightColorValue;
+        customColorStart = new RawPayload(UIColorPicker.BuildColorPayload(config.HighlightColorValue, false));
+        customColorEnd = new RawPayload(UIColorPicker.BuildColorPayload(config.HighlightColorValue, true));
     }
 
     private string ProcessCensoredSegment(string text)
