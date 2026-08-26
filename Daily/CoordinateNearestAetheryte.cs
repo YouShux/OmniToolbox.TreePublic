@@ -21,6 +21,9 @@ public sealed class CoordinateNearestAetheryte(
     TeleportService teleportService,
     AetheryteRouteResolver routeResolver) : ModuleBase
 {
+    private readonly Dictionary<uint, (uint CommandID, DalamudLinkPayload Payload)> aetheryteLinks = [];
+    private readonly HashSet<uint> aetheryteLinkCommandIDs = [];
+
     public override ModuleInfo Info { get; } = new()
     {
         Title = OmniLoc.Get("CoordinateNearestAetheryteTitle"),
@@ -31,8 +34,6 @@ public sealed class CoordinateNearestAetheryte(
     };
 
     private FeatureLifetime? runtimeLifetime;
-    private DalamudLinkPayload? aetheryteLinkPayload;
-    private uint aetheryteLinkCommandID;
     private static string search = string.Empty;
 
     public override bool HasSettings => true;
@@ -162,11 +163,6 @@ public sealed class CoordinateNearestAetheryte(
         var lifetime = new FeatureLifetime();
         try
         {
-            var linkManager = LinkPayloadManager.Instance();
-            aetheryteLinkPayload = linkManager.Reg(OnAetheryteLinkClicked, out aetheryteLinkCommandID);
-            var commandID = aetheryteLinkCommandID;
-            lifetime.Add(() => linkManager.Unreg(commandID));
-
             DalamudServices.ChatGUI.ChatMessage += OnChatMessage;
             lifetime.Add(() => DalamudServices.ChatGUI.ChatMessage -= OnChatMessage);
             DalamudServices.ChatGUI.CheckMessageHandled += OnChatMessage;
@@ -223,7 +219,7 @@ public sealed class CoordinateNearestAetheryte(
         var mapIndex = -1;
         for (var index = 0; index < payloads.Count; index++)
         {
-            if (payloads[index] is DalamudLinkPayload link && link.CommandId == aetheryteLinkCommandID)
+            if (payloads[index] is DalamudLinkPayload link && aetheryteLinkCommandIDs.Contains(link.CommandId))
             {
                 return false;
             }
@@ -277,7 +273,10 @@ public sealed class CoordinateNearestAetheryte(
         }
 
         newPayloads.Add(new TextPayload(" \u2192 "));
-        AetheryteRouteResolver.AppendRoutePayloads(newPayloads, route, aetheryteLinkPayload!);
+        AetheryteRouteResolver.AppendRoutePayloads(
+            newPayloads,
+            route,
+            GetAetheryteLinkPayload(route[0].AetheryteID));
 
         for (var index = insertIndex; index < payloads.Count; index++)
         {
@@ -288,21 +287,36 @@ public sealed class CoordinateNearestAetheryte(
         return true;
     }
 
-    private void OnAetheryteLinkClicked(uint commandID, SeString link)
+    private DalamudLinkPayload GetAetheryteLinkPayload(uint aetheryteID)
     {
-        if (commandID != aetheryteLinkCommandID || string.IsNullOrWhiteSpace(link.TextValue))
+        if (aetheryteLinks.TryGetValue(aetheryteID, out var link))
         {
-            return;
+            return link.Payload;
         }
 
-        _ = DalamudServices.Framework.RunOnFrameworkThread(() => teleportService.TryTeleport(link.TextValue));
+        var payload = LinkPayloadManager.Instance().Reg(
+            (_, _) => OnAetheryteLinkClicked(aetheryteID),
+            out var commandID);
+        aetheryteLinks.Add(aetheryteID, (commandID, payload));
+        aetheryteLinkCommandIDs.Add(commandID);
+        return payload;
+    }
+
+    private void OnAetheryteLinkClicked(uint aetheryteID)
+    {
+        _ = DalamudServices.Framework.RunOnFrameworkThread(() => teleportService.TryTeleport(aetheryteID));
     }
 
     private void ClearRuntimeReferences()
     {
+        foreach (var link in aetheryteLinks.Values)
+        {
+            LinkPayloadManager.Instance().Unreg(link.CommandID);
+        }
+
+        aetheryteLinks.Clear();
+        aetheryteLinkCommandIDs.Clear();
         runtimeLifetime = null;
-        aetheryteLinkPayload = null;
-        aetheryteLinkCommandID = 0;
     }
 
     private static bool MatchesSearch(AetheryteDestination aetheryte, string query) =>

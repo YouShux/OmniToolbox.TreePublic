@@ -39,6 +39,22 @@ public sealed class ItemQuery : ModuleBase
 
     public override bool DrawSettings() => Draw();
 
+    public override bool ResetSettings()
+    {
+        var defaults = new ItemConfig();
+        itemConfig.InventoryDisplayLocations = defaults.InventoryDisplayLocations;
+        itemConfig.ShowOwnedCountInTooltip = defaults.ShowOwnedCountInTooltip;
+        itemConfig.OwnedCountLocationColorKey = defaults.OwnedCountLocationColorKey;
+        itemConfig.UseCustomOwnedCountLocationColor = defaults.UseCustomOwnedCountLocationColor;
+        itemConfig.OwnedCountLocationColor = defaults.OwnedCountLocationColor;
+        itemConfig.OwnedCountDisplayMode = defaults.OwnedCountDisplayMode;
+        itemConfig.ShowPatchVersionInTooltip = defaults.ShowPatchVersionInTooltip;
+        itemConfig.HideCraftRepairSectionInTooltip = defaults.HideCraftRepairSectionInTooltip;
+        inventoryService.RefreshDisplaySettings();
+        refreshItemTooltip();
+        return true;
+    }
+
     protected override void OnEnable() => itemOwnedCountTooltip.SetFeatureEnabled(true);
 
     protected override void OnDisable() => itemOwnedCountTooltip.SetFeatureEnabled(false);
@@ -166,10 +182,17 @@ public sealed class ItemQuery : ModuleBase
         ImGui.SameLine(0f, OmniTheme.Scale(6f));
         using (ImRaii.Disabled(!itemConfig.ShowOwnedCountInTooltip))
         {
-            var locationColorKey = itemConfig.OwnedCountLocationColorKey;
-            if (UIColorPicker.Draw("itemOwnedCountLocation", ref locationColorKey))
+            var locationColor = UIColorPicker.Resolve(
+                itemConfig.OwnedCountLocationColorKey,
+                itemConfig.UseCustomOwnedCountLocationColor,
+                itemConfig.OwnedCountLocationColor);
+            if (UIColorPicker.Draw(
+                    "itemOwnedCountLocation",
+                    ref locationColor,
+                    displayFlags: ImGuiColorEditFlags.DisplayRgb))
             {
-                itemConfig.OwnedCountLocationColorKey = locationColorKey;
+                itemConfig.OwnedCountLocationColor = locationColor;
+                itemConfig.UseCustomOwnedCountLocationColor = true;
                 changed = true;
             }
         }
