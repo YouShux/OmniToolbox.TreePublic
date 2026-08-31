@@ -912,10 +912,10 @@ public sealed class SkillMonitorConfig
     public Dictionary<uint, List<uint>> JobDisabledActions { get; set; } = new()
     {
         [0] = [3],
-        [19] = [7531, 7535, 7548],
-        [21] = [7531, 7535, 7548],
-        [32] = [7531, 7535, 7548],
-        [37] = [7531, 7535, 7548]
+        [19] = [7531, 7548],
+        [21] = [7531, 7548],
+        [32] = [7531, 7548],
+        [37] = [7531, 7548]
     };
 }
 
