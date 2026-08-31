@@ -41,6 +41,9 @@ internal static class DisplayIDInformationFormatter
             : text.Insert(newlineIndex, suffix);
     }
 
+    public static bool ShouldBypassStatusTooltip(nint agentAddress, nint outputAddress) =>
+        agentAddress == nint.Zero || outputAddress == nint.Zero;
+
     public static string? FormatDtr(bool showZone, bool showWeather, uint mapID, uint territoryID, uint weatherID)
     {
         if (!showZone || mapID == 0 || territoryID == 0)

@@ -6,7 +6,6 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.Game;
 using OmenTools;
@@ -85,9 +84,9 @@ internal sealed unsafe class MitigationRecorder
         {
             ProcessActionEffect(casterEntityID, header, effects, targetEntityIds);
         }
-        catch (Exception ex)
+        catch
         {
-            DalamudServices.PluginLog.Warning(ex, "Mitigation monitor ActionEffect processing failed.");
+            return;
         }
         finally
         {

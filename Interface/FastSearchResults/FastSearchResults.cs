@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -9,6 +10,8 @@ using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using KamiToolKit;
+using KamiToolKit.Nodes;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -16,8 +19,6 @@ using OmniToolbox.UI;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
-using OmniToolbox.UI.Controls;
-using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.ExecuteCommand.Implementations;
@@ -80,12 +81,25 @@ public sealed unsafe class FastSearchResults(
     private long nextInventoryRequestTick;
     private long defaultPageDeadlineTick;
     private long nextDefaultPageAttemptTick;
+    private CheckboxNode? defaultPageCheckbox;
+    private bool updatingDefaultPageCheckbox;
 
     protected override void OnEnable()
     {
         var lifetime = new FeatureLifetime();
         try
         {
+            if (!config.DefaultFreeCompanyPageInitialized)
+            {
+                if (GetDefaultFreeCompanyPage() == InventoryType.Invalid)
+                {
+                    config.DefaultFreeCompanyPage = InventoryType.FreeCompanyPage1;
+                }
+
+                config.DefaultFreeCompanyPageInitialized = true;
+                saveConfig();
+            }
+
             searchIndex = new();
             pushFoundItems = ItemSearchPushFoundItemsSignature.GetDelegate<AgentItemSearchPushFoundItemsDelegate>();
 
@@ -116,8 +130,6 @@ public sealed unsafe class FastSearchResults(
             addonEvents.Register(AddonEvent.PostSetup, "FreeCompanyChest", OnFreeCompanyChestAddon);
             addonEvents.Register(AddonEvent.PreFinalize, "FreeCompanyChest", OnFreeCompanyChestAddon);
 
-            DalamudServices.PluginInterface.UiBuilder.Draw += DrawFreeCompanyDefaultPage;
-            lifetime.Add(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawFreeCompanyDefaultPage);
             if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 50))
             {
                 throw new InvalidOperationException("Fast-search update registration failed.");
@@ -135,6 +147,7 @@ public sealed unsafe class FastSearchResults(
             if (AddonHelper.TryGetByName("FreeCompanyChest", out AtkUnitBase* freeCompanyAddon) &&
                 freeCompanyAddon->IsVisible)
             {
+                AttachDefaultPageCheckbox(freeCompanyAddon);
                 StartFreeCompanySession();
             }
         }
@@ -202,9 +215,8 @@ public sealed unsafe class FastSearchResults(
                 new Span<uint>(agent->ItemBuffer, 100));
             pushFoundItems!(agent);
         }
-        catch (Exception ex)
+        catch
         {
-            DalamudServices.PluginLog.Warning(ex, "Fast market-item search failed.");
             itemSearchUpdateHook!.Original(agent);
         }
     }
@@ -223,10 +235,9 @@ public sealed unsafe class FastSearchResults(
             recipeIds = searchIndex.SearchRecipeIds(text->ToString());
             useLocalRecipeResults = true;
         }
-        catch (Exception ex)
+        catch
         {
             useLocalRecipeResults = false;
-            DalamudServices.PluginLog.Warning(ex, "Fast recipe search failed.");
             recipeSearchHook!.Original(agent, text, mode, pushHistory);
             return;
         }
@@ -265,9 +276,8 @@ public sealed unsafe class FastSearchResults(
             InventoryCommand.Request(type);
             return true;
         }
-        catch (Exception ex)
+        catch
         {
-            DalamudServices.PluginLog.Warning(ex, "Fast free-company inventory refresh failed.");
             return sendInventoryRefreshHook!.Original(manager, inventoryType);
         }
     }
@@ -294,14 +304,16 @@ public sealed unsafe class FastSearchResults(
         }
     }
 
-    private void OnFreeCompanyChestAddon(AddonEvent eventType, AddonArgs _)
+    private void OnFreeCompanyChestAddon(AddonEvent eventType, AddonArgs args)
     {
         if (eventType == AddonEvent.PostSetup)
         {
+            AttachDefaultPageCheckbox((AtkUnitBase*)args.Addon.Address);
             StartFreeCompanySession();
         }
         else
         {
+            DisposeDefaultPageCheckbox();
             ResetFreeCompanySession();
         }
     }
@@ -337,6 +349,7 @@ public sealed unsafe class FastSearchResults(
         }
 
         var now = Environment.TickCount64;
+        UpdateDefaultPageCheckbox(addon);
         if (freeCompanyPreloadIndex < FreeCompanyInventories.Length && now >= nextInventoryRequestTick)
         {
             try
@@ -345,10 +358,9 @@ public sealed unsafe class FastSearchResults(
                 freeCompanyPreloadIndex++;
                 nextInventoryRequestTick = now + 250;
             }
-            catch (Exception ex)
+            catch
             {
                 freeCompanyPreloadIndex = FreeCompanyInventories.Length;
-                DalamudServices.PluginLog.Warning(ex, "Fast free-company inventory preload failed.");
             }
         }
 
@@ -375,66 +387,67 @@ public sealed unsafe class FastSearchResults(
         nextDefaultPageAttemptTick = now + 120;
     }
 
-    private void DrawFreeCompanyDefaultPage()
+    private void AttachDefaultPageCheckbox(AtkUnitBase* addon)
     {
-        if (!freeCompanySessionActive ||
-            !AddonHelper.TryGetByName("FreeCompanyChest", out AtkUnitBase* addon) ||
-            !addon->IsVisible)
+        DisposeDefaultPageCheckbox();
+        if (addon == null)
         {
             return;
         }
 
-        var hasCurrentPage = TryGetCurrentFreeCompanyPage(addon, out var currentPage);
-        var isDefaultPage = hasCurrentPage && currentPage == GetDefaultFreeCompanyPage();
-        ImGui.SetNextWindowPos(
-            new(addon->X + OmniTheme.Scale(240f), addon->Y + OmniTheme.Scale(25f)),
-            ImGuiCond.Always);
-        ImGui.SetNextWindowBgAlpha(0f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 0f);
-        try
+        var checkbox = new CheckboxNode
         {
-            var flags = ImGuiWindowFlags.NoDecoration |
-                        ImGuiWindowFlags.NoSavedSettings |
-                        ImGuiWindowFlags.NoMove |
-                        ImGuiWindowFlags.NoNav |
-                        ImGuiWindowFlags.NoScrollbar |
-                        ImGuiWindowFlags.NoScrollWithMouse |
-                        ImGuiWindowFlags.NoFocusOnAppearing |
-                        ImGuiWindowFlags.NoBringToFrontOnFocus |
-                        ImGuiWindowFlags.NoBackground |
-                        ImGuiWindowFlags.AlwaysAutoResize;
-            if (!ImGui.Begin("##fastSearchFreeCompanyDefaultPage", flags))
+            String = OmniLoc.Get("Feature.FastSearchResults.DefaultPage"),
+            X = 185f,
+            Y = 27f,
+            Width = 100f,
+            Height = 20f,
+            OnClick = value =>
             {
-                ImGui.End();
-                return;
-            }
-
-            try
-            {
-                if (OmniControls.Checkbox("##fastSearchFreeCompanyDefaultPageToggle", ref isDefaultPage))
+                if (updatingDefaultPageCheckbox ||
+                    !AddonHelper.TryGetByName("FreeCompanyChest", out AtkUnitBase* currentAddon) ||
+                    !TryGetCurrentFreeCompanyPage(currentAddon, out var currentPage))
                 {
-                    config.DefaultFreeCompanyPage = isDefaultPage && hasCurrentPage
-                        ? currentPage
-                        : InventoryType.Invalid;
-                    saveConfig();
+                    return;
                 }
 
-                ImGui.SameLine();
-                ImGui.TextUnformatted(OmniLoc.Get("Feature.FastSearchResults.DefaultPage"));
-                if (ImGui.IsItemHovered())
-                {
-                    ImGui.SetTooltip(OmniLoc.Get("Feature.FastSearchResults.DefaultPage.Help"));
-                }
+                config.DefaultFreeCompanyPage = value
+                    ? currentPage
+                    : InventoryType.Invalid;
+                saveConfig();
             }
-            finally
-            {
-                ImGui.End();
-            }
-        }
-        finally
+        };
+        checkbox.SetTextTooltip(new SeStringBuilder()
+            .AddText(OmniLoc.Get("Feature.FastSearchResults.DefaultPage.Help"))
+            .Build()
+            .Encode());
+        checkbox.AttachNode(addon);
+        defaultPageCheckbox = checkbox;
+        UpdateDefaultPageCheckbox(addon);
+    }
+
+    private void UpdateDefaultPageCheckbox(AtkUnitBase* addon)
+    {
+        if (defaultPageCheckbox is null ||
+            !TryGetCurrentFreeCompanyPage(addon, out var currentPage))
         {
-            ImGui.PopStyleVar();
+            return;
         }
+
+        var isDefaultPage = currentPage == GetDefaultFreeCompanyPage();
+        if (defaultPageCheckbox.IsChecked != isDefaultPage)
+        {
+            updatingDefaultPageCheckbox = true;
+            defaultPageCheckbox.IsChecked = isDefaultPage;
+            updatingDefaultPageCheckbox = false;
+        }
+    }
+
+    private void DisposeDefaultPageCheckbox()
+    {
+        defaultPageCheckbox?.Dispose();
+        defaultPageCheckbox = null;
+        updatingDefaultPageCheckbox = false;
     }
 
     private InventoryType GetDefaultFreeCompanyPage()
@@ -495,6 +508,7 @@ public sealed unsafe class FastSearchResults(
 
     private void ClearNativeState()
     {
+        DisposeDefaultPageCheckbox();
         ResetFreeCompanySession();
         useLocalRecipeResults = false;
         pushFoundItems = null;
@@ -523,5 +537,7 @@ public sealed unsafe class FastSearchResults(
 [Serializable]
 public sealed class FastSearchResultsConfig
 {
-    public InventoryType DefaultFreeCompanyPage { get; set; } = InventoryType.Invalid;
+    public InventoryType DefaultFreeCompanyPage { get; set; } = InventoryType.FreeCompanyPage1;
+
+    public bool DefaultFreeCompanyPageInitialized { get; set; }
 }

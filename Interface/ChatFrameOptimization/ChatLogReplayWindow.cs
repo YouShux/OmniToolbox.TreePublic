@@ -1,10 +1,11 @@
 using System.Globalization;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-internal sealed class ChatLogReplayWindow
+internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
 {
     private readonly List<ChatLogReplayFile> files = [];
     private readonly List<ChatLogReplayEntry> entries = [];
@@ -26,6 +27,10 @@ internal sealed class ChatLogReplayWindow
     private bool anonymousMode;
     private bool filterDirty = true;
     private float lastScale = float.NaN;
+    private bool isFocused;
+    private bool isCollapsed;
+    private bool restoreExpandedSize = true;
+    private Vector2 expandedWindowSize;
 
     public void Open(ChatLogReplayStorage value)
     {
@@ -42,11 +47,16 @@ internal sealed class ChatLogReplayWindow
     public void Close()
     {
         isOpen = false;
+        isFocused = false;
         storage = null;
         refreshRequestID++;
         readRequestID++;
         ClearEntries();
     }
+
+    public bool IsOpen => isOpen;
+
+    public bool IsFocused => isOpen && isFocused;
 
     public void Draw()
     {
@@ -62,44 +72,137 @@ internal sealed class ChatLogReplayWindow
         }
 
         var scale = OmniTheme.ScaleValue;
-        ImGui.SetNextWindowSize(
-            OmniTheme.Scale(new Vector2(960f, 640f)),
-            MathF.Abs(lastScale - scale) > 0.001f ? ImGuiCond.Always : ImGuiCond.FirstUseEver);
+        if (isCollapsed)
+        {
+            ImGui.SetNextWindowSize(
+                OmniTheme.CollapsedWindowSize(
+                    expandedWindowSize == Vector2.Zero
+                        ? OmniTheme.Scale(960f)
+                        : OmniTheme.Scale(expandedWindowSize).X),
+                ImGuiCond.Always);
+        }
+        else
+        {
+            ImGui.SetNextWindowSizeConstraints(
+                OmniTheme.Scale(new Vector2(720f, 480f)),
+                ImGuiHelpers.MainViewport.Size);
+            ImGui.SetNextWindowSize(
+                expandedWindowSize == Vector2.Zero
+                    ? OmniTheme.Scale(new Vector2(960f, 640f))
+                    : OmniTheme.Scale(expandedWindowSize),
+                restoreExpandedSize || MathF.Abs(lastScale - scale) > 0.001f
+                    ? ImGuiCond.Always
+                    : ImGuiCond.FirstUseEver);
+            restoreExpandedSize = false;
+        }
         lastScale = scale;
-        if (!ImGui.Begin(OmniLoc.Get("Feature.ChatLogReplay.Title"), ref isOpen))
+        ImGui.SetNextWindowCollapsed(false, ImGuiCond.Always);
+        var flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
+                    ImGuiWindowFlags.NoBackground;
+        if (isCollapsed)
+        {
+            flags |= ImGuiWindowFlags.NoResize;
+        }
+
+        var drawWindow = ImGui.Begin("###OmniChatLogReplay", flags);
+        isFocused = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows);
+        if (!drawWindow)
         {
             ImGui.End();
             return;
         }
 
-        DrawToolbar();
-        ImGui.Separator();
-        using (var filePane = ImRaii.Child(
-                   "##chatLogReplayFiles",
-                   new Vector2(Math.Clamp(
-                       250f * scale,
-                       210f,
-                       330f), 0f),
-                   true))
+        try
         {
-            if (filePane)
+            if (isFocused && ImGui.IsKeyPressed(ImGuiKey.Escape, false))
             {
-                DrawFileList();
+                Close();
+            }
+
+            var windowPosition = ImGui.GetWindowPos();
+            var windowSize = ImGui.GetWindowSize();
+            if (!isCollapsed)
+            {
+                expandedWindowSize = OmniTheme.Unscale(windowSize);
+            }
+
+            var framePosition = isCollapsed
+                ? windowPosition + new Vector2(OmniTheme.CollapsedHeaderSafeInset(), OmniTheme.CollapsedHeaderTop())
+                : windowPosition + new Vector2(OmniTheme.ChromeFrameInset());
+            var frameSize = isCollapsed
+                ? new Vector2(
+                    MathF.Max(1f, windowSize.X - OmniTheme.CollapsedHeaderSafeInset() * 2f),
+                    OmniTheme.TitleBarHeight())
+                : windowSize - new Vector2(OmniTheme.ChromeFrameInset() * 2f);
+            var chrome = OmniWindowChrome.Draw(
+                framePosition,
+                frameSize,
+                isCollapsed,
+                OmniLoc.Get("Feature.ChatLogReplay.Title"),
+                "##collapseChatLogReplay",
+                "##closeChatLogReplay");
+            var collapseChanged = chrome.ToggleCollapse;
+            if (chrome.ToggleCollapse)
+            {
+                if (isCollapsed)
+                {
+                    restoreExpandedSize = true;
+                }
+
+                isCollapsed = !isCollapsed;
+            }
+
+            if (chrome.CloseClicked)
+            {
+                Close();
+            }
+
+            if (!isOpen || isCollapsed || collapseChanged)
+            {
+                return;
+            }
+
+            var contentPosition = framePosition + new Vector2(
+                OmniTheme.WindowInset(),
+                OmniTheme.TitleBarHeight() + OmniTheme.WindowInset());
+            var contentSize = new Vector2(
+                MathF.Max(1f, frameSize.X - OmniTheme.WindowInset() * 2f),
+                MathF.Max(
+                    1f,
+                    frameSize.Y - OmniTheme.TitleBarHeight() - OmniTheme.WindowInset() * 2f));
+            ImGui.SetCursorScreenPos(contentPosition);
+            OmniControls.DrawPanelBackground(contentPosition, contentSize, OmniTheme.Tokens.Surface);
+            DrawToolbar();
+            ImGui.Separator();
+            using (var filePane = ImRaii.Child(
+                       "##chatLogReplayFiles",
+                       new Vector2(Math.Clamp(
+                           250f * scale,
+                           210f,
+                           330f), 0f),
+                       true))
+            {
+                if (filePane)
+                {
+                    DrawFileList();
+                }
+            }
+
+            ImGui.SameLine();
+            using (var mainPane = ImRaii.Child("##chatLogReplayMain", Vector2.Zero, false))
+            {
+                if (mainPane)
+                {
+                    DrawReplayControls();
+                    DrawChannelFilters();
+                    DrawReplayBody();
+                }
             }
         }
-
-        ImGui.SameLine();
-        using (var mainPane = ImRaii.Child("##chatLogReplayMain", Vector2.Zero, false))
+        finally
         {
-            if (mainPane)
-            {
-                DrawReplayControls();
-                DrawChannelFilters();
-                DrawReplayBody();
-            }
+            ImGui.End();
         }
-
-        ImGui.End();
     }
 
     private void DrawToolbar()
