@@ -4,7 +4,6 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using OmniToolbox.Host;
 using OmniToolbox.UI;
 using OmenTools;
 using OmenTools.OmenService;
@@ -38,11 +37,10 @@ internal sealed class MitigationReplayStore
             Directory.CreateDirectory(ExportDirectory);
             var path = EnsureUniquePath(Path.Combine(ExportDirectory, BuildFileName(history)));
             File.WriteAllText(path, JsonSerializer.Serialize(ToDTO(history), JSONOptions), Encoding.UTF8);
-            DalamudServices.PluginLog.Information("Mitigation replay exported to {Path}.", path);
         }
-        catch (Exception ex)
+        catch
         {
-            DalamudServices.PluginLog.Warning(ex, "Mitigation replay export failed.");
+            return;
         }
     }
 
@@ -51,16 +49,15 @@ internal sealed class MitigationReplayStore
         try
         {
             var dto = JsonSerializer.Deserialize<ReplayDto>(File.ReadAllText(path, Encoding.UTF8), JSONOptions);
-            if (TryCreateHistory(dto, out var history, out var error))
+            if (TryCreateHistory(dto, out var history, out _))
             {
                 return history;
             }
 
-            DalamudServices.PluginLog.Warning("Mitigation replay import rejected: {Reason}", error);
         }
-        catch (Exception ex)
+        catch
         {
-            DalamudServices.PluginLog.Warning(ex, "Mitigation replay import failed.");
+            return null;
         }
 
         return null;
@@ -80,9 +77,8 @@ internal sealed class MitigationReplayStore
                 File.GetLastWriteTimeUtc(right).CompareTo(File.GetLastWriteTimeUtc(left)));
             return files;
         }
-        catch (Exception ex)
+        catch
         {
-            DalamudServices.PluginLog.Warning(ex, "Mitigation replay file enumeration failed.");
             return [];
         }
     }

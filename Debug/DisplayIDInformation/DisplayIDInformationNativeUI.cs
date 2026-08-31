@@ -318,6 +318,12 @@ internal sealed unsafe class DisplayIDInformationNativeUI : IDisposable
 
     private CStringPointer OnStatusTooltip(AgentHUD* agent, Utf8String* output, uint statusID, uint param)
     {
+        // 小队列表路径可能在状态提示请求中传入空的 AgentHUD 或输出缓冲区；原函数会写入 this + 0x20。
+        if (DisplayIDInformationFormatter.ShouldBypassStatusTooltip((nint)agent, (nint)output))
+        {
+            return default;
+        }
+
         var original = statusTooltipHook!.Original(agent, output, statusID, param);
         if (!config.DisplayStatusID || statusID is 0 or uint.MaxValue || !original.HasValue)
         {
