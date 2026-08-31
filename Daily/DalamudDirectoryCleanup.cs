@@ -50,6 +50,11 @@ public sealed class DalamudDirectoryCleanup : ModuleBase
             .Select(static directory => directory.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         installedPluginNames.Add("AEAssistV3");
+
+        // 当前插件可能从开发目录或自定义目录加载，因此不一定存在对应的已安装插件目录。
+        installedPluginNames.Add(
+            new DirectoryInfo(DalamudServices.PluginInterface.GetPluginConfigDirectory()).Name);
+
         var deleted = 0;
         var failed = 0;
 
@@ -107,10 +112,7 @@ public sealed class DalamudDirectoryCleanup : ModuleBase
         var failed = 0;
         foreach (var file in new DirectoryInfo(dalamudDirectory).EnumerateFiles().ToArray())
         {
-            if (!file.Name.EndsWith(".old.log", StringComparison.OrdinalIgnoreCase) &&
-                !(file.Name.StartsWith("dalamud_appcrash_", StringComparison.OrdinalIgnoreCase) &&
-                  (file.Extension.Equals(".log", StringComparison.OrdinalIgnoreCase) ||
-                   file.Extension.Equals(".dmp", StringComparison.OrdinalIgnoreCase))))
+            if (!IsCleanupCandidate(file.Name))
             {
                 continue;
             }
@@ -131,6 +133,13 @@ public sealed class DalamudDirectoryCleanup : ModuleBase
             deleted,
             failed);
     }
+
+    private static bool IsCleanupCandidate(string fileName) =>
+        fileName.EndsWith(".old.log", StringComparison.OrdinalIgnoreCase) ||
+        fileName.StartsWith("dalamudConfig.json.bak-", StringComparison.OrdinalIgnoreCase) ||
+        (fileName.StartsWith("dalamud_appcrash_", StringComparison.OrdinalIgnoreCase) &&
+         (Path.GetExtension(fileName).Equals(".log", StringComparison.OrdinalIgnoreCase) ||
+          Path.GetExtension(fileName).Equals(".dmp", StringComparison.OrdinalIgnoreCase)));
 
     private static bool TryResolveDirectories(out string dalamudDirectory, out DirectoryInfo pluginConfigsDirectory)
     {

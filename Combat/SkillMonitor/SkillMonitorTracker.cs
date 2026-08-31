@@ -193,7 +193,11 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
             for (var definitionIndex = 0; definitionIndex < definitions.Length; definitionIndex++)
             {
                 var state = states[memberIndex, definitionIndex];
-                if (state.StatusActive || state.ActiveUntilTick > now)
+                var definition = definitions[definitionIndex];
+                var isActive = definition.StatusID != 0
+                    ? state.StatusActive
+                    : state.ActiveUntilTick > now;
+                if (isActive)
                 {
                     state.DisplayState = SkillMonitorDisplayState.Active;
                     state.CooldownText = string.Empty;
@@ -230,7 +234,7 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
                     state.CooldownProgress = 0f;
                     state.StatusText = string.Empty;
                 }
-                else if (definitions[definitionIndex].StatusOnly)
+                else if (definition.StatusOnly)
                 {
                     state.DisplayState = SkillMonitorDisplayState.Inactive;
                     state.CooldownText = string.Empty;

@@ -16,9 +16,9 @@ using OmniToolbox.Common.Module.Models;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
-using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmenTools;
+using OmenTools.Info.Game.Data.Icons;
 using OmenTools.OmenService;
 using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
 using ClientObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
@@ -40,7 +40,8 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private const int ObjectScanEnd = 200;
     private const int UnimportantNPCScanStart = 489;
     private const int UnimportantNPCScanEnd = 630;
-    private const float UnimportantNPCVisibilityDistanceSquared = 25f;
+    private const float AvailableQuestNPCDistanceSquared = 225f;
+    private const float QuestNPCNearbyModelDistanceSquared = 25f;
     private const uint InvalidEntityID = 0xE0000000;
     private const uint EarthlyStarNameID = 6565;
     private const uint AsylumActionID = 3569;
@@ -52,6 +53,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private readonly HashSet<uint> friendPlayers = [];
     private readonly HashSet<uint> partyPlayers = [];
     private readonly HashSet<uint> freeCompanyPlayers = [];
+    private readonly List<Vector3> nearbyAvailableQuestNPCPositions = [];
     private FeatureLifetime? runtimeLifetime;
     private Hook<ActionEffectHandler.Delegates.Receive>? actionEffectHook;
     private long asylumBlockUntil;
@@ -337,9 +339,8 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         {
             UpdateVisibility();
         }
-        catch (Exception ex)
+        catch
         {
-            DalamudServices.PluginLog.Warning(ex, "Auto hide model visibility update failed.");
             RestoreNonPlayerVisibility();
         }
     }
@@ -374,7 +375,6 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         if ((namePlate == null || !namePlate->IsVisible) &&
             !DService.Instance().Condition[ConditionFlag.Performing])
         {
-            RestoreNonPlayerVisibility();
             return;
         }
 
@@ -383,6 +383,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
                       DService.Instance().Condition[ConditionFlag.BoundByDuty] &&
                       localGameObject->EventId.ContentId != EventHandlerContent.TreasureHuntDirector;
         RefreshPlayerContainers(objectManager, localPlayer);
+        RefreshNearbyAvailableQuestNPCs(objectManager, localGameObject);
         var playerCount = 0;
         for (var index = ObjectScanStart; index < UnimportantNPCScanEnd; index++)
         {
@@ -394,7 +395,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
             if (index >= UnimportantNPCScanStart)
             {
-                SetVisibility(gameObject, !ShouldHideUnimportantNPC(gameObject, localGameObject));
+                SetVisibility(gameObject, !ShouldHideUnimportantNPC(gameObject));
                 continue;
             }
 
@@ -479,6 +480,26 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             {
                 freeCompanyPlayers.Add(gameObject->EntityId);
             }
+        }
+    }
+
+    private void RefreshNearbyAvailableQuestNPCs(GameObjectManager* objectManager, GameObject* localGameObject)
+    {
+        nearbyAvailableQuestNPCPositions.Clear();
+        for (var index = ObjectScanStart; index < UnimportantNPCScanEnd; index++)
+        {
+            var gameObject = objectManager->Objects.IndexSorted[index].Value;
+            if (gameObject == null ||
+                gameObject->ObjectKind != ClientObjectKind.EventNpc ||
+                !gameObject->TargetableStatus.HasFlag(ObjectTargetableFlags.IsTargetable) ||
+                !QuestIcons.Normal.Contains(gameObject->NamePlateIconId) ||
+                Vector3.DistanceSquared(gameObject->Position, localGameObject->Position) >
+                AvailableQuestNPCDistanceSquared)
+            {
+                continue;
+            }
+
+            nearbyAvailableQuestNPCPositions.Add(gameObject->Position);
         }
     }
 
@@ -652,9 +673,9 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
                     casterEntityID != localPlayer.EntityID && !IsObjectIDInParty(casterEntityID));
             }
         }
-        catch (Exception ex)
+        catch
         {
-            DalamudServices.PluginLog.Warning(ex, "Auto hide model action effect handling failed.");
+            return;
         }
         finally
         {
@@ -782,6 +803,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         friendPlayers.Clear();
         partyPlayers.Clear();
         freeCompanyPlayers.Clear();
+        nearbyAvailableQuestNPCPositions.Clear();
         ClearGroundEffectDecisions();
     }
 
@@ -789,12 +811,25 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
     private void OnTerritoryChanged(uint _) => Refresh();
 
-    private bool ShouldHideUnimportantNPC(GameObject* gameObject, GameObject* localGameObject) =>
-        config.HideUnimportantNpcs &&
-        !gameObject->TargetableStatus.HasFlag(ObjectTargetableFlags.IsTargetable) &&
-        gameObject->EventHandler == null &&
-        Vector3.DistanceSquared(gameObject->Position, localGameObject->Position) >
-        UnimportantNPCVisibilityDistanceSquared;
+    private bool ShouldHideUnimportantNPC(GameObject* gameObject)
+    {
+        if (!config.HideUnimportantNpcs ||
+            gameObject->TargetableStatus.HasFlag(ObjectTargetableFlags.IsTargetable) ||
+            gameObject->EventHandler != null)
+        {
+            return false;
+        }
+
+        foreach (var position in nearbyAvailableQuestNPCPositions)
+        {
+            if (Vector3.DistanceSquared(gameObject->Position, position) <= QuestNPCNearbyModelDistanceSquared)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private static bool ShouldHide(AutoHideUnitConfig unitConfig) =>
         unitConfig.HideAll ||
@@ -812,8 +847,6 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         var condition = DService.Instance().Condition;
         return condition[ConditionFlag.BetweenAreas] ||
                condition[ConditionFlag.BetweenAreas51] ||
-               condition[ConditionFlag.OccupiedInEvent] ||
-               condition[ConditionFlag.OccupiedInQuestEvent] ||
                condition[ConditionFlag.OccupiedInCutSceneEvent] ||
                condition[ConditionFlag.WatchingCutscene] ||
                condition[ConditionFlag.WatchingCutscene78] ||
