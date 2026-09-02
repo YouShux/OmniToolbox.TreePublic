@@ -18,6 +18,13 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe class BattleTalkAdjustments : ModuleBase
 {
+    public override ModuleInfo Info { get; } = new()
+    {
+        Title = OmniLoc.Get("BattleTalkAdjustmentsTitle"),
+        Description = OmniLoc.Get("BattleTalkAdjustmentsDescription"),
+        Category = ModuleCategory.Combat
+    };
+
     private const string AddonName = "_BattleTalk";
 
     private readonly BattleTalkAdjustmentsConfig config;
@@ -31,13 +38,6 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         this.config = config;
         config.Scale = Math.Clamp(config.Scale <= 0f ? 1f : config.Scale, 0.01f, 3f);
     }
-
-    public override ModuleInfo Info { get; } = new()
-    {
-        Title = OmniLoc.Get("BattleTalkAdjustmentsTitle"),
-        Description = OmniLoc.Get("BattleTalkAdjustmentsDescription"),
-        Category = ModuleCategory.Combat
-    };
 
     public override bool HasSettings => true;
 

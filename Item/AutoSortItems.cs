@@ -1,10 +1,10 @@
+using System.Linq;
 using Dalamud.Game.Addon.Lifecycle;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
-using System.Linq;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -26,6 +26,18 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBase
 {
+    public override ModuleInfo Info { get; } = new()
+    {
+        Title = OmniLoc.Get("AutoSortItemsTitle"),
+        Description = OmniLoc.Get("AutoSortItemsDescription"),
+        Category = ModuleCategory.Item,
+        RequiresPrivateProvider = true,
+        Commands =
+        [
+            new ModuleCommand("Feature.AutoSortItems.CommandDescription", "/omni 自动整理")
+        ]
+    };
+
     private const int SortTimeoutMs = 60_000;
     private static readonly InventoryType[] InventoryContainers =
     [
@@ -111,18 +123,6 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     private readonly HashSet<string> queuedCategories = new(StringComparer.Ordinal);
     private TaskHelper? taskHelper;
     private AddonEventRegistry? addonEvents;
-
-    public override ModuleInfo Info { get; } = new()
-    {
-        Title = OmniLoc.Get("AutoSortItemsTitle"),
-        Description = OmniLoc.Get("AutoSortItemsDescription"),
-        Category = ModuleCategory.Item,
-        RequiresPrivateProvider = true,
-        Commands =
-        [
-            new ModuleCommand("Feature.AutoSortItems.CommandDescription", "/omni 自动整理")
-        ]
-    };
 
     public override bool HasSettings => true;
 
