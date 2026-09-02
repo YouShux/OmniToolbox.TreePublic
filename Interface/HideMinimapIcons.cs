@@ -17,6 +17,13 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe class HideMinimapIcons : ModuleBase
 {
+    public override ModuleInfo Info { get; } = new()
+    {
+        Title = OmniLoc.Get("HideMinimapIconsTitle"),
+        Description = OmniLoc.Get("HideMinimapIconsDescription"),
+        Category = ModuleCategory.Interface
+    };
+
     private const string NaviMapAddonName = "_NaviMap";
     private const string AreaMapAddonName = "AreaMap";
     private const string TeleportTownAddonName = "TelepotTown";
@@ -60,13 +67,6 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
         this.config = config;
         RefreshDisplayIconIDs();
     }
-
-    public override ModuleInfo Info { get; } = new()
-    {
-        Title = OmniLoc.Get("HideMinimapIconsTitle"),
-        Description = OmniLoc.Get("HideMinimapIconsDescription"),
-        Category = ModuleCategory.Interface
-    };
 
     public override bool HasSettings => true;
 
