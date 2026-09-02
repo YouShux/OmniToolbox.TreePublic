@@ -13,6 +13,13 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe class LargeCooldownCounter(LargeCooldownCounterConfig config) : ModuleBase
 {
+    public override ModuleInfo Info { get; } = new()
+    {
+        Title = OmniLoc.Get("LargeCooldownCounterTitle"),
+        Description = OmniLoc.Get("LargeCooldownCounterDescription"),
+        Category = ModuleCategory.Interface
+    };
+
     private static readonly FontType[] SupportedFonts =
     [
         FontType.Axis,
@@ -27,13 +34,6 @@ public sealed unsafe class LargeCooldownCounter(LargeCooldownCounterConfig confi
 
     private FeatureLifetime? runtimeLifetime;
     private Hook<AddonActionBarBase.Delegates.UpdateHotbarSlot>? updateHotbarSlotHook;
-
-    public override ModuleInfo Info { get; } = new()
-    {
-        Title = OmniLoc.Get("LargeCooldownCounterTitle"),
-        Description = OmniLoc.Get("LargeCooldownCounterDescription"),
-        Category = ModuleCategory.Interface
-    };
 
     public override bool HasSettings => true;
 

@@ -31,10 +31,6 @@ public sealed class ObsAutoRecording : ModuleBase
     private readonly ObsAutoRecordingConfig config;
     private RecordingSession? session;
     private bool countdownActive;
-    private bool? lastCountdownState;
-    private bool lastCountdownAgentPresent;
-    private bool lastCountdownAgentActive;
-    private bool lastCountdownShowing;
 
     public ObsAutoRecording(ObsAutoRecordingConfig config)
     {
@@ -106,10 +102,6 @@ public sealed class ObsAutoRecording : ModuleBase
     {
         session = new();
         countdownActive = false;
-        lastCountdownState = null;
-        lastCountdownAgentPresent = false;
-        lastCountdownAgentActive = false;
-        lastCountdownShowing = false;
         if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
         {
             session = null;
@@ -117,10 +109,6 @@ public sealed class ObsAutoRecording : ModuleBase
         }
 
         DService.Instance().DutyState.DutyWiped += OnDutyWiped;
-        DalamudServices.PluginLog.Information(
-            "OBS auto-recording enabled. Endpoint={Endpoint}, PasswordConfigured={PasswordConfigured}.",
-            config.Endpoint,
-            !string.IsNullOrEmpty(config.Password));
     }
 
     protected override void OnDisable()
@@ -128,7 +116,6 @@ public sealed class ObsAutoRecording : ModuleBase
         FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
         DService.Instance().DutyState.DutyWiped -= OnDutyWiped;
         countdownActive = false;
-        lastCountdownState = null;
 
         var current = session;
         session = null;
@@ -154,31 +141,6 @@ public sealed class ObsAutoRecording : ModuleBase
                           (agentActive || showingCountdown) &&
                           timeRemaining > 0f;
 
-        if (agentPresent != lastCountdownAgentPresent ||
-            agentActive != lastCountdownAgentActive ||
-            showingCountdown != lastCountdownShowing)
-        {
-            DalamudServices.PluginLog.Information(
-                "OBS countdown state changed. AgentPresent={AgentPresent}, Active={Active}, Showing={Showing}, TimeRemaining={TimeRemaining:F2}, LoggedIn={LoggedIn}.",
-                agentPresent,
-                agentActive,
-                showingCountdown,
-                timeRemaining,
-                isLoggedIn);
-            lastCountdownAgentPresent = agentPresent;
-            lastCountdownAgentActive = agentActive;
-            lastCountdownShowing = showingCountdown;
-        }
-
-        if (isCountdown != lastCountdownState)
-        {
-            DalamudServices.PluginLog.Information(
-                "OBS countdown detection={Detection}, TimeRemaining={TimeRemaining:F2}.",
-                isCountdown,
-                timeRemaining);
-            lastCountdownState = isCountdown;
-        }
-
         if (!isCountdown)
         {
             countdownActive = false;
@@ -191,16 +153,11 @@ public sealed class ObsAutoRecording : ModuleBase
         }
 
         countdownActive = true;
-        DalamudServices.PluginLog.Information("OBS countdown detected; starting recording.");
         _ = StartRecordingAsync(current);
     }
 
     private void OnDutyWiped(IDutyStateEventArgs args)
     {
-        DalamudServices.PluginLog.Information(
-            "OBS duty wipe event received. OwnsRecording={OwnsRecording}, Territory={Territory}.",
-            session?.OwnsRecording ?? false,
-            DService.Instance().ClientState.TerritoryType);
         if (session is { } current)
         {
             _ = StopRecordingAsync(current, true);
@@ -218,15 +175,10 @@ public sealed class ObsAutoRecording : ModuleBase
             }
 
             var endpoint = ResolveEndpoint(config.Endpoint);
-            DalamudServices.PluginLog.Information(
-                "OBS recording start requested. Endpoint={Endpoint}, PasswordConfigured={PasswordConfigured}.",
-                endpoint,
-                !string.IsNullOrEmpty(config.Password));
             await current.Client.ConnectAsync(endpoint, config.Password, CancellationToken.None);
             await current.Client.SendRequestAsync("StartRecord", CancellationToken.None);
             current.RecordingEndpoint = endpoint;
             current.OwnsRecording = true;
-            DalamudServices.PluginLog.Information("OBS recording started by countdown.");
             NotifyRecordingState("Feature.ObsAutoRecording.Started");
         }
         catch (Exception ex)
@@ -259,7 +211,6 @@ public sealed class ObsAutoRecording : ModuleBase
                 CancellationToken.None);
             await current.Client.SendRequestAsync("StopRecord", CancellationToken.None);
             current.OwnsRecording = false;
-            DalamudServices.PluginLog.Information("OBS recording stopped and saved after duty wipe.");
             NotifyRecordingState("Feature.ObsAutoRecording.Stopped");
         }
         catch (Exception ex)
@@ -403,9 +354,6 @@ public sealed class ObsAutoRecording : ModuleBase
                     socket = nextSocket;
                     connectedEndpoint = endpoint;
                     identified = true;
-                    DalamudServices.PluginLog.Information(
-                        "OBS WebSocket identified successfully. Endpoint={Endpoint}.",
-                        endpoint);
                     receiveCancellation = new();
                     receiveTask = ReceiveLoopAsync(nextSocket, receiveCancellation.Token);
                 }
@@ -438,7 +386,6 @@ public sealed class ObsAutoRecording : ModuleBase
 
             try
             {
-                DalamudServices.PluginLog.Information("OBS request sent: {RequestType}.", requestType);
                 await SendTextAsync(
                     currentSocket,
                     JsonSerializer.Serialize(new
@@ -453,7 +400,6 @@ public sealed class ObsAutoRecording : ModuleBase
                     cancellationToken);
                 using var response = await completion.Task.WaitAsync(RequestTimeout, cancellationToken);
                 ValidateRequestResponse(requestType, response.RootElement);
-                DalamudServices.PluginLog.Information("OBS request completed successfully: {RequestType}.", requestType);
             }
             finally
             {
@@ -604,7 +550,6 @@ public sealed class ObsAutoRecording : ModuleBase
 
             if (!data.TryGetProperty("authentication", out var authentication))
             {
-                DalamudServices.PluginLog.Information("OBS WebSocket authentication is disabled by the server.");
                 return null;
             }
 
@@ -613,8 +558,6 @@ public sealed class ObsAutoRecording : ModuleBase
                 throw new InvalidOperationException(
                     "OBS WebSocket requires authentication. Fill in the OBS password in the TreeHouse card.");
             }
-
-            DalamudServices.PluginLog.Information("OBS WebSocket authentication is required; password is configured.");
 
             var salt = authentication.GetProperty("salt").GetString() ?? string.Empty;
             var challenge = authentication.GetProperty("challenge").GetString() ?? string.Empty;
