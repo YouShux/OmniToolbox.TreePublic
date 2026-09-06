@@ -1,4 +1,5 @@
 using Dalamud.Interface;
+using Dalamud.Game.Text;
 using System.Globalization;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
@@ -8,6 +9,21 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class MultiToolbar
 {
+    private static bool TryGetCommandGlyph(string text, out SeIconChar glyph)
+    {
+        if (Enum.TryParse(text, true, out glyph) && Enum.IsDefined(glyph))
+        {
+            return true;
+        }
+        if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase) &&
+            int.TryParse(text.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var value))
+        {
+            glyph = (SeIconChar)value;
+            return Enum.IsDefined(glyph);
+        }
+        return false;
+    }
+
     private void DrawCommandEditorButton()
     {
         var editCommandsLabel = OmniLoc.Get("Feature.MultiToolbar.EditCommands");
@@ -103,6 +119,8 @@ public sealed partial class MultiToolbar
                         uint.TryParse(iconText, out var iconId))
                     {
                         command.GameIconID = iconId;
+                        command.IconFilePath = string.Empty;
+                        command.IconGlyph = string.Empty;
                         command.ShowIcon = true;
                     }
                     changed |= ImGui.IsItemDeactivatedAfterEdit();
@@ -113,6 +131,8 @@ public sealed partial class MultiToolbar
                         iconBrowser.OpenForSelection(false, value =>
                         {
                             command.GameIconID = value;
+                            command.IconFilePath = string.Empty;
+                            command.IconGlyph = string.Empty;
                             command.ShowIcon = true;
                             saveConfig();
                         }, null);

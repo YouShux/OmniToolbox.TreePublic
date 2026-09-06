@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Reflection;
 using Dalamud.Game.Gui.Dtr;
+using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface;
 using Dalamud.Interface.ImGuiSeStringRenderer;
@@ -9,6 +10,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Text.ReadOnly;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Interop.Game.Helpers;
@@ -59,6 +61,7 @@ public sealed partial class MultiToolbar
         RefreshDtrEntries();
         DrawWorldMarkerOverlay();
         DrawToolbar();
+        DrawHiddenWindowManager();
 
         if (activePopup != PopupKind.None)
         {
@@ -71,12 +74,12 @@ public sealed partial class MultiToolbar
     {
         var viewport = ImGui.GetMainViewport();
         var toolbarScale = GetToolbarScale();
-        var rowHeight = MathF.Ceiling(MathF.Max(ImGui.GetFrameHeight() * toolbarScale, ScaleToolbar(32f)));
+        var rowHeight = MathF.Ceiling(MathF.Max(ImGui.GetFrameHeight() * toolbarScale, ScaleToolbar(36f)));
         toolbarButtonHeight = rowHeight;
         var offset = ScaleToolbar(config.BarVerticalOffset);
         var baseY = config.Alignment == MultiToolbarAlignment.Top
-            ? viewport.Pos.Y + offset
-            : viewport.Pos.Y + viewport.Size.Y - rowHeight - offset;
+            ? viewport.WorkPos.Y + offset
+            : viewport.WorkPos.Y + viewport.WorkSize.Y - rowHeight - offset;
         var deltaTime = MathF.Min(ImGui.GetIO().DeltaTime, 0.05f);
         var mousePosition = ImGui.GetMousePos();
         // baseY 在顶部和底部布局中均为未隐藏时的顶边；命中区域不随滑动动画移动。
@@ -133,8 +136,10 @@ public sealed partial class MultiToolbar
         var drawList = ImGui.GetWindowDrawList();
         var barMin = new Vector2(viewport.WorkPos.X, toolbarTop);
         var barMax = barMin + new Vector2(viewport.WorkSize.X, rowHeight);
+        ImGui.PushClipRect(viewport.WorkPos, viewport.WorkPos + viewport.WorkSize, true);
         DrawToolbarBackground(drawList, barMin, barMax);
         DrawWidgetRow();
+        ImGui.PopClipRect();
         ImGui.End();
     }
 
@@ -267,18 +272,7 @@ public sealed partial class MultiToolbar
             var textSize = ImGui.CalcTextSize(text) * (fontSize / ImGui.GetFontSize());
             var position = Vector2.Round(ImGui.GetItemRectMin() + (size - textSize) * 0.5f + new Vector2(0f, ScaleToolbar(1f)));
             var drawList = ImGui.GetWindowDrawList();
-            var outline = ScaleToolbar(2f);
-            for (var y = -1; y <= 1; y++)
-            {
-                for (var x = -1; x <= 1; x++)
-                {
-                    if (x != 0 || y != 0)
-                    {
-                        drawList.AddText(ImGui.GetFont(), fontSize, position + new Vector2(x, y) * outline,
-                            ImGui.GetColorU32(ToolbarTheme.Shadow), text);
-                    }
-                }
-            }
+            DrawToolbarTextOutline(drawList, text, position, fontSize);
             drawList.AddText(ImGui.GetFont(), fontSize, position, ImGui.GetColorU32(ToolbarTheme.Text), text);
         }
         if (ImGui.IsItemHovered())
@@ -472,7 +466,9 @@ public sealed partial class MultiToolbar
         ImGui.InvisibleButton(id, size);
         DrawWidgetVisual(label, size, icon, gameIconID,
             widget.Type is MultiToolbarWidgetType.StackedClock or MultiToolbarWidgetType.Weather,
-            widget.Type is MultiToolbarWidgetType.StackedClock or MultiToolbarWidgetType.Clock);
+            widget.Type is MultiToolbarWidgetType.StackedClock or MultiToolbarWidgetType.Clock,
+            widget.Type == MultiToolbarWidgetType.GearsetSwitcher,
+            widget.GameIconID > 0 && IconBrowser.IsActionOrItemIcon(widget.GameIconID));
 
         if (TryHandleRightWidgetInteraction(widget.Type) || TryHandleInformationWidgetInteraction(widget.Type))
         {
@@ -611,7 +607,8 @@ public sealed partial class MultiToolbar
         if (ShouldShowWidgetIcon(widget) &&
             (WidgetIcon(widget.Type) is not null || widget.GameIconID > 0 || WidgetGameIcon(widget.Type) > 0))
         {
-            width += GetWidgetIconSize();
+            width += GetWidgetIconSize(widget.GameIconID > 0 ? widget.GameIconID : WidgetGameIcon(widget.Type),
+                widget.Type == MultiToolbarWidgetType.GearsetSwitcher);
             if (!string.IsNullOrEmpty(label))
             {
                 width += ScaleToolbar(6f);
@@ -648,6 +645,7 @@ public sealed partial class MultiToolbar
     };
 
     private uint WidgetGameIcon(MultiToolbarWidgetType type) =>
+        type == MultiToolbarWidgetType.BattleEffects ? 516u :
         SocialWidgetGameIcon(type) is var socialIcon && socialIcon > 0
             ? socialIcon
             : InventoryWidgetGameIcon(type) is var inventoryIcon && inventoryIcon > 0
@@ -659,7 +657,10 @@ public sealed partial class MultiToolbar
     private static bool ShouldShowWidgetIcon(MultiToolbarWidgetConfig widget) =>
         widget.ShowIcon && widget.Type is not MultiToolbarWidgetType.DtrList and not MultiToolbarWidgetType.ToolbarPin;
 
-    private static float GetWidgetIconSize() => ImGui.GetFontSize();
+    private float GetWidgetIconSize(uint gameIconID = 0, bool largeIcon = false) => gameIconID == 60560
+        ? ImGui.GetFontSize()
+        : largeIcon ? toolbarButtonHeight - ScaleToolbar(2f)
+        : MathF.Min(ImGui.GetFontSize() * 1.3f, toolbarButtonHeight - ScaleToolbar(4f));
 
     private float GetStackedClockTextScale() => MathF.Min(0.8f,
         (toolbarButtonHeight - ScaleToolbar(2f)) / (ImGui.GetFontSize() * 2f));
@@ -694,7 +695,9 @@ public sealed partial class MultiToolbar
         FontAwesomeIcon? icon = null,
         uint gameIconID = 0,
         bool stacked = false,
-        bool bold = false)
+        bool bold = false,
+        bool largeIcon = false,
+        bool frameGameIcon = false)
     {
         var min = ImGui.GetItemRectMin();
         var max = ImGui.GetItemRectMax();
@@ -703,7 +706,7 @@ public sealed partial class MultiToolbar
         var active = ImGui.IsItemActive();
         var theme = ToolbarTheme;
         var radius = ScaleToolbar(theme.ButtonRadius);
-        var opacity = Math.Clamp(config.ButtonBackgroundOpacity, 0f, 1f);
+        var opacity = hovered || active ? 1f : Math.Clamp(config.ButtonBackgroundOpacity, 0f, 1f);
         if (opacity > 0f)
         {
             var shadowOffset = new Vector2(ScaleToolbar(MathF.Max(0f, theme.ShadowOffset)));
@@ -711,7 +714,11 @@ public sealed partial class MultiToolbar
             var backgroundMax = max - new Vector2(0f, MathF.Max(ScaleToolbar(2f), shadowOffset.Y));
             drawList.AddRectFilled(backgroundMin + shadowOffset, backgroundMax + shadowOffset,
                 OmniTheme.Color(WithAlpha(theme.Shadow, theme.Shadow.W * opacity)), radius);
-            var background = active ? theme.Accent : hovered ? theme.Primary : theme.Surface;
+            var background = active
+                ? OmniTheme.UsesDarkPalette ? OmniTheme.ActiveBackground : theme.Accent
+                : hovered
+                    ? OmniTheme.UsesDarkPalette ? OmniTheme.HoverBackground : theme.Primary
+                    : theme.Surface;
             drawList.AddRectFilled(backgroundMin, backgroundMax, OmniTheme.Color(WithAlpha(background, background.W * opacity)), radius);
             var border = OmniTheme.BorderThickness();
             drawList.AddRect(backgroundMin + new Vector2(border * 0.5f), backgroundMax - new Vector2(border * 0.5f),
@@ -722,13 +729,18 @@ public sealed partial class MultiToolbar
         var hasIcon = icon is not null || gameIconID > 0;
         var textScale = stacked ? bold ? GetStackedClockTextScale() : 0.65f : 1f;
         var textSize = ImGui.CalcTextSize(label) * textScale;
-        var iconSize = hasIcon ? GetWidgetIconSize() : 0f;
+        var iconSize = hasIcon ? GetWidgetIconSize(gameIconID, largeIcon) : 0f;
         var iconGap = string.IsNullOrEmpty(label) ? 0f : ScaleToolbar(6f);
         var contentWidth = (hasIcon ? iconSize + iconGap : 0f) + textSize.X;
         var contentStart = min.X + MathF.Max(0f, (size.X - contentWidth) * 0.5f);
         var contentCenterY = min.Y + size.Y * 0.5f;
 
-        if (gameIconID > 0 && ImageHelper.GetGameIcon(gameIconID) is { } texture)
+        if (gameIconID > 0 && frameGameIcon)
+        {
+            FramedGameIcon.Draw(drawList, gameIconID,
+                new Vector2(contentStart, contentCenterY - iconSize * 0.5f), new Vector2(iconSize));
+        }
+        else if (gameIconID > 0 && ImageHelper.GetGameIcon(gameIconID) is { } texture)
         {
             drawList.AddImage(
                 texture.Handle,
@@ -739,13 +751,12 @@ public sealed partial class MultiToolbar
         }
         else if (icon is { } fontIcon)
         {
-            var iconFontSize = GetWidgetIconSize();
+            var iconFontSize = iconSize;
             using var font = ImRaii.PushFont(UiBuilder.IconFont);
             var iconText = fontIcon.ToIconString();
             var iconTextSize = ImGui.CalcTextSize(iconText) * (iconFontSize / MathF.Max(1f, ImGui.GetFontSize()));
-            drawList.AddText(ImGui.GetFont(), iconFontSize,
-                new Vector2(contentStart, contentCenterY - iconTextSize.Y * 0.5f) + new Vector2(ScaleToolbar(theme.ShadowOffset)),
-                ImGui.GetColorU32(theme.Shadow), iconText);
+            DrawToolbarTextOutline(drawList, iconText,
+                new Vector2(contentStart, contentCenterY - iconTextSize.Y * 0.5f), iconFontSize);
             drawList.AddText(
                 ImGui.GetFont(),
                 iconFontSize,
@@ -764,9 +775,8 @@ public sealed partial class MultiToolbar
                 drawList.PopClipRect();
                 return;
             }
-            drawList.AddText(ImGui.GetFont(), ImGui.GetFontSize() * textScale,
-                new Vector2(textStart, contentCenterY - textSize.Y * 0.5f) + new Vector2(ScaleToolbar(theme.ShadowOffset)),
-                ImGui.GetColorU32(theme.Shadow), label);
+            DrawToolbarTextOutline(drawList, label,
+                new Vector2(textStart, contentCenterY - textSize.Y * 0.5f), ImGui.GetFontSize() * textScale);
             drawList.AddText(
                 ImGui.GetFont(),
                 ImGui.GetFontSize() * textScale,
@@ -776,6 +786,21 @@ public sealed partial class MultiToolbar
         }
 
         drawList.PopClipRect();
+    }
+
+    // Umbra 导出主题 Widget.TextOutline: 0xFF313131。
+    private static readonly Vector4 ToolbarTextOutlineColor = new(49f / 255f, 49f / 255f, 49f / 255f, 1f);
+
+    private void DrawToolbarTextOutline(ImDrawListPtr drawList, string text, Vector2 position, float fontSize)
+    {
+        var radius = ScaleToolbar(2f);
+        var color = ImGui.GetColorU32(ToolbarTextOutlineColor);
+        for (var index = 0; index < 8; index++)
+        {
+            var angle = index * MathF.PI / 4f;
+            var offset = new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+            drawList.AddText(ImGui.GetFont(), fontSize, position + offset, color, text);
+        }
     }
 
     private void DrawClockText(ImDrawListPtr drawList, string label, Vector2 position, float scale, bool stacked)
@@ -792,8 +817,7 @@ public sealed partial class MultiToolbar
             {
                 color = new Vector4(color.X * 0.75f, color.Y * 0.75f, color.Z * 0.75f, color.W);
             }
-            drawList.AddText(ImGui.GetFont(), fontSize, origin + new Vector2(ScaleToolbar(theme.ShadowOffset)),
-                ImGui.GetColorU32(theme.Shadow), line);
+            DrawToolbarTextOutline(drawList, line, origin, fontSize);
             drawList.AddText(ImGui.GetFont(), fontSize, origin, ImGui.GetColorU32(color), line);
 
             // 仅加粗时间数字，保留 LT/ST/ET 标签内部的字母空隙。
@@ -1284,9 +1308,27 @@ public sealed partial class MultiToolbar
         }
 
         var iconPos = rowPos + new Vector2(ScaleToolbar(4f), (rowHeight - iconSize) * 0.5f);
-        if (widget.ShowIcon && widget.GameIconID > 0 && ImageHelper.GetGameIcon(widget.GameIconID) is { } texture)
+        if (widget.ShowIcon && widget.GameIconID > 0 && IconBrowser.IsActionOrItemIcon(widget.GameIconID))
+        {
+            FramedGameIcon.Draw(drawList, widget.GameIconID, iconPos, new Vector2(iconSize));
+        }
+        else if (widget.ShowIcon && widget.GameIconID > 0 && ImageHelper.GetGameIcon(widget.GameIconID) is { } texture)
         {
             drawList.AddImage(texture.Handle, iconPos, iconPos + new Vector2(iconSize));
+        }
+        else if (widget.ShowIcon && !string.IsNullOrWhiteSpace(widget.IconFilePath) &&
+                 DalamudServices.TextureProvider.GetFromFile(widget.IconFilePath).GetWrapOrDefault() is { } fileIcon)
+        {
+            var imageSize = new Vector2(fileIcon.Width, fileIcon.Height) * (iconSize / MathF.Max(fileIcon.Width, fileIcon.Height));
+            var imagePosition = iconPos + (new Vector2(iconSize) - imageSize) * 0.5f;
+            drawList.AddImage(fileIcon.Handle, imagePosition, imagePosition + imageSize);
+        }
+        else if (widget.ShowIcon && !string.IsNullOrWhiteSpace(widget.IconGlyph) &&
+                 TryGetCommandGlyph(widget.IconGlyph, out var glyph))
+        {
+            var glyphText = glyph.ToIconString();
+            drawList.AddText(iconPos + (new Vector2(iconSize) - ImGui.CalcTextSize(glyphText)) * 0.5f,
+                ImGui.GetColorU32(ImGuiCol.Text), glyphText);
         }
         else if (widget.ShowIcon && widget.Command.Trim().Equals("/xlplugins", StringComparison.OrdinalIgnoreCase) &&
                  DalamudServices.TextureProvider.GetFromFile(System.IO.Path.Combine(
@@ -1384,7 +1426,7 @@ public sealed partial class MultiToolbar
 
         // 只隐藏原生栏，不改写其他插件拥有的条目可见状态。
         foreach (var entry in DService.Instance().DTRBar.Entries.OrderBy(entry =>
-                     config.DtrOrder.IndexOf(entry.Title) is var order && order >= 0 ? order : int.MaxValue))
+                     config.DtrOrder.IndexOf(entry.Title) is var order && order >= 0 ? order : int.MaxValue).Reverse())
         {
             if (!entry.Shown || entry.UserHidden || string.IsNullOrWhiteSpace(DtrText(entry)))
             {
@@ -1469,8 +1511,10 @@ public sealed partial class MultiToolbar
             // 工具栏条目必须保持单行，禁止 SeString 渲染器按可用区域自动换行。
             WrapWidth = float.PositiveInfinity,
             Color = ImGui.GetColorU32(ImGuiCol.Text),
-            Shadow = true,
-            ShadowColor = ImGui.GetColorU32(ToolbarTheme.Shadow)
+            Shadow = false,
+            Edge = true,
+            EdgeColor = ImGui.GetColorU32(ToolbarTextOutlineColor),
+            EdgeStrength = ScaleToolbar(2f)
         };
         ImGuiHelpers.SeStringWrapped(DtrSeString(entry), drawParams);
     }

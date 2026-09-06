@@ -19,7 +19,8 @@ public sealed partial class MultiToolbar
 
     public override bool DrawSettings()
     {
-        var changed = DrawGeneralSettings(out var openWidgetEditor);
+        var changed = DrawConfigTransfer();
+        changed |= DrawGeneralSettings(out var openWidgetEditor);
         changed |= DrawAppearanceSettings();
 
         if (openWidgetEditor)
@@ -110,13 +111,6 @@ public sealed partial class MultiToolbar
         }
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        var locked = config.IsLocked;
-        if (OmniControls.Checkbox(OmniLoc.Get("Feature.MultiToolbar.Locked"), ref locked, rowContentHeight))
-        {
-            config.IsLocked = locked;
-            changed = true;
-        }
-        ImGui.TableNextColumn();
         var custom = config.UseCustomColors;
         if (OmniControls.Checkbox(OmniLoc.Get("Feature.MultiToolbar.CustomColors"), ref custom, rowContentHeight))
         {
@@ -163,7 +157,7 @@ public sealed partial class MultiToolbar
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var iconSize = config.RowIconSize;
-        if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.RowIconSize"), "##multiToolbarRowIconSize", ref iconSize, 8f, 50f, "%.0f"))
+        if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.RowIconSize"), "##multiToolbarRowIconSize", ref iconSize, 8f, 72f, "%.0f"))
         {
             config.RowIconSize = iconSize;
             changed = true;
@@ -211,7 +205,7 @@ public sealed partial class MultiToolbar
         }
         var moveFrom = -1;
         var moveTo = -1;
-        foreach (var entry in entries.OrderBy(entry => config.DtrOrder.IndexOf(entry.Title)))
+        foreach (var entry in entries.OrderBy(entry => config.DtrOrder.IndexOf(entry.Title)).Reverse())
         {
             var index = config.DtrOrder.IndexOf(entry.Title);
             using var id = ImRaii.PushId(index);
@@ -570,6 +564,8 @@ public sealed partial class MultiToolbar
         Name = type == MultiToolbarWidgetType.CustomButton ? OmniLoc.Get("Feature.MultiToolbar.NewCommand") : string.Empty,
         Command = type == MultiToolbarWidgetType.CustomButton ? "/" : MultiToolbarWidgetCommand(type),
         ShowIcon = DefaultWidgetShowIcon(type),
+        DisplayName = type is MultiToolbarWidgetType.BattleEffects or MultiToolbarWidgetType.Societies or MultiToolbarWidgetType.OnlineStatus ? "" : null,
+        GameIconID = type == MultiToolbarWidgetType.BattleEffects ? 516u : 0u,
     };
 
     private static bool DefaultWidgetShowIcon(MultiToolbarWidgetType type) => type is not
@@ -697,6 +693,8 @@ public sealed class MultiToolbarWidgetConfig
 
     // 仅 CustomButton 使用：指令列表弹窗里的游戏图标
     public uint GameIconID { get; set; }
+    public string IconFilePath { get; set; } = string.Empty;
+    public string IconGlyph { get; set; } = string.Empty;
 }
 
 [Serializable]
@@ -711,6 +709,8 @@ public sealed class MultiToolbarConfig
     ];
 
     public bool TextEntryDefaultsApplied { get; set; }
+    public bool MultiDockMigrated { get; set; }
+    public HashSet<string> HiddenWindows { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
     public List<MultiToolbarWidgetConfig> Widgets { get; set; } =
@@ -718,9 +718,9 @@ public sealed class MultiToolbarConfig
         new() { Side = MultiToolbarWidgetSide.Center, Type = MultiToolbarWidgetType.PluginList, ShowIcon = false },
         new() { Side = MultiToolbarWidgetSide.Center, Type = MultiToolbarWidgetType.CommandList, ShowIcon = false },
         new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.DtrList },
-        new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.BattleEffects, Command = "/battleeffects" },
-        new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.Societies },
-        new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.OnlineStatus },
+        new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.BattleEffects, Command = "/battleeffects", DisplayName = "", GameIconID = 516 },
+        new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.Societies, DisplayName = "" },
+        new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.OnlineStatus, DisplayName = "" },
         new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.GearsetSwitcher, Command = "/character" },
         new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.Durability },
         new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.RetainerList, Command = "/omni 一键打开雇员铃" },
@@ -739,7 +739,7 @@ public sealed class MultiToolbarConfig
     public float BarVerticalOffset { get; set; } = 0f;
 
     // 工具栏自身的尺寸倍率，叠加 Omni 全局主题缩放。
-    public float ToolbarScale { get; set; } = 1f;
+    public float ToolbarScale { get; set; } = 0.75f;
     public string FontFileName { get; set; } = string.Empty;
 
     public float ComponentSpacing { get; set; } = 6f;
@@ -753,7 +753,7 @@ public sealed class MultiToolbarConfig
     public float ButtonBackgroundOpacity { get; set; }
 
     // 弹窗行图标大小
-    public float RowIconSize { get; set; } = 30f;
+    public float RowIconSize { get; set; } = 40f;
 
     public uint TrackedSocietyID { get; set; }
 
@@ -781,5 +781,13 @@ public sealed class MultiToolbarConfig
     public Vector4? BorderColor { get; set; }
 
     public List<string> CollapsedDtrTitles { get; set; } = [];
-    public List<string> DtrOrder { get; set; } = [];
+    [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
+    public List<string> DtrOrder { get; set; } =
+    [
+        "YesAlready", "DailyRoutines-AutoCountPlayers", "DailyRoutines-FastInstanceZoneChange",
+        "DailyRoutines-BetterFPSLimitation", "DailyRoutines-GameTimeLeft", "LazyLoot",
+        "DailyRoutines-FastWorldTravel", "vnavmesh", "DailyRoutines-AutoDisplayNetworkLatency",
+        "bmr-autorotation", "bmr-ai", "DailyRoutines-AutoDisplayMitigationInfo",
+        "AEAssist-CombatRoutine", "AEAssist-TargetSelector", "LifestreamInstance"
+    ];
 }

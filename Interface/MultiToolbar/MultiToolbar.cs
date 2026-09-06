@@ -35,6 +35,7 @@ public sealed partial class MultiToolbar : ModuleBase
 
     private readonly MultiToolbarConfig config;
     private readonly Action saveConfig;
+    private readonly Func<Newtonsoft.Json.Linq.JObject?>? getMultiDockConfig;
     private readonly IconBrowser iconBrowser;
     private readonly TeleportService teleportService;
     private readonly string pluginEntryLabel;
@@ -42,12 +43,14 @@ public sealed partial class MultiToolbar : ModuleBase
     private readonly string dtrEntryLabel;
     private FeatureLifetime? runtimeLifetime;
 
-    public MultiToolbar(MultiToolbarConfig config, Action saveConfig, IconBrowser iconBrowser, TeleportService teleportService)
+    public MultiToolbar(MultiToolbarConfig config, Action saveConfig, IconBrowser iconBrowser, TeleportService teleportService,
+        Func<Newtonsoft.Json.Linq.JObject?>? getMultiDockConfig = null)
     {
         this.config = config;
         this.saveConfig = saveConfig;
         this.iconBrowser = iconBrowser;
         this.teleportService = teleportService;
+        this.getMultiDockConfig = getMultiDockConfig;
         if (NormalizeWidgets())
         {
             saveConfig();
@@ -73,7 +76,7 @@ public sealed partial class MultiToolbar : ModuleBase
         var changed = false;
         var commands = config.Commands.DistinctBy(command =>
             (command.Type, command.Side, command.Enabled, command.ShowIcon, command.DisplayName,
-                command.Name, command.Command, command.GameIconID)).ToList();
+                command.Name, command.Command, command.GameIconID, command.IconFilePath, command.IconGlyph)).ToList();
         if (commands.Count != config.Commands.Count)
         {
             config.Commands = commands;
@@ -155,13 +158,9 @@ public sealed partial class MultiToolbar : ModuleBase
                 continue;
             }
 
-            config.Widgets.Add(new MultiToolbarWidgetConfig
-            {
-                Type = type,
-                Side = side,
-                Command = MultiToolbarWidgetCommand(type),
-                ShowIcon = type is not MultiToolbarWidgetType.DtrList and not MultiToolbarWidgetType.StackedClock,
-            });
+            var widget = CreateDefaultWidget(type);
+            widget.Side = side;
+            config.Widgets.Add(widget);
             changed = true;
         }
 
@@ -170,9 +169,11 @@ public sealed partial class MultiToolbar : ModuleBase
 
     protected override void OnEnable()
     {
+        MigrateMultiDock();
         var lifetime = new FeatureLifetime();
         try
         {
+            RegisterHiddenWindowEntry(lifetime);
             DalamudServices.PluginInterface.UiBuilder.Draw += Draw;
             lifetime.Add(() => DalamudServices.PluginInterface.UiBuilder.Draw -= Draw);
             if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
@@ -198,6 +199,7 @@ public sealed partial class MultiToolbar : ModuleBase
 
     protected override void OnDisable()
     {
+        RestoreHiddenWindows();
         toolbarFont?.Dispose();
         toolbarFont = null;
         ClosePopup();

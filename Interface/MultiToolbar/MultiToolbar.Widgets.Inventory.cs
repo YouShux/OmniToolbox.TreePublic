@@ -10,6 +10,7 @@ using OmniToolbox.Items;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools.Interop.Game.Lumina;
+using OmenTools.Info.Game.Enums;
 using OmenTools.ImGuiOm;
 using OmenTools.OmenService;
 
@@ -152,7 +153,7 @@ public sealed partial class MultiToolbar
             ClosePopup();
         }
         ImGui.SetCursorScreenPos(origin);
-        if (ImageHelper.GetGameIcon(LuminaWrapper.GetJobIcon(current->ClassJob)) is { } icon)
+        if (ImageHelper.GetGameIcon(LuminaWrapper.GetJobIcon(current->ClassJob, ClassJobIconType.Normal)) is { } icon)
         {
             ImGui.Image(icon.Handle, new Vector2(iconSize));
         }
@@ -263,7 +264,7 @@ public sealed partial class MultiToolbar
         drawList.AddRectFilled(origin, origin + new Vector2(width, height), ImGui.GetColorU32(background), radius);
         drawList.AddRect(origin, origin + new Vector2(width, height), ImGui.GetColorU32(selected ? theme.Accent : theme.Border), radius);
         var iconSize = height - padding * 2f;
-        if (ImageHelper.GetGameIcon(LuminaWrapper.GetJobIcon(classJob)) is { } icon)
+        if (ImageHelper.GetGameIcon(LuminaWrapper.GetJobIcon(classJob, ClassJobIconType.Normal)) is { } icon)
         {
             drawList.AddImage(icon.Handle, origin + new Vector2(padding), origin + new Vector2(padding + iconSize));
         }
@@ -675,7 +676,7 @@ public sealed partial class MultiToolbar
     }
 
     private static unsafe uint GetCurrentGearsetIcon() =>
-        LocalPlayerState.ClassJob == 0 ? 0 : LuminaWrapper.GetJobIcon(LocalPlayerState.ClassJob);
+        LocalPlayerState.ClassJob == 0 ? 0 : LuminaWrapper.GetJobIcon(LocalPlayerState.ClassJob, ClassJobIconType.Normal);
 
     private static string GetDurabilityLabel()
     {

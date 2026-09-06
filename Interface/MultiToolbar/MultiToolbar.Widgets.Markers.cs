@@ -1,11 +1,14 @@
 using System.Linq;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Utility;
+using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Common.Component.BGCollision;
 using Lumina.Excel.Sheets;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
+using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
@@ -37,10 +40,13 @@ public sealed partial class MultiToolbar
         foreach (var type in Enum.GetValues<MultiToolbarWorldMarkerType>())
         {
             var enabled = config.ShowWorldMarkerOverlay && config.EnabledWorldMarkers.Contains(type);
-            if (!ImGui.Checkbox(OmniLoc.Get($"Feature.MultiToolbar.Marker{type}"), ref enabled))
+            if (!OmniControls.CheckedSelectable($"##worldMarker{type}",
+                    OmniLoc.Get($"Feature.MultiToolbar.Marker{type}"), enabled, ImGuiSelectableFlags.DontClosePopups))
             {
                 continue;
             }
+
+            enabled = !enabled;
 
             if (!config.ShowWorldMarkerOverlay)
             {
@@ -75,8 +81,9 @@ public sealed partial class MultiToolbar
             nextMarkerRefresh = Environment.TickCount64 + 250;
         }
 
-        var drawList = ImGui.GetForegroundDrawList();
-        var iconSize = ScaleToolbar(30f);
+        using var font = ImRaii.PushFont(UiBuilder.DefaultFont);
+        var drawList = ImGui.GetBackgroundDrawList();
+        var iconSize = OmniTheme.Scale(32f);
         foreach (var marker in worldMarkers)
         {
             var distance = Vector3.Distance(player.Position, marker.Position);
@@ -87,20 +94,47 @@ public sealed partial class MultiToolbar
             }
 
             var icon = ImageHelper.GetGameIcon(marker.IconID);
+            var hasSubLabel = !string.IsNullOrEmpty(marker.SubLabel);
+            var top = position.Y - iconSize - OmniTheme.Scale(hasSubLabel ? 62f : 40f);
             if (icon != null)
             {
-                drawList.AddImage(icon.Handle, position - new Vector2(iconSize * 0.5f),
-                    position + new Vector2(iconSize * 0.5f), Vector2.Zero, Vector2.One,
+                var iconPosition = new Vector2(position.X - iconSize * 0.5f, top);
+                drawList.AddImage(icon.Handle, iconPosition,
+                    iconPosition + new Vector2(iconSize), Vector2.Zero, Vector2.One,
                     ImGui.GetColorU32(new Vector4(1f, 1f, 1f, opacity)));
             }
 
-            var label = $"{marker.Label}  {distance:0}m";
-            var textPosition = position + new Vector2(-ImGui.CalcTextSize(label).X * 0.5f, iconSize * 0.5f);
-            drawList.AddText(textPosition + Vector2.One, ImGui.GetColorU32(new Vector4(0f, 0f, 0f, opacity)), label);
-            var textColor = ToolbarTheme.Text;
-            textColor.W *= opacity;
-            drawList.AddText(textPosition, ImGui.GetColorU32(textColor), label);
+            var labelTop = top + iconSize + OmniTheme.Scale(2f);
+            DrawWorldMarkerLabel(drawList, marker.Label, new Vector2(position.X, labelTop), 13f, opacity, true);
+            labelTop += OmniTheme.Scale(18f);
+            if (hasSubLabel)
+            {
+                DrawWorldMarkerLabel(drawList, marker.SubLabel!, new Vector2(position.X, labelTop), 12f, opacity * (208f / 255f), true);
+                labelTop += OmniTheme.Scale(20f);
+            }
+            DrawWorldMarkerLabel(drawList, $"{MathF.Ceiling(distance):0} yalms",
+                new Vector2(position.X, labelTop), 12f, opacity * (208f / 255f), false);
         }
+    }
+
+    private static void DrawWorldMarkerLabel(ImDrawListPtr drawList, string label, Vector2 center, float size, float opacity, bool shadow)
+    {
+        var fontSize = OmniTheme.Scale(size);
+        var width = ImGui.CalcTextSize(label).X * fontSize / ImGui.GetFontSize();
+        var position = Vector2.Round(center - new Vector2(width * 0.5f, 0f));
+        for (var ring = shadow ? 4 : 1; ring >= 1; ring--)
+        {
+            var radius = OmniTheme.Scale(ring == 1 ? 1f : ring * 2f);
+            var alpha = opacity * (ring == 1 ? 1f : 0.12f / ring);
+            var color = ImGui.GetColorU32(new Vector4(0f, 0f, 0f, alpha));
+            for (var index = 0; index < 8; index++)
+            {
+                var angle = index * MathF.PI / 4f;
+                drawList.AddText(ImGui.GetFont(), fontSize,
+                    position + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius, color, label);
+            }
+        }
+        drawList.AddText(ImGui.GetFont(), fontSize, position, ImGui.GetColorU32(new Vector4(1f, 1f, 1f, opacity)), label);
     }
 
     private unsafe void RefreshWorldMarkers()
@@ -168,7 +202,7 @@ public sealed partial class MultiToolbar
                         continue;
                     }
                     worldMarkers.Add(new(fate->Location + new Vector3(0f, 1.8f, 0f), fate->IconId,
-                        $"{fate->Name.AsDalamudSeString().TextValue} {fate->Progress}%"));
+                        fate->Name.AsDalamudSeString().TextValue, $"{fate->Progress}%"));
                 }
             }
         }
@@ -281,7 +315,7 @@ public sealed partial class MultiToolbar
         return position;
     }
 
-    private readonly record struct ToolbarWorldMarker(Vector3 Position, uint IconID, string Label);
+    private readonly record struct ToolbarWorldMarker(Vector3 Position, uint IconID, string Label, string? SubLabel = null);
 }
 
 public enum MultiToolbarWorldMarkerType

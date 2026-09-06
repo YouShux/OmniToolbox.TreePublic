@@ -10,7 +10,7 @@ public sealed partial class MultiToolbar
     {
         get
         {
-            var theme = OmniTheme.Tokens;
+            var theme = OmniTheme.Tokens with { Text = Vector4.One };
             return !config.UseCustomColors ? theme : theme with
             {
                 Background = config.BackgroundColor ?? theme.Background,
