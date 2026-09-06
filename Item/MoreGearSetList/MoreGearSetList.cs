@@ -1,11 +1,8 @@
 ﻿using System.Globalization;
-using System.IO;
 using System.Text;
-using System.Text.Json;
 using Dalamud.Game;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
-using Dalamud.Game.Command;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -33,19 +30,12 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     private const string GearSetListAddonName = "GearSetList";
     private const string BannerEditorAddonName = "BannerEditor";
     private const string MiragePlateAddonName = "MiragePrismMiragePlate";
-    private const string ListCommand = "/omni套装列表";
-    private const string SetsFileName = "MoreGearSetList.Sets.json";
-    private const float ScreenPadding = 8f;
-    private const float CompanionGap = 4f;
     private const uint JobIconBase = 62100;
     private const int BorrowWaitFrames = 45;
     private const int SoulCrystalSlot = 13;
 
-    private static readonly JsonSerializerOptions JSONOptions = new()
-    {
-        WriteIndented               = true,
-        PropertyNameCaseInsensitive = true
-    };
+    private static float ScreenPadding => OmniTheme.Scale(8f);
+    private static float CompanionGap => OmniTheme.Scale(4f);
 
     private static readonly string[] SlotNames =
     [
@@ -124,7 +114,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     private bool followNative;
     private float nativeScale = 1f;
     private Vector2 windowPos;
-    private Vector2 windowSize = new(268f, 480f);
+    private Vector2 windowSize;
     private MoreGearSetListEntry? borrowedEntry;
     private int borrowedGearsetID = -1;
     private BorrowKind borrowKind;
@@ -165,11 +155,13 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     {
         this.config     = config;
         this.saveConfig = saveConfig;
+        windowSize      = new(OmniTheme.Scale(268f), OmniTheme.Scale(480f));
     }
+
+    #region 生命周期
 
     protected override void OnEnable()
     {
-        LoadPersisted();
         taskHelper = new()
         {
             RetryIntervalMS = 100,
@@ -185,10 +177,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             this);
         DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, GearSetListAddonName, OnGearSetListSetup);
         DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreFinalize, GearSetListAddonName, OnGearSetListFinalize);
-        DalamudServices.CommandManager.AddHandler(ListCommand, new CommandInfo(OnListCommand)
-        {
-            HelpMessage = "打开套装列表"
-        });
         if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 16))
         {
             throw new InvalidOperationException("MoreGearSetList update registration failed.");
@@ -200,9 +188,8 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     protected override void OnDisable()
     {
         ReleaseBorrowedGearset(true);
-        Persist();
+        saveConfig();
         FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
-        DalamudServices.CommandManager.RemoveHandler(ListCommand);
         DalamudServices.AddonLifecycle.UnregisterListener(OnGearSetListSetup);
         DalamudServices.AddonLifecycle.UnregisterListener(OnGearSetListFinalize);
         nativeUI?.Close();
@@ -238,9 +225,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
 
         OpenList();
     }
-
-    private void OnListCommand(string command, string arguments) =>
-        ToggleList();
 
     private void OnGearSetListSetup(AddonEvent type, AddonArgs args)
     {
@@ -397,6 +381,10 @@ public sealed unsafe class MoreGearSetList : ModuleBase
                addon->IsVisible;
     }
 
+    #endregion
+
+    #region 套装持久化
+
     private void RefreshNative()
     {
         if (nativeUI is null)
@@ -441,7 +429,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             return false;
         }
 
-        Persist();
+        saveConfig();
         RefreshList();
         return true;
     }
@@ -465,7 +453,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             return false;
         }
 
-        Persist();
+        saveConfig();
         RefreshList();
         return true;
     }
@@ -498,11 +486,15 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         }
 
         (record.Sets[index], record.Sets[target]) = (record.Sets[target], record.Sets[index]);
-        Persist();
+        saveConfig();
         RefreshList();
         nativeUI?.SetSelected(entry);
         return true;
     }
+
+    #endregion
+
+    #region 原生套装交互
 
     internal void ShowItems(MoreGearSetListEntry entry)
     {
@@ -535,7 +527,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         if (agent == null)
         {
             ReleaseBorrowedGearset(false);
-            OmniNotifier.Chat("无法打开游戏套装界面。");
             return false;
         }
 
@@ -569,17 +560,12 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         return true;
     }
 
-    private bool TryBorrowGearset(MoreGearSetListEntry entry, bool notify = true)
+    private bool TryBorrowGearset(MoreGearSetListEntry entry)
     {
         ReleaseBorrowedGearset(true);
         var module = RaptureGearsetModule.Instance();
         if (module == null)
         {
-            if (notify)
-            {
-                OmniNotifier.Chat("无法读取游戏套装。");
-            }
-
             return false;
         }
 
@@ -590,11 +576,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             gearset = module->GetGearset(gearsetID);
             if (gearset == null || gearset->Id != gearsetID)
             {
-                if (notify)
-                {
-                    OmniNotifier.Chat("临时占用原生套装失败。");
-                }
-
                 return false;
             }
 
@@ -606,11 +587,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             gearsetID = module->CreateGearset();
             if (gearsetID is < 0 or > 99)
             {
-                if (notify)
-                {
-                    OmniNotifier.Chat("没有可占用的原生套装。");
-                }
-
                 return false;
             }
 
@@ -618,11 +594,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             if (gearset == null || gearset->Id != gearsetID)
             {
                 module->DeleteGearset(gearsetID);
-                if (notify)
-                {
-                    OmniNotifier.Chat("临时套装创建失败。");
-                }
-
                 return false;
             }
 
@@ -679,7 +650,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             }
 
             ReleaseBorrowedGearset(false);
-            OmniNotifier.Chat("游戏窗口没有打开，已撤回临时套装。");
             return;
         }
 
@@ -725,7 +695,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             {
                 borrowedEntry.GlamourPlateID = gearset->GlamourSetLink;
                 borrowedEntry.BannerIndex    = gearset->BannerIndex;
-                Persist();
+                saveConfig();
                 nativeFingerprint = string.Empty;
             }
         }
@@ -826,54 +796,9 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         return visibleCount == 0 ? "没有符合筛选的套装。" : string.Empty;
     }
 
-    private void Persist()
-    {
-        try
-        {
-            var path = GetSetsPath();
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, JsonSerializer.Serialize(config, JSONOptions));
-        }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Warning(ex, "MoreGearSetList save failed.");
-        }
+    #endregion
 
-        saveConfig();
-    }
-
-    private void LoadPersisted()
-    {
-        try
-        {
-            if (config.Characters.Count > 0)
-            {
-                return;
-            }
-
-            var path = GetSetsPath();
-            if (!File.Exists(path))
-            {
-                return;
-            }
-
-            var loaded = JsonSerializer.Deserialize<MoreGearSetListConfig>(File.ReadAllText(path), JSONOptions);
-            if (loaded?.Characters is { Count: > 0 })
-            {
-                config.Characters = loaded.Characters;
-            }
-        }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Warning(ex, "MoreGearSetList load failed.");
-        }
-    }
-
-    private static string GetSetsPath() =>
-        Path.Combine(
-            DalamudServices.PluginInterface.GetPluginConfigDirectory(),
-            "TreeHouse",
-            SetsFileName);
+    #region 套装读写
 
     private MoreGearSetListCharacterRecord? GetCurrentCharacterRecord(bool create) =>
         TryGetCurrentCharacter(out var key, out var name, out var world, out var contentID)
@@ -885,13 +810,11 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         var record = GetCurrentCharacterRecord(true);
         if (record is null)
         {
-            OmniNotifier.Chat("请先登录后再保存套装。");
             return false;
         }
 
         if (!TryCaptureEquipped(out var items, out var classJobID, out var jobName))
         {
-            OmniNotifier.Chat("当前没有可保存的装备。");
             return false;
         }
 
@@ -903,7 +826,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             NativeIndex = -1,
             Items       = items
         });
-        Persist();
+        saveConfig();
         RefreshList();
         return true;
     }
@@ -912,15 +835,13 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     {
         if (!TryCaptureEquipped(out var items, out var classJobID, out _))
         {
-            OmniNotifier.Chat("当前没有可保存的装备。");
             return false;
         }
 
         entry.ClassJobID = classJobID;
         entry.Items      = items;
-        Persist();
+        saveConfig();
         RefreshList();
-        OmniNotifier.Chat($"已把当前所穿保存到「{entry.Name}」。");
         return true;
     }
 
@@ -939,7 +860,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         }
 
         entry.Name = text;
-        Persist();
+        saveConfig();
         RefreshList();
         return true;
     }
@@ -949,14 +870,12 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         var record = GetCurrentCharacterRecord(true);
         if (record is null)
         {
-            OmniNotifier.Chat("请先登录后再导入套装。");
             return false;
         }
 
         var module = RaptureGearsetModule.Instance();
         if (module == null)
         {
-            OmniNotifier.Chat("无法读取原生套装。");
             return false;
         }
 
@@ -982,37 +901,29 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             imported++;
         }
 
-        if (imported == 0 && skipped == 0)
-        {
-            OmniNotifier.Chat("没有可导入的原生套装。");
-            return false;
-        }
-
         if (imported == 0)
         {
-            OmniNotifier.Chat("原生套装都已导入过。");
             return false;
         }
 
-        Persist();
+        saveConfig();
         RefreshList();
-        OmniNotifier.Chat(skipped == 0
-            ? $"已导入 {imported} 套。"
-            : $"已导入 {imported} 套，跳过 {skipped} 套。");
         return true;
     }
+
+    #endregion
+
+    #region 装备
 
     private void TryApply(MoreGearSetListEntry entry)
     {
         if (taskHelper is null)
         {
-            OmniNotifier.Chat("请先启用模块后再应用套装。");
             return;
         }
 
         if (!TryGetCurrentCharacter(out _, out _, out _, out _))
         {
-            OmniNotifier.Chat("请先登录后再应用套装。");
             return;
         }
 
@@ -1061,7 +972,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
 
         if (TryApplyByGearset(entry))
         {
-            OmniNotifier.Chat($"已应用套装「{entry.Name}」。");
             return;
         }
 
@@ -1114,7 +1024,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     private bool TryApplyByGearset(MoreGearSetListEntry entry)
     {
         var module = RaptureGearsetModule.Instance();
-        if (module == null || !TryBorrowGearset(entry, false))
+        if (module == null || !TryBorrowGearset(entry))
         {
             return false;
         }
@@ -1773,7 +1683,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             }
         }
 
-        OmniNotifier.Chat($"已应用套装「{entry.Name}」。");
         return true;
     }
 
@@ -1876,6 +1785,8 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             builder.Append('\n');
         builder.Append(text);
     }
+
+    #endregion
 }
 
 [Serializable]
