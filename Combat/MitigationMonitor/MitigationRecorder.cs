@@ -6,8 +6,6 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using OmniToolbox.Lifecycle;
-using OmniToolbox.Game;
 using OmenTools;
 using OmenTools.OmenService;
 using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
@@ -15,6 +13,8 @@ using IBattleChara = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectK
 using ICharacter = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.ICharacter;
 using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IGameObject;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
+using OmniToolbox.Lifecycle;
+using OmniToolbox.Game;
 
 namespace OmniToolbox.TreePublic;
 
@@ -55,7 +55,9 @@ internal sealed unsafe class MitigationRecorder
         {
             lock (cacheSyncRoot)
             {
-                RefreshRuntimeCacheNoLock(DateTime.UtcNow, true);
+                var now = DateTime.UtcNow;
+                CombatCharacterSnapshot.Refresh();
+                RefreshRuntimeCacheNoLock(now, true);
             }
         }
     }
@@ -163,7 +165,7 @@ internal sealed unsafe class MitigationRecorder
                     target.Name,
                     CreateShortName(target.Name),
                     GetJobName(targetCharacter),
-        targetCharacter?.ClassJob.RowId ?? 0,
+                    targetCharacter?.ClassJob.RowId ?? 0,
                     actionDisplay.SourceKind,
                     damage.Damage,
                     damage.Kind,
@@ -188,7 +190,9 @@ internal sealed unsafe class MitigationRecorder
 
         lock (cacheSyncRoot)
         {
-            RefreshRuntimeCacheNoLock(DateTime.UtcNow, true);
+            var now = DateTime.UtcNow;
+            CombatCharacterSnapshot.Refresh();
+            RefreshRuntimeCacheNoLock(now, true);
         }
     }
 
@@ -217,17 +221,15 @@ internal sealed unsafe class MitigationRecorder
     private void RefreshRuntimeCacheNoLock(DateTime now, bool detectDeaths)
     {
         var services = DService.Instance();
-        CombatCharacterSnapshot.Refresh();
         friendlyEntityIds.Clear();
         TrackFriendlyNoLock(services.ObjectTable.LocalPlayer, now, detectDeaths);
         foreach (var partyMember in services.PartyList)
         {
-            if (partyMember.EntityId == 0)
+            if (partyMember.EntityId == 0 || !friendlyEntityIds.Add(partyMember.EntityId))
             {
                 continue;
             }
 
-            friendlyEntityIds.Add(partyMember.EntityId);
             TrackFriendlyNoLock(
                 FindObject(partyMember.EntityId),
                 now,
@@ -258,7 +260,7 @@ internal sealed unsafe class MitigationRecorder
             target.Name,
             CreateShortName(target.Name),
             GetJobName(character),
-        character?.ClassJob.RowId ?? 0,
+            character?.ClassJob.RowId ?? 0,
             GetShieldValue(character),
             character?.CurrentHp ?? 0), now);
     }
