@@ -110,6 +110,8 @@ internal static class DisplayIDInformationPanel
     public static bool Draw(DisplayIDInformationConfig config, IconBrowser iconBrowser)
     {
         var changed = false;
+        using var cellPadding = ImRaii.PushStyle(ImGuiStyleVar.CellPadding,
+            new Vector2(ImGui.GetStyle().CellPadding.X, ImGui.GetStyle().CellPadding.Y + ImGui.GetStyle().ItemSpacing.Y * 0.5f));
         using var table = ImRaii.Table(
             "##displayIdInformationSettings",
             4,

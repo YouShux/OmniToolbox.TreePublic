@@ -1,5 +1,5 @@
-using System.Linq;
 using System.Runtime.InteropServices;
+using Dalamud.Game.Text;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -12,7 +12,6 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.AetheryteRecord;
 using OmenTools.ImGuiOm;
-using OmenTools.Info.Game.Enums;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
@@ -21,11 +20,6 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class MultiToolbar
 {
-    private static readonly uint[] WorldMarkerIconIds = [
-        61341, 61342, 61343, 61347,
-        61344, 61345, 61346, 61348,
-    ];
-    private long lastFlagBroadcast;
 
     // 状态直接读取游戏服务，避免工具栏维护重复数据。
     private string? RightWidgetLabel(MultiToolbarWidgetType type)
@@ -36,14 +30,14 @@ public sealed partial class MultiToolbar
             MultiToolbarWidgetType.Volume => GetVolumeLabel(),
             MultiToolbarWidgetType.MailIndicator => string.Empty,
             MultiToolbarWidgetType.WalkingIndicator => string.Empty,
-            MultiToolbarWidgetType.StackedClock => $"LT {DateTime.Now:HH:mm}\nET {GetEorzeaTime():HH:mm}",
+            MultiToolbarWidgetType.StackedClock => $"{SeIconChar.LocalTimeEn.ToIconString()} {DateTime.Now:HH:mm}\n{SeIconChar.EorzeaTimeEn.ToIconString()} {GetEorzeaTime():HH:mm}",
             _ => null,
         };
     }
 
     private FontAwesomeIcon? RightWidgetIcon(MultiToolbarWidgetType type) => type switch
     {
-        MultiToolbarWidgetType.Flag => FontAwesomeIcon.Flag,
+        MultiToolbarWidgetType.Flag => null,
         MultiToolbarWidgetType.Volume => GetVolumeIcon(),
         MultiToolbarWidgetType.MailIndicator => FontAwesomeIcon.Envelope,
         MultiToolbarWidgetType.MarkerControl => FontAwesomeIcon.MapSigns,
@@ -53,9 +47,12 @@ public sealed partial class MultiToolbar
         _ => null,
     };
 
-    private uint RightWidgetGameIcon(MultiToolbarWidgetType type) => type == MultiToolbarWidgetType.Flag
-        ? GetFlagIconID()
-        : 0;
+    private uint RightWidgetGameIcon(MultiToolbarWidgetType type) => type switch
+    {
+        MultiToolbarWidgetType.Flag => 60561,
+        MultiToolbarWidgetType.MailIndicator => 60551,
+        _ => 0,
+    };
 
     private static bool IsRightWidgetVisible(MultiToolbarWidgetType type) => type switch
     {
@@ -99,12 +96,6 @@ public sealed partial class MultiToolbar
                 {
                     AgentMap.Instance()->FlagMarkerCount = 0;
                 }
-                if (ImGui.IsItemClicked(ImGuiMouseButton.Middle) && !string.IsNullOrWhiteSpace(config.FlagChatPrefix) &&
-                    Environment.TickCount64 - lastFlagBroadcast >= 3000)
-                {
-                    lastFlagBroadcast = Environment.TickCount64;
-                    ExecuteCommand($"{config.FlagChatPrefix} <flag>");
-                }
                 return true;
             case MultiToolbarWidgetType.Volume:
                 if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
@@ -142,30 +133,53 @@ public sealed partial class MultiToolbar
         }
     }
 
+    private readonly Dictionary<string, uint> playerVolumeBeforeMute = [];
+
     private void DrawVolumePopup()
     {
-        var system = DService.Instance().GameConfig.System;
         DrawVolumePresets();
-        using var table = ImRaii.Table("##multiToolbarVolumeTable", VolumeChannels.Length, ImGuiTableFlags.SizingStretchSame);
+        DrawVolumeChannels();
+        DrawVolumeOptions();
+    }
+
+    private void DrawVolumeChannels()
+    {
+        var system = DService.Instance().GameConfig.System;
+        var buttonSize = OmniTheme.SmallButtonSize().Y;
+        using var table = ImRaii.Table("##multiToolbarVolumeTable", 3, ImGuiTableFlags.SizingStretchProp);
         if (table)
         {
+            ImGui.TableSetupColumn("##slider", ImGuiTableColumnFlags.WidthStretch);
+            ImGui.TableSetupColumn("##mute", ImGuiTableColumnFlags.WidthFixed, buttonSize);
+            ImGui.TableSetupColumn("##label", ImGuiTableColumnFlags.WidthFixed, ImGui.CalcTextSize("乐器演奏").X + ScaleToolbar(8f));
             foreach (var channel in VolumeChannels)
             {
+                if (channel.Volume == "SoundPlayer")
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.PlayerAudio"));
+                }
                 var value = (int)Math.Clamp(system.GetUInt(channel.Volume), 0u, 100u);
-                var muted = system.GetBool(channel.Mute);
+                var muted = channel.Mute is { } muteKey ? system.GetBool(muteKey) : value == 0;
                 ImGui.PushID(channel.Volume);
+                ImGui.TableNextRow();
                 ImGui.TableNextColumn();
-                ImGui.TextUnformatted(channel.Label);
-                ImGui.TextUnformatted($"{value}%");
-                if (ImGui.VSliderInt("##value", new Vector2(ImGui.GetContentRegionAvail().X, ScaleToolbar(140f)), ref value, 0, 100, string.Empty))
+                ImGui.SetNextItemWidth(-1f);
+                if (ImGui.SliderInt("##value", ref value, 0, 100, "%d%%"))
                 {
                     system.Set(channel.Volume, (uint)value);
-                    system.Set(channel.Mute, false);
+                    if (channel.Mute is { } key)
+                    {
+                        system.Set(key, false);
+                    }
+                    muted = channel.Mute is null && value == 0;
                 }
                 if (ImGui.IsItemDeactivatedAfterEdit())
                 {
                     SaveActiveVolumePreset();
                 }
+                ImGui.TableNextColumn();
                 if (OmniControls.IconButton(
                         "##mute",
                         muted ? FontAwesomeIcon.VolumeMute : value switch
@@ -175,23 +189,70 @@ public sealed partial class MultiToolbar
                             _ => FontAwesomeIcon.VolumeUp,
                         },
                         false,
+                        new Vector2(buttonSize),
                         OmniLoc.Get(muted ? "Feature.MultiToolbar.Unmute" : "Feature.MultiToolbar.Mute")))
                 {
-                    system.Set(channel.Mute, !muted);
+                    if (channel.Mute is { } key)
+                    {
+                        system.Set(key, !muted);
+                    }
+                    else if (value > 0)
+                    {
+                        playerVolumeBeforeMute[channel.Volume] = (uint)value;
+                        system.Set(channel.Volume, 0u);
+                    }
+                    else
+                    {
+                        system.Set(channel.Volume, playerVolumeBeforeMute.GetValueOrDefault(channel.Volume, 100u));
+                    }
                     SaveActiveVolumePreset();
                 }
-                var background = system.GetBool(channel.Background);
-                if (OmniControls.IconButton("##background",
-                        background ? FontAwesomeIcon.PlusCircle : FontAwesomeIcon.Minus,
-                        background, OmniLoc.Get("Feature.MultiToolbar.BackgroundAudio")))
+                using (var menu = ImRaii.ContextPopupItem("##backgroundAudio"))
                 {
-                    system.Set(channel.Background, !background);
-                    SaveActiveVolumePreset();
+                    if (menu)
+                    {
+                        if (channel.Background is not null)
+                        {
+                            var background = system.GetBool(channel.Background);
+                            if (ImGui.Checkbox(OmniLoc.Get("Feature.MultiToolbar.BackgroundAudio"), ref background))
+                            {
+                                system.Set(channel.Background, background);
+                                SaveActiveVolumePreset();
+                            }
+                        }
+                    }
                 }
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextUnformatted(OmniLoc.Get($"Feature.MultiToolbar.Audio{channel.Label}"));
                 ImGui.PopID();
             }
         }
     }
+
+    private void DrawVolumeOptions()
+    {
+        var system = DService.Instance().GameConfig.System;
+        ImGui.Separator();
+        foreach (var key in MusicOptions)
+        {
+            var enabled = system.GetBool(key);
+            if (OmniControls.Checkbox(OmniLoc.Get($"Feature.MultiToolbar.{key}"), ref enabled))
+            {
+                system.Set(key, enabled);
+                SaveActiveVolumePreset();
+            }
+        }
+        ImGui.TextDisabled(OmniLoc.Get("Feature.MultiToolbar.SoundHousingHint"));
+        var muteInBackground = !system.GetBool("IsSoundAlways");
+        if (OmniControls.Checkbox(OmniLoc.Get("Feature.MultiToolbar.MuteInBackground"), ref muteInBackground))
+        {
+            system.Set("IsSoundAlways", !muteInBackground);
+            SaveActiveVolumePreset();
+        }
+    }
+
+    private static readonly string[] MusicOptions = ["SoundChocobo", "SoundFieldBattle", "SoundHousing"];
 
     private void DrawVolumePresets()
     {
@@ -234,13 +295,20 @@ public sealed partial class MultiToolbar
                         {
                             system.Set(channel.Volume, Math.Clamp(volume, 0u, 100u));
                         }
-                        if (preset.Toggles.TryGetValue(channel.Mute, out var muted))
+                        if (channel.Mute is not null && preset.Toggles.TryGetValue(channel.Mute, out var muted))
                         {
                             system.Set(channel.Mute, muted);
                         }
-                        if (preset.Toggles.TryGetValue(channel.Background, out var background))
+                        if (channel.Background is not null && preset.Toggles.TryGetValue(channel.Background, out var background))
                         {
                             system.Set(channel.Background, background);
+                        }
+                    }
+                    foreach (var key in MusicOptions)
+                    {
+                        if (preset.Toggles.TryGetValue(key, out var enabled))
+                        {
+                            system.Set(key, enabled);
                         }
                     }
                     SaveActiveVolumePreset();
@@ -276,76 +344,29 @@ public sealed partial class MultiToolbar
         foreach (var channel in VolumeChannels)
         {
             preset.Volumes[channel.Volume] = system.GetUInt(channel.Volume);
-            preset.Toggles[channel.Mute] = system.GetBool(channel.Mute);
-            preset.Toggles[channel.Background] = system.GetBool(channel.Background);
+            if (channel.Mute is not null)
+            {
+                preset.Toggles[channel.Mute] = system.GetBool(channel.Mute);
+            }
+            if (channel.Background is not null)
+            {
+                preset.Toggles[channel.Background] = system.GetBool(channel.Background);
+            }
+        }
+        foreach (var key in MusicOptions)
+        {
+            preset.Toggles[key] = system.GetBool(key);
         }
         saveConfig();
     }
 
     private static void DrawClockPopup()
     {
-        ImGuiOm.TextIcon(FontAwesomeIcon.Clock, $"本地时间  {DateTime.Now:HH:mm:ss}");
-        ImGuiOm.TextIcon(FontAwesomeIcon.Clock, $"服务器时间  {GetServerTime():HH:mm:ss}");
-        ImGuiOm.TextIcon(FontAwesomeIcon.Clock, $"艾欧泽亚时间  {GetEorzeaTime():HH:mm:ss}");
+        ImGui.TextUnformatted($"{SeIconChar.LocalTimeEn.ToIconString()} {DateTime.Now:HH:mm:ss}");
+        ImGui.TextUnformatted($"{SeIconChar.ServerTimeEn.ToIconString()} {GetServerTime():HH:mm:ss}");
+        ImGui.TextUnformatted($"{SeIconChar.EorzeaTimeEn.ToIconString()} {GetEorzeaTime():HH:mm:ss}");
     }
 
-    private void DrawMarkerPopup()
-    {
-        if (ImGui.Selectable(OmniLoc.Get("Feature.MultiToolbar.WorldMarkerOverlay"),
-                config.ShowWorldMarkerOverlay, ImGuiSelectableFlags.DontClosePopups))
-        {
-            config.ShowWorldMarkerOverlay = !config.ShowWorldMarkerOverlay;
-            saveConfig();
-        }
-    }
-
-    private void DrawWorldMarkerOverlay()
-    {
-        if (!config.ShowWorldMarkerOverlay || !config.Widgets.Any(widget => widget.Enabled && widget.Type == MultiToolbarWidgetType.MarkerControl))
-        {
-            return;
-        }
-
-        var drawList = ImGui.GetForegroundDrawList();
-        var iconSize = ScaleToolbar(30f);
-        foreach (var point in Enum.GetValues<FieldMarkerPoint>())
-        {
-            if (!point.IsActive() || !DService.Instance().GameGUI.WorldToScreen(point.GetPosition(), out var screenPosition))
-            {
-                continue;
-            }
-
-            var icon = ImageHelper.GetGameIcon(WorldMarkerIconIds[(int)point]);
-            if (icon is not null)
-            {
-                var halfSize = iconSize * 0.5f;
-                drawList.AddImage(
-                    icon.Handle,
-                    screenPosition - new Vector2(halfSize),
-                    screenPosition + new Vector2(halfSize));
-            }
-
-            var label = GetWorldMarkerName(point);
-            var textSize = ImGui.CalcTextSize(label);
-            drawList.AddText(
-                screenPosition + new Vector2(-textSize.X * 0.5f, iconSize * 0.5f + ScaleToolbar(2f)),
-                ImGui.GetColorU32(OmniTheme.Tokens.Text),
-                label);
-        }
-    }
-
-    private static string GetWorldMarkerName(FieldMarkerPoint point) => (int)point switch
-    {
-        0 => "A",
-        1 => "B",
-        2 => "C",
-        3 => "D",
-        4 => "1",
-        5 => "2",
-        6 => "3",
-        7 => "4",
-        _ => point.ToString(),
-    };
 
 
     private unsafe string GetFlagLabel()
@@ -421,16 +442,6 @@ public sealed partial class MultiToolbar
         return control != null && control->IsWalking;
     }
 
-    private static unsafe uint GetFlagIconID()
-    {
-        if (!IsFlagSet())
-        {
-            return 0;
-        }
-
-        return GetFlagMarker().MapMarker.IconId;
-    }
-
     private static unsafe bool IsFlagSet()
     {
         var map = AgentMap.Instance();
@@ -471,15 +482,18 @@ public sealed partial class MultiToolbar
         (int)(seconds / 60 % 60),
         (int)(seconds % 60));
 
-    private static readonly (string Label, string Volume, string Mute, string Background)[] VolumeChannels =
+    private static readonly (string Label, string Volume, string? Mute, string? Background)[] VolumeChannels =
     [
         ("Master", "SoundMaster", "IsSndMaster", "IsSoundAlways"),
         ("BGM", "SoundBgm", "IsSndBgm", "IsSoundBgmAlways"),
         ("SFX", "SoundSe", "IsSndSe", "IsSoundSeAlways"),
         ("VOC", "SoundVoice", "IsSndVoice", "IsSoundVoiceAlways"),
-        ("AMB", "SoundEnv", "IsSndEnv", "IsSoundEnvAlways"),
         ("SYS", "SoundSystem", "IsSndSystem", "IsSoundSystemAlways"),
+        ("AMB", "SoundEnv", "IsSndEnv", "IsSoundEnvAlways"),
         ("PERF", "SoundPerform", "IsSndPerform", "IsSoundPerformAlways"),
+        ("Self", "SoundPlayer", null, null),
+        ("Party", "SoundParty", null, null),
+        ("Other", "SoundOther", null, null),
     ];
 
     [StructLayout(LayoutKind.Explicit)]

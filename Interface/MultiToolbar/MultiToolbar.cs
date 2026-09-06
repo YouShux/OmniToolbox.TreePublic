@@ -31,7 +31,7 @@ public sealed partial class MultiToolbar : ModuleBase
     // 弹窗打开期间插件缓存的最小刷新间隔
     private const double PluginCacheRefreshIntervalSeconds = 1d;
     private const float PopupWidth = 380f;
-    private const float PopupListHeight = 300f;
+    private const float PopupListHeight = 420f;
 
     private readonly MultiToolbarConfig config;
     private readonly Action saveConfig;
@@ -71,8 +71,36 @@ public sealed partial class MultiToolbar : ModuleBase
         var seenBuiltIns = new HashSet<MultiToolbarWidgetType>();
         var normalized = new List<MultiToolbarWidgetConfig>(config.Widgets.Count);
         var changed = false;
+        var commands = config.Commands.DistinctBy(command =>
+            (command.Type, command.Side, command.Enabled, command.ShowIcon, command.DisplayName,
+                command.Name, command.Command, command.GameIconID)).ToList();
+        if (commands.Count != config.Commands.Count)
+        {
+            config.Commands = commands;
+            changed = true;
+        }
+        if (!config.TextEntryDefaultsApplied)
+        {
+            foreach (var entry in config.Widgets)
+            {
+                if (entry.Type is (MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList) &&
+                    entry.GameIconID == 0 && entry.DisplayName is null)
+                {
+                    entry.ShowIcon = false;
+                }
+            }
+
+            config.TextEntryDefaultsApplied = true;
+            changed = true;
+        }
         foreach (var widget in config.Widgets)
         {
+            if (widget.Type is MultiToolbarWidgetType.ExperienceBar or MultiToolbarWidgetType.SanctuaryIndicator)
+            {
+                changed = true;
+                continue;
+            }
+
             if (widget.Type != MultiToolbarWidgetType.CustomButton &&
                 !seenBuiltIns.Add(widget.Type))
             {
@@ -170,6 +198,8 @@ public sealed partial class MultiToolbar : ModuleBase
 
     protected override void OnDisable()
     {
+        toolbarFont?.Dispose();
+        toolbarFont = null;
         ClosePopup();
         UpdateNativeDtrVisibility(false);
         RestoreDtrEntries();

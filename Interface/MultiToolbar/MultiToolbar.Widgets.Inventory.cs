@@ -6,6 +6,7 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
+using OmniToolbox.Items;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools.Interop.Game.Lumina;
@@ -67,6 +68,8 @@ public sealed partial class MultiToolbar
             return;
         }
 
+        DrawCurrentGearsetHeader(module);
+        using var spacing = ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(ScaleToolbar(8f), ScaleToolbar(4f)));
         using var table = ImRaii.Table("##multiToolbarGearsets", 3,
             ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoSavedSettings);
         if (!table)
@@ -78,9 +81,10 @@ public sealed partial class MultiToolbar
         for (var column = 0; column < 3; column++)
         {
             ImGui.TableNextColumn();
-            for (var group = 0; group < groups.Length; group++)
+            ReadOnlySpan<int> order = [0, 1, 2, 3, 4, 6, 5];
+            foreach (var group in order)
             {
-                if ((group < 3 ? 0 : group < 5 ? 1 : 2) != column)
+                if ((group < 2 ? 0 : group < 5 ? 1 : 2) != column)
                 {
                     continue;
                 }
@@ -90,7 +94,6 @@ public sealed partial class MultiToolbar
                 {
                     var gearset = module->GetGearset(id);
                     if (gearset == null || !gearset->Flags.HasFlag(RaptureGearsetModule.GearsetFlag.Exists) ||
-                        gearset->Flags.HasFlag(RaptureGearsetModule.GearsetFlag.MainHandMissing) ||
                         !LuminaGetter.TryGetRow<ClassJob>(gearset->ClassJob, out var job))
                     {
                         continue;
@@ -104,22 +107,183 @@ public sealed partial class MultiToolbar
 
                     if (!shownHeader)
                     {
-                        OmniControls.SectionLabel(groups[group]);
+                        ImGui.Spacing();
+                        var labelWidth = ImGui.CalcTextSize(groups[group]).X;
+                        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, (ImGui.GetContentRegionAvail().X - labelWidth) / 2f));
+                        ImGui.TextUnformatted(groups[group]);
                         shownHeader = true;
                     }
 
                     var name = string.IsNullOrWhiteSpace(gearset->NameString) ? LuminaWrapper.GetJobName(gearset->ClassJob) : gearset->NameString;
-                    var detail = $"{LocalPlayerState.GetClassJobLevel(gearset->ClassJob, false)} / {gearset->ItemLevel}";
-                    if (DrawInventoryMenuRow($"gearset{id}", name, LuminaWrapper.GetJobIcon(gearset->ClassJob), detail, module->CurrentGearsetIndex == id))
+                    if (DrawGearsetCard(id, name, gearset->ClassJob, gearset->ItemLevel, category, module->CurrentGearsetIndex == id) &&
+                        LocalPlayerState.SwitchGearset(id))
                     {
-                        LocalPlayerState.SwitchGearset(id);
-                        ImGui.CloseCurrentPopup();
+                        ClosePopup();
                     }
 
                     DrawGearsetContextMenu(id, category);
                 }
             }
         }
+    }
+
+    private unsafe void DrawCurrentGearsetHeader(RaptureGearsetModule* module)
+    {
+        if (module->CurrentGearsetIndex < 0)
+        {
+            return;
+        }
+
+        var current = module->GetGearset((byte)module->CurrentGearsetIndex);
+        if (current == null)
+        {
+            return;
+        }
+
+        var iconSize = ImGui.GetTextLineHeight() * 3f;
+        var width = ImGui.GetContentRegionAvail().X;
+        var origin = ImGui.GetCursorScreenPos();
+        var bisLabel = OmniLoc.Get("BestInSlotGearTitle");
+        var bisSize = OmniControls.CompactButtonSize(bisLabel);
+        ImGui.SetCursorScreenPos(origin + new Vector2(MathF.Max(0f, width - bisSize.X), 0f));
+        if (OmniControls.SmallButton($"{bisLabel}##gearsetBestInSlot", false, bisSize))
+        {
+            ExecuteCommand("/omni BIS配装");
+            ClosePopup();
+        }
+        ImGui.SetCursorScreenPos(origin);
+        if (ImageHelper.GetGameIcon(LuminaWrapper.GetJobIcon(current->ClassJob)) is { } icon)
+        {
+            ImGui.Image(icon.Handle, new Vector2(iconSize));
+        }
+        else
+        {
+            ImGui.Dummy(new Vector2(iconSize));
+        }
+
+        ImGui.SameLine();
+        using (ImRaii.Group())
+        {
+            ImGui.TextUnformatted(EllipsizeToolbarText(GetCurrentGearsetLabel(), width - iconSize - bisSize.X - ScaleToolbar(28f)));
+            ImGui.TextUnformatted($"{string.Format(OmniLoc.Get("Feature.MultiToolbar.GearsetLevel"), LocalPlayerState.GetClassJobLevel(current->ClassJob, false))} / {current->ItemLevel}");
+
+            if (DrawGearsetNativeButton("##gearsetRecommend", 13, 2, OmniLoc.Get("Feature.MultiToolbar.GearsetRecommend")))
+            {
+                AgentModule.Instance()->GetAgentByInternalId(AgentId.RecommendEquip)->Show();
+                ClosePopup();
+            }
+
+            ImGui.SameLine();
+            using (ImRaii.Disabled(ActionManager.Instance()->GetActionStatus(ActionType.GeneralAction, 25) != 0))
+            {
+                if (DrawGearsetNativeButton("##gearsetGlamour", 13, 3, OmniLoc.Get("Feature.MultiToolbar.LinkGlamour")))
+                {
+                    ActionManager.Instance()->UseAction(ActionType.GeneralAction, 25);
+                }
+            }
+
+            ImGui.SameLine();
+            if (DrawGearsetNativeButton("##gearsetUpdate", 15, 4, OmniLoc.Get("Feature.MultiToolbar.GearsetUpdate")))
+            {
+                module->UpdateGearset(module->CurrentGearsetIndex);
+            }
+
+            ImGui.SameLine();
+            if (DrawGearsetNativeButton("##gearsetCreate", 15, 8, OmniLoc.Get("Feature.MultiToolbar.GearsetCreate")))
+            {
+                var createdID = module->CreateGearset();
+                if (createdID >= 0)
+                {
+                    LocalPlayerState.SwitchGearset((byte)createdID);
+                }
+            }
+
+            ImGui.SameLine();
+            var candidates = GetRandomGearsetCandidates(module);
+            using (ImRaii.Disabled(candidates.Count == 0))
+            {
+                if (DrawGearsetNativeButton("##gearsetRandom", 15, 3, OmniLoc.Get("Feature.MultiToolbar.GearsetRandom")))
+                {
+                    LocalPlayerState.SwitchGearset(candidates[Random.Shared.Next(candidates.Count)]);
+                }
+            }
+        }
+
+        ImGui.Spacing();
+    }
+
+    private static unsafe List<byte> GetRandomGearsetCandidates(RaptureGearsetModule* module)
+    {
+        List<byte> candidates = [];
+        var current = module->GetGearset((byte)module->CurrentGearsetIndex);
+        if (current == null || !LuminaGetter.TryGetRow<ClassJob>(current->ClassJob, out var currentJob) ||
+            GetGearsetCategory(currentJob) is < 0 or > 4)
+        {
+            return candidates;
+        }
+
+        var level = LocalPlayerState.GetClassJobLevel(current->ClassJob, false);
+        for (byte id = 0; id < 100; id++)
+        {
+            var candidate = module->GetGearset(id);
+            if (id != module->CurrentGearsetIndex && candidate != null &&
+                candidate->Flags.HasFlag(RaptureGearsetModule.GearsetFlag.Exists) &&
+                !candidate->Flags.HasFlag(RaptureGearsetModule.GearsetFlag.MainHandMissing) &&
+                LuminaGetter.TryGetRow<ClassJob>(candidate->ClassJob, out var job) &&
+                GetGearsetCategory(job) is >= 0 and <= 4 &&
+                LocalPlayerState.GetClassJobLevel(candidate->ClassJob, false) == level)
+            {
+                candidates.Add(id);
+            }
+        }
+
+        return candidates;
+    }
+
+    private bool DrawGearsetCard(byte id, string name, byte classJob, short itemLevel, int category, bool selected)
+    {
+        var theme = ToolbarTheme;
+        var padding = ScaleToolbar(2f);
+        var height = ImGui.GetTextLineHeight() * 1.7f + padding * 2f;
+        var origin = ImGui.GetCursorScreenPos();
+        var width = ImGui.GetContentRegionAvail().X;
+        var clicked = ImGui.InvisibleButton($"##gearset{id}", new Vector2(width, height));
+        var hovered = ImGui.IsItemHovered();
+        var tint = category switch
+        {
+            0 => theme.Primary,
+            1 => theme.Success,
+            2 or 3 or 4 => theme.Error,
+            5 => theme.Secondary,
+            _ => theme.Warning,
+        };
+        var background = Vector4.Lerp(theme.Surface, tint, selected ? 0.5f : hovered ? 0.35f : 0.18f);
+        var drawList = ImGui.GetWindowDrawList();
+        var radius = MathF.Min(ScaleToolbar(4f), theme.ButtonRadius);
+        drawList.AddRectFilled(origin, origin + new Vector2(width, height), ImGui.GetColorU32(background), radius);
+        drawList.AddRect(origin, origin + new Vector2(width, height), ImGui.GetColorU32(selected ? theme.Accent : theme.Border), radius);
+        var iconSize = height - padding * 2f;
+        if (ImageHelper.GetGameIcon(LuminaWrapper.GetJobIcon(classJob)) is { } icon)
+        {
+            drawList.AddImage(icon.Handle, origin + new Vector2(padding), origin + new Vector2(padding + iconSize));
+        }
+
+        var left = origin.X + iconSize + padding * 2f;
+        var value = itemLevel.ToString();
+        var valueWidth = ImGui.CalcTextSize(value).X;
+        var valueX = origin.X + width - valueWidth - padding;
+        var textColor = ImGui.GetColorU32(theme.Text);
+        drawList.AddText(new Vector2(left, origin.Y + padding), textColor,
+            EllipsizeToolbarText(name, MathF.Max(0f, valueX - left - padding)));
+        var level = string.Format(OmniLoc.Get("Feature.MultiToolbar.GearsetLevel"), LocalPlayerState.GetClassJobLevel(classJob, false));
+        drawList.AddText(ImGui.GetFont(), ImGui.GetFontSize() * 0.7f, new Vector2(left, origin.Y + height - ImGui.GetTextLineHeight() * 0.7f - padding), ImGui.GetColorU32(theme.Warning), level);
+        drawList.AddText(new Vector2(valueX, origin.Y + (height - ImGui.GetTextLineHeight()) / 2f), textColor, value);
+        if (hovered)
+        {
+            ImGui.SetTooltip(name);
+        }
+
+        return clicked;
     }
 
     private static int GetGearsetCategory(ClassJob job) => job.ClassJobCategory.RowId switch
@@ -171,7 +335,6 @@ public sealed partial class MultiToolbar
         {
             var candidate = module->GetGearset(candidateID);
             if (candidate == null || !candidate->Flags.HasFlag(RaptureGearsetModule.GearsetFlag.Exists) ||
-                candidate->Flags.HasFlag(RaptureGearsetModule.GearsetFlag.MainHandMissing) ||
                 !LuminaGetter.TryGetRow<ClassJob>(candidate->ClassJob, out var job) || GetGearsetCategory(job) != category)
             {
                 continue;
@@ -218,7 +381,19 @@ public sealed partial class MultiToolbar
             return;
         }
 
-        OmniControls.SectionLabel(OmniLoc.Get("Feature.MultiToolbar.Equipment"));
+        var headerRight = ImGui.GetCursorScreenPos().X + ImGui.GetContentRegionAvail().X;
+        var bisLabel = OmniLoc.Get("BestInSlotGearTitle");
+        var bisSize = OmniControls.CompactButtonSize(bisLabel);
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.Equipment"));
+        ImGui.SameLine();
+        ImGui.SetCursorScreenPos(new Vector2(headerRight - bisSize.X, ImGui.GetCursorScreenPos().Y));
+        if (OmniControls.SmallButton($"{bisLabel}##equipmentBestInSlot", false, bisSize))
+        {
+            ExecuteCommand("/omni BIS配装");
+            ClosePopup();
+        }
+
         Span<int> slots = stackalloc int[container->Size];
         var count = 0;
         for (var index = 0; index < container->Size; index++)
@@ -303,12 +478,6 @@ public sealed partial class MultiToolbar
 
     private unsafe void DrawRetainerPopup()
     {
-        if (!CanReadRetainers())
-        {
-            ImGui.TextDisabled(OmniLoc.Get("Feature.MultiToolbar.RetainersUnavailable"));
-            return;
-        }
-
         var manager = RetainerManager.Instance();
         if (manager == null || !manager->IsReady)
         {
@@ -331,7 +500,13 @@ public sealed partial class MultiToolbar
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerInventory"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(44f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerMarket"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(44f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerVenture"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(80f));
-        ImGui.TableHeadersRow();
+        OmniControls.BeginTableHeaderRow();
+        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerJob"));
+        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerName"));
+        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerGil"));
+        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerInventory"));
+        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerMarket"));
+        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerVenture"));
         var found = false;
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         for (uint index = 0; index < 10; index++)
@@ -436,14 +611,15 @@ public sealed partial class MultiToolbar
             amount += $" ({InventoryManager.Instance()->GetWeeklyAcquiredTomestoneCount():N0} / {InventoryManager.GetLimitedTomestoneWeeklyLimit():N0})";
         }
 
-        if (DrawInventoryMenuRow($"currency{itemID}", item.Name.ExtractText(), (uint)item.Icon, amount, config.TrackedCurrencyID == itemID))
+        if (DrawInventoryMenuRow($"currency{itemID}", item.Name.ExtractText(), (uint)item.Icon, amount,
+                config.TrackedCurrencyID == itemID, drawFrame: !ItemDataService.IsCurrency(item)))
         {
             config.TrackedCurrencyID = config.TrackedCurrencyID == itemID ? 0 : itemID;
             saveConfig();
         }
     }
 
-    private bool DrawInventoryMenuRow(string id, string label, uint iconID, string value, bool selected = false)
+    private bool DrawInventoryMenuRow(string id, string label, uint iconID, string value, bool selected = false, bool drawFrame = true)
     {
         using var scope = ImRaii.PushId(id);
         var height = MathF.Max(ImGui.GetFrameHeight(), GetPopupRowIconSize());
@@ -452,11 +628,11 @@ public sealed partial class MultiToolbar
         var clicked = ImGui.Selectable("##row", selected, ImGuiSelectableFlags.DontClosePopups, new Vector2(width, height));
         var drawList = ImGui.GetWindowDrawList();
         var left = origin.X;
-        if (ImageHelper.GetGameIcon(iconID) is { } texture)
+        if (iconID != 0)
         {
             var iconSize = GetPopupRowIconSize();
-            drawList.AddImage(texture.Handle, new Vector2(left, origin.Y + (height - iconSize) / 2),
-                new Vector2(left + iconSize, origin.Y + (height + iconSize) / 2));
+            FramedGameIcon.Draw(drawList, iconID, new Vector2(left, origin.Y + (height - iconSize) / 2),
+                new Vector2(iconSize), drawFrame: drawFrame);
             left += iconSize + ImGui.GetStyle().ItemInnerSpacing.X;
         }
 

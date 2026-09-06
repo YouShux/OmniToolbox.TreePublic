@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Linq;
 using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -64,13 +63,7 @@ public sealed partial class MultiToolbar
 
     private void DrawBattleEffectsPopup()
     {
-        using (ImRaii.PushFont(UiBuilder.IconFont))
-        {
-            ImGui.TextUnformatted(FontAwesomeIcon.WandMagicSparkles.ToIconString());
-        }
-
-        ImGui.SameLine(0f, ScaleToolbar(8f));
-        ImGui.TextUnformatted("战斗特效强度");
+        ImGui.TextUnformatted("特效强度");
         using var table = ImRaii.Table(
             "##multiToolbarBattleEffects",
             2,
@@ -81,9 +74,9 @@ public sealed partial class MultiToolbar
             return;
         }
 
-        // Keep the same proportions as Umbra: 80px label, 15px gap, 150px slider and 70px value.
-        ImGui.TableSetupColumn("##multiToolbarBattleEffectsLabel", ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(80f));
-        ImGui.TableSetupColumn("##multiToolbarBattleEffectsValue", ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(235f));
+        ImGui.TableSetupColumn("##multiToolbarBattleEffectsLabel", ImGuiTableColumnFlags.WidthFixed,
+            MathF.Max(ImGui.CalcTextSize("其他玩家特效").X, ImGui.CalcTextSize("PvP 敌方特效").X) + ScaleToolbar(8f));
+        ImGui.TableSetupColumn("##multiToolbarBattleEffectsValue", ImGuiTableColumnFlags.WidthStretch);
 
         DrawGameConfigSlider("自身特效", "BattleEffectSelf", ["完全", "简单", "不显示"], true);
         DrawGameConfigSlider("队友特效", "BattleEffectParty", ["完全", "简单", "不显示"], true);
@@ -92,7 +85,7 @@ public sealed partial class MultiToolbar
 
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        ImGui.TextDisabled("召唤兽尺寸");
+        ImGui.TextUnformatted("召唤兽尺寸");
         ImGui.TableNextColumn();
         ImGui.Dummy(Vector2.Zero);
         foreach (var (petName, key) in new[]
@@ -119,16 +112,16 @@ public sealed partial class MultiToolbar
             : 0;
         var displayed = reverse && values.Length == 3 ? 2 - raw : raw;
         ImGui.TableNextRow();
-        var trackWidth = ScaleToolbar(150f);
-        var valueWidth = ScaleToolbar(70f);
+        var valueWidth = ImGui.CalcTextSize("不显示").X;
         var rowHeight = ScaleToolbar(28f);
         ImGui.PushID($"multiToolbarSocial_{configKey}");
         ImGui.AlignTextToFramePadding();
         ImGui.TableSetColumnIndex(0);
         var labelSize = ImGui.CalcTextSize(label);
-        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, ScaleToolbar(80f) - labelSize.X));
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, ImGui.GetContentRegionAvail().X - labelSize.X));
         ImGui.TextUnformatted(label);
         ImGui.TableNextColumn();
+        var trackWidth = MathF.Max(ScaleToolbar(60f), ImGui.GetContentRegionAvail().X - valueWidth - ScaleToolbar(15f));
         var trackPosition = ImGui.GetCursorScreenPos();
         ImGui.InvisibleButton("##track", new Vector2(trackWidth, rowHeight));
         var trackMin = trackPosition + new Vector2(0f, ScaleToolbar(6f));
@@ -317,7 +310,7 @@ public sealed partial class MultiToolbar
         var cardEnd = cardPosition + cardSize;
         var radius = ScaleToolbar(OmniTheme.Tokens.ButtonRadius);
         var background = hovered || config.TrackedSocietyID == society.Tribe.RowId
-            ? WithAlpha(OmniTheme.Tokens.Primary, OmniTheme.Tokens.HighlightStrength * 5f)
+            ? OmniTheme.HoverBackground
             : OmniTheme.Tokens.Surface;
         drawList.AddRectFilled(cardPosition, cardEnd, OmniTheme.Color(background), radius);
         drawList.AddRect(cardPosition, cardEnd, OmniTheme.Color(OmniTheme.Tokens.Border), radius, ImDrawFlags.None, ScaleToolbar(OmniTheme.Tokens.BorderThickness));
@@ -336,7 +329,7 @@ public sealed partial class MultiToolbar
         var mutedColor = ImGui.GetColorU32(WithAlpha(OmniTheme.Tokens.Text, 0.68f));
         var lineHeight = ImGui.GetTextLineHeight();
         drawList.PushClipRect(new Vector2(bodyX, cardPosition.Y), new Vector2(bodyX + bodyWidth, cardEnd.Y), true);
-        drawList.AddText(new Vector2(bodyX, cardPosition.Y + ScaleToolbar(5f)), textColor, society.Name);
+        drawList.AddText(new Vector2(bodyX, cardPosition.Y + ScaleToolbar(5f)), textColor, EllipsizeToolbarText(society.Name, bodyWidth));
         var (rank, rankName, needed) = GetSocietyRank(society.Tribe, society.Rank, society.Needed);
         var rankText = $"{rankName} ({rank}/{Math.Max(rank, society.Tribe.MaxRank)})";
         var progress = needed == 0 ? 1f : Math.Clamp(society.Current / (float)needed, 0f, 1f);
@@ -450,7 +443,7 @@ public sealed partial class MultiToolbar
                 if (hovered || selected)
                 {
                     var rowBackground = selected
-                        ? WithAlpha(OmniTheme.Tokens.Primary, OmniTheme.Tokens.HighlightStrength * 5f)
+                        ? OmniTheme.HoverBackground
                         : WithAlpha(OmniTheme.Tokens.Surface, 0.85f);
                     drawList.AddRectFilled(
                         rowPosition,

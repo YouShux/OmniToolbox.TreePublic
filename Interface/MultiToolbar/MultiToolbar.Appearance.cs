@@ -25,10 +25,8 @@ public sealed partial class MultiToolbar
 
     private bool DrawAppearanceSettings()
     {
-        var custom = config.UseCustomColors;
-        var changed = OmniControls.Checkbox(OmniLoc.Get("Feature.MultiToolbar.CustomColors"), ref custom);
-        config.UseCustomColors = custom;
-        if (!custom)
+        var changed = false;
+        if (!config.UseCustomColors)
         {
             return changed;
         }

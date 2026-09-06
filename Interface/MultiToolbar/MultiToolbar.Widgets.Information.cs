@@ -1,4 +1,5 @@
 using Dalamud.Interface;
+using Dalamud.Game.Text;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
@@ -22,9 +23,9 @@ public sealed partial class MultiToolbar
             case MultiToolbarWidgetType.Clock:
                 return config.ClockTimeSource switch
                 {
-                    1 => $"LT {DateTime.Now:HH:mm}",
-                    2 => $"ST {GetServerTime():HH:mm}",
-                    _ => $"ET {GetEorzeaTime():HH:mm}",
+                    1 => $"{SeIconChar.LocalTimeEn.ToIconString()} {DateTime.Now:HH:mm}",
+                    2 => $"{SeIconChar.ServerTimeEn.ToIconString()} {GetServerTime():HH:mm}",
+                    _ => $"{SeIconChar.EorzeaTimeEn.ToIconString()} {GetEorzeaTime():HH:mm}",
                 };
             case MultiToolbarWidgetType.FpsCounter:
                 return $"{(int)Framework.Instance()->FrameRate} FPS";
@@ -32,10 +33,7 @@ public sealed partial class MultiToolbar
                 var coords = GetPlayerMapCoordinates();
                 return $"{coords.X:F1} / {coords.Y:F1}";
             case MultiToolbarWidgetType.Location:
-                var map = GameState.MapData;
-                var name = map.PlaceName.Value.Name.ExtractText();
-                var district = map.PlaceNameSub.Value.Name.ExtractText();
-                return string.IsNullOrWhiteSpace(district) ? name : $"{name}\n{district}";
+                return GameState.MapData.PlaceName.Value.Name.ExtractText();
             case MultiToolbarWidgetType.WorldName:
                 return DService.Instance().ObjectTable.LocalPlayer?.CurrentWorld.Value.Name.ExtractText() ?? string.Empty;
             case MultiToolbarWidgetType.InventorySpace:
