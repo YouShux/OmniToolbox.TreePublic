@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Reflection;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit;
@@ -8,6 +7,7 @@ using KamiToolKit.ContextMenu;
 using KamiToolKit.Nodes;
 using KamiToolKit.Premade.Node.Simple;
 using Lumina.Text.ReadOnly;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
@@ -21,10 +21,44 @@ internal sealed class MoreGearSetListRow
     public uint StatusColor { get; init; }
 }
 
+internal sealed class MoreGearSetListItemHost
+{
+    public Action<MoreGearSetListEntry>? OnRightClick;
+    public Action<MoreGearSetListEntry>? OnActivate;
+    public Action<MoreGearSetListEntry>? OnToggle;
+    public Func<MoreGearSetListEntry, bool>? IsMarked;
+    public Func<MoreGearSetListEntry?>? GetCurrent;
+    public bool BatchMode;
+    public MoreGearSetListEntry? LastLeftEntry;
+    public long LastLeftTick;
+
+    public void ResetClick()
+    {
+        LastLeftEntry = null;
+        LastLeftTick  = 0;
+    }
+
+    public void Clear()
+    {
+        OnRightClick = null;
+        OnActivate   = null;
+        OnToggle     = null;
+        IsMarked     = null;
+        GetCurrent   = null;
+        BatchMode    = false;
+        ResetClick();
+    }
+}
+
 internal sealed class MoreGearSetListNativeUI : NativeAddon
 {
     private const float ItemSpacing = 0f;
-    private const float MoveButtonSize = 18f;
+
+    private static float MoveButtonSize => OmniTheme.Scale(18f);
+    private static float RowHeight => OmniTheme.Scale(24f);
+    private static float ButtonHeight => OmniTheme.Scale(28f);
+    private static float JobWidth => OmniTheme.Scale(88f);
+    private static float Gap => OmniTheme.Scale(6f);
 
     private readonly Action onSave;
     private readonly Action<MoreGearSetListEntry> onUpdate;
@@ -34,6 +68,7 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
     private readonly Action onFilterChanged;
     private readonly MoreGearSetList feature;
     private readonly HashSet<MoreGearSetListEntry> batchPicks = [];
+    private readonly MoreGearSetListItemHost itemHost = new();
 
     private List<MoreGearSetListRow> rows = [];
     private MoreGearSetListEntry? selected;
@@ -61,10 +96,6 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
     private bool batchMode;
     private int followOffset;
     private bool pendingFollow;
-    private static FieldInfo? listScrollField;
-    private static FieldInfo? listSelectedField;
-    private static MethodInfo? listPopulate;
-    private static MethodInfo? listRecalculate;
 
     [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
     public MoreGearSetListNativeUI(
@@ -79,8 +110,8 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         InternalName          = "OmniMoreGearSetList";
         Title                 = "套装列表";
         Subtitle              = string.Empty;
-        Size                  = new(268f, 480f);
-        ContentPadding        = new(8f, 8f);
+        Size                  = new(OmniTheme.Scale(268f), OmniTheme.Scale(480f));
+        ContentPadding        = new(OmniTheme.Scale(8f), OmniTheme.Scale(8f));
         RememberClosePosition = false;
         CreateWindowNode      = static () => new WindowNode { ShowCloseButton = true };
         RespectCloseAll       = true;
@@ -185,11 +216,12 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         downButton.AttachNode(this);
 
         itemMenu = new();
-        MoreGearSetListItemNode.OnRightClick = ShowContextMenu;
-        MoreGearSetListItemNode.OnActivate   = onApply;
-        MoreGearSetListItemNode.OnToggle     = TogglePick;
-        MoreGearSetListItemNode.IsMarked    = batchPicks.Contains;
-        MoreGearSetListItemNode.GetCurrent  = () => selected;
+        MoreGearSetListItemNode.Host = itemHost;
+        itemHost.OnRightClick = ShowContextMenu;
+        itemHost.OnActivate   = onApply;
+        itemHost.OnToggle     = TogglePick;
+        itemHost.IsMarked     = batchPicks.Contains;
+        itemHost.GetCurrent   = () => selected;
         ResizeContent();
         ApplyData();
     }
@@ -197,7 +229,6 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
     protected override unsafe void OnUpdate(AtkUnitBase* addon)
     {
         ResizeContent();
-        SyncListSelection();
         if (pendingFollow && FollowSelected())
             pendingFollow = false;
 
@@ -250,13 +281,8 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         batchMode     = false;
         pendingFollow = false;
         batchPicks.Clear();
-        MoreGearSetListItemNode.BatchMode    = false;
-        MoreGearSetListItemNode.OnRightClick = null;
-        MoreGearSetListItemNode.OnActivate   = null;
-        MoreGearSetListItemNode.OnToggle     = null;
-        MoreGearSetListItemNode.IsMarked     = null;
-        MoreGearSetListItemNode.GetCurrent   = null;
-        MoreGearSetListItemNode.ResetClick();
+        itemHost.Clear();
+        MoreGearSetListItemNode.Host = null;
     }
 
     public void UpdateData(List<MoreGearSetListRow> newRows, bool isLoggedIn, string emptyMessage)
@@ -319,8 +345,6 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         {
             listNode.OptionsList = rows;
         }
-
-        SyncListSelection();
 
         if (emptyNode is not null)
         {
@@ -418,71 +442,73 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         var y = ContentStartPosition.Y;
         var width = ContentSize.X;
 
-        const float jobWidth = 88f;
-        const float gap = 6f;
+        var jobWidth = JobWidth;
+        var gap = Gap;
+        var rowHeight = RowHeight;
         if (jobDropDown is not null)
         {
             jobDropDown.Position = new(x, y);
-            jobDropDown.Size     = new(jobWidth, 24f);
+            jobDropDown.Size     = new(jobWidth, rowHeight);
         }
 
         if (searchNode is not null)
         {
             searchNode.Position = new(x + jobWidth + gap, y);
-            searchNode.Size     = new(MathF.Max(72f, width - jobWidth - gap), 24f);
+            searchNode.Size     = new(MathF.Max(OmniTheme.Scale(72f), width - jobWidth - gap), rowHeight);
         }
 
-        y += 32f;
-        var toolWidth = MathF.Max(60f, (width - gap) / 2f);
+        y += OmniTheme.Scale(32f);
+        var toolWidth = MathF.Max(OmniTheme.Scale(60f), (width - gap) / 2f);
         if (importButton is not null)
         {
             importButton.Position  = new(x, y);
-            importButton.Size      = new(toolWidth, 24f);
+            importButton.Size      = new(toolWidth, rowHeight);
             importButton.IsVisible = !batchMode;
         }
 
         if (batchButton is not null)
         {
             batchButton.Position = new(batchMode ? x : x + toolWidth + gap, y);
-            batchButton.Size     = new(toolWidth, 24f);
+            batchButton.Size     = new(toolWidth, rowHeight);
         }
 
         if (confirmBatchButton is not null)
         {
             confirmBatchButton.Position  = new(x + toolWidth + gap, y);
-            confirmBatchButton.Size      = new(toolWidth, 24f);
+            confirmBatchButton.Size      = new(toolWidth, rowHeight);
             confirmBatchButton.IsVisible = batchMode;
         }
 
-        y += 32f;
-        var listHeight = MathF.Max(60f, ContentSize.Y - 102f);
+        y += OmniTheme.Scale(32f);
+        var listHeight = MathF.Max(OmniTheme.Scale(60f), ContentSize.Y - OmniTheme.Scale(102f));
         if (emptyNode is not null)
         {
-            emptyNode.Position = new(x, y + 8f);
-            emptyNode.Size     = new(width, 56f);
+            emptyNode.Position = new(x, y + OmniTheme.Scale(8f));
+            emptyNode.Size     = new(width, OmniTheme.Scale(56f));
         }
 
         if (listNode is not null)
         {
-            listNode.Position = new(x + 2f, y);
-            listNode.Size     = new(width - 4f, listHeight);
+            listNode.Position = new(x + OmniTheme.Scale(2f), y);
+            listNode.Size     = new(width - OmniTheme.Scale(4f), listHeight);
         }
 
-        var moveX = x + width - MoveButtonSize;
+        var moveSize = MoveButtonSize;
+        var moveX = x + width - moveSize;
         if (upButton is not null)
         {
             upButton.Position = new(moveX, y);
-            upButton.Size     = new(MoveButtonSize, MoveButtonSize);
+            upButton.Size     = new(moveSize, moveSize);
         }
 
         if (downButton is not null)
         {
-            downButton.Position = new(moveX, y + MoveButtonSize + 2f);
-            downButton.Size     = new(MoveButtonSize, MoveButtonSize);
+            downButton.Position = new(moveX, y + moveSize + OmniTheme.Scale(2f));
+            downButton.Size     = new(moveSize, moveSize);
         }
 
-        var buttonY = y + listHeight + 8f;
-        var buttonWidth = MathF.Max(60f, (width - gap * 2f) / 3f);
+        var buttonY = y + listHeight + OmniTheme.Scale(8f);
+        var buttonWidth = MathF.Max(OmniTheme.Scale(60f), (width - gap * 2f) / 3f);
         PositionButton(saveButton, x, buttonY, buttonWidth);
         PositionButton(updateButton, x + buttonWidth + gap, buttonY, buttonWidth);
         PositionButton(deleteButton, x + (buttonWidth + gap) * 2f, buttonY, buttonWidth);
@@ -533,10 +559,6 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
 
     private int GetListScroll()
     {
-        EnsureListScrollAccess();
-        if (listNode is not null && listScrollField?.GetValue(listNode) is int position)
-            return position;
-
         var itemHeight = MoreGearSetListItemNode.ItemHeight + ItemSpacing;
         if (listNode is null || itemHeight <= 0f)
             return 0;
@@ -549,57 +571,14 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         if (listNode is null)
             return;
 
-        EnsureListScrollAccess();
-        SyncListSelection();
-        listScrollField?.SetValue(listNode, position);
-        listRecalculate?.Invoke(listNode, null);
-        listPopulate?.Invoke(listNode, null);
-        if (listScrollField is not null)
-            return;
-
         var itemHeight = MoreGearSetListItemNode.ItemHeight + ItemSpacing;
         listNode.ScrollBarNode.ScrollPosition = (int)(position * itemHeight);
-    }
-
-    private void SyncListSelection()
-    {
-        if (listNode is null)
-            return;
-
-        EnsureListScrollAccess();
-        MoreGearSetListRow? row = null;
-        if (selected is not null)
-        {
-            foreach (var item in rows)
-            {
-                if (ReferenceEquals(item.Entry, selected))
-                {
-                    row = item;
-                    break;
-                }
-            }
-        }
-
-        listSelectedField?.SetValue(listNode, row);
-    }
-
-    private static void EnsureListScrollAccess()
-    {
-        if (listScrollField is not null)
-            return;
-
-        var type = typeof(ListNode<MoreGearSetListRow, MoreGearSetListItemNode>);
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
-        listScrollField   = type.GetField("scrollPosition", flags);
-        listSelectedField = type.GetField("selectedItem", flags);
-        listPopulate      = type.GetMethod("PopulateNodes", flags);
-        listRecalculate   = type.GetMethod("RecalculateScroll", flags);
     }
 
     private void ToggleBatchMode()
     {
         batchMode = !batchMode;
-        MoreGearSetListItemNode.BatchMode = batchMode;
+        itemHost.BatchMode = batchMode;
         if (!batchMode)
         {
             batchPicks.Clear();
@@ -630,7 +609,7 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         AtkUnitBase* addon = this;
         if (addon != null)
         {
-            confirmUI.SetWindowPosition(new(addon->X + 28f, addon->Y + 72f));
+            confirmUI.SetWindowPosition(new(addon->X + OmniTheme.Scale(28f), addon->Y + OmniTheme.Scale(72f)));
         }
 
         confirmUI.Show(batchPicks.Count);
@@ -646,7 +625,7 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         feature.TryDeleteMany([.. batchPicks]);
         batchPicks.Clear();
         batchMode = false;
-        MoreGearSetListItemNode.BatchMode = false;
+        itemHost.BatchMode = false;
         selected = null;
         ApplyButtons();
     }
@@ -696,7 +675,7 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         AtkUnitBase* addon = this;
         if (addon != null)
         {
-            renameUI.SetWindowPosition(new(addon->X + 28f, addon->Y + 72f));
+            renameUI.SetWindowPosition(new(addon->X + OmniTheme.Scale(28f), addon->Y + OmniTheme.Scale(72f)));
         }
 
         renameUI.Show(entry);
@@ -721,7 +700,7 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         }
 
         button.Position = new(x, y);
-        button.Size     = new(width, 28f);
+        button.Size     = new(width, ButtonHeight);
     }
 }
 
@@ -739,8 +718,8 @@ internal sealed class MoreGearSetListRenameUI : NativeAddon
         InternalName          = "OmniMoreGearSetRename";
         Title                 = "重命名";
         Subtitle              = string.Empty;
-        Size                  = new(280f, 128f);
-        ContentPadding        = new(8f, 8f);
+        Size                  = new(OmniTheme.Scale(280f), OmniTheme.Scale(128f));
+        ContentPadding        = new(OmniTheme.Scale(8f), OmniTheme.Scale(8f));
         RememberClosePosition = false;
         CreateWindowNode      = static () => new WindowNode { ShowCloseButton = true };
         RespectCloseAll       = false;
@@ -821,30 +800,22 @@ internal sealed class MoreGearSetListRenameUI : NativeAddon
         if (nameInput is not null)
         {
             nameInput.Position = new(x, y);
-            nameInput.Size     = new(width, 24f);
+            nameInput.Size     = new(width, OmniTheme.Scale(24f));
         }
 
         if (confirmButton is not null)
         {
-            confirmButton.Position = new(x, y + 32f);
-            confirmButton.Size     = new(width, 28f);
+            confirmButton.Position = new(x, y + OmniTheme.Scale(32f));
+            confirmButton.Size     = new(width, OmniTheme.Scale(28f));
         }
     }
 }
 
 internal sealed unsafe class MoreGearSetListItemNode : ListItemNode<MoreGearSetListRow>, IListItemNode
 {
-    public static float ItemHeight => 28f;
+    public static float ItemHeight => OmniTheme.Scale(28f);
 
-    internal static Action<MoreGearSetListEntry>? OnRightClick;
-    internal static Action<MoreGearSetListEntry>? OnActivate;
-    internal static Action<MoreGearSetListEntry>? OnToggle;
-    internal static Func<MoreGearSetListEntry, bool>? IsMarked;
-    internal static Func<MoreGearSetListEntry?>? GetCurrent;
-    internal static bool BatchMode;
-
-    private static MoreGearSetListEntry? lastLeftEntry;
-    private static long lastLeftTick;
+    internal static MoreGearSetListItemHost? Host;
 
     private readonly CheckboxNode checkNode;
     private readonly TextNode numberNode;
@@ -862,7 +833,7 @@ internal sealed unsafe class MoreGearSetListItemNode : ListItemNode<MoreGearSetL
             {
                 if (ItemData?.Entry is { } picked)
                 {
-                    OnToggle?.Invoke(picked);
+                    Host?.OnToggle?.Invoke(picked);
                 }
             }
         };
@@ -900,54 +871,47 @@ internal sealed unsafe class MoreGearSetListItemNode : ListItemNode<MoreGearSetL
         CollisionNode.AddEvent(AtkEventType.MouseUp, OnMouseUp);
     }
 
-    internal static void ResetClick()
-    {
-        lastLeftEntry = null;
-        lastLeftTick  = 0;
-    }
-
     private void OnMouseDown(AtkEventListener* thisPtr, AtkEventType eventType, int eventParam, AtkEvent* atkEvent, AtkEventData* atkEventData)
     {
-        if (atkEventData == null || ItemData?.Entry is not { } entry)
+        if (atkEventData == null || ItemData?.Entry is not { } entry || Host is not { } host)
         {
             return;
         }
 
-        if (BatchMode)
+        if (host.BatchMode)
         {
             if (atkEventData->MouseData.ButtonId == 0)
             {
-                OnToggle?.Invoke(entry);
+                host.OnToggle?.Invoke(entry);
             }
 
-            ResetClick();
+            host.ResetClick();
             return;
         }
 
         if (atkEventData->MouseData.ButtonId == 1)
         {
-            ResetClick();
-            OnRightClick?.Invoke(entry);
+            host.ResetClick();
+            host.OnRightClick?.Invoke(entry);
             return;
         }
 
         if (atkEventData->MouseData.ButtonId != 0)
         {
-            ResetClick();
+            host.ResetClick();
             return;
         }
 
         var now = Environment.TickCount64;
-        if (lastLeftEntry == entry && now - lastLeftTick < 400)
+        if (host.LastLeftEntry == entry && now - host.LastLeftTick < 400)
         {
-            lastLeftEntry = null;
-            lastLeftTick  = 0;
-            OnActivate?.Invoke(entry);
+            host.ResetClick();
+            host.OnActivate?.Invoke(entry);
             return;
         }
 
-        lastLeftEntry = entry;
-        lastLeftTick  = now;
+        host.LastLeftEntry = entry;
+        host.LastLeftTick  = now;
     }
 
     private void OnMouseUp(AtkEventListener* thisPtr, AtkEventType eventType, int eventParam, AtkEvent* atkEvent, AtkEventData* atkEventData)
@@ -957,27 +921,28 @@ internal sealed unsafe class MoreGearSetListItemNode : ListItemNode<MoreGearSetL
             return;
         }
 
-        ResetClick();
+        Host?.ResetClick();
     }
 
     protected override void OnSizeChanged()
     {
         base.OnSizeChanged();
-        const float iconSize = 24f;
-        const float checkWidth = 20f;
-        const float numberWidth = 32f;
-        const float statusWidth = 36f;
-        var checkPad = BatchMode ? checkWidth + 2f : 0f;
-        checkNode.IsVisible = BatchMode;
-        checkNode.Position  = new(0f, 2f);
-        checkNode.Size      = new(checkWidth, Height - 4f);
+        var iconSize = OmniTheme.Scale(24f);
+        var checkWidth = OmniTheme.Scale(20f);
+        var numberWidth = OmniTheme.Scale(32f);
+        var statusWidth = OmniTheme.Scale(36f);
+        var batchMode = Host?.BatchMode ?? false;
+        var checkPad = batchMode ? checkWidth + OmniTheme.Scale(2f) : 0f;
+        checkNode.IsVisible = batchMode;
+        checkNode.Position  = new(0f, OmniTheme.Scale(2f));
+        checkNode.Size      = new(checkWidth, Height - OmniTheme.Scale(4f));
         numberNode.Position = new(checkPad, 0f);
         numberNode.Size     = new(numberWidth, Height);
-        iconNode.Position   = new(checkPad + numberWidth + 2f, (Height - iconSize) / 2f);
+        iconNode.Position   = new(checkPad + numberWidth + OmniTheme.Scale(2f), (Height - iconSize) / 2f);
         iconNode.Size       = new(iconSize, iconSize);
-        var nameX = checkPad + numberWidth + iconSize + 8f;
+        var nameX = checkPad + numberWidth + iconSize + OmniTheme.Scale(8f);
         nameNode.Position   = new(nameX, 0f);
-        nameNode.Size       = new(MathF.Max(20f, Width - nameX - statusWidth - 6f), Height);
+        nameNode.Size       = new(MathF.Max(OmniTheme.Scale(20f), Width - nameX - statusWidth - OmniTheme.Scale(6f)), Height);
         statusNode.Position = new(MathF.Max(nameX, Width - statusWidth), 0f);
         statusNode.Size     = new(statusWidth, Height);
     }
@@ -990,11 +955,12 @@ internal sealed unsafe class MoreGearSetListItemNode : ListItemNode<MoreGearSetL
         nameNode.String      = itemData.Name;
         statusNode.String    = itemData.Status;
         statusNode.TextColor = ColorHelper.GetColor(itemData.StatusColor);
-        var marked = BatchMode && (IsMarked?.Invoke(itemData.Entry) ?? false);
+        var host = Host;
+        var marked = host is { BatchMode: true } && (host.IsMarked?.Invoke(itemData.Entry) ?? false);
         checkNode.IsChecked  = marked;
-        IsSelected           = BatchMode
+        IsSelected           = host is { BatchMode: true }
             ? marked
-            : ReferenceEquals(itemData.Entry, GetCurrent?.Invoke());
+            : ReferenceEquals(itemData.Entry, host?.GetCurrent?.Invoke());
         OnSizeChanged();
     }
 
@@ -1005,12 +971,13 @@ internal sealed unsafe class MoreGearSetListItemNode : ListItemNode<MoreGearSetL
             return;
         }
 
-        var marked = BatchMode && (IsMarked?.Invoke(entry) ?? false);
+        var host = Host;
+        var marked = host is { BatchMode: true } && (host.IsMarked?.Invoke(entry) ?? false);
         checkNode.IsChecked = marked;
-        checkNode.IsVisible = BatchMode;
-        IsSelected = BatchMode
+        checkNode.IsVisible = host is { BatchMode: true };
+        IsSelected = host is { BatchMode: true }
             ? marked
-            : ReferenceEquals(entry, GetCurrent?.Invoke());
+            : ReferenceEquals(entry, host?.GetCurrent?.Invoke());
     }
 }
 
@@ -1028,8 +995,8 @@ internal sealed class MoreGearSetListConfirmUI : NativeAddon
         InternalName          = "OmniMoreGearSetConfirm";
         Title                 = "确认删除";
         Subtitle              = string.Empty;
-        Size                  = new(280f, 128f);
-        ContentPadding        = new(8f, 8f);
+        Size                  = new(OmniTheme.Scale(280f), OmniTheme.Scale(128f));
+        ContentPadding        = new(OmniTheme.Scale(8f), OmniTheme.Scale(8f));
         RememberClosePosition = false;
         CreateWindowNode      = static () => new WindowNode { ShowCloseButton = true };
         RespectCloseAll       = false;
@@ -1105,20 +1072,20 @@ internal sealed class MoreGearSetListConfirmUI : NativeAddon
         if (messageNode is not null)
         {
             messageNode.Position = new(x, y);
-            messageNode.Size     = new(width, 36f);
+            messageNode.Size     = new(width, OmniTheme.Scale(36f));
         }
 
-        var buttonWidth = MathF.Max(60f, (width - 6f) / 2f);
+        var buttonWidth = MathF.Max(OmniTheme.Scale(60f), (width - OmniTheme.Scale(6f)) / 2f);
         if (cancelButton is not null)
         {
-            cancelButton.Position = new(x, y + 44f);
-            cancelButton.Size     = new(buttonWidth, 28f);
+            cancelButton.Position = new(x, y + OmniTheme.Scale(44f));
+            cancelButton.Size     = new(buttonWidth, OmniTheme.Scale(28f));
         }
 
         if (confirmButton is not null)
         {
-            confirmButton.Position = new(x + buttonWidth + 6f, y + 44f);
-            confirmButton.Size     = new(buttonWidth, 28f);
+            confirmButton.Position = new(x + buttonWidth + OmniTheme.Scale(6f), y + OmniTheme.Scale(44f));
+            confirmButton.Size     = new(buttonWidth, OmniTheme.Scale(28f));
         }
     }
 }
