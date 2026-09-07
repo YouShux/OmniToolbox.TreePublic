@@ -5,7 +5,6 @@ using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.OmenService;
@@ -26,7 +25,6 @@ public sealed class CustomHotbar : ModuleBase
 
     private readonly CustomHotbarConfig config;
     private readonly Action saveConfig;
-    private readonly IconBrowser? iconBrowser;
     private readonly CustomHotbarOverlay overlay;
     private FeatureLifetime? runtimeLifetime;
 
@@ -38,15 +36,10 @@ public sealed class CustomHotbar : ModuleBase
     {
     }
 
-    public CustomHotbar(CustomHotbarConfig config, Action saveConfig) : this(config, saveConfig, null)
-    {
-    }
-
-    public CustomHotbar(CustomHotbarConfig config, Action saveConfig, IconBrowser? iconBrowser)
+    public CustomHotbar(CustomHotbarConfig config, Action saveConfig)
     {
         this.config = config;
         this.saveConfig = saveConfig;
-        this.iconBrowser = iconBrowser;
         if (NormalizeConfig())
         {
             saveConfig();
@@ -59,7 +52,7 @@ public sealed class CustomHotbar : ModuleBase
 
     public override bool DrawSettings()
     {
-        var changed = CustomHotbarPanel.Draw(config, iconBrowser, saveConfig);
+        var changed = CustomHotbarPanel.Draw(config, OpenIconBrowser);
         if (changed)
         {
             NormalizeConfig();
@@ -508,7 +501,7 @@ internal static class CustomHotbarPanel
     private static int draggedSlotBarIndex = -1;
     private static int draggedSlotIndex = -1;
 
-    public static bool Draw(CustomHotbarConfig config, IconBrowser? iconBrowser, Action saveConfig)
+    public static bool Draw(CustomHotbarConfig config, Action<Action<uint>> openIconBrowser)
     {
         var changed = false;
 
@@ -527,7 +520,7 @@ internal static class CustomHotbarPanel
         ImGui.Separator();
         ImGui.Spacing();
 
-        changed |= DrawBarEditor(bar, selectedBarIndex, iconBrowser, saveConfig);
+        changed |= DrawBarEditor(bar, selectedBarIndex, openIconBrowser);
         return changed;
     }
 
@@ -579,7 +572,7 @@ internal static class CustomHotbarPanel
         return changed;
     }
 
-    private static bool DrawBarEditor(CustomHotbarBarConfig bar, int barIndex, IconBrowser? iconBrowser, Action saveConfig)
+    private static bool DrawBarEditor(CustomHotbarBarConfig bar, int barIndex, Action<Action<uint>> openIconBrowser)
     {
         var changed = false;
 
@@ -650,11 +643,11 @@ internal static class CustomHotbarPanel
         ImGui.Separator();
         ImGui.Spacing();
 
-        changed |= DrawSlotsTable(bar, barIndex, iconBrowser, saveConfig);
+        changed |= DrawSlotsTable(bar, barIndex, openIconBrowser);
         return changed;
     }
 
-    private static bool DrawSlotsTable(CustomHotbarBarConfig bar, int barIndex, IconBrowser? iconBrowser, Action saveConfig)
+    private static bool DrawSlotsTable(CustomHotbarBarConfig bar, int barIndex, Action<Action<uint>> openIconBrowser)
     {
         var changed = false;
         var columns = bar.Layout.Columns();
@@ -694,7 +687,7 @@ internal static class CustomHotbarPanel
 
             ImGui.TableNextColumn();
             CenterCellContent(rowHeight, IconPreviewSize);
-            changed |= DrawIconCell(slot, index, iconBrowser, saveConfig);
+            changed |= DrawIconCell(slot, openIconBrowser);
 
             ImGui.TableNextColumn();
             CenterCellContent(rowHeight, ImGui.GetFrameHeight());
@@ -737,7 +730,7 @@ internal static class CustomHotbarPanel
         }
     }
 
-    private static bool DrawIconCell(CustomHotbarSlot slot, int slotIndex, IconBrowser? iconBrowser, Action saveConfig)
+    private static bool DrawIconCell(CustomHotbarSlot slot, Action<Action<uint>> openIconBrowser)
     {
         var changed = false;
 
@@ -753,21 +746,8 @@ internal static class CustomHotbarPanel
         }
 
         ImGui.Dummy(new Vector2(previewSize));
-
-        if (iconBrowser != null)
-        {
-            ImGui.SameLine();
-            if (OmniControls.IconButton($"pickIcon{slotIndex}", FontAwesomeIcon.Image, false, "打开图标浏览器"))
-            {
-                iconBrowser.OpenForSelection(false, value =>
-                {
-                    slot.IconID = value;
-                    saveConfig();
-                }, null);
-            }
-        }
-
         ImGui.SameLine();
+
         var iconText = slot.IconID.ToString(CultureInfo.InvariantCulture);
         ImGui.SetNextItemWidth(OmniTheme.Scale(70f));
         if (ImGui.InputText("##iconId", ref iconText, 16, ImGuiInputTextFlags.CharsDecimal) &&
@@ -777,6 +757,14 @@ internal static class CustomHotbarPanel
         }
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
+
+        ImGui.SameLine();
+        if (OmniControls.SmallButton("选择##pickIcon", false))
+        {
+            openIconBrowser(iconID => slot.IconID = iconID);
+        }
+
+        OmniControls.HelpTooltip("打开图标浏览器");
 
         return changed;
     }
@@ -820,4 +808,5 @@ internal static class CustomHotbarPanel
         draggedSlotIndex = -1;
         return true;
     }
+
 }
