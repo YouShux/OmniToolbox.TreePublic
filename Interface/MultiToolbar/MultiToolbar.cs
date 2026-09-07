@@ -32,7 +32,8 @@ public sealed partial class MultiToolbar : ModuleBase
     private const float PopupWidth = 380f;
     private const float PopupListHeight = 420f;
 
-    private readonly MultiToolbarConfig config;
+    private readonly MultiToolbarBarConfig config;
+    private readonly string barID;
     private readonly Action saveConfig;
     private readonly Func<Newtonsoft.Json.Linq.JObject?>? getMultiDockConfig;
     private readonly IconBrowser iconBrowser;
@@ -44,16 +45,23 @@ public sealed partial class MultiToolbar : ModuleBase
 
     public MultiToolbar(MultiToolbarConfig config, Action saveConfig, IconBrowser iconBrowser, TeleportService teleportService,
         Func<Newtonsoft.Json.Linq.JObject?>? getMultiDockConfig = null)
+        : this(config, saveConfig, iconBrowser, teleportService, "main", getMultiDockConfig)
     {
-        this.config = config;
-        this.saveConfig = saveConfig;
-        this.iconBrowser = iconBrowser;
-        this.teleportService = teleportService;
-        this.getMultiDockConfig = getMultiDockConfig;
         if (NormalizeWidgets())
         {
             saveConfig();
         }
+    }
+
+    private MultiToolbar(MultiToolbarBarConfig config, Action saveConfig, IconBrowser iconBrowser, TeleportService teleportService,
+        string barID, Func<Newtonsoft.Json.Linq.JObject?>? getMultiDockConfig = null)
+    {
+        this.config = config;
+        this.barID = barID;
+        this.saveConfig = saveConfig;
+        this.iconBrowser = iconBrowser;
+        this.teleportService = teleportService;
+        this.getMultiDockConfig = getMultiDockConfig;
 
         pluginEntryLabel = OmniLoc.Get("Feature.MultiToolbar.PluginList");
         commandEntryLabel = OmniLoc.Get("Feature.MultiToolbar.CommandList");
@@ -103,7 +111,7 @@ public sealed partial class MultiToolbar : ModuleBase
                 continue;
             }
 
-            if (widget.Type != MultiToolbarWidgetType.CustomButton &&
+            if (widget.Type is not (MultiToolbarWidgetType.CustomButton or MultiToolbarWidgetType.DtrSingle) &&
                 !seenBuiltIns.Add(widget.Type))
             {
                 changed = true;
@@ -200,25 +208,23 @@ public sealed partial class MultiToolbar : ModuleBase
 
     protected override void OnDisable()
     {
-        RestoreHiddenWindows();
-        toolbarFont?.Dispose();
-        toolbarFont = null;
-        ClosePopup();
-        UpdateNativeDtrVisibility(false);
-        RestoreDtrEntries();
         var lifetime = runtimeLifetime;
         runtimeLifetime = null;
         lifetime?.Dispose();
+        RestoreHiddenWindows();
+        ReleaseBarResources();
+        ReleaseAuxiliaryBars();
+        UpdateNativeDtrVisibility(false);
     }
 
     private void OnFrameworkUpdate(IFramework _)
     {
-        UpdateNativeDtrVisibility(config.Widgets.Any(widget => widget.Enabled && widget.Type == MultiToolbarWidgetType.DtrList));
+        UpdateNativeDtrVisibility(UsesNativeDtr());
     }
 
     private unsafe void OnNativeDtrPreDraw(AddonEvent _, AddonArgs args)
     {
-        if (!config.Widgets.Any(widget => widget.Enabled && widget.Type == MultiToolbarWidgetType.DtrList))
+        if (!UsesNativeDtr())
         {
             return;
         }

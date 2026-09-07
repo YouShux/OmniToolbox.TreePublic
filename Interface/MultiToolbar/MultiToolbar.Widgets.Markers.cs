@@ -105,7 +105,7 @@ public sealed partial class MultiToolbar
         foreach (var marker in worldMarkers)
         {
             var distance = Vector3.Distance(playerPosition, marker.Position);
-            var opacity = Math.Clamp((distance - 8f) / 12f, 0f, 1f);
+            var opacity = Math.Clamp((distance - 25f) / 5f, 0f, 1f);
             if (opacity <= 0 || !TryProjectWorldMarker(marker.Position, viewport.Pos, out var position, out var inFront))
             {
                 continue;

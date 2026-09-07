@@ -34,7 +34,7 @@ public sealed partial class MultiToolbar
             openCommandEditor = false;
             ImGui.OpenPopup("##multiToolbarCommandsEditor");
         }
-        ImGui.SetNextWindowSize(Vector2.Min(OmniTheme.Scale(new Vector2(1000f, 420f)), ImGui.GetMainViewport().WorkSize), ImGuiCond.Appearing);
+        ImGui.SetNextWindowSize(Vector2.Min(OmniTheme.Scale(new Vector2(1000f, 420f)), ImGui.GetMainViewport().WorkSize), ImGuiCond.Always);
         using var popup = ImRaii.Popup("##multiToolbarCommandsEditor", ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoScrollbar);
         if (!popup)
         {
