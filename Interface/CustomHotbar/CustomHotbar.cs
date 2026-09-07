@@ -5,6 +5,7 @@ using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.OmenService;
@@ -25,6 +26,7 @@ public sealed class CustomHotbar : ModuleBase
 
     private readonly CustomHotbarConfig config;
     private readonly Action saveConfig;
+    private readonly IconBrowser? iconBrowser;
     private readonly CustomHotbarOverlay overlay;
     private FeatureLifetime? runtimeLifetime;
 
@@ -36,10 +38,15 @@ public sealed class CustomHotbar : ModuleBase
     {
     }
 
-    public CustomHotbar(CustomHotbarConfig config, Action saveConfig)
+    public CustomHotbar(CustomHotbarConfig config, Action saveConfig) : this(config, saveConfig, null)
+    {
+    }
+
+    public CustomHotbar(CustomHotbarConfig config, Action saveConfig, IconBrowser? iconBrowser)
     {
         this.config = config;
         this.saveConfig = saveConfig;
+        this.iconBrowser = iconBrowser;
         if (NormalizeConfig())
         {
             saveConfig();
@@ -52,7 +59,7 @@ public sealed class CustomHotbar : ModuleBase
 
     public override bool DrawSettings()
     {
-        var changed = CustomHotbarPanel.Draw(config);
+        var changed = CustomHotbarPanel.Draw(config, iconBrowser, saveConfig);
         if (changed)
         {
             NormalizeConfig();
@@ -191,7 +198,7 @@ public sealed class CustomHotbar : ModuleBase
             command = $"/{command}";
         }
 
-        return command.Length > 1;
+        return true;
     }
 
     internal static void ExecuteCommand(string command)
@@ -366,8 +373,9 @@ internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action save
                     }
                 }
 
-                var displayIndex = DisplacedSlotIndex(index, slotIndex);
-                DrawSlotIcon(drawList, displayIndex >= 0 ? slots[displayIndex].IconID : 0u, slotPosition, slotSizeVector, bar.EffectiveScale);
+                var isDragTarget = slotDrag.BarIndex == index && slotDrag.SourceIndex >= 0 &&
+                                   slotDrag.TargetIndex == slotIndex && slotDrag.TargetIndex != slotDrag.SourceIndex;
+                DrawSlotIcon(drawList, isDragTarget ? 0u : slot.IconID, slotPosition, slotSizeVector, bar.EffectiveScale);
             }
 
             if (slotDrag.BarIndex == index && slotDrag.SourceIndex >= 0 && slotDrag.SourceIndex < slots.Count)
@@ -452,38 +460,8 @@ internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action save
             return;
         }
 
-        var slot = slots[sourceIndex];
-        slots.RemoveAt(sourceIndex);
-        slots.Insert(targetIndex, slot);
+        (slots[sourceIndex], slots[targetIndex]) = (slots[targetIndex], slots[sourceIndex]);
         saveConfig();
-    }
-
-    private int DisplacedSlotIndex(int barIndex, int slotIndex)
-    {
-        if (slotDrag.BarIndex != barIndex || slotDrag.SourceIndex < 0 ||
-            slotDrag.TargetIndex < 0 || slotDrag.SourceIndex == slotDrag.TargetIndex)
-        {
-            return slotIndex;
-        }
-
-        if (slotIndex == slotDrag.SourceIndex)
-        {
-            return -1;
-        }
-
-        if (slotDrag.SourceIndex < slotDrag.TargetIndex &&
-            slotIndex > slotDrag.SourceIndex && slotIndex <= slotDrag.TargetIndex)
-        {
-            return slotIndex - 1;
-        }
-
-        if (slotDrag.TargetIndex < slotDrag.SourceIndex &&
-            slotIndex >= slotDrag.TargetIndex && slotIndex < slotDrag.SourceIndex)
-        {
-            return slotIndex + 1;
-        }
-
-        return slotIndex;
     }
 
     private static bool IsMouseOverSlot(Vector2 position, Vector2 size, float halfGap)
@@ -512,9 +490,6 @@ internal sealed class CustomHotbarSlotDragState
 
 internal static class CustomHotbarPanel
 {
-    private const string IconPickerPopupID = "选择图标##customHotbarIconPicker";
-    private const int IconPickerPageSize = 100;
-    private const int IconPickerMaxScanPerPage = 30000;
     private const string SlotReorderPayload = "OmniCustomHotbarSlotReorder";
 
     private static readonly (CustomHotbarLayout Layout, string Name)[] LayoutOptions =
@@ -527,20 +502,13 @@ internal static class CustomHotbarPanel
         (CustomHotbarLayout.OneByTwelve, "1 × 12")
     ];
 
+    private static float IconPreviewSize => OmniTheme.Scale(24f);
+
     private static int selectedBarIndex;
-    private static int pickerBarIndex = -1;
-    private static int pickerSlotIndex = -1;
-    private static bool pickerOpenRequested;
-    private static int pickerRangeStop = 250000;
-    private static readonly List<int> pickerAnchors = [];
-    private static readonly List<int> pickerPage = [];
-    private static int pickerPageAnchor = -1;
-    private static int pickerPageStop = -1;
-    private static int pickerPageScannedTo;
     private static int draggedSlotBarIndex = -1;
     private static int draggedSlotIndex = -1;
 
-    public static bool Draw(CustomHotbarConfig config)
+    public static bool Draw(CustomHotbarConfig config, IconBrowser? iconBrowser, Action saveConfig)
     {
         var changed = false;
 
@@ -559,8 +527,7 @@ internal static class CustomHotbarPanel
         ImGui.Separator();
         ImGui.Spacing();
 
-        changed |= DrawBarEditor(bar, selectedBarIndex);
-        changed |= DrawIconPicker(config);
+        changed |= DrawBarEditor(bar, selectedBarIndex, iconBrowser, saveConfig);
         return changed;
     }
 
@@ -605,12 +572,6 @@ internal static class CustomHotbarPanel
             {
                 config.Bars.RemoveAt(selectedBarIndex);
                 selectedBarIndex = Math.Max(0, selectedBarIndex - 1);
-                if (pickerBarIndex >= config.Bars.Count)
-                {
-                    pickerBarIndex = -1;
-                    pickerSlotIndex = -1;
-                }
-
                 changed = true;
             }
         }
@@ -618,7 +579,7 @@ internal static class CustomHotbarPanel
         return changed;
     }
 
-    private static bool DrawBarEditor(CustomHotbarBarConfig bar, int barIndex)
+    private static bool DrawBarEditor(CustomHotbarBarConfig bar, int barIndex, IconBrowser? iconBrowser, Action saveConfig)
     {
         var changed = false;
 
@@ -689,11 +650,11 @@ internal static class CustomHotbarPanel
         ImGui.Separator();
         ImGui.Spacing();
 
-        changed |= DrawSlotsTable(bar, barIndex);
+        changed |= DrawSlotsTable(bar, barIndex, iconBrowser, saveConfig);
         return changed;
     }
 
-    private static bool DrawSlotsTable(CustomHotbarBarConfig bar, int barIndex)
+    private static bool DrawSlotsTable(CustomHotbarBarConfig bar, int barIndex, IconBrowser? iconBrowser, Action saveConfig)
     {
         var changed = false;
         var columns = bar.Layout.Columns();
@@ -720,20 +681,23 @@ internal static class CustomHotbarPanel
             ImGui.TableHeader(headers[column]);
         }
 
+        var rowHeight = MathF.Max(IconPreviewSize, ImGui.GetFrameHeight()) + ImGui.GetStyle().CellPadding.Y * 2f;
         for (var index = 0; index < bar.Slots.Count && index < CustomHotbar.SlotCount; index++)
         {
             var slot = bar.Slots[index];
             ImGui.PushID(index);
-            ImGui.TableNextRow();
+            ImGui.TableNextRow(ImGuiTableRowFlags.None, rowHeight);
 
             ImGui.TableNextColumn();
-            ImGui.AlignTextToFramePadding();
+            CenterCellContent(rowHeight, ImGui.GetTextLineHeight());
             ImGui.TextUnformatted($"第{index / columns + 1}行 第{index % columns + 1}列");
 
             ImGui.TableNextColumn();
-            changed |= DrawIconCell(bar, barIndex, slot, index);
+            CenterCellContent(rowHeight, IconPreviewSize);
+            changed |= DrawIconCell(slot, index, iconBrowser, saveConfig);
 
             ImGui.TableNextColumn();
+            CenterCellContent(rowHeight, ImGui.GetFrameHeight());
             var tooltip = slot.Tooltip;
             ImGui.SetNextItemWidth(-1f);
             if (OmniControls.InputTextWithHint("##tooltip", "鼠标悬浮时显示的说明文本", ref tooltip, 128))
@@ -744,6 +708,7 @@ internal static class CustomHotbarPanel
             changed |= ImGui.IsItemDeactivatedAfterEdit();
 
             ImGui.TableNextColumn();
+            CenterCellContent(rowHeight, ImGui.GetFrameHeight());
             var command = slot.Command;
             ImGui.SetNextItemWidth(-1f);
             if (OmniControls.InputTextWithHint("##command", "如 /ac 技能名 或 /p 文本", ref command, 128))
@@ -754,6 +719,7 @@ internal static class CustomHotbarPanel
             changed |= ImGui.IsItemDeactivatedAfterEdit();
 
             ImGui.TableNextColumn();
+            CenterCellContent(rowHeight, ImGui.GetFrameHeight());
             changed |= DrawSlotReorderHandle(barIndex, bar.Slots, index);
 
             ImGui.PopID();
@@ -762,12 +728,21 @@ internal static class CustomHotbarPanel
         return changed;
     }
 
-    private static bool DrawIconCell(CustomHotbarBarConfig bar, int barIndex, CustomHotbarSlot slot, int slotIndex)
+    private static void CenterCellContent(float rowHeight, float contentHeight)
+    {
+        var offset = (rowHeight - ImGui.GetStyle().CellPadding.Y * 2f - contentHeight) * 0.5f;
+        if (offset > 0f)
+        {
+            ImGui.SetCursorPosY(ImGui.GetCursorPosY() + offset);
+        }
+    }
+
+    private static bool DrawIconCell(CustomHotbarSlot slot, int slotIndex, IconBrowser? iconBrowser, Action saveConfig)
     {
         var changed = false;
 
         var cursor = ImGui.GetCursorScreenPos();
-        var previewSize = ImGui.GetTextLineHeightWithSpacing();
+        var previewSize = IconPreviewSize;
         if (slot.IconID > 0 && ImageHelper.GetGameIcon(slot.IconID) is { } texture)
         {
             ImGui.GetWindowDrawList().AddImage(texture.Handle, cursor, cursor + new Vector2(previewSize));
@@ -778,8 +753,21 @@ internal static class CustomHotbarPanel
         }
 
         ImGui.Dummy(new Vector2(previewSize));
-        ImGui.SameLine();
 
+        if (iconBrowser != null)
+        {
+            ImGui.SameLine();
+            if (OmniControls.IconButton($"pickIcon{slotIndex}", FontAwesomeIcon.Image, false, "打开图标浏览器"))
+            {
+                iconBrowser.OpenForSelection(false, value =>
+                {
+                    slot.IconID = value;
+                    saveConfig();
+                }, null);
+            }
+        }
+
+        ImGui.SameLine();
         var iconText = slot.IconID.ToString(CultureInfo.InvariantCulture);
         ImGui.SetNextItemWidth(OmniTheme.Scale(70f));
         if (ImGui.InputText("##iconId", ref iconText, 16, ImGuiInputTextFlags.CharsDecimal) &&
@@ -789,18 +777,6 @@ internal static class CustomHotbarPanel
         }
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
-
-        ImGui.SameLine();
-        if (OmniControls.SmallButton("选择##pickIcon", false))
-        {
-            pickerBarIndex = barIndex;
-            pickerSlotIndex = slotIndex;
-            pickerAnchors.Clear();
-            pickerAnchors.Add(slot.IconID > 0 ? (int)(slot.IconID / 1000 * 1000) : 0);
-            pickerOpenRequested = true;
-        }
-
-        OmniControls.HelpTooltip("打开图标浏览器");
 
         return changed;
     }
@@ -839,181 +815,9 @@ internal static class CustomHotbarPanel
             return false;
         }
 
-        var slot = slots[draggedSlotIndex];
-        slots.RemoveAt(draggedSlotIndex);
-        slots.Insert(index, slot);
+        (slots[draggedSlotIndex], slots[index]) = (slots[index], slots[draggedSlotIndex]);
         draggedSlotBarIndex = -1;
         draggedSlotIndex = -1;
         return true;
     }
-
-    private static bool DrawIconPicker(CustomHotbarConfig config)
-    {
-        var changed = false;
-
-        if (pickerOpenRequested)
-        {
-            pickerOpenRequested = false;
-            ImGui.OpenPopup(IconPickerPopupID);
-        }
-
-        var popupOpen = true;
-        ImGui.SetNextWindowSize(new Vector2(560f, 520f) * OmniTheme.ScaleValue, ImGuiCond.Appearing);
-        if (!ImGui.BeginPopupModal(IconPickerPopupID, ref popupOpen, ImGuiWindowFlags.NoSavedSettings))
-        {
-            return false;
-        }
-
-        if (!popupOpen ||
-            pickerBarIndex < 0 || pickerBarIndex >= config.Bars.Count ||
-            pickerSlotIndex < 0 || pickerSlotIndex >= config.Bars[pickerBarIndex].Slots.Count)
-        {
-            pickerBarIndex = -1;
-            pickerSlotIndex = -1;
-            ImGui.CloseCurrentPopup();
-            ImGui.EndPopup();
-            return false;
-        }
-
-        var slot = config.Bars[pickerBarIndex].Slots[pickerSlotIndex];
-
-        ImGui.TextUnformatted($"当前图标 ID: {slot.IconID}");
-        ImGui.SameLine();
-        if (OmniControls.SmallButton("清除图标##pickerClear", false))
-        {
-            slot.IconID = 0;
-            changed = true;
-        }
-
-        ImGui.SameLine();
-        if (OmniControls.SmallButton("跳到当前图标##pickerJump", false))
-        {
-            pickerAnchors.Clear();
-            pickerAnchors.Add(slot.IconID > 0 ? (int)(slot.IconID / 1000 * 1000) : 0);
-        }
-
-        var rangeStart = pickerAnchors.Count > 0 ? pickerAnchors[^1] : 0;
-        ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (ImGui.InputInt("起始 ID##pickerStart", ref rangeStart))
-        {
-            rangeStart = Math.Clamp(rangeStart, 0, 249999);
-            pickerAnchors.Clear();
-            pickerAnchors.Add(rangeStart);
-        }
-
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (ImGui.InputInt("结束 ID##pickerStop", ref pickerRangeStop))
-        {
-            pickerRangeStop = Math.Clamp(pickerRangeStop, 1, 250000);
-        }
-
-        if (rangeStart != pickerPageAnchor || pickerRangeStop != pickerPageStop)
-        {
-            RebuildPickerPage(rangeStart);
-        }
-
-        var page = pickerPage;
-        var lastScanned = pickerPageScannedTo;
-
-        var iconSize = 40f * OmniTheme.ScaleValue;
-        var spacing = ImGui.GetStyle().ItemSpacing.X;
-
-        if (page.Count == 0)
-        {
-            ImGui.TextUnformatted("此范围内没有有效图标, 请调整范围后翻页");
-        }
-        else
-        {
-            var childHeight = iconSize * 10 + spacing * 9 + ImGui.GetStyle().WindowPadding.Y * 2 + 4f;
-            using var child = ImRaii.Child("##pickerGrid", new Vector2(-1f, childHeight), true);
-            if (child)
-            {
-                var perRow = Math.Max(1, (int)((ImGui.GetContentRegionAvail().X + spacing) / (iconSize + spacing)));
-                for (var index = 0; index < page.Count; index++)
-                {
-                    if (index % perRow > 0)
-                    {
-                        ImGui.SameLine(0f, spacing);
-                    }
-
-                    var iconID = (uint)page[index];
-                    ImGui.PushID(page[index]);
-                    if (ImageHelper.GetGameIcon(iconID) is { } texture)
-                    {
-                        ImGui.Image(texture.Handle, new Vector2(iconSize));
-                    }
-                    else
-                    {
-                        ImGui.Dummy(new Vector2(iconSize));
-                    }
-
-                    if (ImGui.IsItemHovered())
-                    {
-                        ImGui.SetTooltip($"ID: {page[index]}");
-                    }
-
-                    if (ImGui.IsItemClicked(ImGuiMouseButton.Left))
-                    {
-                        slot.IconID = iconID;
-                        changed = true;
-                        pickerBarIndex = -1;
-                        pickerSlotIndex = -1;
-                        ImGui.CloseCurrentPopup();
-                    }
-
-                    ImGui.PopID();
-                }
-            }
-        }
-
-        using (ImRaii.Disabled(pickerAnchors.Count <= 1))
-        {
-            if (OmniControls.SmallButton("上一页##pickerPrev", false))
-            {
-                pickerAnchors.RemoveAt(pickerAnchors.Count - 1);
-            }
-        }
-
-        ImGui.SameLine();
-        var hasNextPage = page.Count == IconPickerPageSize && lastScanned + 1 < pickerRangeStop;
-        using (ImRaii.Disabled(!hasNextPage))
-        {
-            if (OmniControls.SmallButton("下一页##pickerNext", false))
-            {
-                pickerAnchors.Add(lastScanned + 1);
-            }
-        }
-
-        ImGui.SameLine();
-        ImGui.TextDisabled($"第 {pickerAnchors.Count} 页 · 本页 {page.Count} 个 (扫描至 {lastScanned})");
-
-        ImGui.EndPopup();
-        return changed;
-    }
-
-    private static void RebuildPickerPage(int rangeStart)
-    {
-        pickerPage.Clear();
-        var scan = rangeStart;
-        var scanned = 0;
-        pickerPageScannedTo = rangeStart;
-        while (pickerPage.Count < IconPickerPageSize && scan < pickerRangeStop && scanned < IconPickerMaxScanPerPage)
-        {
-            if (IsValidIcon(scan))
-            {
-                pickerPage.Add(scan);
-            }
-
-            pickerPageScannedTo = scan;
-            scan++;
-            scanned++;
-        }
-
-        pickerPageAnchor = rangeStart;
-        pickerPageStop = pickerRangeStop;
-    }
-
-    private static bool IsValidIcon(int iconID) =>
-        DService.Instance().Data.FileExists($"ui/icon/{iconID / 1000 * 1000:D6}/{iconID:D6}.tex");
 }
