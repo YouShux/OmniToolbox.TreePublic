@@ -80,6 +80,7 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
     private TextInputNode? searchNode;
     private TextButtonNode? importButton;
     private TextButtonNode? batchButton;
+    private TextButtonNode? selectAllButton;
     private TextButtonNode? confirmBatchButton;
     private TextNode? emptyNode;
     private ListNode<MoreGearSetListRow, MoreGearSetListItemNode>? listNode;
@@ -162,6 +163,14 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         };
         batchButton.AttachNode(this);
 
+        selectAllButton = new()
+        {
+            String    = "全选",
+            OnClick   = ToggleSelectAll,
+            IsVisible = false
+        };
+        selectAllButton.AttachNode(this);
+
         confirmBatchButton = new()
         {
             String    = "确认删除",
@@ -232,10 +241,14 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
     protected override unsafe void OnUpdate(AtkUnitBase* addon)
     {
         if (ContentSize != lastContentSize || ContentStartPosition != lastContentStart)
+        {
             ResizeContent();
+        }
 
         if (pendingFollow && FollowSelected())
+        {
             pendingFollow = false;
+        }
 
         listNode?.Update();
         if (pendingMenu is not { } entry)
@@ -263,11 +276,13 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         if (jobDropDown is not null)
         {
             jobDropDown.OnUncollapsed = null;
-            jobDropDown = null;
+            jobDropDown               = null;
         }
+
         searchNode         = null;
         importButton       = null;
         batchButton        = null;
+        selectAllButton    = null;
         confirmBatchButton = null;
         emptyNode          = null;
         listNode           = null;
@@ -406,6 +421,14 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
             batchButton.IsEnabled = loggedIn || batchMode;
         }
 
+        if (selectAllButton is not null)
+        {
+            var allPicked = batchMode && IsAllVisiblePicked();
+            selectAllButton.IsVisible = batchMode;
+            selectAllButton.IsEnabled = batchMode && rows.Count > 0;
+            selectAllButton.String    = allPicked ? "取消全选" : "全选";
+        }
+
         if (confirmBatchButton is not null)
         {
             confirmBatchButton.IsVisible = batchMode;
@@ -469,7 +492,8 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         }
 
         y += OmniTheme.Scale(32f);
-        var toolWidth = MathF.Max(OmniTheme.Scale(60f), (width - gap) / 2f);
+        var toolCount = batchMode ? 3f : 2f;
+        var toolWidth = MathF.Max(OmniTheme.Scale(60f), (width - gap * (toolCount - 1f)) / toolCount);
         if (importButton is not null)
         {
             importButton.Position  = new(x, y);
@@ -483,9 +507,16 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
             batchButton.Size     = new(toolWidth, rowHeight);
         }
 
+        if (selectAllButton is not null)
+        {
+            selectAllButton.Position  = new(x + toolWidth + gap, y);
+            selectAllButton.Size      = new(toolWidth, rowHeight);
+            selectAllButton.IsVisible = batchMode;
+        }
+
         if (confirmBatchButton is not null)
         {
-            confirmBatchButton.Position  = new(x + toolWidth + gap, y);
+            confirmBatchButton.Position  = new(x + (toolWidth + gap) * 2f, y);
             confirmBatchButton.Size      = new(toolWidth, rowHeight);
             confirmBatchButton.IsVisible = batchMode;
         }
@@ -527,10 +558,9 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
 
     private void AlignJobDropDownList()
     {
-        if (jobDropDown is null)
-            return;
+        if (jobDropDown is null) return;
 
-        jobDropDown.OptionListNode.Width = MathF.Max(jobDropDown.Width - 8f, ContentSize.X);
+        jobDropDown.OptionListNode.Width = ContentSize.X;
         jobDropDown.RecalculateScrollParams();
     }
 
@@ -550,7 +580,9 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         pendingFollow = true;
         ApplyButtons();
         if (listNode is not null && listNode.Height >= MoreGearSetListItemNode.ItemHeight)
+        {
             FollowSelected();
+        }
     }
 
     private int VisibleOffset(int index) =>
@@ -558,16 +590,13 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
 
     private bool FollowSelected()
     {
-        if (batchMode || listNode is null || selected is null)
-            return true;
+        if (batchMode || listNode is null || selected is null) return true;
 
         var index = rows.FindIndex(row => ReferenceEquals(row.Entry, selected));
-        if (index < 0)
-            return true;
+        if (index < 0) return true;
 
         var itemHeight = MoreGearSetListItemNode.ItemHeight + ItemSpacing;
-        if (itemHeight <= 0f || listNode.Height < itemHeight)
-            return false;
+        if (itemHeight <= 0f || listNode.Height < itemHeight) return false;
 
         var visible   = Math.Max(1, (int)(listNode.Height / itemHeight));
         var maxScroll = Math.Max(0, rows.Count - visible);
@@ -580,16 +609,14 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
     private int GetListScroll()
     {
         var itemHeight = MoreGearSetListItemNode.ItemHeight + ItemSpacing;
-        if (listNode is null || itemHeight <= 0f)
-            return 0;
+        if (listNode is null || itemHeight <= 0f) return 0;
 
         return (int)(listNode.ScrollBarNode.ScrollPosition / itemHeight);
     }
 
     private void SetListScroll(int position)
     {
-        if (listNode is null)
-            return;
+        if (listNode is null) return;
 
         var itemHeight = MoreGearSetListItemNode.ItemHeight + ItemSpacing;
         listNode.ScrollBarNode.ScrollPosition = (int)(position * itemHeight);
@@ -605,7 +632,52 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
             confirmUI?.Close();
         }
 
+        ResizeContent();
+        listNode?.FullRebuild();
         ApplyButtons();
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (!batchMode || rows.Count == 0)
+        {
+            return;
+        }
+
+        if (IsAllVisiblePicked())
+        {
+            foreach (var row in rows)
+            {
+                batchPicks.Remove(row.Entry);
+            }
+        }
+        else
+        {
+            foreach (var row in rows)
+            {
+                batchPicks.Add(row.Entry);
+            }
+        }
+
+        ApplyButtons();
+    }
+
+    private bool IsAllVisiblePicked()
+    {
+        if (rows.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var row in rows)
+        {
+            if (!batchPicks.Contains(row.Entry))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void TogglePick(MoreGearSetListEntry entry)
@@ -647,6 +719,8 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         batchMode = false;
         itemHost.BatchMode = false;
         selected = null;
+        ResizeContent();
+        listNode?.FullRebuild();
         ApplyButtons();
     }
 
@@ -842,6 +916,7 @@ internal sealed unsafe class MoreGearSetListItemNode : ListItemNode<MoreGearSetL
     private readonly IconImageNode iconNode;
     private readonly TextNode nameNode;
     private readonly TextNode statusNode;
+    private bool laidOutForBatch;
 
     public MoreGearSetListItemNode()
     {
@@ -953,6 +1028,7 @@ internal sealed unsafe class MoreGearSetListItemNode : ListItemNode<MoreGearSetL
         var statusWidth = OmniTheme.Scale(36f);
         var batchMode = Host?.BatchMode ?? false;
         var checkPad = batchMode ? checkWidth + OmniTheme.Scale(2f) : 0f;
+        laidOutForBatch     = batchMode;
         checkNode.IsVisible = batchMode;
         checkNode.Position  = new(0f, OmniTheme.Scale(2f));
         checkNode.Size      = new(checkWidth, Height - OmniTheme.Scale(4f));
@@ -991,13 +1067,28 @@ internal sealed unsafe class MoreGearSetListItemNode : ListItemNode<MoreGearSetL
             return;
         }
 
-        var host = Host;
-        var marked = host is { BatchMode: true } && (host.IsMarked?.Invoke(entry) ?? false);
+        if (Host is not { } host)
+        {
+            checkNode.IsVisible = false;
+            if (laidOutForBatch)
+            {
+                OnSizeChanged();
+            }
+
+            return;
+        }
+
+        var batch = host.BatchMode;
+        var marked = batch && (host.IsMarked?.Invoke(entry) ?? false);
         checkNode.IsChecked = marked;
-        checkNode.IsVisible = host is { BatchMode: true };
-        IsSelected = host is { BatchMode: true }
+        checkNode.IsVisible = batch;
+        IsSelected = batch
             ? marked
-            : ReferenceEquals(entry, host?.GetCurrent?.Invoke());
+            : ReferenceEquals(entry, host.GetCurrent?.Invoke());
+        if (laidOutForBatch != batch)
+        {
+            OnSizeChanged();
+        }
     }
 }
 
