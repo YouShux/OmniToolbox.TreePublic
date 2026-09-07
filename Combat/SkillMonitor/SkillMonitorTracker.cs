@@ -199,24 +199,31 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
                     : state.ActiveUntilTick > now;
                 if (isActive)
                 {
+                    var wasActive = state.DisplayState == SkillMonitorDisplayState.Active;
                     state.DisplayState = SkillMonitorDisplayState.Active;
                     state.CooldownText = string.Empty;
                     state.CooldownProgress = 0f;
-                    var statusSeconds = (int)Math.Ceiling(state.StatusRemainingMilliseconds / 1_000d);
-                    if (statusSeconds != state.DisplaySeconds)
+                    var remainingActiveMilliseconds = definition.StatusID != 0
+                        ? state.StatusRemainingMilliseconds
+                        : Math.Max(0L, state.ActiveUntilTick - now);
+                    var statusSeconds = (int)Math.Ceiling(remainingActiveMilliseconds / 1_000d);
+                    if (!wasActive || statusSeconds != state.DisplaySeconds)
                     {
                         state.DisplaySeconds = statusSeconds;
                         state.StatusText = statusSeconds > 0
-                            ? FormatDuration(statusSeconds)
+                            ? definition.IsFood
+                                ? FormatDuration(statusSeconds)
+                                : statusSeconds.ToString(CultureInfo.InvariantCulture)
                             : string.Empty;
                     }
                 }
                 else if (state.CooldownKnown && state.ReadyAtTick > now)
                 {
+                    var wasOnCooldown = state.DisplayState == SkillMonitorDisplayState.Cooldown;
                     state.DisplayState = SkillMonitorDisplayState.Cooldown;
                     var remainingMilliseconds = state.ReadyAtTick - now;
                     var seconds = (int)Math.Ceiling(remainingMilliseconds / 1_000d);
-                    if (seconds != state.DisplaySeconds)
+                    if (!wasOnCooldown || seconds != state.DisplaySeconds)
                     {
                         state.DisplaySeconds = seconds;
                         state.CooldownText = seconds.ToString(CultureInfo.InvariantCulture);
