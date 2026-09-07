@@ -1,14 +1,15 @@
 using System.Linq;
+using Dalamud.Interface.ImGuiNotification;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
+using OmniToolbox.Notifications;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed partial class MultiToolbar
 {
-    private string importError = string.Empty;
     private static readonly JsonSerializerSettings TransferSettings = new()
     {
         ObjectCreationHandling = ObjectCreationHandling.Replace,
@@ -71,6 +72,26 @@ public sealed partial class MultiToolbar
         }
     }
 
+    private void MigrateMultiDockPlugins()
+    {
+        if (config.MultiDockPluginsMigrated || getMultiDockConfig?.Invoke() is not { } source)
+        {
+            return;
+        }
+        var seen = new HashSet<string>(config.SelectedPlugins, StringComparer.OrdinalIgnoreCase);
+        foreach (var item in source["Items"]?.OfType<JObject>() ?? [])
+        {
+            var name = item.Value<string>("PluginInternalName")?.Trim();
+            if (item["Type"]?.ToString() is ("0" or "Plugin") &&
+                !string.IsNullOrEmpty(name) && seen.Add(name))
+            {
+                config.SelectedPlugins.Add(name);
+            }
+        }
+        config.MultiDockPluginsMigrated = true;
+        saveConfig();
+    }
+
     private bool DrawConfigTransfer()
     {
         if (OmniControls.SmallButton(OmniLoc.Get("Feature.MultiDock.Export"), false))
@@ -81,12 +102,12 @@ public sealed partial class MultiToolbar
                 ["Version"] = 1,
                 ["Config"] = JObject.FromObject(config, JsonSerializer.Create(TransferSettings))
             }.ToString(Formatting.Indented));
+            OmniNotifier.Popup(OmniLoc.Get("MultiToolbarTitle"), OmniLoc.Get("Feature.MultiDock.ExportSuccess"), NotificationType.Success);
         }
         ImGui.SameLine();
         var changed = false;
         if (OmniControls.SmallButton(OmniLoc.Get("Feature.MultiDock.Import"), false))
         {
-            importError = string.Empty;
             try
             {
                 var text = ImGui.GetClipboardText();
@@ -102,9 +123,10 @@ public sealed partial class MultiToolbar
                 }
                 var imported = payload.ToObject<MultiToolbarConfig>(JsonSerializer.Create(TransferSettings));
                 if (imported is null || imported.Widgets is null || imported.Commands is null ||
+                    imported.SelectedPlugins is null || imported.SelectedPlugins.Any(string.IsNullOrWhiteSpace) ||
                     imported.HiddenWindows is null || imported.DtrOrder is null || imported.CollapsedDtrTitles is null ||
                     imported.EnabledWorldMarkers is null || imported.VolumePresets is null ||
-                    imported.Widgets.Concat(imported.Commands).Any(item => item is null || item.Command is null || item.Name is null ||
+                    imported.Widgets.Concat(imported.Commands).Any(item => item is null || item.Command is null || item.RightCommand is null || item.Name is null ||
                         !Enum.IsDefined(item.Type) || !Enum.IsDefined(item.Side)) ||
                     !float.IsFinite(imported.ToolbarScale) || imported.ToolbarScale is < 0.1f or > 3f ||
                     !float.IsFinite(imported.ComponentSpacing) || imported.ComponentSpacing is < 0f or > 40f ||
@@ -119,6 +141,8 @@ public sealed partial class MultiToolbar
                 imported.HiddenWindows = imported.HiddenWindows.Select(NormalizeHiddenWindowName)
                     .Where(CanManageHiddenWindow).ToHashSet(StringComparer.OrdinalIgnoreCase);
                 imported.MultiDockMigrated = config.MultiDockMigrated;
+                imported.SelectedPlugins = imported.SelectedPlugins.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                imported.MultiDockPluginsMigrated = payload.ContainsKey(nameof(MultiToolbarConfig.SelectedPlugins)) || config.MultiDockPluginsMigrated;
                 RestoreHiddenWindows();
                 ClosePopup();
                 JsonConvert.PopulateObject(JsonConvert.SerializeObject(imported, TransferSettings), config, TransferSettings);
@@ -126,17 +150,13 @@ public sealed partial class MultiToolbar
                 autoHideOffset = 0f;
                 nextMarkerRefresh = 0;
                 changed = true;
+                OmniNotifier.Popup(OmniLoc.Get("MultiToolbarTitle"), OmniLoc.Get("Feature.MultiDock.ImportSuccess"), NotificationType.Success);
             }
             catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidOperationException or OverflowException)
             {
-                importError = OmniLoc.Get("Feature.MultiToolbar.ImportFailed");
+                OmniNotifier.Popup(OmniLoc.Get("MultiToolbarTitle"), OmniLoc.Get("Feature.MultiToolbar.ImportFailed"), NotificationType.Error);
             }
         }
-        if (!string.IsNullOrEmpty(importError))
-        {
-            OmniControls.HelpTooltip(importError);
-        }
-        ImGui.Spacing();
         return changed;
     }
 }

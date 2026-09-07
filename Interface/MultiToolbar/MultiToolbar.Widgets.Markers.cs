@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Utility;
 using Dalamud.Interface;
@@ -28,8 +29,16 @@ public sealed partial class MultiToolbar
     ];
 
     private readonly List<ToolbarWorldMarker> worldMarkers = [];
+    private static readonly uint[] WaymarkIcons = [61341, 61342, 61343, 61347, 61344, 61345, 61346, 61348];
+    private static readonly string[] WaymarkLabels = ["A", "B", "C", "D", "1", "2", "3", "4"];
+    private static readonly MultiToolbarWorldMarkerType[] WorldMarkerTypes =
+    [
+        MultiToolbarWorldMarkerType.AetherCurrent, MultiToolbarWorldMarkerType.Flag, MultiToolbarWorldMarkerType.Waymark,
+        MultiToolbarWorldMarkerType.Quest, MultiToolbarWorldMarkerType.Treasure, MultiToolbarWorldMarkerType.Hunt,
+        MultiToolbarWorldMarkerType.Fate, MultiToolbarWorldMarkerType.Party
+    ];
     private readonly Dictionary<uint, Vector3> aetherCurrentPositions = [];
-    private readonly Dictionary<uint, byte> huntRanks = [];
+    private Dictionary<uint, byte>? huntRanks;
     private uint markerTerritory;
     private uint markerMap;
     private bool aetherCurrentsLoaded;
@@ -37,7 +46,7 @@ public sealed partial class MultiToolbar
 
     private void DrawMarkerPopup()
     {
-        foreach (var type in Enum.GetValues<MultiToolbarWorldMarkerType>())
+        foreach (var type in WorldMarkerTypes)
         {
             var enabled = config.ShowWorldMarkerOverlay && config.EnabledWorldMarkers.Contains(type);
             if (!OmniControls.CheckedSelectable($"##worldMarker{type}",
@@ -66,7 +75,7 @@ public sealed partial class MultiToolbar
         }
     }
 
-    private void DrawWorldMarkerOverlay()
+    private unsafe void DrawWorldMarkerOverlay()
     {
         var player = DService.Instance().ObjectTable.LocalPlayer;
         if (player == null || !config.ShowWorldMarkerOverlay ||
@@ -81,15 +90,31 @@ public sealed partial class MultiToolbar
             nextMarkerRefresh = Environment.TickCount64 + 250;
         }
 
+        if (worldMarkers.Count == 0)
+        {
+            return;
+        }
+
         using var font = GetToolbarFont().Push();
         var drawList = ImGui.GetBackgroundDrawList();
         var iconSize = OmniTheme.Scale(32f);
+        var viewport = ImGui.GetMainViewport();
+        var compassOrigin = viewport.WorkPos + viewport.WorkSize * 0.5f;
+        var workMaximum = viewport.WorkPos + viewport.WorkSize;
+        var playerPosition = player.Position;
         foreach (var marker in worldMarkers)
         {
-            var distance = Vector3.Distance(player.Position, marker.Position);
+            var distance = Vector3.Distance(playerPosition, marker.Position);
             var opacity = Math.Clamp((distance - 8f) / 12f, 0f, 1f);
-            if (opacity <= 0 || !DService.Instance().GameGUI.WorldToScreen(marker.Position, out var position))
+            if (opacity <= 0 || !TryProjectWorldMarker(marker.Position, viewport.Pos, out var position, out var inFront))
             {
+                continue;
+            }
+            if (!inFront || position.X < viewport.WorkPos.X || position.X > workMaximum.X ||
+                position.Y < viewport.WorkPos.Y || position.Y > workMaximum.Y)
+            {
+                DrawWorldMarkerDirection(drawList, marker.IconID, compassOrigin,
+                    inFront ? position - compassOrigin : compassOrigin - position, viewport.WorkPos, viewport.WorkSize, opacity);
                 continue;
             }
 
@@ -119,22 +144,25 @@ public sealed partial class MultiToolbar
 
     private static void DrawWorldMarkerLabel(ImDrawListPtr drawList, string label, Vector2 center, float size, float opacity, bool shadow)
     {
+        var capacity = Encoding.UTF8.GetMaxByteCount(label.Length);
+        Span<byte> buffer = capacity <= 1024 ? stackalloc byte[capacity] : new byte[capacity];
+        ReadOnlySpan<byte> text = buffer[..Encoding.UTF8.GetBytes(label, buffer)];
+        var font = ImGui.GetFont();
         var fontSize = OmniTheme.Scale(size);
-        var width = ImGui.CalcTextSize(label).X * fontSize / ImGui.GetFontSize();
+        var width = ImGui.CalcTextSize(text).X * fontSize / ImGui.GetFontSize();
         var position = Vector2.Round(center - new Vector2(width * 0.5f, 0f));
         for (var ring = shadow ? 4 : 1; ring >= 1; ring--)
         {
             var radius = OmniTheme.Scale(ring == 1 ? 1f : ring * 2f);
             var alpha = opacity * (ring == 1 ? 1f : 0.12f / ring);
             var color = ImGui.GetColorU32(new Vector4(0f, 0f, 0f, alpha));
-            for (var index = 0; index < 8; index++)
+            foreach (var direction in ToolbarOutlineDirections)
             {
-                var angle = index * MathF.PI / 4f;
-                drawList.AddText(ImGui.GetFont(), fontSize,
-                    position + new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius, color, label);
+                drawList.AddText(font, fontSize,
+                    position + direction * radius, color, text);
             }
         }
-        drawList.AddText(ImGui.GetFont(), fontSize, position, ImGui.GetColorU32(new Vector4(1f, 1f, 1f, opacity)), label);
+        drawList.AddText(font, fontSize, position, ImGui.GetColorU32(new Vector4(1f, 1f, 1f, opacity)), text);
     }
 
     private unsafe void RefreshWorldMarkers()
@@ -161,6 +189,22 @@ public sealed partial class MultiToolbar
             {
                 worldMarkers.Add(new(GetWorldMarkerGroundPosition(new Vector3(flag.XFloat, 0f, flag.YFloat)), flag.MapMarker.IconId,
                     OmniLoc.Get("Feature.MultiToolbar.MarkerFlag")));
+            }
+        }
+
+        if (enabled.Contains(MultiToolbarWorldMarkerType.Waymark))
+        {
+            var controller = MarkingController.Instance();
+            if (controller != null)
+            {
+                for (var index = 0; index < WaymarkIcons.Length; index++)
+                {
+                    var marker = controller->FieldMarkers[index];
+                    if (marker.Active)
+                    {
+                        worldMarkers.Add(new(marker.Position, WaymarkIcons[index], WaymarkLabels[index]));
+                    }
+                }
             }
         }
 
@@ -201,8 +245,12 @@ public sealed partial class MultiToolbar
                     {
                         continue;
                     }
+                    var remaining = fate->StartTimeEpoch > 0
+                        ? TimeSpan.FromSeconds(Math.Max(0L, (long)fate->StartTimeEpoch + fate->Duration - now)).ToString(@"mm\:ss")
+                        : OmniLoc.Get("Feature.MultiToolbar.FateWaiting");
                     worldMarkers.Add(new(fate->Location + new Vector3(0f, 1.8f, 0f), fate->IconId,
-                        fate->Name.AsDalamudSeString().TextValue, $"{fate->Progress}%"));
+                        fate->Name.AsDalamudSeString().TextValue,
+                        string.Format(OmniLoc.Get("Feature.MultiToolbar.FateProgressTime"), fate->Progress, remaining)));
                 }
             }
         }
@@ -242,14 +290,10 @@ public sealed partial class MultiToolbar
             {
                 continue;
             }
-            if (!huntRanks.TryGetValue(obj.DataID, out var rank))
-            {
-                rank = LuminaGetter.Get<NotoriousMonster>()
-                    .Where(monster => monster.BNpcBase.RowId == obj.DataID)
-                    .Select(monster => monster.Rank)
-                    .FirstOrDefault();
-                huntRanks[obj.DataID] = rank;
-            }
+            huntRanks ??= LuminaGetter.Get<NotoriousMonster>()
+                .DistinctBy(monster => monster.BNpcBase.RowId)
+                .ToDictionary(monster => monster.BNpcBase.RowId, monster => monster.Rank);
+            huntRanks.TryGetValue(obj.DataID, out var rank);
             if (rank is >= 2 and <= 4)
             {
                 var prefix = rank == 2 ? "A" : rank == 3 ? "S" : "SS";
@@ -327,4 +371,5 @@ public enum MultiToolbarWorldMarkerType
     Hunt,
     Fate,
     Party,
+    Waymark,
 }

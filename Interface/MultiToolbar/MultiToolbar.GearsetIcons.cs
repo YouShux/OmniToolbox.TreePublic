@@ -1,5 +1,6 @@
 using Lumina.Data.Files;
 using OmniToolbox.Host;
+using OmniToolbox.UI.Controls;
 
 namespace OmniToolbox.TreePublic;
 
@@ -53,7 +54,7 @@ public sealed partial class MultiToolbar
 
         if (hovered)
         {
-            ImGui.SetTooltip(tooltip);
+            OmniControls.HelpTooltip(tooltip);
         }
 
         return clicked;

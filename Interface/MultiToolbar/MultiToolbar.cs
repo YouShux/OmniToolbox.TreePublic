@@ -76,7 +76,7 @@ public sealed partial class MultiToolbar : ModuleBase
         var changed = false;
         var commands = config.Commands.DistinctBy(command =>
             (command.Type, command.Side, command.Enabled, command.ShowIcon, command.DisplayName,
-                command.Name, command.Command, command.GameIconID, command.IconFilePath, command.IconGlyph)).ToList();
+                command.Name, command.Command, command.RightCommand, command.GameIconID, command.IconFilePath, command.IconGlyph)).ToList();
         if (commands.Count != config.Commands.Count)
         {
             config.Commands = commands;
@@ -170,7 +170,9 @@ public sealed partial class MultiToolbar : ModuleBase
 
     protected override void OnEnable()
     {
+        nextEquipmentSnapshotRefresh = nextInventorySpaceRefresh = nextCurrencyLabelRefresh = 0;
         MigrateMultiDock();
+        MigrateMultiDockPlugins();
         var lifetime = new FeatureLifetime();
         try
         {

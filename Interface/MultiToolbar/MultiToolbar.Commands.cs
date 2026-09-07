@@ -9,6 +9,7 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class MultiToolbar
 {
+    private bool openCommandEditor;
     private static bool TryGetCommandGlyph(string text, out SeIconChar glyph)
     {
         if (Enum.TryParse(text, true, out glyph) && Enum.IsDefined(glyph))
@@ -28,8 +29,9 @@ public sealed partial class MultiToolbar
     {
         var editCommandsLabel = OmniLoc.Get("Feature.MultiToolbar.EditCommands");
         if (OmniControls.SmallButton(editCommandsLabel + "##multiToolbarEditCommands", false,
-                OmniControls.CompactButtonSize(editCommandsLabel)))
+                OmniControls.CompactButtonSize(editCommandsLabel)) || openCommandEditor)
         {
+            openCommandEditor = false;
             ImGui.OpenPopup("##multiToolbarCommandsEditor");
         }
         ImGui.SetNextWindowSize(Vector2.Min(OmniTheme.Scale(new Vector2(1000f, 420f)), ImGui.GetMainViewport().WorkSize), ImGuiCond.Appearing);
@@ -76,6 +78,8 @@ public sealed partial class MultiToolbar
                 OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.CommandName"), ImGui.GetTextLineHeight());
                 OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.CommandBody"), ImGui.GetTextLineHeight());
                 OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.CommandIcon"), ImGui.GetTextLineHeight());
+                OmniControls.TableHeader(string.Empty, ImGui.GetTextLineHeight());
+                OmniControls.TableHeader(string.Empty, ImGui.GetTextLineHeight());
                 var removeIndex = -1;
                 var reorderFrom = -1;
                 var reorderTo = -1;

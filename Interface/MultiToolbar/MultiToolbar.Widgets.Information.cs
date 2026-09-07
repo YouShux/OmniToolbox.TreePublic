@@ -1,4 +1,6 @@
 using Dalamud.Interface;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
 using Dalamud.Game.Text;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -16,6 +18,9 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class MultiToolbar
 {
+    private long nextInventorySpaceRefresh;
+    private (int Used, int Total) inventorySpace;
+
     private unsafe string? InformationWidgetLabel(MultiToolbarWidgetType type)
     {
         switch (type)
@@ -57,7 +62,7 @@ public sealed partial class MultiToolbar
     private static FontAwesomeIcon? InformationWidgetIcon(MultiToolbarWidgetType type) =>
         type == MultiToolbarWidgetType.SanctuaryIndicator ? FontAwesomeIcon.Moon : null;
 
-    private static uint InformationWidgetGameIcon(MultiToolbarWidgetType type)
+    private uint InformationWidgetGameIcon(MultiToolbarWidgetType type)
     {
         if (type == MultiToolbarWidgetType.Weather)
         {
@@ -71,7 +76,7 @@ public sealed partial class MultiToolbar
         return 0;
     }
 
-    private static unsafe bool IsInformationWidgetVisible(MultiToolbarWidgetType type) => type switch
+    private unsafe bool IsInformationWidgetVisible(MultiToolbarWidgetType type) => type switch
     {
         MultiToolbarWidgetType.SanctuaryIndicator => TerritoryInfo.Instance()->InSanctuary,
         MultiToolbarWidgetType.InventorySpace => GetToolbarInventorySpace().Total > 0,
@@ -103,9 +108,14 @@ public sealed partial class MultiToolbar
                 }
                 return true;
             case MultiToolbarWidgetType.Location:
+                OmniControls.HelpTooltip(OmniLoc.Get("Feature.MultiToolbar.LocationInteractionHelp"));
                 if (ImGui.IsItemClicked())
                 {
                     UIModule.Instance()->ExecuteMainCommand(16);
+                }
+                else if (ImGui.IsItemClicked(ImGuiMouseButton.Right))
+                {
+                    ExecuteCommand("/omni DisplayIDInformation");
                 }
                 return true;
             case MultiToolbarWidgetType.InventorySpace:
@@ -153,7 +163,7 @@ public sealed partial class MultiToolbar
         drawList.AddRectFilled(new(min.X + width * progress, min.Y), new(min.X + width * (progress + rested), max.Y), ImGui.GetColorU32(ImGuiCol.PlotHistogramHovered));
         if (hovered)
         {
-            ImGui.SetTooltip($"{hud->ExpCurrentExperience:N0} / {hud->ExpNeededExperience:N0} (+{hud->ExpRestedExperience:N0})");
+            OmniControls.HelpTooltip($"{hud->ExpCurrentExperience:N0} / {hud->ExpNeededExperience:N0} (+{hud->ExpRestedExperience:N0})");
         }
     }
 
@@ -199,8 +209,15 @@ public sealed partial class MultiToolbar
 
     private static unsafe long GetNextWeatherSeconds() => 1400 - Framework.GetServerTime() % 1400;
 
-    private static unsafe (int Used, int Total) GetToolbarInventorySpace()
+    private unsafe (int Used, int Total) GetToolbarInventorySpace()
     {
+        var now = Environment.TickCount64;
+        if (now < nextInventorySpaceRefresh)
+        {
+            return inventorySpace;
+        }
+        nextInventorySpaceRefresh = now + 500;
+        inventorySpace = default;
         var manager = InventoryManager.Instance();
         if (manager == null)
         {
@@ -216,6 +233,7 @@ public sealed partial class MultiToolbar
             }
             total += container->Size;
         }
-        return (total - (int)manager->GetEmptySlotsInBag(), total);
+        inventorySpace = (total - (int)manager->GetEmptySlotsInBag(), total);
+        return inventorySpace;
     }
 }

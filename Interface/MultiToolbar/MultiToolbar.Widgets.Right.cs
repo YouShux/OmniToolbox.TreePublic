@@ -69,7 +69,7 @@ public sealed partial class MultiToolbar
             case MultiToolbarWidgetType.MailIndicator:
                 if (ImGui.IsItemHovered())
                 {
-                    ImGui.SetTooltip(string.Format(OmniLoc.Get("Feature.MultiToolbar.UnreadMailCount"), GetUnreadMailCount()));
+                    OmniControls.HelpTooltip(string.Format(OmniLoc.Get("Feature.MultiToolbar.UnreadMailCount"), GetUnreadMailCount()));
                 }
                 return true;
             case MultiToolbarWidgetType.WalkingIndicator:
@@ -85,7 +85,7 @@ public sealed partial class MultiToolbar
                     return true;
                 }
                 var aetheryte = GetFlagAetheryte();
-                ImGui.SetTooltip(aetheryte is null
+                OmniControls.HelpTooltip(aetheryte is null
                     ? OmniLoc.Get("Feature.MultiToolbar.FlagUnavailable")
                     : string.Format(OmniLoc.Get("Feature.MultiToolbar.FlagTeleport"), aetheryte.Name, aetheryte.Cost));
                 if (ImGui.IsItemClicked() && aetheryte is not null)
@@ -242,8 +242,12 @@ public sealed partial class MultiToolbar
                 system.Set(key, enabled);
                 SaveActiveVolumePreset();
             }
+            if (key == "SoundHousing")
+            {
+                ImGui.SameLine();
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.MultiToolbar.SoundHousingHint"));
+            }
         }
-        ImGui.TextDisabled(OmniLoc.Get("Feature.MultiToolbar.SoundHousingHint"));
         var muteInBackground = !system.GetBool("IsSoundAlways");
         if (OmniControls.Checkbox(OmniLoc.Get("Feature.MultiToolbar.MuteInBackground"), ref muteInBackground))
         {
@@ -280,7 +284,7 @@ public sealed partial class MultiToolbar
                 : ImGui.Button($"{i + 1}##volumePreset", size);
             if (ImGui.IsItemHovered())
             {
-                ImGui.SetTooltip(preset.Name);
+                OmniControls.HelpTooltip(preset.Name);
             }
             if (clicked)
             {

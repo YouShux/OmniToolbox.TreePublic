@@ -8,6 +8,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
 using OmniToolbox.Items;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Info.Game.Enums;
@@ -20,6 +21,11 @@ public sealed partial class MultiToolbar
 {
     private static readonly uint[] DurabilityActionIds = [6, 14, 13];
     private static readonly uint[] DarkMatterItemIds = [5594, 5595, 5596, 5597, 5598, 10386, 17837, 33916];
+    private long nextEquipmentSnapshotRefresh;
+    private EquipmentSnapshot equipmentSnapshot;
+    private long nextCurrencyLabelRefresh;
+    private uint currencyLabelItemID;
+    private string currencyLabel = string.Empty;
 
     private bool DrawInventoryWidgetPopup(MultiToolbarWidgetType type)
     {
@@ -47,7 +53,7 @@ public sealed partial class MultiToolbar
         MultiToolbarWidgetType.GearsetSwitcher => GetCurrentGearsetLabel(),
         MultiToolbarWidgetType.Durability => GetDurabilityLabel(),
         MultiToolbarWidgetType.RetainerList => OmniLoc.Get("Feature.MultiToolbar.WidgetRetainerList"),
-        MultiToolbarWidgetType.Currencies => config.TrackedCurrencyID == 0 ? OmniLoc.Get("Feature.MultiToolbar.WidgetCurrencies") : FormatCurrency(LocalPlayerState.GetItemCount(config.TrackedCurrencyID)),
+        MultiToolbarWidgetType.Currencies => GetToolbarCurrencyLabel(),
         _ => null,
     };
 
@@ -116,7 +122,7 @@ public sealed partial class MultiToolbar
                     }
 
                     var name = string.IsNullOrWhiteSpace(gearset->NameString) ? LuminaWrapper.GetJobName(gearset->ClassJob) : gearset->NameString;
-                    if (DrawGearsetCard(id, name, gearset->ClassJob, gearset->ItemLevel, category, module->CurrentGearsetIndex == id) &&
+                    if (DrawGearsetCard(id, name, gearset->ClassJob, gearset->ItemLevel, module->CurrentGearsetIndex == id) &&
                         LocalPlayerState.SwitchGearset(id))
                     {
                         ClosePopup();
@@ -241,28 +247,16 @@ public sealed partial class MultiToolbar
         return candidates;
     }
 
-    private bool DrawGearsetCard(byte id, string name, byte classJob, short itemLevel, int category, bool selected)
+    private bool DrawGearsetCard(byte id, string name, byte classJob, short itemLevel, bool selected)
     {
         var theme = ToolbarTheme;
         var padding = ScaleToolbar(2f);
         var height = ImGui.GetTextLineHeight() * 1.7f + padding * 2f;
         var origin = ImGui.GetCursorScreenPos();
         var width = ImGui.GetContentRegionAvail().X;
-        var clicked = ImGui.InvisibleButton($"##gearset{id}", new Vector2(width, height));
+        var clicked = OmniControls.SmallButton($"##gearset{id}", selected, new Vector2(width, height));
         var hovered = ImGui.IsItemHovered();
-        var tint = category switch
-        {
-            0 => theme.Primary,
-            1 => theme.Success,
-            2 or 3 or 4 => theme.Error,
-            5 => theme.Secondary,
-            _ => theme.Warning,
-        };
-        var background = Vector4.Lerp(theme.Surface, tint, selected ? 0.5f : hovered ? 0.35f : 0.18f);
         var drawList = ImGui.GetWindowDrawList();
-        var radius = MathF.Min(ScaleToolbar(4f), theme.ButtonRadius);
-        drawList.AddRectFilled(origin, origin + new Vector2(width, height), ImGui.GetColorU32(background), radius);
-        drawList.AddRect(origin, origin + new Vector2(width, height), ImGui.GetColorU32(selected ? theme.Accent : theme.Border), radius);
         var iconSize = height - padding * 2f;
         if (ImageHelper.GetGameIcon(LuminaWrapper.GetJobIcon(classJob, ClassJobIconType.Normal)) is { } icon)
         {
@@ -272,8 +266,8 @@ public sealed partial class MultiToolbar
         var left = origin.X + iconSize + padding * 2f;
         var value = itemLevel.ToString();
         var valueWidth = ImGui.CalcTextSize(value).X;
-        var valueX = origin.X + width - valueWidth - padding;
-        var textColor = ImGui.GetColorU32(theme.Text);
+        var valueX = origin.X + width - valueWidth - ScaleToolbar(8f);
+        var textColor = ImGui.GetColorU32(ImGuiCol.Text);
         drawList.AddText(new Vector2(left, origin.Y + padding), textColor,
             EllipsizeToolbarText(name, MathF.Max(0f, valueX - left - padding)));
         var level = string.Format(OmniLoc.Get("Feature.MultiToolbar.GearsetLevel"), LocalPlayerState.GetClassJobLevel(classJob, false));
@@ -281,7 +275,7 @@ public sealed partial class MultiToolbar
         drawList.AddText(new Vector2(valueX, origin.Y + (height - ImGui.GetTextLineHeight()) / 2f), textColor, value);
         if (hovered)
         {
-            ImGui.SetTooltip(name);
+            OmniControls.HelpTooltip(name);
         }
 
         return clicked;
@@ -495,27 +489,26 @@ public sealed partial class MultiToolbar
             return;
         }
 
-        var rowHeight = MathF.Max(ImGui.GetFrameHeight(), GetPopupRowIconSize()) + ImGui.GetStyle().CellPadding.Y * 2f;
+        var iconSize = OmniTheme.TableItemIconSize();
+        var rowHeight = MathF.Max(iconSize, ImGui.GetTextLineHeight() * 2f) + ScaleToolbar(8f);
         using var table = ImRaii.Table(
-            "##multiToolbarRetainers", 6,
+            "##multiToolbarRetainers", 5,
             ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoSavedSettings);
         if (!table)
         {
             return;
         }
 
-        var jobWidth = GetPopupRowIconSize() + ImGui.CalcTextSize("100").X + ImGui.GetStyle().ItemSpacing.X * 2f;
         var ventureWidth = MathF.Max(ImGui.CalcTextSize("00:00:00").X,
             ImGui.CalcTextSize(OmniLoc.Get("Feature.MultiToolbar.RetainerCompleted")).X) + ImGui.GetStyle().CellPadding.X * 2f;
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerJob"), ImGuiTableColumnFlags.WidthFixed, MathF.Max(ScaleToolbar(60f), jobWidth));
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerName"), ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.WidgetRetainerList"), ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerGil"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(108f));
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerInventory"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(44f));
+        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerInventory"), ImGuiTableColumnFlags.WidthFixed,
+            ImGui.CalcTextSize("175/175").X + ImGui.GetStyle().CellPadding.X * 2f);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerMarket"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(44f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerVenture"), ImGuiTableColumnFlags.WidthFixed, MathF.Max(ScaleToolbar(80f), ventureWidth));
         OmniControls.BeginTableHeaderRow();
-        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerJob"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerName"));
+        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.WidgetRetainerList"));
         OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerGil"));
         OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerInventory"));
         OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerMarket"));
@@ -533,21 +526,28 @@ public sealed partial class MultiToolbar
             found = true;
             ImGui.TableNextRow(ImGuiTableRowFlags.None, rowHeight);
             ImGui.TableNextColumn();
-            if (retainer->ClassJob != 0 && ImageHelper.GetGameIcon(LuminaWrapper.GetJobIcon(retainer->ClassJob)) is { } texture)
+            var origin = ImGui.GetCursorScreenPos();
+            var cellWidth = ImGui.GetContentRegionAvail().X;
+            var padding = ScaleToolbar(4f);
+            var drawList = ImGui.GetWindowDrawList();
+            if (retainer->ClassJob != 0 && ImageHelper.GetGameIcon(LuminaWrapper.GetJobIcon(retainer->ClassJob, ClassJobIconType.Normal)) is { } texture)
             {
-                ImGuiOm.TextImage(retainer->Level.ToString(), texture.Handle, new Vector2(GetPopupRowIconSize()));
+                var iconPosition = origin + new Vector2(padding, (rowHeight - iconSize) * 0.5f);
+                drawList.AddImage(texture.Handle, iconPosition, iconPosition + new Vector2(iconSize));
             }
-            else
-            {
-                OmniControls.TableTextCentered("-", rowHeight);
-            }
-
-            ImGui.TableNextColumn();
-            OmniControls.TableTextCentered(retainer->NameString, rowHeight);
+            var jobName = retainer->ClassJob == 0 ? "-" : LuminaWrapper.GetJobName(retainer->ClassJob);
+            var detail = string.Format(OmniLoc.Get("Feature.MultiToolbar.RetainerJobLevel"), jobName, retainer->Level);
+            var textPosition = origin + new Vector2(iconSize + padding * 2f, (rowHeight - ImGui.GetTextLineHeight() * 2f) * 0.5f);
+            var textWidth = MathF.Max(0f, cellWidth - iconSize - padding * 3f);
+            drawList.AddText(textPosition, ImGui.GetColorU32(ImGuiCol.Text), EllipsizeToolbarText(retainer->NameString, textWidth));
+            drawList.AddText(textPosition + new Vector2(0f, ImGui.GetTextLineHeight()), ImGui.GetColorU32(ImGuiCol.Text),
+                EllipsizeToolbarText(detail, textWidth));
+            ImGui.Dummy(new Vector2(cellWidth, rowHeight));
+            OmniControls.HelpTooltip($"{retainer->NameString}\n{detail}");
             ImGui.TableNextColumn();
             OmniControls.TableTextCentered(FormatCurrency(retainer->Gil), rowHeight);
             ImGui.TableNextColumn();
-            OmniControls.TableTextCentered(retainer->ItemCount.ToString(), rowHeight);
+            OmniControls.TableTextCentered($"{retainer->ItemCount}/175", rowHeight);
             ImGui.TableNextColumn();
             OmniControls.TableTextCentered(retainer->MarketItemCount.ToString(), rowHeight);
             ImGui.TableNextColumn();
@@ -635,7 +635,8 @@ public sealed partial class MultiToolbar
     private bool DrawInventoryMenuRow(string id, string label, uint iconID, string value, bool selected = false, bool drawFrame = true)
     {
         using var scope = ImRaii.PushId(id);
-        var height = MathF.Max(ImGui.GetFrameHeight(), GetPopupRowIconSize());
+        var iconSize = OmniTheme.TableItemIconSize();
+        var height = MathF.Max(ImGui.GetFrameHeight(), iconSize);
         var origin = ImGui.GetCursorScreenPos();
         var width = ImGui.GetContentRegionAvail().X;
         var clicked = ImGui.Selectable("##row", selected, ImGuiSelectableFlags.DontClosePopups, new Vector2(width, height));
@@ -643,7 +644,6 @@ public sealed partial class MultiToolbar
         var left = origin.X;
         if (iconID != 0)
         {
-            var iconSize = GetPopupRowIconSize();
             FramedGameIcon.Draw(drawList, iconID, new Vector2(left, origin.Y + (height - iconSize) / 2),
                 new Vector2(iconSize), drawFrame: drawFrame);
             left += iconSize + ImGui.GetStyle().ItemInnerSpacing.X;
@@ -659,7 +659,7 @@ public sealed partial class MultiToolbar
         drawList.AddText(new Vector2(valueX, textY), color, value);
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip(label);
+            OmniControls.HelpTooltip(label);
         }
 
         return clicked;
@@ -690,13 +690,13 @@ public sealed partial class MultiToolbar
     private static unsafe uint GetCurrentGearsetIcon() =>
         LocalPlayerState.ClassJob == 0 ? 0 : LuminaWrapper.GetJobIcon(LocalPlayerState.ClassJob, ClassJobIconType.Normal);
 
-    private static string GetDurabilityLabel()
+    private string GetDurabilityLabel()
     {
         var snapshot = ReadEquipmentSnapshot();
         return $"{snapshot.Durability}% / {snapshot.Spiritbond}%";
     }
 
-    private static uint GetDurabilityIcon()
+    private uint GetDurabilityIcon()
     {
         var durability = ReadEquipmentSnapshot().Durability;
         return durability <= 10 ? 60074U : durability <= 30 ? 60073U : 61512U;
@@ -709,8 +709,32 @@ public sealed partial class MultiToolbar
 
     private static string FormatCurrency(uint value) => value.ToString("N0");
 
-    private static unsafe EquipmentSnapshot ReadEquipmentSnapshot()
+    private string GetToolbarCurrencyLabel()
     {
+        var itemID = config.TrackedCurrencyID;
+        if (itemID == 0)
+        {
+            return OmniLoc.Get("Feature.MultiToolbar.WidgetCurrencies");
+        }
+        var now = Environment.TickCount64;
+        if (currencyLabelItemID != itemID || now >= nextCurrencyLabelRefresh)
+        {
+            currencyLabel = FormatCurrency(LocalPlayerState.GetItemCount(itemID));
+            currencyLabelItemID = itemID;
+            nextCurrencyLabelRefresh = now + 500;
+        }
+        return currencyLabel;
+    }
+
+    private unsafe EquipmentSnapshot ReadEquipmentSnapshot()
+    {
+        var now = Environment.TickCount64;
+        if (now < nextEquipmentSnapshotRefresh)
+        {
+            return equipmentSnapshot;
+        }
+        nextEquipmentSnapshotRefresh = now + 250;
+        equipmentSnapshot = default;
         var manager = InventoryManager.Instance();
         var container = manager is null ? null : manager->GetInventoryContainer(InventoryType.EquippedItems);
         if (container is null || !container->IsLoaded)
@@ -734,7 +758,8 @@ public sealed partial class MultiToolbar
             count++;
         }
 
-        return count == 0 ? new(0, 0, 0) : new(durability, spiritbond, count);
+        equipmentSnapshot = count == 0 ? default : new(durability, spiritbond, count);
+        return equipmentSnapshot;
     }
 
     private static unsafe int GetItemDurability(InventoryItem* item) =>

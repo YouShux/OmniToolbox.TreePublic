@@ -43,6 +43,8 @@ public sealed partial class MultiToolbar
         DrawHiddenWindowPicker();
         if (hiddenWindowManagerOpen)
         {
+            using var textColor = ImRaii.PushColor(ImGuiCol.Text,
+                OmniTheme.UsesDarkPalette ? ToolbarTheme.Text : OmniTheme.Tokens.Text);
             var viewport = ImGui.GetMainViewport();
             ImGui.SetNextWindowSize(Vector2.Min(OmniTheme.Scale(new Vector2(520f, 360f)), viewport.WorkSize), ImGuiCond.FirstUseEver);
             if (ImGui.Begin(OmniLoc.Get("Feature.MultiToolbar.HiddenWindows") + "###OmniToolbarHiddenWindows",
@@ -94,17 +96,8 @@ public sealed partial class MultiToolbar
                         var buttonSize = new Vector2(OmniTheme.CheckboxSize());
                         var start = ImGui.GetCursorScreenPos();
                         var width = ImGui.GetContentRegionAvail().X;
-                        if (OmniControls.IconButton("reveal", revealedWindows.Contains(name) ? FontAwesomeIcon.Eye : FontAwesomeIcon.EyeSlash,
-                                false, buttonSize, OmniLoc.Get("Feature.MultiToolbar.ToggleHiddenWindow")))
-                        {
-                            nextHiddenWindowRefresh = 0;
-                            if (!revealedWindows.Add(name))
-                            {
-                                revealedWindows.Remove(name);
-                            }
-                        }
-                        ImGui.SameLine();
                         var labelWidth = MathF.Max(1f, width - buttonSize.X * 2f - ImGui.GetStyle().ItemSpacing.X * 2f);
+                        using var textAlign = ImRaii.PushStyle(ImGuiStyleVar.SelectableTextAlign, new Vector2(0f, 0.5f));
                         if (ImGui.Selectable(EllipsizeToolbarText(name, labelWidth) + "##window", revealedWindows.Contains(name),
                                 ImGuiSelectableFlags.None, new Vector2(labelWidth, buttonSize.Y)))
                         {
@@ -115,6 +108,18 @@ public sealed partial class MultiToolbar
                             }
                         }
                         OmniControls.HelpTooltip(name);
+                        ImGui.SameLine();
+                        ImGui.SetCursorScreenPos(new Vector2(
+                            start.X + width - buttonSize.X * 2f - ImGui.GetStyle().ItemSpacing.X, start.Y));
+                        if (OmniControls.IconButton("reveal", revealedWindows.Contains(name) ? FontAwesomeIcon.Eye : FontAwesomeIcon.EyeSlash,
+                                false, buttonSize, OmniLoc.Get("Feature.MultiToolbar.ToggleHiddenWindow")))
+                        {
+                            nextHiddenWindowRefresh = 0;
+                            if (!revealedWindows.Add(name))
+                            {
+                                revealedWindows.Remove(name);
+                            }
+                        }
                         ImGui.SameLine();
                         ImGui.SetCursorScreenPos(new Vector2(start.X + width - buttonSize.X, start.Y));
                         if (OmniControls.IconButton("remove", FontAwesomeIcon.Trash, false, buttonSize,
@@ -174,7 +179,7 @@ public sealed partial class MultiToolbar
         }
         ImGui.GetForegroundDrawList().AddRect(window.Pos, window.Pos + window.Size,
             ImGui.GetColorU32(OmniTheme.ControlAccent), 0f, ImDrawFlags.None, OmniTheme.Scale(2f));
-        ImGui.SetTooltip(name);
+        OmniControls.HelpTooltip(name, requireItemHover: false);
         if (ImGui.IsMouseClicked(ImGuiMouseButton.Left))
         {
             config.HiddenWindows.Add(name);

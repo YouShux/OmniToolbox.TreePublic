@@ -25,8 +25,18 @@ public sealed partial class MultiToolbar
 
     public override bool DrawSettings()
     {
+        MigrateMultiDockPlugins();
         var changed = DrawConfigTransfer();
-        changed |= DrawGeneralSettings(out var openWidgetEditor);
+        ImGui.SameLine();
+        DrawPluginEditorButton();
+        ImGui.SameLine();
+        DrawCommandEditorButton();
+        ImGui.SameLine();
+        var editWidgetsLabel = OmniLoc.Get("Feature.MultiToolbar.EditWidgets");
+        var openWidgetEditor = OmniControls.SmallButton(editWidgetsLabel + "##multiToolbarWidgetSettings", false,
+            OmniControls.CompactButtonSize(editWidgetsLabel));
+        ImGui.Spacing();
+        changed |= DrawGeneralSettings();
         changed |= DrawAppearanceSettings();
 
         if (openWidgetEditor)
@@ -94,9 +104,8 @@ public sealed partial class MultiToolbar
         return changed;
     }
 
-    private bool DrawGeneralSettings(out bool openWidgetEditor)
+    private bool DrawGeneralSettings()
     {
-        openWidgetEditor = false;
         var changed = false;
         var rowContentHeight = MathF.Max(OmniTheme.CheckboxSize(), MathF.Max(OmniTheme.SmallButtonSize().Y, ImGui.GetFrameHeight()));
         using var padding = ImRaii.PushStyle(ImGuiStyleVar.FramePadding,
@@ -115,21 +124,6 @@ public sealed partial class MultiToolbar
         {
             ImGui.TableSetupColumn($"##setting{column}", ImGuiTableColumnFlags.WidthStretch, 1f);
         }
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        var custom = config.UseCustomColors;
-        if (OmniControls.Checkbox(OmniLoc.Get("Feature.MultiToolbar.CustomColors"), ref custom, rowContentHeight))
-        {
-            config.UseCustomColors = custom;
-            changed = true;
-        }
-        ImGui.TableNextColumn();
-        DrawCommandEditorButton();
-        ImGui.TableNextColumn();
-        var editWidgetsLabel = OmniLoc.Get("Feature.MultiToolbar.EditWidgets");
-        openWidgetEditor = OmniControls.SmallButton(editWidgetsLabel + "##multiToolbarWidgetSettings", false,
-            OmniControls.CompactButtonSize(editWidgetsLabel));
-
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var offset = config.BarVerticalOffset;
@@ -381,20 +375,30 @@ public sealed partial class MultiToolbar
                             }
                             if (widget.Type == MultiToolbarWidgetType.CustomButton)
                             {
-                                ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.CommandBody"));
-                                var command = widget.Command;
-                                ImGui.SetNextItemWidth(-1f);
-                                if (ImGui.InputText($"##multiToolbarWidgetCommand{index}", ref command, 256))
+                                for (var button = 0; button < 2; button++)
                                 {
-                                    widget.Command = command;
-                                }
-                                if (ImGui.IsItemDeactivatedAfterEdit())
-                                {
-                                    if (TryNormalizeCommand(command, out var normalized))
+                                    ImGui.TextUnformatted(OmniLoc.Get(button == 0
+                                        ? "Feature.MultiToolbar.LeftCommand" : "Feature.MultiToolbar.RightCommand"));
+                                    var command = button == 0 ? widget.Command : widget.RightCommand;
+                                    ImGui.SetNextItemWidth(-1f);
+                                    var edited = ImGui.InputText($"##multiToolbarWidgetCommand{index}_{button}", ref command, 256);
+                                    var committed = ImGui.IsItemDeactivatedAfterEdit();
+                                    if (committed && TryNormalizeCommand(command, out var normalized))
                                     {
-                                        widget.Command = normalized;
+                                        command = normalized;
                                     }
-                                    changed = true;
+                                    if (edited || committed)
+                                    {
+                                        if (button == 0)
+                                        {
+                                            widget.Command = command;
+                                        }
+                                        else
+                                        {
+                                            widget.RightCommand = command;
+                                        }
+                                    }
+                                    changed |= committed;
                                 }
                             }
 
@@ -696,6 +700,7 @@ public sealed class MultiToolbarWidgetConfig
 
     // 仅 CustomButton 使用：点击后执行的指令
     public string Command { get; set; } = string.Empty;
+    public string RightCommand { get; set; } = string.Empty;
 
     // 仅 CustomButton 使用：指令列表弹窗里的游戏图标
     public uint GameIconID { get; set; }
@@ -716,11 +721,15 @@ public sealed class MultiToolbarConfig
 
     public bool TextEntryDefaultsApplied { get; set; }
     public bool MultiDockMigrated { get; set; }
+    public bool MultiDockPluginsMigrated { get; set; }
+    [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
+    public List<string> SelectedPlugins { get; set; } = [];
     public HashSet<string> HiddenWindows { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
     public List<MultiToolbarWidgetConfig> Widgets { get; set; } =
     [
+        new() { Side = MultiToolbarWidgetSide.Center, Type = MultiToolbarWidgetType.Location },
         new() { Side = MultiToolbarWidgetSide.Center, Type = MultiToolbarWidgetType.PluginList, ShowIcon = false },
         new() { Side = MultiToolbarWidgetSide.Center, Type = MultiToolbarWidgetType.CommandList, ShowIcon = false },
         new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.BattleEffects, Command = "/battleeffects", DisplayName = "", GameIconID = 516 },
@@ -777,7 +786,6 @@ public sealed class MultiToolbarConfig
     public int ClockTimeSource { get; set; }
 
 
-    public bool UseCustomColors { get; set; }
 
     public Vector4? BackgroundColor { get; set; }
 
@@ -787,7 +795,11 @@ public sealed class MultiToolbarConfig
 
     public Vector4? BorderColor { get; set; }
 
-    public List<string> CollapsedDtrTitles { get; set; } = [];
+    [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
+    public List<string> CollapsedDtrTitles { get; set; } =
+    [
+        "OmniToolbox.Toolbar.HiddenWindows", "DailyRoutines-GameTimeLeft"
+    ];
     [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
     public List<string> DtrOrder { get; set; } =
     [
@@ -795,6 +807,7 @@ public sealed class MultiToolbarConfig
         "DailyRoutines-BetterFPSLimitation", "DailyRoutines-GameTimeLeft", "LazyLoot",
         "DailyRoutines-FastWorldTravel", "vnavmesh", "DailyRoutines-AutoDisplayNetworkLatency",
         "bmr-autorotation", "bmr-ai", "DailyRoutines-AutoDisplayMitigationInfo",
-        "AEAssist-CombatRoutine", "AEAssist-TargetSelector", "LifestreamInstance"
+        "AEAssist-CombatRoutine", "AEAssist-TargetSelector", "LifestreamInstance",
+        "OmniToolbox.Toolbar.HiddenWindows"
     ];
 }

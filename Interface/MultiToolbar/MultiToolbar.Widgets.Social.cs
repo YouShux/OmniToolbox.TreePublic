@@ -372,7 +372,7 @@ public sealed partial class MultiToolbar
 
         if (hovered)
         {
-            ImGui.SetTooltip($"{society.Name}\n{rankText}\n{society.Current}/{needed} ({percentage})");
+            OmniControls.HelpTooltip($"{society.Name}\n{rankText}\n{society.Current}/{needed} ({percentage})");
         }
     }
 
@@ -442,14 +442,13 @@ public sealed partial class MultiToolbar
                 var drawList = ImGui.GetWindowDrawList();
                 if (hovered || selected)
                 {
-                    var rowBackground = selected
-                        ? OmniTheme.HoverBackground
-                        : WithAlpha(OmniTheme.Tokens.Surface, 0.85f);
+                    var rowColor = hovered
+                        ? ImGui.IsItemActive() ? ImGuiCol.HeaderActive : ImGuiCol.HeaderHovered
+                        : ImGuiCol.Header;
                     drawList.AddRectFilled(
                         rowPosition,
                         rowPosition + new Vector2(rowWidth, rowHeight),
-                        OmniTheme.Color(rowBackground),
-                        ScaleToolbar(OmniTheme.Tokens.ButtonRadius));
+                        ImGui.GetColorU32(rowColor));
                 }
 
                 if (ImageHelper.GetGameIcon(status.Icon) is { } texture)

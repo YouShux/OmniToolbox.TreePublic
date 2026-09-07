@@ -11,7 +11,7 @@ public sealed partial class MultiToolbar
         get
         {
             var theme = OmniTheme.Tokens with { Text = Vector4.One };
-            return !config.UseCustomColors ? theme : theme with
+            return theme with
             {
                 Background = config.BackgroundColor ?? theme.Background,
                 Surface = config.BackgroundColor ?? theme.Surface,
@@ -26,11 +26,6 @@ public sealed partial class MultiToolbar
     private bool DrawAppearanceSettings()
     {
         var changed = false;
-        if (!config.UseCustomColors)
-        {
-            return changed;
-        }
-
         using var table = ImRaii.Table("##toolbarColors", 4, ImGuiTableFlags.SizingStretchSame);
         if (!table)
         {
