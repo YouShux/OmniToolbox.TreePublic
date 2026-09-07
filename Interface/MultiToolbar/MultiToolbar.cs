@@ -150,6 +150,7 @@ public sealed partial class MultiToolbar : ModuleBase
             (MultiToolbarWidgetType.MarkerControl, MultiToolbarWidgetSide.Right),
             (MultiToolbarWidgetType.WalkingIndicator, MultiToolbarWidgetSide.Right),
             (MultiToolbarWidgetType.StackedClock, MultiToolbarWidgetSide.Right),
+            (MultiToolbarWidgetType.ToolbarPin, MultiToolbarWidgetSide.Right),
         };
         foreach (var (type, side) in defaults)
         {

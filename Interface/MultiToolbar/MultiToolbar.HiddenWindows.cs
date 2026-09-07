@@ -46,9 +46,24 @@ public sealed partial class MultiToolbar
             var viewport = ImGui.GetMainViewport();
             ImGui.SetNextWindowSize(Vector2.Min(OmniTheme.Scale(new Vector2(520f, 360f)), viewport.WorkSize), ImGuiCond.FirstUseEver);
             if (ImGui.Begin(OmniLoc.Get("Feature.MultiToolbar.HiddenWindows") + "###OmniToolbarHiddenWindows",
-                    ref hiddenWindowManagerOpen, ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoBackground))
+                    ref hiddenWindowManagerOpen, ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoBackground))
             {
-                OmniControls.DrawWindowBackground(ImGui.GetWindowPos(), ImGui.GetWindowSize(), false);
+                ImGui.SetWindowFontScale(1f);
+                var frameInset = OmniTheme.ChromeFrameInset();
+                var framePosition = ImGui.GetWindowPos() + new Vector2(frameInset);
+                var frameSize = ImGui.GetWindowSize() - new Vector2(frameInset * 2f);
+                OmniControls.DrawWindowBackground(framePosition, frameSize, false);
+                OmniControls.DrawTextCentered(OmniLoc.Get("Feature.MultiToolbar.HiddenWindows"),
+                    framePosition, new Vector2(frameSize.X, OmniTheme.TitleBarHeight()), OmniTheme.Tokens.Text);
+                ImGui.SetCursorScreenPos(framePosition + new Vector2(
+                    frameSize.X - OmniTheme.TitleCloseIconRight(), OmniTheme.TitleIconTop()));
+                if (OmniControls.CloseButton("##closeHiddenWindows", OmniTheme.TitleIconSize()))
+                {
+                    hiddenWindowManagerOpen = false;
+                    pickingHiddenWindow = false;
+                }
+                ImGui.SetCursorPos(new Vector2(frameInset + OmniTheme.WindowInset(),
+                    frameInset + OmniTheme.TitleBarHeight() + OmniTheme.WindowInset()));
                 var pickLabel = OmniLoc.Get("Feature.MultiDock.WindowSource.Pick");
                 var pickSize = OmniControls.CompactButtonSize(pickLabel);
                 var inputWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X - pickSize.X - ImGui.GetStyle().ItemSpacing.X);
@@ -63,6 +78,7 @@ public sealed partial class MultiToolbar
                 using var child = ImRaii.Child("##hiddenWindowRows", Vector2.Zero, true);
                 if (child)
                 {
+                    ImGui.SetWindowFontScale(1f);
                     if (config.HiddenWindows.Count == 0)
                     {
                         ImGui.TextWrapped(OmniLoc.Get("Feature.MultiToolbar.HiddenWindowsEmpty"));

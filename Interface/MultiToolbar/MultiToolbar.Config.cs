@@ -15,6 +15,12 @@ public sealed partial class MultiToolbar
     private string widgetSearchText = string.Empty;
     private static readonly MultiToolbarWidgetType[] SelectableWidgetTypes = Enum.GetValues<MultiToolbarWidgetType>()
         .Where(static type => type is not MultiToolbarWidgetType.ExperienceBar and not MultiToolbarWidgetType.SanctuaryIndicator)
+        .OrderBy(static type => type switch
+        {
+            MultiToolbarWidgetType.ToolbarPin => (double)MultiToolbarWidgetType.CustomButton + 0.5,
+            MultiToolbarWidgetType.MailIndicator => (double)MultiToolbarWidgetType.Flag + 0.5,
+            _ => (double)type
+        })
         .ToArray();
 
     public override bool DrawSettings()
@@ -465,7 +471,7 @@ public sealed partial class MultiToolbar
         var drawList = ImGui.GetWindowDrawList();
         var size = ImGui.GetTextLineHeight();
         drawList.PushClipRect(position, position + new Vector2(MathF.Max(0f, width), size), true);
-        var showIcon = ShouldShowWidgetIcon(widget);
+        var showIcon = widget.Type != MultiToolbarWidgetType.CustomButton && ShouldShowWidgetIcon(widget);
         var gameIconID = showIcon ? widget.GameIconID > 0 ? widget.GameIconID : WidgetGameIcon(widget.Type) : 0;
         var icon = showIcon ? WidgetIcon(widget.Type) : null;
         if (gameIconID > 0 && ImageHelper.GetGameIcon(gameIconID) is { } texture)
@@ -717,7 +723,6 @@ public sealed class MultiToolbarConfig
     [
         new() { Side = MultiToolbarWidgetSide.Center, Type = MultiToolbarWidgetType.PluginList, ShowIcon = false },
         new() { Side = MultiToolbarWidgetSide.Center, Type = MultiToolbarWidgetType.CommandList, ShowIcon = false },
-        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.DtrList },
         new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.BattleEffects, Command = "/battleeffects", DisplayName = "", GameIconID = 516 },
         new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.Societies, DisplayName = "" },
         new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.OnlineStatus, DisplayName = "" },
@@ -725,12 +730,14 @@ public sealed class MultiToolbarConfig
         new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.Durability },
         new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.RetainerList, Command = "/omni 一键打开雇员铃" },
         new() { Side = MultiToolbarWidgetSide.Left, Type = MultiToolbarWidgetType.Currencies, Command = "/currency" },
-        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.Flag },
-        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.Volume },
-        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.MailIndicator },
-        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.MarkerControl },
         new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.WalkingIndicator },
+        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.Flag },
+        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.MailIndicator },
+        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.DtrList },
+        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.Volume },
+        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.MarkerControl },
         new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.StackedClock, ShowIcon = false },
+        new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.ToolbarPin },
     ];
 
     public MultiToolbarAlignment Alignment { get; set; } = MultiToolbarAlignment.Top;

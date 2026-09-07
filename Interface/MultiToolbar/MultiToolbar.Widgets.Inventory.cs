@@ -477,6 +477,15 @@ public sealed partial class MultiToolbar
         }
     }
 
+    private static unsafe void OpenRepairWindow()
+    {
+        var manager = ActionManager.Instance();
+        if (manager != null && IsGeneralActionUnlocked(6) && manager->GetActionStatus(ActionType.GeneralAction, 6) == 0)
+        {
+            manager->UseAction(ActionType.GeneralAction, 6);
+        }
+    }
+
     private unsafe void DrawRetainerPopup()
     {
         var manager = RetainerManager.Instance();
@@ -495,12 +504,15 @@ public sealed partial class MultiToolbar
             return;
         }
 
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerJob"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(60f));
+        var jobWidth = GetPopupRowIconSize() + ImGui.CalcTextSize("100").X + ImGui.GetStyle().ItemSpacing.X * 2f;
+        var ventureWidth = MathF.Max(ImGui.CalcTextSize("00:00:00").X,
+            ImGui.CalcTextSize(OmniLoc.Get("Feature.MultiToolbar.RetainerCompleted")).X) + ImGui.GetStyle().CellPadding.X * 2f;
+        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerJob"), ImGuiTableColumnFlags.WidthFixed, MathF.Max(ScaleToolbar(60f), jobWidth));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerName"), ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerGil"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(108f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerInventory"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(44f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerMarket"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(44f));
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerVenture"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(80f));
+        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerVenture"), ImGuiTableColumnFlags.WidthFixed, MathF.Max(ScaleToolbar(80f), ventureWidth));
         OmniControls.BeginTableHeaderRow();
         OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerJob"));
         OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerName"));

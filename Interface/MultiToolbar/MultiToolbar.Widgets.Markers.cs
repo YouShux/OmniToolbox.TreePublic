@@ -81,7 +81,7 @@ public sealed partial class MultiToolbar
             nextMarkerRefresh = Environment.TickCount64 + 250;
         }
 
-        using var font = ImRaii.PushFont(UiBuilder.DefaultFont);
+        using var font = GetToolbarFont().Push();
         var drawList = ImGui.GetBackgroundDrawList();
         var iconSize = OmniTheme.Scale(32f);
         foreach (var marker in worldMarkers)
@@ -112,7 +112,7 @@ public sealed partial class MultiToolbar
                 DrawWorldMarkerLabel(drawList, marker.SubLabel!, new Vector2(position.X, labelTop), 12f, opacity * (208f / 255f), true);
                 labelTop += OmniTheme.Scale(20f);
             }
-            DrawWorldMarkerLabel(drawList, $"{MathF.Ceiling(distance):0} yalms",
+            DrawWorldMarkerLabel(drawList, $"{MathF.Ceiling(distance):0}米",
                 new Vector2(position.X, labelTop), 12f, opacity * (208f / 255f), false);
         }
     }

@@ -382,7 +382,7 @@ public sealed partial class MultiToolbar
             return OmniLoc.Get("Feature.MultiToolbar.WidgetFlag");
         }
         var position = PositionHelper.WorldToMap(new Vector2(marker.XFloat, marker.YFloat), map);
-        return $"{map.PlaceName.Value.Name} <{position.X:F1}, {position.Y:F1}>";
+        return $"{map.PlaceName.Value.Name}\n<{position.X:F1}, {position.Y:F1}>";
     }
 
     private static unsafe AetheryteRecord? GetFlagAetheryte()

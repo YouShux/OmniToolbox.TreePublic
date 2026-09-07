@@ -39,6 +39,7 @@ public sealed partial class MultiToolbar
             return;
         }
 
+        ImGui.SetWindowFontScale(1f);
         OmniControls.DrawWindowBackground(ImGui.GetWindowPos(), ImGui.GetWindowSize(), false);
         ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.EditCommands"));
         ImGui.Separator();
@@ -53,6 +54,7 @@ public sealed partial class MultiToolbar
         {
             if (child)
             {
+                ImGui.SetWindowFontScale(1f);
                 var rowHeight = MathF.Max(OmniTheme.CheckboxSize(), ImGui.GetFrameHeight());
                 using var padding = ImRaii.PushStyle(ImGuiStyleVar.FramePadding,
                     new Vector2(ImGui.GetStyle().FramePadding.X, MathF.Max(0f, (rowHeight - ImGui.GetTextLineHeight()) * 0.5f)));
