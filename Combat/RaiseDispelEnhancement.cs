@@ -128,6 +128,18 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
 
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
+        changed |= DrawScaleSlider(
+            config.IconScale,
+            "Feature.RaiseDispelEnhancement.IconScale",
+            "iconScale",
+            value => config.IconScale = value);
+        ImGui.SameLine(0f, OmniTheme.Scale(24f));
+        changed |= DrawScaleSlider(
+            config.WorldTextScale,
+            "Feature.RaiseDispelEnhancement.WorldTextScale",
+            "worldTextScale",
+            value => config.WorldTextScale = value);
+        ImGui.SameLine(0f, OmniTheme.Scale(24f));
         changed |= DrawColorEdit(
             config.RaiseListColor,
             "Feature.RaiseDispelEnhancement.RaiseListColor",
@@ -140,18 +152,18 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             "dispelListColor",
             value => config.DispelListColor = value);
 
+        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
+        changed |= DrawColorEdit(
+            config.SelfRaiseBackgroundColor,
+            "Feature.RaiseDispelEnhancement.SelfRaiseWorldColor",
+            "selfRaiseBackgroundColor",
+            value => config.SelfRaiseBackgroundColor = value);
         ImGui.SameLine(0f, OmniTheme.Scale(24f));
-        changed |= DrawScaleSlider(
-            config.IconScale,
-            "Feature.RaiseDispelEnhancement.IconScale",
-            "iconScale",
-            value => config.IconScale = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(24f));
-        changed |= DrawScaleSlider(
-            config.WorldTextScale,
-            "Feature.RaiseDispelEnhancement.WorldTextScale",
-            "worldTextScale",
-            value => config.WorldTextScale = value);
+        changed |= DrawColorEdit(
+            config.OtherRaiseBackgroundColor,
+            "Feature.RaiseDispelEnhancement.OtherRaiseWorldColor",
+            "otherRaiseBackgroundColor",
+            value => config.OtherRaiseBackgroundColor = value);
         return changed;
     }
 
@@ -281,6 +293,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         positions.Clear();
 
         CombatCharacterSnapshot.Refresh();
+        var localPlayerEntityID = DService.Instance().ObjectTable.LocalPlayer?.EntityID ?? 0;
         foreach (var player in CombatCharacterSnapshot.Players)
         {
             var actorKey = GetActorKey(player);
@@ -289,9 +302,12 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
             if (player.IsDead)
             {
-                if (TryGetRaiseStatusIcon(player, out var raiseIconId))
+                if (TryGetRaiseStatus(player, out var raiseIconID, out var raiseSourceID))
                 {
-                    MarkRaised(actorKey, raiseIconId);
+                    MarkRaised(
+                        actorKey,
+                        raiseIconID,
+                        localPlayerEntityID != 0 && raiseSourceID == localPlayerEntityID);
                 }
             }
             else
@@ -319,12 +335,13 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
     }
 
-    private void MarkRaised(ulong actorKey, uint iconID)
+    private void MarkRaised(ulong actorKey, uint iconID, bool raisedByLocalPlayer)
     {
         var state = GetState(actorKey);
         states[actorKey] = state with
         {
             HasRaisedStatus = true,
+            RaisedByLocalPlayer = raisedByLocalPlayer,
             RaiseIconID = iconID == 0 ? state.RaiseIconID : iconID
         };
     }
@@ -349,7 +366,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     private ActorState GetState(ulong actorKey) =>
         states.TryGetValue(actorKey, out var state)
             ? state
-            : new(0, CastType.None, false, false, 100, 0);
+            : new(0, CastType.None, false, false, false, 100, 0);
 
     private void DrawOverlay()
     {
@@ -474,10 +491,15 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             screenPosition.X - textSize.X / 2f - padding.X,
             screenPosition.Y);
         var textMax = textMin + textSize + padding * 2f;
+        var backgroundColor = state.Caster == 0 && state.HasRaisedStatus
+            ? state.RaisedByLocalPlayer
+                ? config.SelfRaiseBackgroundColor
+                : config.OtherRaiseBackgroundColor
+            : ImGui.ColorConvertFloat4ToU32(new(0.15f, 0.13f, 0.23f, 0.96f));
         drawList.AddRectFilled(
             textMin,
             textMax,
-            ImGui.ColorConvertFloat4ToU32(new(0.15f, 0.13f, 0.23f, 0.96f)),
+            backgroundColor,
             6f * textScale);
         drawList.AddRect(
             textMin,
@@ -818,9 +840,10 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         return null;
     }
 
-    private static bool TryGetRaiseStatusIcon(IBattleChara player, out uint iconID)
+    private static bool TryGetRaiseStatus(IBattleChara player, out uint iconID, out uint sourceID)
     {
         iconID = 0;
+        sourceID = 0;
         foreach (var status in player.StatusList)
         {
             if (status.StatusID is not (RaiseStatusID or 1140) ||
@@ -830,6 +853,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             }
 
             iconID = row.Icon;
+            sourceID = status.SourceID;
             return true;
         }
 
@@ -936,6 +960,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         ulong Caster,
         CastType Type,
         bool HasRaisedStatus,
+        bool RaisedByLocalPlayer,
         bool HasDispellableStatus,
         byte Percentage,
         uint RaiseIconID);
@@ -982,6 +1007,10 @@ public sealed class RaiseDispelEnhancementConfig
     public uint DispelListColor { get; set; } = 0x600000FF;
 
     public uint RaiseWorldColor { get; set; } = 0xC8143C0A;
+
+    public uint SelfRaiseBackgroundColor { get; set; } = 0xF53B2126;
+
+    public uint OtherRaiseBackgroundColor { get; set; } = 0xC8FF0000;
 
     public uint DispelWorldColor { get; set; } = 0xC8140A3C;
 }

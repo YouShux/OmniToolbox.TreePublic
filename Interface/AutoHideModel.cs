@@ -10,6 +10,13 @@ using FFXIVClientStructs.FFXIV.Client.Game.Group;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Info;
+using OmenTools;
+using OmenTools.Extensions;
+using OmenTools.Info.Game.Data.Icons;
+using OmenTools.OmenService;
+using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
+using ClientObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
+using TerritoryIntendedUse = FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -17,13 +24,7 @@ using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmniToolbox.Lifecycle;
-using OmenTools;
-using OmenTools.Info.Game.Data.Icons;
-using OmenTools.OmenService;
-using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
-using ClientObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
 using ModuleBase = OmniToolbox.Common.Module.Abstractions.ModuleBase;
-using TerritoryIntendedUse = FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse;
 
 namespace OmniToolbox.TreePublic;
 
@@ -845,11 +846,9 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private static bool ShouldSuspendByCondition()
     {
         var condition = DService.Instance().Condition;
-        return condition[ConditionFlag.BetweenAreas] ||
-               condition[ConditionFlag.BetweenAreas51] ||
+        return condition.IsBetweenAreas ||
                condition[ConditionFlag.OccupiedInCutSceneEvent] ||
-               condition[ConditionFlag.WatchingCutscene] ||
-               condition[ConditionFlag.WatchingCutscene78] ||
+               condition.IsWatchingCutscene ||
                condition[ConditionFlag.DutyRecorderPlayback];
     }
 

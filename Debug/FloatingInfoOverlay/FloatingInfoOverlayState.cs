@@ -1,18 +1,18 @@
 using System.Diagnostics;
-using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
-using OmniToolbox.Config;
-using OmniToolbox.TreeHouse;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
+using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using CSCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
+using OmniToolbox.Config;
+using OmniToolbox.TreeHouse;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
@@ -64,8 +64,7 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
 
         var services = DService.Instance();
         IsActive = services.ClientState.IsLoggedIn &&
-                   !services.Condition[ConditionFlag.BetweenAreas] &&
-                   !services.Condition[ConditionFlag.BetweenAreas51] &&
+                   !services.Condition.IsBetweenAreas &&
                    services.ObjectTable.LocalPlayer is not null;
         if (!IsActive)
         {
@@ -136,20 +135,20 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
         var range = Math.Clamp(config.Range, 5f, 200f);
         var maxObjects = Math.Clamp(config.MaxObjects, 1, 100);
 
-        if (config.ShowNonEntityTargets)
+        for (var index = 0; index < objectTable.Length; index++)
         {
-            foreach (var gameObject in objectTable)
+            var gameObject = objectTable[index];
+            if (gameObject is null || !gameObject.IsValid())
             {
-                if (gameObject.IsValid())
-                {
-                    TryAddOrUpdateNonEntityTarget(gameObject.ToStruct(), localPosition, range);
-                }
+                continue;
             }
-        }
 
-        foreach (var gameObject in objectTable)
-        {
-            if (!gameObject.IsValid() ||
+            if (config.ShowNonEntityTargets)
+            {
+                TryAddOrUpdateNonEntityTarget(gameObject.ToStruct(), localPosition, range);
+            }
+
+            if (objects.Count >= maxObjects ||
                 gameObject.EntityID == 0 ||
                 !ShouldShowObject(gameObject, localPlayer) ||
                 !PassesDataIDFilter(gameObject.DataID))
@@ -168,7 +167,7 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
             objects.Add(CreateObjectInfo(gameObject, distance));
             screenPositions[gameObject.EntityID] = screenPosition;
             seenEntityIds.Add(gameObject.EntityID);
-            if (objects.Count >= maxObjects)
+            if (objects.Count >= maxObjects && !config.ShowNonEntityTargets)
             {
                 break;
             }
