@@ -22,7 +22,7 @@ public sealed partial class MultiToolbar
             pluginCacheValid = false;
             ImGui.OpenPopup("##multiToolbarPluginsEditor");
         }
-        ImGui.SetNextWindowSize(Vector2.Min(OmniTheme.Scale(new Vector2(560f, 540f)), ImGui.GetMainViewport().WorkSize), ImGuiCond.Appearing);
+        ImGui.SetNextWindowSize(Vector2.Min(OmniTheme.Scale(new Vector2(560f, 540f)), ImGui.GetMainViewport().WorkSize), ImGuiCond.Always);
         using var popup = ImRaii.Popup("##multiToolbarPluginsEditor", ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoScrollbar);
         if (!popup)
         {

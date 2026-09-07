@@ -48,7 +48,7 @@ public sealed partial class MultiToolbar
     private bool pluginCacheValid;
     private ulong toolbarSnapshotPlayerID;
 
-    private void Draw()
+    private void DrawBar(bool drawWorldMarkers)
     {
         var playerID = DService.Instance().ObjectTable.LocalPlayer == null ? 0 : LocalPlayerState.ContentID;
         if (toolbarSnapshotPlayerID != playerID)
@@ -69,11 +69,16 @@ public sealed partial class MultiToolbar
             .Push(ImGuiCol.HeaderHovered, OmniTheme.UsesDarkPalette ? OmniTheme.HoverBackground : theme.Primary)
             .Push(ImGuiCol.HeaderActive, OmniTheme.UsesDarkPalette ? OmniTheme.ActiveBackground : theme.Accent)
             .Push(ImGuiCol.CheckMark, theme.Accent);
-        UpdateNativeDtrVisibility(config.Widgets.Any(widget => widget.Enabled && widget.Type == MultiToolbarWidgetType.DtrList));
         RefreshDtrEntries();
-        DrawWorldMarkerOverlay();
+        if (drawWorldMarkers)
+        {
+            DrawWorldMarkerOverlay();
+        }
         DrawToolbar();
-        DrawHiddenWindowManager();
+        if (barID == "main")
+        {
+            DrawHiddenWindowManager();
+        }
 
         if (activePopup != PopupKind.None)
         {
@@ -89,7 +94,7 @@ public sealed partial class MultiToolbar
         var toolbarScale = GetToolbarScale();
         var rowHeight = MathF.Ceiling(MathF.Max(dtrTextHeight, MathF.Max(ImGui.GetFrameHeight() * toolbarScale, ScaleToolbar(36f))));
         toolbarButtonHeight = rowHeight;
-        var offset = ScaleToolbar(config.BarVerticalOffset);
+        var offset = Math.Clamp(ScaleToolbar(config.BarVerticalOffset), 0f, MathF.Max(0f, viewport.WorkSize.Y - rowHeight));
         var baseY = config.Alignment == MultiToolbarAlignment.Top
             ? viewport.WorkPos.Y + offset
             : viewport.WorkPos.Y + viewport.WorkSize.Y - rowHeight - offset;
@@ -139,7 +144,7 @@ public sealed partial class MultiToolbar
             flags |= ImGuiWindowFlags.NoInputs;
         }
         ImGui.SetNextWindowViewport(viewport.ID);
-        if (!ImGui.Begin("##multiToolbarBar", flags))
+        if (!ImGui.Begin($"##multiToolbarBar_{barID}", flags))
         {
             ImGui.End();
             return;
@@ -331,23 +336,7 @@ public sealed partial class MultiToolbar
                 MeasureDtrText(entry).X + ScaleToolbar(16f),
                 toolbarButtonHeight);
             ImGui.SetCursorScreenPos(new Vector2(x, y));
-            ImGui.InvisibleButton($"##multiToolbarDtrVisible{index}_{entry.Title}", size);
-            DrawWidgetVisual(string.Empty, size);
-            DrawDtrText(entry, ImGui.GetItemRectMin() + new Vector2(ScaleToolbar(8f), 0f), size.X - ScaleToolbar(16f));
-            if (entry.HasClickAction && (ImGui.IsItemClicked(ImGuiMouseButton.Left) || ImGui.IsItemClicked(ImGuiMouseButton.Right)))
-            {
-                entry.OnClick?.Invoke(new DtrInteractionEvent
-                {
-                    ClickType = ImGui.IsItemClicked(ImGuiMouseButton.Right) ? MouseClickType.Right : MouseClickType.Left,
-                    ModifierKeys = GetDtrModifierKeys(),
-                    Position = ImGui.GetMousePos(),
-                });
-            }
-
-            if (ImGui.IsItemHovered() && entry.Tooltip is { } tooltip)
-            {
-                OmniControls.HelpTooltip(new ReadOnlySeString(tooltip.Encode()));
-            }
+            DrawDtrEntry(entry, index);
 
             x += size.X;
         }
@@ -450,12 +439,22 @@ public sealed partial class MultiToolbar
 
     private float MeasureWidgetEntryWidth(MultiToolbarWidgetConfig widget, int index) =>
         widget.Type == MultiToolbarWidgetType.ToolbarPin ? MeasureLockWidth() :
+        widget.Type == MultiToolbarWidgetType.DtrSingle
+            ? GetSingleDtrEntry(widget) is { } entry ? MeasureDtrText(entry).X + ScaleToolbar(16f) : ScaleToolbar(16f) :
         widget.Type == MultiToolbarWidgetType.DtrList
             ? MeasureDtrWidth()
             : GetWidgetLayout(widget, index).Width;
 
     private void DrawWidgetButton(MultiToolbarWidgetConfig widget, int index)
     {
+        if (widget.Type == MultiToolbarWidgetType.DtrSingle)
+        {
+            if (GetSingleDtrEntry(widget) is { } entry)
+            {
+                DrawDtrEntry(entry, index);
+            }
+            return;
+        }
         if (widget.Type == MultiToolbarWidgetType.ToolbarPin)
         {
             using var pinID = ImRaii.PushId(index);
@@ -500,7 +499,7 @@ public sealed partial class MultiToolbar
         if (hovered)
         {
             ImGui.SetMouseCursor(ImGuiMouseCursor.Hand);
-            if (activePopup != PopupKind.None &&
+            if (config.AutoExpandOnHover && activePopup != PopupKind.None &&
                 (int)widget.Type >= (int)MultiToolbarWidgetType.BattleEffects &&
                 widget.Type is not MultiToolbarWidgetType.ToolbarPin and not MultiToolbarWidgetType.WalkingIndicator &&
                 (activePopup != PopupKind.Widget || activeWidgetPopupType != widget.Type) &&
@@ -524,7 +523,7 @@ public sealed partial class MultiToolbar
                 {
                     TogglePopup(PopupKind.Plugins);
                 }
-                else if (hovered && activePopup != PopupKind.None && activePopup != PopupKind.Plugins)
+                else if (config.AutoExpandOnHover && hovered && activePopup != PopupKind.None && activePopup != PopupKind.Plugins)
                 {
                     OpenPopup(PopupKind.Plugins, CalculatePopupPosition(PopupKind.Plugins));
                 }
@@ -540,7 +539,7 @@ public sealed partial class MultiToolbar
                 {
                     TogglePopup(PopupKind.Commands);
                 }
-                else if (hovered && activePopup != PopupKind.None && activePopup != PopupKind.Commands)
+                else if (config.AutoExpandOnHover && hovered && activePopup != PopupKind.None && activePopup != PopupKind.Commands)
                 {
                     OpenPopup(PopupKind.Commands, CalculatePopupPosition(PopupKind.Commands));
                 }
@@ -997,7 +996,7 @@ public sealed partial class MultiToolbar
                     ImGuiWindowFlags.NoMove |
                     ImGuiWindowFlags.NoNav |
                     ImGuiWindowFlags.NoDocking;
-        var visible = ImGui.Begin("##multiToolbarPopup", flags);
+        var visible = ImGui.Begin($"##multiToolbarPopup_{barID}", flags);
         var hasFocus = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows);
         var editingList = ImGui.IsPopupOpen("##multiToolbarPluginsEditor") || ImGui.IsPopupOpen("##multiToolbarCommandsEditor");
         if (!editingList && ((!popupOpenedThisFrame && !hasFocus) || ImGui.IsKeyPressed(ImGuiKey.Escape)))
@@ -1582,8 +1581,8 @@ public sealed partial class MultiToolbar
             return size;
         }
 
-        using var font = FontManager.Instance().UIFont.Push();
-        var fontSize = ImGui.GetFont().FontSize * ImGui.GetIO().FontGlobalScale;
+        using var font = GetToolbarFont().Push();
+        var fontSize = ImGui.GetFont().FontSize * ImGui.GetIO().FontGlobalScale * GetToolbarScale();
         var drawParams = new SeStringDrawParams
         {
             // 显式使用空绘制列表：只测量 SeString，不能把测量结果绘制到当前窗口。
@@ -1603,8 +1602,10 @@ public sealed partial class MultiToolbar
 
     private void DrawDtrText(IReadOnlyDtrBarEntry entry, Vector2 position, float width, bool outline = true)
     {
-        using var font = FontManager.Instance().UIFont.Push();
-        var fontSize = outline ? ImGui.GetFont().FontSize * ImGui.GetIO().FontGlobalScale : ImGui.GetFontSize();
+        using var font = (outline ? GetToolbarFont() : FontManager.Instance().UIFont).Push();
+        var fontSize = outline
+            ? ImGui.GetFont().FontSize * ImGui.GetIO().FontGlobalScale * GetToolbarScale()
+            : ImGui.GetFontSize();
         var drawParams = new SeStringDrawParams
         {
             TargetDrawList = ImGui.GetWindowDrawList(),

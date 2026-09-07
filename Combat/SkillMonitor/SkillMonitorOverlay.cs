@@ -18,6 +18,8 @@ internal sealed unsafe class SkillMonitorOverlay(
     SkillMonitorTracker tracker,
     int[][] definitionIndexesByJob)
 {
+    private uint activeCountdownColor = 0xFFFFFFFF;
+
     public void Draw()
     {
         if (!DService.Instance().ClientState.IsLoggedIn)
@@ -39,6 +41,7 @@ internal sealed unsafe class SkillMonitorOverlay(
             return;
         }
 
+        UpdateActiveCountdownColor(partyList);
         var drawList = ImGui.GetBackgroundDrawList();
         for (var memberIndex = 0; memberIndex < 8; memberIndex++)
         {
@@ -49,6 +52,41 @@ internal sealed unsafe class SkillMonitorOverlay(
             }
 
             DrawMember(memberIndex, member.ClassJobID, partyList, drawList);
+        }
+    }
+
+    private void UpdateActiveCountdownColor(AddonPartyList* partyList)
+    {
+        for (var memberIndex = 0; memberIndex < 8; memberIndex++)
+        {
+            if (!tracker.GetMember(memberIndex).Visible)
+            {
+                continue;
+            }
+
+            var statusIcons = partyList->PartyMembers[memberIndex].StatusIcons;
+            for (var index = 0; index < statusIcons.Length; index++)
+            {
+                var icon = statusIcons[index].Value;
+                if (icon == null || icon->OwnerNode == null || !icon->OwnerNode->IsVisible())
+                {
+                    continue;
+                }
+
+                var text = icon->GetTextNodeById(2);
+                if (text == null || !text->IsVisible())
+                {
+                    continue;
+                }
+
+                var color = text->TextColor;
+                if (color.G > color.R && color.G > color.B)
+                {
+                    activeCountdownColor = OmniTheme.Color(new Vector4(
+                        color.R / 255f, color.G / 255f, color.B / 255f, 1f));
+                    return;
+                }
+            }
         }
     }
 
@@ -151,7 +189,7 @@ internal sealed unsafe class SkillMonitorOverlay(
         position.X += currentSize.X + spacing;
     }
 
-    private static void DrawIcon(
+    private void DrawIcon(
         ImDrawListPtr drawList,
         SkillMonitorDefinition definition,
         SkillMonitorRuntimeState state,
@@ -178,15 +216,24 @@ internal sealed unsafe class SkillMonitorOverlay(
             return;
         }
 
-        if (state.DisplayState == SkillMonitorDisplayState.Cooldown)
+        if (state.DisplayState == SkillMonitorDisplayState.Active)
+        {
+            DrawCenteredText(
+                drawList,
+                state.StatusText ?? string.Empty,
+                position,
+                size,
+                activeCountdownColor);
+        }
+        else if (state.DisplayState == SkillMonitorDisplayState.Cooldown)
         {
             DrawCooldownMask(drawList, position, size, state.CooldownProgress);
             FramedGameIcon.DrawFrame(drawList, position, size);
-            DrawCenteredText(drawList, state.CooldownText ?? string.Empty, position, size);
+            DrawCenteredText(drawList, state.CooldownText ?? string.Empty, position, size, OmniTheme.Color(Vector4.One));
         }
     }
 
-    private static void DrawCenteredText(ImDrawListPtr drawList, string text, Vector2 position, Vector2 size)
+    private static void DrawCenteredText(ImDrawListPtr drawList, string text, Vector2 position, Vector2 size, uint color)
     {
         using var font = (size.Y >= 39f
             ? FontManager.Instance().TrumpGothicFont340
@@ -195,7 +242,7 @@ internal sealed unsafe class SkillMonitorOverlay(
                 : FontManager.Instance().TrumpGothicFont184).Push();
         var textSize = ImGui.CalcTextSize(text);
         var textPosition = position + (size - textSize) * 0.5f;
-        DrawOutlinedText(drawList, text, textPosition, OmniTheme.Color(Vector4.One));
+        DrawOutlinedText(drawList, text, textPosition, color);
     }
 
     private static void DrawFoodDuration(ImDrawListPtr drawList, string text, Vector2 position, Vector2 size)

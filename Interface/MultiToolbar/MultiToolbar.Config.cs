@@ -18,26 +18,30 @@ public sealed partial class MultiToolbar
         .OrderBy(static type => type switch
         {
             MultiToolbarWidgetType.ToolbarPin => (double)MultiToolbarWidgetType.CustomButton + 0.5,
+            MultiToolbarWidgetType.DtrSingle => (double)MultiToolbarWidgetType.DtrList + 0.5,
             MultiToolbarWidgetType.MailIndicator => (double)MultiToolbarWidgetType.Flag + 0.5,
             _ => (double)type
         })
         .ToArray();
 
-    public override bool DrawSettings()
+    private bool DrawBarSettings(float rowHeight, float rowSpacing)
     {
-        MigrateMultiDockPlugins();
-        var changed = DrawConfigTransfer();
+        var changed = false;
+        var origin = ImGui.GetCursorScreenPos();
+        var rowStride = rowHeight + rowSpacing;
+        var editWidgetsLabel = OmniLoc.Get("Feature.MultiToolbar.EditWidgets");
+        var openWidgetEditor = OmniControls.SmallButton(editWidgetsLabel + "##multiToolbarWidgetSettings", false,
+            OmniControls.CompactButtonSize(editWidgetsLabel));
         ImGui.SameLine();
         DrawPluginEditorButton();
         ImGui.SameLine();
         DrawCommandEditorButton();
-        ImGui.SameLine();
-        var editWidgetsLabel = OmniLoc.Get("Feature.MultiToolbar.EditWidgets");
-        var openWidgetEditor = OmniControls.SmallButton(editWidgetsLabel + "##multiToolbarWidgetSettings", false,
-            OmniControls.CompactButtonSize(editWidgetsLabel));
-        ImGui.Spacing();
+        using var settingsPadding = ImRaii.PushStyle(ImGuiStyleVar.CellPadding,
+            new Vector2(ImGui.GetStyle().CellPadding.X, rowSpacing * 0.5f));
+        ImGui.SetCursorScreenPos(origin + new Vector2(0f, rowStride - rowSpacing * 0.5f));
+        changed |= DrawAppearanceSettings(rowHeight);
+        ImGui.SetCursorScreenPos(origin + new Vector2(0f, rowStride * 2f - rowSpacing * 0.5f));
         changed |= DrawGeneralSettings();
-        changed |= DrawAppearanceSettings();
 
         if (openWidgetEditor)
         {
@@ -45,7 +49,7 @@ public sealed partial class MultiToolbar
         }
 
         var viewportSize = ImGui.GetMainViewport().WorkSize;
-        ImGui.SetNextWindowSize(Vector2.Min(new Vector2(OmniTheme.Scale(1400f), OmniTheme.Scale(680f)), viewportSize), ImGuiCond.Appearing);
+        ImGui.SetNextWindowSize(Vector2.Min(new Vector2(OmniTheme.Scale(1400f), OmniTheme.Scale(680f)), viewportSize), ImGuiCond.Always);
         ImGui.SetNextWindowSizeConstraints(
             Vector2.Min(new Vector2(OmniTheme.Scale(1200f), OmniTheme.Scale(260f)), viewportSize),
             Vector2.Min(new Vector2(OmniTheme.Scale(1600f), OmniTheme.Scale(760f)), viewportSize));
@@ -110,14 +114,12 @@ public sealed partial class MultiToolbar
         var rowContentHeight = MathF.Max(OmniTheme.CheckboxSize(), MathF.Max(OmniTheme.SmallButtonSize().Y, ImGui.GetFrameHeight()));
         using var padding = ImRaii.PushStyle(ImGuiStyleVar.FramePadding,
             new Vector2(ImGui.GetStyle().FramePadding.X, MathF.Max(0f, (rowContentHeight - ImGui.GetTextLineHeight()) * 0.5f)));
-        using var cellPadding = ImRaii.PushStyle(ImGuiStyleVar.CellPadding,
-            new Vector2(ImGui.GetStyle().CellPadding.X, ImGui.GetStyle().CellPadding.Y + ImGui.GetStyle().ItemSpacing.Y * 0.5f));
         using var table = ImRaii.Table("##multiToolbarGeneralSettings", 4,
             ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX,
             new Vector2(ImGui.GetContentRegionAvail().X, 0f));
         if (!table)
         {
-            return false;
+            return changed;
         }
 
         for (var column = 0; column < 4; column++)
@@ -127,7 +129,8 @@ public sealed partial class MultiToolbar
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var offset = config.BarVerticalOffset;
-        if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.BarOffset"), "##multiToolbarBarOffset", ref offset, 0f, 60f, "%.0f"))
+        if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.BarOffset"), "##multiToolbarBarOffset", ref offset,
+                0f, MathF.Max(0f, ImGui.GetMainViewport().WorkSize.Y / ScaleToolbar(1f) - 40f), "%.0f"))
         {
             config.BarVerticalOffset = offset;
             changed = true;
@@ -361,49 +364,56 @@ public sealed partial class MultiToolbar
                                 changed = true;
                                 ImGui.CloseCurrentPopup();
                             }
-                            ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.CommandName"));
-                            var name = widget.DisplayName ?? WidgetLabel(widget, index);
-                            ImGui.SetNextItemWidth(-1f);
-                            if (ImGui.InputText($"##multiToolbarWidgetName{index}", ref name, 128))
+                            if (widget.Type == MultiToolbarWidgetType.DtrSingle)
                             {
-                                widget.DisplayName = name;
-                                changed = true;
+                                changed |= DrawSingleDtrSettings(widget);
+                            }
+                            else
+                            {
+                                ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.CommandName"));
+                                var name = widget.DisplayName ?? WidgetLabel(widget, index);
+                                ImGui.SetNextItemWidth(-1f);
+                                if (ImGui.InputText($"##multiToolbarWidgetName{index}", ref name, 128))
+                                {
+                                    widget.DisplayName = name;
+                                    changed = true;
+                                    if (widget.Type == MultiToolbarWidgetType.CustomButton)
+                                    {
+                                        widget.Name = name;
+                                    }
+                                }
                                 if (widget.Type == MultiToolbarWidgetType.CustomButton)
                                 {
-                                    widget.Name = name;
-                                }
-                            }
-                            if (widget.Type == MultiToolbarWidgetType.CustomButton)
-                            {
-                                for (var button = 0; button < 2; button++)
-                                {
-                                    ImGui.TextUnformatted(OmniLoc.Get(button == 0
-                                        ? "Feature.MultiToolbar.LeftCommand" : "Feature.MultiToolbar.RightCommand"));
-                                    var command = button == 0 ? widget.Command : widget.RightCommand;
-                                    ImGui.SetNextItemWidth(-1f);
-                                    var edited = ImGui.InputText($"##multiToolbarWidgetCommand{index}_{button}", ref command, 256);
-                                    var committed = ImGui.IsItemDeactivatedAfterEdit();
-                                    if (committed && TryNormalizeCommand(command, out var normalized))
+                                    for (var button = 0; button < 2; button++)
                                     {
-                                        command = normalized;
-                                    }
-                                    if (edited || committed)
-                                    {
-                                        if (button == 0)
+                                        ImGui.TextUnformatted(OmniLoc.Get(button == 0
+                                            ? "Feature.MultiToolbar.LeftCommand" : "Feature.MultiToolbar.RightCommand"));
+                                        var command = button == 0 ? widget.Command : widget.RightCommand;
+                                        ImGui.SetNextItemWidth(-1f);
+                                        var edited = ImGui.InputText($"##multiToolbarWidgetCommand{index}_{button}", ref command, 256);
+                                        var committed = ImGui.IsItemDeactivatedAfterEdit();
+                                        if (committed && TryNormalizeCommand(command, out var normalized))
                                         {
-                                            widget.Command = command;
+                                            command = normalized;
                                         }
-                                        else
+                                        if (edited || committed)
                                         {
-                                            widget.RightCommand = command;
+                                            if (button == 0)
+                                            {
+                                                widget.Command = command;
+                                            }
+                                            else
+                                            {
+                                                widget.RightCommand = command;
+                                            }
                                         }
+                                        changed |= committed;
                                     }
-                                    changed |= committed;
                                 }
-                            }
 
-                            ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.CommandIcon"));
-                            changed |= DrawWidgetIconEditor(widget, index);
+                                ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.CommandIcon"));
+                                changed |= DrawWidgetIconEditor(widget, index);
+                            }
                         }
                     }
 
@@ -566,7 +576,7 @@ public sealed partial class MultiToolbar
     private static MultiToolbarWidgetConfig CreateDefaultWidget(MultiToolbarWidgetType type) => new()
     {
         Type = type,
-        Side = type is MultiToolbarWidgetType.DtrList or MultiToolbarWidgetType.Volume or MultiToolbarWidgetType.MailIndicator or MultiToolbarWidgetType.MarkerControl or MultiToolbarWidgetType.WalkingIndicator or MultiToolbarWidgetType.StackedClock or MultiToolbarWidgetType.ToolbarPin
+        Side = type is MultiToolbarWidgetType.DtrList or MultiToolbarWidgetType.DtrSingle or MultiToolbarWidgetType.Volume or MultiToolbarWidgetType.MailIndicator or MultiToolbarWidgetType.MarkerControl or MultiToolbarWidgetType.WalkingIndicator or MultiToolbarWidgetType.StackedClock or MultiToolbarWidgetType.ToolbarPin
             ? MultiToolbarWidgetSide.Right
             : type is MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList
                 ? MultiToolbarWidgetSide.Center
@@ -579,7 +589,7 @@ public sealed partial class MultiToolbar
     };
 
     private static bool DefaultWidgetShowIcon(MultiToolbarWidgetType type) => type is not
-        (MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList or MultiToolbarWidgetType.DtrList or MultiToolbarWidgetType.StackedClock);
+        (MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList or MultiToolbarWidgetType.DtrList or MultiToolbarWidgetType.DtrSingle or MultiToolbarWidgetType.StackedClock);
 
     private static string MultiToolbarWidgetCommand(MultiToolbarWidgetType type) => type switch
     {
@@ -595,6 +605,7 @@ public sealed partial class MultiToolbar
         MultiToolbarWidgetType.PluginList => OmniLoc.Get("Feature.MultiToolbar.WidgetPluginList"),
         MultiToolbarWidgetType.CommandList => OmniLoc.Get("Feature.MultiToolbar.WidgetCommandList"),
         MultiToolbarWidgetType.DtrList => OmniLoc.Get("Feature.MultiToolbar.WidgetDtrList"),
+        MultiToolbarWidgetType.DtrSingle => OmniLoc.Get("Feature.MultiToolbar.WidgetDtrSingle"),
         MultiToolbarWidgetType.BattleEffects => OmniLoc.Get("Feature.MultiToolbar.WidgetBattleEffects"),
         MultiToolbarWidgetType.Societies => OmniLoc.Get("Feature.MultiToolbar.WidgetSocieties"),
         MultiToolbarWidgetType.OnlineStatus => OmniLoc.Get("Feature.MultiToolbar.WidgetOnlineStatus"),
@@ -618,6 +629,7 @@ public sealed partial class MultiToolbar
         MultiToolbarWidgetType.PluginList => OmniLoc.Get("Feature.MultiToolbar.WidgetPluginListHelp"),
         MultiToolbarWidgetType.CommandList => OmniLoc.Get("Feature.MultiToolbar.WidgetCommandListHelp"),
         MultiToolbarWidgetType.DtrList => OmniLoc.Get("Feature.MultiToolbar.WidgetDtrListHelp"),
+        MultiToolbarWidgetType.DtrSingle => OmniLoc.Get("Feature.MultiToolbar.WidgetDtrSingleHelp"),
         MultiToolbarWidgetType.BattleEffects => OmniLoc.Get("Feature.MultiToolbar.WidgetBattleEffectsHelp"),
         MultiToolbarWidgetType.Societies => OmniLoc.Get("Feature.MultiToolbar.WidgetSocietiesHelp"),
         MultiToolbarWidgetType.OnlineStatus => OmniLoc.Get("Feature.MultiToolbar.WidgetOnlineStatusHelp"),
@@ -673,6 +685,7 @@ public enum MultiToolbarWidgetType
     ExperienceBar,
     Weather,
     SanctuaryIndicator,
+    DtrSingle,
 }
 
 public enum MultiToolbarAlignment
@@ -696,6 +709,7 @@ public sealed class MultiToolbarWidgetConfig
     public string? DisplayName { get; set; }
 
     public string Name { get; set; } = string.Empty;
+    public string DtrTitle { get; set; } = string.Empty;
 
     public string Command { get; set; } = string.Empty;
     public string RightCommand { get; set; } = string.Empty;
@@ -706,7 +720,21 @@ public sealed class MultiToolbarWidgetConfig
 }
 
 [Serializable]
-public sealed class MultiToolbarConfig
+public sealed class MultiToolbarConfig : MultiToolbarBarConfig
+{
+    [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
+    public List<MultiToolbarAuxiliaryBarConfig> AuxiliaryBars { get; set; } = [];
+}
+
+[Serializable]
+public sealed class MultiToolbarAuxiliaryBarConfig : MultiToolbarBarConfig
+{
+    public string ID { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = string.Empty;
+}
+
+[Serializable]
+public class MultiToolbarBarConfig
 {
 
     [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
@@ -747,6 +775,8 @@ public sealed class MultiToolbarConfig
     ];
 
     public MultiToolbarAlignment Alignment { get; set; } = MultiToolbarAlignment.Top;
+
+    public bool AutoExpandOnHover { get; set; } = true;
 
     public float BarVerticalOffset { get; set; } = 0f;
 

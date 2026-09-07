@@ -99,7 +99,7 @@ public sealed partial class MultiToolbar
             ImGui.SetClipboardText(new JObject
             {
                 ["Format"] = "OmniToolbox.MultiToolbar",
-                ["Version"] = 1,
+                ["Version"] = 2,
                 ["Config"] = JObject.FromObject(config, JsonSerializer.Create(TransferSettings))
             }.ToString(Formatting.Indented));
             OmniNotifier.Popup(OmniLoc.Get("MultiToolbarTitle"), OmniLoc.Get("Feature.MultiDock.ExportSuccess"), NotificationType.Success);
@@ -116,25 +116,16 @@ public sealed partial class MultiToolbar
                     throw new JsonSerializationException("Configuration exceeds the size limit.");
                 }
                 var snapshot = JsonConvert.DeserializeObject<JObject>(text, TransferSettings);
-                if (snapshot?.Value<string>("Format") != "OmniToolbox.MultiToolbar" || snapshot.Value<int>("Version") != 1 ||
+                if (snapshot?.Value<string>("Format") != "OmniToolbox.MultiToolbar" || snapshot.Value<int>("Version") is not (1 or 2) ||
                     snapshot["Config"] is not JObject payload)
                 {
                     throw new JsonSerializationException("Unsupported configuration format.");
                 }
                 var imported = payload.ToObject<MultiToolbarConfig>(JsonSerializer.Create(TransferSettings));
-                if (imported is null || imported.Widgets is null || imported.Commands is null ||
-                    imported.SelectedPlugins is null || imported.SelectedPlugins.Any(string.IsNullOrWhiteSpace) ||
-                    imported.HiddenWindows is null || imported.DtrOrder is null || imported.CollapsedDtrTitles is null ||
-                    imported.EnabledWorldMarkers is null || imported.VolumePresets is null ||
-                    imported.Widgets.Concat(imported.Commands).Any(item => item is null || item.Command is null || item.RightCommand is null || item.Name is null ||
-                        !Enum.IsDefined(item.Type) || !Enum.IsDefined(item.Side)) ||
-                    !float.IsFinite(imported.ToolbarScale) || imported.ToolbarScale is < 0.1f or > 3f ||
-                    !float.IsFinite(imported.ComponentSpacing) || imported.ComponentSpacing is < 0f or > 40f ||
-                    !float.IsFinite(imported.RowIconSize) || imported.RowIconSize is < 8f or > 72f ||
-                    !float.IsFinite(imported.BarVerticalOffset) || imported.BarVerticalOffset is < 0f or > 60f ||
-                    !float.IsFinite(imported.BarBackgroundOpacity) || imported.BarBackgroundOpacity is < 0f or > 1f ||
-                    !float.IsFinite(imported.ButtonBackgroundOpacity) || imported.ButtonBackgroundOpacity is < 0f or > 1f ||
-                    !Enum.IsDefined(imported.Alignment))
+                if (imported is null || !IsValidBarConfig(imported) || imported.AuxiliaryBars is null ||
+                    imported.AuxiliaryBars.Any(bar => bar is null || !IsValidBarConfig(bar) ||
+                        string.IsNullOrWhiteSpace(bar.Name) || !Guid.TryParseExact(bar.ID, "N", out _)) ||
+                    imported.AuxiliaryBars.Select(bar => bar.ID).Distinct(StringComparer.Ordinal).Count() != imported.AuxiliaryBars.Count)
                 {
                     throw new JsonSerializationException("Invalid toolbar configuration.");
                 }
@@ -144,7 +135,9 @@ public sealed partial class MultiToolbar
                 imported.SelectedPlugins = imported.SelectedPlugins.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                 imported.MultiDockPluginsMigrated = payload.ContainsKey(nameof(MultiToolbarConfig.SelectedPlugins)) || config.MultiDockPluginsMigrated;
                 RestoreHiddenWindows();
-                ClosePopup();
+                ReleaseBarResources();
+                ReleaseAuxiliaryBars();
+                selectedBarID = "main";
                 JsonConvert.PopulateObject(JsonConvert.SerializeObject(imported, TransferSettings), config, TransferSettings);
                 KeepBuiltInCommandsFirst();
                 autoHideOffset = 0f;
@@ -159,4 +152,20 @@ public sealed partial class MultiToolbar
         }
         return changed;
     }
+
+    private static bool IsValidBarConfig(MultiToolbarBarConfig bar) =>
+        bar.Widgets is not null && bar.Commands is not null &&
+        bar.SelectedPlugins is not null && !bar.SelectedPlugins.Any(string.IsNullOrWhiteSpace) &&
+        bar.HiddenWindows is not null && bar.DtrOrder is not null && bar.CollapsedDtrTitles is not null &&
+        bar.EnabledWorldMarkers is not null && bar.VolumePresets is not null &&
+        !bar.Widgets.Concat(bar.Commands).Any(item => item is null || item.Command is null ||
+            item.RightCommand is null || item.Name is null || item.DtrTitle is null ||
+            !Enum.IsDefined(item.Type) || !Enum.IsDefined(item.Side)) &&
+        float.IsFinite(bar.ToolbarScale) && bar.ToolbarScale is >= 0.1f and <= 3f &&
+        float.IsFinite(bar.ComponentSpacing) && bar.ComponentSpacing is >= 0f and <= 40f &&
+        float.IsFinite(bar.RowIconSize) && bar.RowIconSize is >= 8f and <= 72f &&
+        float.IsFinite(bar.BarVerticalOffset) && bar.BarVerticalOffset >= 0f &&
+        float.IsFinite(bar.BarBackgroundOpacity) && bar.BarBackgroundOpacity is >= 0f and <= 1f &&
+        float.IsFinite(bar.ButtonBackgroundOpacity) && bar.ButtonBackgroundOpacity is >= 0f and <= 1f &&
+        Enum.IsDefined(bar.Alignment);
 }

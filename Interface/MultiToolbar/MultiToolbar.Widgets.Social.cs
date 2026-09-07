@@ -13,11 +13,13 @@ using OmenTools.Extensions;
 using OmenTools.ImGuiOm;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
+using OmenTools.Threading.TaskHelper;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed partial class MultiToolbar
 {
+    private TaskHelper? onlineStatusDetailTasks;
     private static readonly uint[] OnlineStatusIds = [47, 17, 12, 22, 21, 23, 32, 31, 27, 28, 30, 29];
     private static readonly uint[] SocietyAetheryteIds = [0, 19, 4, 16, 14, 7, 73, 76, 79, 105, 99, 128, 144, 143, 136, 169, 181, 175, 238, 206, 201];
     private bool DrawSocialWidgetPopup(MultiToolbarWidgetType type)
@@ -558,36 +560,59 @@ public sealed partial class MultiToolbar
                (action.UnlockLink == 0 || uiState->IsUnlockLinkUnlocked(action.UnlockLink));
     }
 
-    private static unsafe void OpenOnlineStatusDetail()
+    private unsafe void OpenOnlineStatusDetail()
     {
         var infoModule = InfoModule.Instance();
-        if (infoModule is null || infoModule->IsInCrossWorldDuty())
+        if (infoModule is null || infoModule->IsInCrossWorldDuty() ||
+            onlineStatusDetailTasks?.IsBusy == true)
         {
             return;
+        }
+
+        var contentID = infoModule->GetLocalContentId();
+        if (contentID == 0 || TryOpenOnlineStatusDetail(contentID))
+        {
+            return;
+        }
+
+        InfoProxyPartyMember.Instance()->RequestData();
+        InfoProxyDetail.Instance()->RequestData();
+        onlineStatusDetailTasks ??= new TaskHelper();
+        onlineStatusDetailTasks.Enqueue(() => TryOpenOnlineStatusDetail(contentID), timeoutMS: 3000);
+    }
+
+    private static unsafe bool TryOpenOnlineStatusDetail(ulong contentID)
+    {
+        var infoModule = InfoModule.Instance();
+        if (infoModule is null || infoModule->IsInCrossWorldDuty() ||
+            infoModule->GetLocalContentId() != contentID)
+        {
+            return true;
         }
 
         var partyMember = InfoProxyPartyMember.Instance();
         var detail = InfoProxyDetail.Instance();
         if (partyMember is null || detail is null)
         {
-            return;
+            return true;
         }
 
-        var characterData = partyMember->GetEntryByContentId(infoModule->GetLocalContentId());
+        var characterData = partyMember->GetEntryByContentId(contentID);
         if (characterData is null)
         {
-            return;
+            return false;
         }
 
         var updateData = Unsafe.AsPointer(ref detail->UpdateData);
         var agentDetail = AgentDetail.Instance();
         if (agentDetail is null)
         {
-            return;
+            return true;
         }
 
         agentDetail->OpenForCharacterData(
             characterData,
             (InfoProxyDetail.DetailUpdateData*)updateData);
+        return true;
     }
 }

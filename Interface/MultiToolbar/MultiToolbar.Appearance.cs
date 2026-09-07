@@ -23,13 +23,30 @@ public sealed partial class MultiToolbar
         }
     }
 
-    private bool DrawAppearanceSettings()
+    private bool DrawAppearanceSettings(float rowHeight)
     {
         var changed = false;
-        using var table = ImRaii.Table("##toolbarColors", 4, ImGuiTableFlags.SizingStretchSame);
+        var autoExpandLabel = OmniLoc.Get("Feature.MultiToolbar.AutoExpandOnHover");
+        using var table = ImRaii.Table("##toolbarColors", 5,
+            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX);
         if (!table)
         {
             return changed;
+        }
+
+        ImGui.TableSetupColumn("##autoExpand", ImGuiTableColumnFlags.WidthFixed,
+            ImGui.CalcTextSize(autoExpandLabel).X + rowHeight + ImGui.GetStyle().ItemInnerSpacing.X);
+        for (var index = 0; index < 4; index++)
+        {
+            ImGui.TableSetupColumn($"##color{index}", ImGuiTableColumnFlags.WidthStretch, 1f);
+        }
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
+        var autoExpandOnHover = config.AutoExpandOnHover;
+        if (OmniControls.Checkbox(autoExpandLabel, ref autoExpandOnHover, rowHeight))
+        {
+            config.AutoExpandOnHover = autoExpandOnHover;
+            changed = true;
         }
 
         var theme = ToolbarTheme;
