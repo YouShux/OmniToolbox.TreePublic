@@ -96,6 +96,8 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
     private bool batchMode;
     private int followOffset;
     private bool pendingFollow;
+    private Vector2 lastContentSize;
+    private Vector2 lastContentStart;
 
     [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
     public MoreGearSetListNativeUI(
@@ -131,7 +133,8 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         {
             Options          = [],
             MaxListOptions   = 10,
-            OnOptionSelected = OnJobSelected
+            OnOptionSelected = OnJobSelected,
+            OnUncollapsed    = AlignJobDropDownList
         };
         jobDropDown.AttachNode(this);
         jobDropDown.Options = MoreGearSetList.GetJobChoiceLabels();
@@ -228,7 +231,9 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
 
     protected override unsafe void OnUpdate(AtkUnitBase* addon)
     {
-        ResizeContent();
+        if (ContentSize != lastContentSize || ContentStartPosition != lastContentStart)
+            ResizeContent();
+
         if (pendingFollow && FollowSelected())
             pendingFollow = false;
 
@@ -255,7 +260,11 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
 
     protected override unsafe void OnFinalize(AtkUnitBase* addon)
     {
-        jobDropDown        = null;
+        if (jobDropDown is not null)
+        {
+            jobDropDown.OnUncollapsed = null;
+            jobDropDown = null;
+        }
         searchNode         = null;
         importButton       = null;
         batchButton        = null;
@@ -438,6 +447,8 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
 
     private void ResizeContent()
     {
+        lastContentSize  = ContentSize;
+        lastContentStart = ContentStartPosition;
         var x = ContentStartPosition.X;
         var y = ContentStartPosition.Y;
         var width = ContentSize.X;
@@ -445,7 +456,7 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         var jobWidth = JobWidth;
         var gap = Gap;
         var rowHeight = RowHeight;
-        if (jobDropDown is not null)
+        if (jobDropDown is not null && jobDropDown.IsCollapsed)
         {
             jobDropDown.Position = new(x, y);
             jobDropDown.Size     = new(jobWidth, rowHeight);
@@ -512,6 +523,15 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
         PositionButton(saveButton, x, buttonY, buttonWidth);
         PositionButton(updateButton, x + buttonWidth + gap, buttonY, buttonWidth);
         PositionButton(deleteButton, x + (buttonWidth + gap) * 2f, buttonY, buttonWidth);
+    }
+
+    private void AlignJobDropDownList()
+    {
+        if (jobDropDown is null)
+            return;
+
+        jobDropDown.OptionListNode.Width = MathF.Max(jobDropDown.Width - 8f, ContentSize.X);
+        jobDropDown.RecalculateScrollParams();
     }
 
     private void MoveSelected(int delta)
