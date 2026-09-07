@@ -1,7 +1,4 @@
 using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Text.Json;
 using Dalamud.Interface;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -27,59 +24,29 @@ public sealed class CustomHotbar : ModuleBase
     };
 
     private readonly CustomHotbarConfig config;
+    private readonly Action saveConfig;
     private readonly CustomHotbarOverlay overlay;
     private FeatureLifetime? runtimeLifetime;
 
-    public CustomHotbar()
+    public CustomHotbar() : this(new CustomHotbarConfig())
     {
-        config = LoadConfig();
+    }
+
+    public CustomHotbar(CustomHotbarConfig config) : this(config, static () => { })
+    {
+    }
+
+    public CustomHotbar(CustomHotbarConfig config, Action saveConfig)
+    {
+        this.config = config;
+        this.saveConfig = saveConfig;
         if (NormalizeConfig())
         {
-            SaveConfig();
+            saveConfig();
         }
 
-        overlay = new(config, SaveConfig);
+        overlay = new(config, saveConfig);
     }
-
-    private static string ConfigFilePath =>
-        Path.Combine(DalamudServices.PluginInterface.ConfigDirectory.FullName, "TreeHouse.CustomHotbar.json");
-
-    private static CustomHotbarConfig LoadConfig()
-    {
-        var path = ConfigFilePath;
-        if (File.Exists(path))
-        {
-            var json = File.ReadAllText(path);
-            using var document = JsonDocument.Parse(json);
-            if (document.RootElement.ValueKind == JsonValueKind.Object)
-            {
-                if (document.RootElement.TryGetProperty("Bars", out _))
-                {
-                    return JsonSerializer.Deserialize<CustomHotbarConfig>(json) ?? new();
-                }
-
-                // 兼容旧的单热键栏配置格式
-                if (document.RootElement.TryGetProperty("Slots", out _))
-                {
-                    var migrated = new CustomHotbarConfig();
-                    if (JsonSerializer.Deserialize<CustomHotbarBarConfig>(json) is { } legacyBar)
-                    {
-                        legacyBar.Name = "热键栏 1";
-                        migrated.Bars.Add(legacyBar);
-                    }
-
-                    return migrated;
-                }
-            }
-        }
-
-        return new();
-    }
-
-    private void SaveConfig() =>
-        File.WriteAllText(
-            ConfigFilePath,
-            JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
 
     public override bool HasSettings => true;
 
@@ -89,7 +56,7 @@ public sealed class CustomHotbar : ModuleBase
         if (changed)
         {
             NormalizeConfig();
-            SaveConfig();
+            saveConfig();
         }
 
         return changed;
@@ -99,7 +66,7 @@ public sealed class CustomHotbar : ModuleBase
     {
         config.Bars = [new CustomHotbarBarConfig { Name = "热键栏 1" }];
         NormalizeConfig();
-        SaveConfig();
+        saveConfig();
         return true;
     }
 
@@ -373,7 +340,6 @@ internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action save
                     CustomHotbar.ExecuteCommand(slot.Command);
                 }
 
-                // 右键拖拽排序: 记录拖拽源与抓取偏移, 目标反算与提交由 UpdateSlotDrag 统一处理
                 if (slotDrag.SourceIndex < 0 && ImGui.IsItemHovered() && ImGui.IsMouseDragging(ImGuiMouseButton.Right))
                 {
                     slotDrag.BarIndex = index;
@@ -388,7 +354,6 @@ internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action save
                     slotDrag.TargetIndex = slotIndex;
                 }
 
-                // 拖拽进行中抑制悬停高亮与悬浮说明, 避免让位滑动时跳动
                 if (ImGui.IsItemHovered() && slotDrag.SourceIndex < 0)
                 {
                     drawList.AddRectFilled(
@@ -405,7 +370,6 @@ internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action save
                 DrawSlotIcon(drawList, displayIndex >= 0 ? slots[displayIndex].IconID : 0u, slotPosition, slotSizeVector, bar.EffectiveScale);
             }
 
-            // 拖拽中的格子最后画在前景层: 跟随鼠标、不被窗口裁剪
             if (slotDrag.BarIndex == index && slotDrag.SourceIndex >= 0 && slotDrag.SourceIndex < slots.Count)
             {
                 var floatingPosition = ImGui.GetMousePos() - slotDrag.GrabOffset;
@@ -530,10 +494,6 @@ internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action save
     }
 }
 
-// 热键栏格子右键拖拽排序状态(三段状态机, 参考 Common Qt 面板的实现):
-// 格子上检测到右键拖拽时写入 BarIndex/SourceIndex 与 GrabOffset(鼠标相对格位偏移);
-// 每帧按鼠标位置反算 TargetIndex 并让其它格子实时让位, 松开右键提交、丢键取消。
-// SourceIndex < 0 表示空闲。
 internal sealed class CustomHotbarSlotDragState
 {
     public int BarIndex = -1;
@@ -573,6 +533,10 @@ internal static class CustomHotbarPanel
     private static bool pickerOpenRequested;
     private static int pickerRangeStop = 250000;
     private static readonly List<int> pickerAnchors = [];
+    private static readonly List<int> pickerPage = [];
+    private static int pickerPageAnchor = -1;
+    private static int pickerPageStop = -1;
+    private static int pickerPageScannedTo;
     private static int draggedSlotBarIndex = -1;
     private static int draggedSlotIndex = -1;
 
@@ -944,21 +908,13 @@ internal static class CustomHotbarPanel
             pickerRangeStop = Math.Clamp(pickerRangeStop, 1, 250000);
         }
 
-        var page = new List<int>(IconPickerPageSize);
-        var scan = rangeStart;
-        var scanned = 0;
-        var lastScanned = rangeStart;
-        while (page.Count < IconPickerPageSize && scan < pickerRangeStop && scanned < IconPickerMaxScanPerPage)
+        if (rangeStart != pickerPageAnchor || pickerRangeStop != pickerPageStop)
         {
-            if (IsValidIcon(scan))
-            {
-                page.Add(scan);
-            }
-
-            lastScanned = scan;
-            scan++;
-            scanned++;
+            RebuildPickerPage(rangeStart);
         }
+
+        var page = pickerPage;
+        var lastScanned = pickerPageScannedTo;
 
         var iconSize = 40f * OmniTheme.ScaleValue;
         var spacing = ImGui.GetStyle().ItemSpacing.X;
@@ -1036,15 +992,28 @@ internal static class CustomHotbarPanel
         return changed;
     }
 
-    private static bool IsValidIcon(int iconID)
+    private static void RebuildPickerPage(int rangeStart)
     {
-        try
+        pickerPage.Clear();
+        var scan = rangeStart;
+        var scanned = 0;
+        pickerPageScannedTo = rangeStart;
+        while (pickerPage.Count < IconPickerPageSize && scan < pickerRangeStop && scanned < IconPickerMaxScanPerPage)
         {
-            return DService.Instance().Data.FileExists($"ui/icon/{iconID / 1000 * 1000:D6}/{iconID:D6}.tex");
+            if (IsValidIcon(scan))
+            {
+                pickerPage.Add(scan);
+            }
+
+            pickerPageScannedTo = scan;
+            scan++;
+            scanned++;
         }
-        catch
-        {
-            return false;
-        }
+
+        pickerPageAnchor = rangeStart;
+        pickerPageStop = pickerRangeStop;
     }
+
+    private static bool IsValidIcon(int iconID) =>
+        DService.Instance().Data.FileExists($"ui/icon/{iconID / 1000 * 1000:D6}/{iconID:D6}.tex");
 }
