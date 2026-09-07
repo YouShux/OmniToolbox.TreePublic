@@ -46,56 +46,40 @@ public sealed class CustomHotbar : ModuleBase
 
     private static CustomHotbarConfig LoadConfig()
     {
-        try
+        var path = ConfigFilePath;
+        if (File.Exists(path))
         {
-            var path = ConfigFilePath;
-            if (File.Exists(path))
+            var json = File.ReadAllText(path);
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind == JsonValueKind.Object)
             {
-                var json = File.ReadAllText(path);
-                using var document = JsonDocument.Parse(json);
-                if (document.RootElement.ValueKind == JsonValueKind.Object)
+                if (document.RootElement.TryGetProperty("Bars", out _))
                 {
-                    if (document.RootElement.TryGetProperty("Bars", out _))
+                    return JsonSerializer.Deserialize<CustomHotbarConfig>(json) ?? new();
+                }
+
+                // 兼容旧的单热键栏配置格式
+                if (document.RootElement.TryGetProperty("Slots", out _))
+                {
+                    var migrated = new CustomHotbarConfig();
+                    if (JsonSerializer.Deserialize<CustomHotbarBarConfig>(json) is { } legacyBar)
                     {
-                        return JsonSerializer.Deserialize<CustomHotbarConfig>(json) ?? new();
+                        legacyBar.Name = "热键栏 1";
+                        migrated.Bars.Add(legacyBar);
                     }
 
-                    // 兼容旧的单热键栏配置格式
-                    if (document.RootElement.TryGetProperty("Slots", out _))
-                    {
-                        var migrated = new CustomHotbarConfig();
-                        if (JsonSerializer.Deserialize<CustomHotbarBarConfig>(json) is { } legacyBar)
-                        {
-                            legacyBar.Name = "热键栏 1";
-                            migrated.Bars.Add(legacyBar);
-                        }
-
-                        return migrated;
-                    }
+                    return migrated;
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Error(ex, "CustomHotbar 配置读取失败");
         }
 
         return new();
     }
 
-    private void SaveConfig()
-    {
-        try
-        {
-            File.WriteAllText(
-                ConfigFilePath,
-                JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
-        }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Error(ex, "CustomHotbar 配置保存失败");
-        }
-    }
+    private void SaveConfig() =>
+        File.WriteAllText(
+            ConfigFilePath,
+            JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }));
 
     public override bool HasSettings => true;
 
@@ -250,16 +234,9 @@ public sealed class CustomHotbar : ModuleBase
             return;
         }
 
-        try
+        if (!DalamudServices.CommandManager.ProcessCommand(normalized))
         {
-            if (!DalamudServices.CommandManager.ProcessCommand(normalized))
-            {
-                ChatManager.Instance().SendCommand(normalized);
-            }
-        }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Error(ex, "CustomHotbar 指令执行失败: {Command}", normalized);
+            ChatManager.Instance().SendCommand(normalized);
         }
     }
 }
@@ -757,17 +734,17 @@ internal static class CustomHotbarPanel
         var changed = false;
         var columns = bar.Layout.Columns();
 
-        using var table = ImRaii.Table("##customHotbarSlots", 5, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY, new Vector2(-1f, 320f));
+        using var table = ImRaii.Table("##customHotbarSlots", 5, ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY, new Vector2(-1f, OmniTheme.Scale(320f)));
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("位置", ImGuiTableColumnFlags.WidthFixed, 80f);
-        ImGui.TableSetupColumn("图标", ImGuiTableColumnFlags.WidthFixed, 200f);
+        ImGui.TableSetupColumn("位置", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(80f));
+        ImGui.TableSetupColumn("图标", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(200f));
         ImGui.TableSetupColumn("悬浮说明", ImGuiTableColumnFlags.WidthStretch);
         ImGui.TableSetupColumn("执行指令", ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn("排序", ImGuiTableColumnFlags.WidthFixed, 64f);
+        ImGui.TableSetupColumn("排序", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(64f));
 
         ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
         string[] headers = ["位置", "图标", "悬浮说明", "执行指令", "排序"];
@@ -833,14 +810,14 @@ internal static class CustomHotbarPanel
         }
         else
         {
-            ImGui.GetWindowDrawList().AddRect(cursor, cursor + new Vector2(previewSize), 0xFF808080, 2f);
+            ImGui.GetWindowDrawList().AddRect(cursor, cursor + new Vector2(previewSize), 0xFF808080, OmniTheme.Scale(2f));
         }
 
         ImGui.Dummy(new Vector2(previewSize));
         ImGui.SameLine();
 
         var iconText = slot.IconID.ToString(CultureInfo.InvariantCulture);
-        ImGui.SetNextItemWidth(70f);
+        ImGui.SetNextItemWidth(OmniTheme.Scale(70f));
         if (ImGui.InputText("##iconId", ref iconText, 16, ImGuiInputTextFlags.CharsDecimal) &&
             uint.TryParse(iconText, out var iconID))
         {
@@ -952,7 +929,7 @@ internal static class CustomHotbarPanel
         }
 
         var rangeStart = pickerAnchors.Count > 0 ? pickerAnchors[^1] : 0;
-        ImGui.SetNextItemWidth(120f);
+        ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
         if (ImGui.InputInt("起始 ID##pickerStart", ref rangeStart))
         {
             rangeStart = Math.Clamp(rangeStart, 0, 249999);
@@ -961,7 +938,7 @@ internal static class CustomHotbarPanel
         }
 
         ImGui.SameLine();
-        ImGui.SetNextItemWidth(120f);
+        ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
         if (ImGui.InputInt("结束 ID##pickerStop", ref pickerRangeStop))
         {
             pickerRangeStop = Math.Clamp(pickerRangeStop, 1, 250000);
