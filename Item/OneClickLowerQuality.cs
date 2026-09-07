@@ -8,6 +8,11 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using OmenTools;
+using OmenTools.Extensions;
+using OmenTools.OmenService;
+using OmenTools.Threading.TaskHelper;
+using OmenTools.Threading.TaskHelper.Enums;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -16,11 +21,6 @@ using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
-using OmenTools;
-using OmenTools.Extensions;
-using OmenTools.OmenService;
-using OmenTools.Threading.TaskHelper;
-using OmenTools.Threading.TaskHelper.Enums;
 
 namespace OmniToolbox.TreePublic;
 
@@ -33,10 +33,6 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
         Category = ModuleCategory.Item,
         RequiresPrivateProvider = true
     };
-
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings() => OneClickLowerQualityPanel.Draw(config);
 
     private static readonly InventoryType[] InventoryContainers =
     [
@@ -80,6 +76,10 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
     private TaskHelper? taskHelper;
     private InventorySlot currentSlot;
     private bool skipCurrent;
+
+    public override bool HasSettings => true;
+
+    public override bool DrawSettings() => OneClickLowerQualityPanel.Draw(config);
 
     protected override void OnEnable()
     {
@@ -205,7 +205,7 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
 
     private bool OpenCurrent()
     {
-        if (ShouldSkipCurrent())
+        if (skipCurrent)
         {
             return true;
         }
@@ -231,7 +231,7 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
     {
         if (taskHelper is null ||
             !taskHelper.IsBusy ||
-            ShouldSkipCurrent() ||
+            skipCurrent ||
             !TryGetCurrentSlot(out var _))
         {
             return;
@@ -261,18 +261,7 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
         addon->AtkUnitBase.FireCallbackInt(0);
     }
 
-    private bool WaitCurrentApplied()
-    {
-        if (ShouldSkipCurrent())
-        {
-            return true;
-        }
-
-        return !TryGetCurrentSlot(out _);
-    }
-
-    private bool ShouldSkipCurrent()
-        => skipCurrent;
+    private bool WaitCurrentApplied() => skipCurrent || !TryGetCurrentSlot(out _);
 
     private void SkipCurrent() => skipCurrent = true;
 

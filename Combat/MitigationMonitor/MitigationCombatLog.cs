@@ -1,12 +1,13 @@
 using System.Globalization;
 using System.Threading;
 using Dalamud.Game.ClientState.Conditions;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 using OmenTools;
+using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using LuminaTerritoryType = Lumina.Excel.Sheets.TerritoryType;
+using OmniToolbox.Host;
+using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
@@ -371,10 +372,8 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
     private static bool IsTransitionOrCutscene()
     {
         var condition = DService.Instance().Condition;
-        return condition[ConditionFlag.BetweenAreas] ||
-               condition[ConditionFlag.BetweenAreas51] ||
-               condition[ConditionFlag.WatchingCutscene] ||
-               condition[ConditionFlag.WatchingCutscene78] ||
+        return condition.IsBetweenAreas ||
+               condition.IsWatchingCutscene ||
                condition[ConditionFlag.OccupiedInCutSceneEvent];
     }
 

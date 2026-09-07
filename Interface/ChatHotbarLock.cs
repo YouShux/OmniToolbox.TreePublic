@@ -5,6 +5,7 @@ using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
@@ -269,9 +270,17 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
 
     private void EnsureChatLockButton(string addonName, AtkUnitBase* addon)
     {
+        var isMainChat = addonName == "ChatLog";
+        var anchor = addon->GetNodeById(isMainChat ? 11u : 6u);
+        if (anchor == null || anchor->ParentNode == null)
+        {
+            return;
+        }
+
         if (chatLockButtons.TryGetValue(addonName, out var existingButton))
         {
-            if (RaptureAtkUnitManager.Instance()->GetAddonByNode((AtkResNode*)existingButton) == addon)
+            if (RaptureAtkUnitManager.Instance()->GetAddonByNode((AtkResNode*)existingButton) == addon &&
+                ((AtkResNode*)existingButton)->ParentNode == anchor->ParentNode)
             {
                 return;
             }
@@ -279,16 +288,8 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
             DisposeChatLockButton(addonName);
         }
 
-        var attachTarget = addonName == "ChatLog"
-            ? addon->RootNode
-            : ((AddonChatLogPanel*)addon)->ContainerNode;
-        if (attachTarget == null)
-        {
-            return;
-        }
-
         var button = CreateChatLockButton();
-        button.AttachNode(attachTarget);
+        button.AttachNode(anchor, NodePosition.AfterTarget);
         chatLockButtons[addonName] = button;
     }
 
@@ -326,8 +327,8 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
 
         var scale = AtkUnitBase.GetGlobalUIScale();
         button.Position = new(
-            anchor->GetXFloat() + (isMainChat ? 50f : 32f) * scale,
-            anchor->GetYFloat() + (isMainChat ? 2f : 2f * scale));
+            anchor->GetXFloat() + (isMainChat ? 50f : 32f),
+            anchor->GetYFloat() + 2f);
         button.Scale = new(scale, scale);
         button.IsVisible = addon->IsVisible && config.ShowChatLock && showLocks;
         UpdateChatLockButtonState(button);

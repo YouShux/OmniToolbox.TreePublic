@@ -1,11 +1,15 @@
 using System.Linq;
-using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using OmenTools;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Helpers;
+using OmenTools.OmenService;
+using OmenTools.Threading.TaskHelper;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -14,11 +18,6 @@ using OmniToolbox.Items;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
-using OmenTools;
-using OmenTools.Extensions;
-using OmenTools.Interop.Game.Helpers;
-using OmenTools.OmenService;
-using OmenTools.Threading.TaskHelper;
 
 namespace OmniToolbox.TreePublic;
 
@@ -326,8 +325,7 @@ public sealed unsafe partial class BetterGlamourManagement(
             taskHelper is null ||
             taskHelper.IsBusy ||
             previewPlayerAddress == nint.Zero ||
-            DService.Instance().Condition[ConditionFlag.BetweenAreas] ||
-            DService.Instance().Condition[ConditionFlag.BetweenAreas51])
+            DService.Instance().Condition.IsBetweenAreas)
         {
             return;
         }
