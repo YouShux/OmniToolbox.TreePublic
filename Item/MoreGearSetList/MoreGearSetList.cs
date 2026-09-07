@@ -1379,11 +1379,9 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     private void UpdateGearSnapshot()
     {
         var manager = InventoryManager.Instance();
-        var builder = new StringBuilder();
         if (manager == null)
         {
-            if (gearSnapshotKey.Length == 0)
-                return;
+            if (gearSnapshotKey.Length == 0) return;
 
             gearSnapshotKey = string.Empty;
             equippedSnapshot.Clear();
@@ -1391,6 +1389,9 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             return;
         }
 
+        var builder = new StringBuilder();
+        equippedSnapshot.Clear();
+        availableSnapshot.Clear();
         foreach (var containerType in SearchContainers)
         {
             var container = manager->GetInventoryContainer(containerType);
@@ -1412,38 +1413,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
                 var itemID = ItemUtil.GetBaseId(slot->ItemId).ItemId;
                 var hq = slot->IsHighQuality();
                 builder.Append(itemID).Append(hq ? 'H' : 'N').Append(',');
-            }
 
-            builder.Append('|');
-        }
-
-        var key = builder.ToString();
-        if (key == gearSnapshotKey)
-        {
-            return;
-        }
-
-        gearSnapshotKey = key;
-        equippedSnapshot.Clear();
-        availableSnapshot.Clear();
-        foreach (var containerType in SearchContainers)
-        {
-            var container = manager->GetInventoryContainer(containerType);
-            if (container == null || !container->IsLoaded)
-            {
-                continue;
-            }
-
-            for (var index = 0; index < container->Size; index++)
-            {
-                var slot = container->GetInventorySlot(index);
-                if (slot == null || slot->ItemId == 0)
-                {
-                    continue;
-                }
-
-                var itemID = ItemUtil.GetBaseId(slot->ItemId).ItemId;
-                var hq = slot->IsHighQuality();
                 var item = (itemID, hq);
                 availableSnapshot[item] = availableSnapshot.GetValueOrDefault(item) + 1;
                 if (containerType == InventoryType.EquippedItems)
@@ -1451,7 +1421,11 @@ public sealed unsafe class MoreGearSetList : ModuleBase
                     equippedSnapshot[index] = item;
                 }
             }
+
+            builder.Append('|');
         }
+
+        gearSnapshotKey = builder.ToString();
     }
 
     private bool IsCurrentSet(MoreGearSetListEntry entry)
