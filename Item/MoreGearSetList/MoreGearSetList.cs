@@ -892,8 +892,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             return false;
         }
 
-        var imported = 0;
-        var skipped = 0;
+        var changed = false;
         for (var index = 0; index < 100; index++)
         {
             var gearset = module->GetGearset(index);
@@ -904,17 +903,25 @@ public sealed unsafe class MoreGearSetList : ModuleBase
                 continue;
             }
 
-            if (HasNativeIndex(record.Sets, index))
+            var captured = CaptureFromNative(gearset, index);
+            var existing = FindSetByNativeIndex(record.Sets, index);
+            if (existing is null)
             {
-                skipped++;
+                record.Sets.Add(captured);
+                changed = true;
                 continue;
             }
 
-            record.Sets.Add(CaptureFromNative(gearset, index));
-            imported++;
+            existing.Name           = captured.Name;
+            existing.ClassJobID     = captured.ClassJobID;
+            existing.NativeIndex    = captured.NativeIndex;
+            existing.GlamourPlateID = captured.GlamourPlateID;
+            existing.BannerIndex    = captured.BannerIndex;
+            existing.Items          = captured.Items;
+            changed = true;
         }
 
-        if (imported == 0)
+        if (!changed)
         {
             return false;
         }
@@ -1661,17 +1668,17 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         };
     }
 
-    private static bool HasNativeIndex(List<MoreGearSetListEntry> sets, int nativeIndex)
+    private static MoreGearSetListEntry? FindSetByNativeIndex(List<MoreGearSetListEntry> sets, int nativeIndex)
     {
         foreach (var entry in sets)
         {
             if (entry.NativeIndex == nativeIndex)
             {
-                return true;
+                return entry;
             }
         }
 
-        return false;
+        return null;
     }
 
     private static List<MoreGearSetListItem> GetApplyItems(MoreGearSetListEntry entry)
