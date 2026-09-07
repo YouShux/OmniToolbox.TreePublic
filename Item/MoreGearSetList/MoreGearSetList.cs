@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using Dalamud.Game;
 using Dalamud.Game.Addon.Lifecycle;
@@ -122,6 +122,9 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     private bool borrowSeenOpen;
     private bool borrowedHasSnapshot;
     private RaptureGearsetModule.GearsetEntry borrowedSnapshot;
+    private string gearSnapshotKey = string.Empty;
+    private readonly Dictionary<int, (uint ItemID, bool HQ)> equippedSnapshot = [];
+    private readonly Dictionary<(uint ItemID, bool HQ), int> availableSnapshot = [];
 
     public override ModuleInfo Info { get; } = new()
     {
@@ -203,6 +206,9 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         taskHelper?.Abort();
         taskHelper?.Dispose();
         taskHelper = null;
+        gearSnapshotKey = string.Empty;
+        equippedSnapshot.Clear();
+        availableSnapshot.Clear();
     }
 
     public void ToggleList()
@@ -392,14 +398,15 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             return;
         }
 
-        var rows = BuildNativeRows();
-        var fingerprint = BuildNativeFingerprint(rows);
+        UpdateGearSnapshot();
+        var fingerprint = BuildNativeFingerprint();
         if (fingerprint == nativeFingerprint)
         {
             return;
         }
 
         nativeFingerprint = fingerprint;
+        var rows = BuildNativeRows();
         nativeUI.UpdateData(
             rows,
             DService.Instance().ClientState.IsLoggedIn,
@@ -741,7 +748,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             }
 
             var current = IsCurrentSet(entry);
-            var missing = !current && TryGetMissing(entry, out _);
+            var missing = !current && HasMissingItems(entry);
             rows.Add(new()
             {
                 Entry       = entry,
@@ -756,7 +763,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         return rows;
     }
 
-    private static string BuildNativeFingerprint(List<MoreGearSetListRow> rows)
+    private string BuildNativeFingerprint()
     {
         var builder = new StringBuilder();
         builder.Append(GetCurrentClassJobID())
@@ -767,13 +774,19 @@ public sealed unsafe class MoreGearSetList : ModuleBase
                .Append('|')
                .Append(MoreGearSetListPanel.FilterClassJobID)
                .Append('|')
-               .Append(DService.Instance().ClientState.IsLoggedIn);
-        foreach (var row in rows)
+               .Append(DService.Instance().ClientState.IsLoggedIn)
+               .Append('|')
+               .Append(gearSnapshotKey);
+        var record = GetCurrentCharacterRecord(false);
+        if (record is null)
         {
-            builder.Append(row.Number)
-                   .Append(row.Name)
-                   .Append(row.IconID)
-                   .Append(row.Status)
+            return builder.ToString();
+        }
+
+        foreach (var entry in record.Sets)
+        {
+            builder.Append(entry.Name)
+                   .Append(entry.ClassJobID)
                    .Append(';');
         }
 
@@ -1356,17 +1369,101 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     private static uint GetJobIconID(uint classJobID) =>
         classJobID == 0 ? 0 : JobIconBase + classJobID;
 
-    private bool IsCurrentSet(MoreGearSetListEntry entry)
+    private void UpdateGearSnapshot()
     {
         var manager = InventoryManager.Instance();
-        if (manager == null || entry.Items.Count == 0)
+        var builder = new StringBuilder();
+        if (manager == null)
+        {
+            if (gearSnapshotKey.Length == 0)
+                return;
+
+            gearSnapshotKey = string.Empty;
+            equippedSnapshot.Clear();
+            availableSnapshot.Clear();
+            return;
+        }
+
+        foreach (var containerType in SearchContainers)
+        {
+            var container = manager->GetInventoryContainer(containerType);
+            builder.Append((int)containerType).Append(':');
+            if (container == null || !container->IsLoaded)
+            {
+                builder.Append('|');
+                continue;
+            }
+
+            for (var index = 0; index < container->Size; index++)
+            {
+                var slot = container->GetInventorySlot(index);
+                if (slot == null || slot->ItemId == 0)
+                {
+                    continue;
+                }
+
+                var itemID = ItemUtil.GetBaseId(slot->ItemId).ItemId;
+                var hq = slot->IsHighQuality();
+                builder.Append(itemID).Append(hq ? 'H' : 'N').Append(',');
+            }
+
+            builder.Append('|');
+        }
+
+        var key = builder.ToString();
+        if (key == gearSnapshotKey)
+        {
+            return;
+        }
+
+        gearSnapshotKey = key;
+        equippedSnapshot.Clear();
+        availableSnapshot.Clear();
+        foreach (var containerType in SearchContainers)
+        {
+            var container = manager->GetInventoryContainer(containerType);
+            if (container == null || !container->IsLoaded)
+            {
+                continue;
+            }
+
+            for (var index = 0; index < container->Size; index++)
+            {
+                var slot = container->GetInventorySlot(index);
+                if (slot == null || slot->ItemId == 0)
+                {
+                    continue;
+                }
+
+                var itemID = ItemUtil.GetBaseId(slot->ItemId).ItemId;
+                var hq = slot->IsHighQuality();
+                var item = (itemID, hq);
+                availableSnapshot[item] = availableSnapshot.GetValueOrDefault(item) + 1;
+                if (containerType == InventoryType.EquippedItems)
+                {
+                    equippedSnapshot[index] = item;
+                }
+            }
+        }
+    }
+
+    private bool IsCurrentSet(MoreGearSetListEntry entry)
+    {
+        if (entry.Items.Count == 0)
         {
             return false;
         }
 
         foreach (var item in entry.Items)
         {
-            if (item.ItemID != 0 && !IsSlotEquipped(manager, item))
+            if (item.ItemID == 0)
+            {
+                continue;
+            }
+
+            if (!equippedSnapshot.TryGetValue(item.Slot, out var equipped) ||
+                equipped.ItemID != item.ItemID ||
+                equipped.HQ != item.HQ)
             {
                 return false;
             }
@@ -1375,25 +1472,40 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         return true;
     }
 
-    private bool TryGetMissing(MoreGearSetListEntry entry, out List<MoreGearSetListItem> missing)
+    private bool HasMissingItems(MoreGearSetListEntry entry)
     {
-        missing = [];
-        var manager = InventoryManager.Instance();
-        if (manager == null)
+        if (gearSnapshotKey.Length == 0)
         {
             return false;
         }
 
-        var items = new List<MoreGearSetListItem>();
+        Dictionary<(uint ItemID, bool HQ), int>? used = null;
         foreach (var item in entry.Items)
         {
-            if (item.ItemID != 0)
+            if (item.ItemID == 0)
             {
-                items.Add(item);
+                continue;
             }
+
+            if (equippedSnapshot.TryGetValue(item.Slot, out var equipped) &&
+                equipped.ItemID == item.ItemID &&
+                equipped.HQ == item.HQ)
+            {
+                continue;
+            }
+
+            used ??= [];
+            var key = (item.ItemID, item.HQ);
+            used.TryGetValue(key, out var claimed);
+            if (!availableSnapshot.TryGetValue(key, out var available) || claimed >= available)
+            {
+                return true;
+            }
+
+            used[key] = claimed + 1;
         }
 
-        return items.Count > 0 && TryCollectMissing(manager, items, out missing);
+        return false;
     }
 
     private MoreGearSetListCharacterRecord? GetOrCreateRecord(
