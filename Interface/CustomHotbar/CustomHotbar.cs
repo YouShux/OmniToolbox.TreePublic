@@ -330,6 +330,7 @@ public sealed class CustomHotbarConfig
 internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action saveConfig)
 {
     private bool geometryDirty;
+    private readonly CustomHotbarSlotDragState slotDrag = new();
 
     public void Draw()
     {
@@ -343,6 +344,8 @@ internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action save
                 DrawBar(bar, index);
             }
         }
+
+        UpdateSlotDrag();
     }
 
     private void DrawBar(CustomHotbarBarConfig bar, int index)
@@ -393,7 +396,23 @@ internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action save
                     CustomHotbar.ExecuteCommand(slot.Command);
                 }
 
-                if (ImGui.IsItemHovered())
+                // 右键拖拽排序: 记录拖拽源与抓取偏移, 目标反算与提交由 UpdateSlotDrag 统一处理
+                if (slotDrag.SourceIndex < 0 && ImGui.IsItemHovered() && ImGui.IsMouseDragging(ImGuiMouseButton.Right))
+                {
+                    slotDrag.BarIndex = index;
+                    slotDrag.SourceIndex = slotIndex;
+                    slotDrag.TargetIndex = slotIndex;
+                    slotDrag.GrabOffset = ImGui.GetMousePos() - slotPosition;
+                }
+
+                if (slotDrag.BarIndex == index && slotDrag.SourceIndex >= 0 &&
+                    IsMouseOverSlot(slotPosition, slotSizeVector, spacing * 0.5f))
+                {
+                    slotDrag.TargetIndex = slotIndex;
+                }
+
+                // 拖拽进行中抑制悬停高亮与悬浮说明, 避免让位滑动时跳动
+                if (ImGui.IsItemHovered() && slotDrag.SourceIndex < 0)
                 {
                     drawList.AddRectFilled(
                         slotPosition,
@@ -405,7 +424,15 @@ internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action save
                     }
                 }
 
-                DrawSlotIcon(drawList, slot.IconID, slotPosition, slotSizeVector, bar.EffectiveScale);
+                var displayIndex = DisplacedSlotIndex(index, slotIndex);
+                DrawSlotIcon(drawList, displayIndex >= 0 ? slots[displayIndex].IconID : 0u, slotPosition, slotSizeVector, bar.EffectiveScale);
+            }
+
+            // 拖拽中的格子最后画在前景层: 跟随鼠标、不被窗口裁剪
+            if (slotDrag.BarIndex == index && slotDrag.SourceIndex >= 0 && slotDrag.SourceIndex < slots.Count)
+            {
+                var floatingPosition = ImGui.GetMousePos() - slotDrag.GrabOffset;
+                DrawSlotIcon(ImGui.GetForegroundDrawList(), slots[slotDrag.SourceIndex].IconID, floatingPosition, new Vector2(slotSize), bar.EffectiveScale);
             }
 
             UpdateWindowGeometry(bar);
@@ -445,6 +472,104 @@ internal sealed class CustomHotbarOverlay(CustomHotbarConfig config, Action save
             geometryDirty = false;
             saveConfig();
         }
+    }
+
+    private void UpdateSlotDrag()
+    {
+        if (slotDrag.SourceIndex < 0)
+        {
+            return;
+        }
+
+        if (ImGui.IsMouseReleased(ImGuiMouseButton.Right))
+        {
+            CommitSlotDrag();
+        }
+        else if (!ImGui.IsMouseDown(ImGuiMouseButton.Right))
+        {
+            slotDrag.Cancel();
+        }
+    }
+
+    private void CommitSlotDrag()
+    {
+        var barIndex = slotDrag.BarIndex;
+        var sourceIndex = slotDrag.SourceIndex;
+        var targetIndex = slotDrag.TargetIndex;
+        slotDrag.Cancel();
+
+        if (barIndex < 0 || barIndex >= config.Bars.Count)
+        {
+            return;
+        }
+
+        var slots = config.Bars[barIndex].Slots;
+        if (sourceIndex < 0 || sourceIndex >= slots.Count ||
+            targetIndex < 0 || targetIndex >= slots.Count ||
+            sourceIndex == targetIndex)
+        {
+            return;
+        }
+
+        var slot = slots[sourceIndex];
+        slots.RemoveAt(sourceIndex);
+        slots.Insert(targetIndex, slot);
+        saveConfig();
+    }
+
+    private int DisplacedSlotIndex(int barIndex, int slotIndex)
+    {
+        if (slotDrag.BarIndex != barIndex || slotDrag.SourceIndex < 0 ||
+            slotDrag.TargetIndex < 0 || slotDrag.SourceIndex == slotDrag.TargetIndex)
+        {
+            return slotIndex;
+        }
+
+        if (slotIndex == slotDrag.SourceIndex)
+        {
+            return -1;
+        }
+
+        if (slotDrag.SourceIndex < slotDrag.TargetIndex &&
+            slotIndex > slotDrag.SourceIndex && slotIndex <= slotDrag.TargetIndex)
+        {
+            return slotIndex - 1;
+        }
+
+        if (slotDrag.TargetIndex < slotDrag.SourceIndex &&
+            slotIndex >= slotDrag.TargetIndex && slotIndex < slotDrag.SourceIndex)
+        {
+            return slotIndex + 1;
+        }
+
+        return slotIndex;
+    }
+
+    private static bool IsMouseOverSlot(Vector2 position, Vector2 size, float halfGap)
+    {
+        var mouse = ImGui.GetMousePos();
+        return mouse.X >= position.X - halfGap && mouse.X < position.X + size.X + halfGap &&
+               mouse.Y >= position.Y - halfGap && mouse.Y < position.Y + size.Y + halfGap;
+    }
+}
+
+// 热键栏格子右键拖拽排序状态(三段状态机, 参考 Common Qt 面板的实现):
+// 格子上检测到右键拖拽时写入 BarIndex/SourceIndex 与 GrabOffset(鼠标相对格位偏移);
+// 每帧按鼠标位置反算 TargetIndex 并让其它格子实时让位, 松开右键提交、丢键取消。
+// SourceIndex < 0 表示空闲。
+internal sealed class CustomHotbarSlotDragState
+{
+    public int BarIndex = -1;
+    public int SourceIndex = -1;
+    public int TargetIndex = -1;
+    public Vector2 GrabOffset;
+
+    public void Cancel()
+    {
+        BarIndex = -1;
+        SourceIndex = -1;
+        TargetIndex = -1;
+        GrabOffset = Vector2.Zero;
     }
 }
 
