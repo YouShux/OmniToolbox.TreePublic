@@ -2,26 +2,26 @@ using OmniToolbox.Collections;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
-using OmniToolbox.UI.Theme;
 using OmniToolbox.Config;
 using OmniToolbox.Items;
 using OmniToolbox.Tooltips;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed class ItemPreview : ModuleBase
 {
-    private const string SupplementPreviewImageBaseURL =
-        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Item/ItemPreview-";
-
     public override ModuleInfo Info { get; } = new()
     {
         Title = OmniLoc.Get("ItemPreviewTitle"),
         Description = OmniLoc.Get("ItemPreviewDescription"),
         Category = ModuleCategory.Item
     };
+
+    private const string SupplementPreviewImageBaseURL =
+        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Item/ItemPreview-";
 
     private readonly ItemConfig config;
     private readonly ItemPreviewService itemPreviewService;
