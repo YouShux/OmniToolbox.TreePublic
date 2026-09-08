@@ -39,42 +39,13 @@ public sealed partial class MultiToolbar
 
     private bool DrawToolbarFontSelector()
     {
-        var manager = FontManager.Instance();
         var path = config.FontFileName;
-        var isDefault = string.IsNullOrWhiteSpace(path);
-        var label = isDefault ? DefaultToolbarFontName
-            : manager.InstalledFonts.GetValueOrDefault(path, Path.GetFileNameWithoutExtension(path));
-        if (!OmniControls.BeginCombo("##multiToolbarFont", label, ImGui.GetContentRegionAvail().X, ImGuiComboFlags.HeightLarge))
+        if (!OmniFontSelector.Draw("##multiToolbarFont", ref path, ref toolbarFontSearch, DefaultToolbarFontName, string.Empty))
         {
             return false;
         }
-
-        var changed = false;
-        OmniControls.InputTextWithHint("##fontSearch", OmniLoc.Get("Settings.Ui.Font.Search"),
-            ref toolbarFontSearch, 128, ImGui.GetContentRegionAvail().X);
-        if (ImGui.Selectable(DefaultToolbarFontName, isDefault))
-        {
-            config.FontFileName = string.Empty;
-            changed = true;
-        }
-        foreach (var installed in manager.InstalledFonts)
-        {
-            if (installed.Value == DefaultToolbarFontName ||
-                (!string.IsNullOrWhiteSpace(toolbarFontSearch) &&
-                 !installed.Key.Contains(toolbarFontSearch, StringComparison.OrdinalIgnoreCase) &&
-                 !installed.Value.Contains(toolbarFontSearch, StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-            if (ImGui.Selectable($"{installed.Value}##{installed.Key}", path == installed.Key))
-            {
-                config.FontFileName = installed.Key;
-                changed = true;
-            }
-            OmniControls.HelpTooltip(installed.Key);
-        }
-        ImGui.EndCombo();
-        return changed;
+        config.FontFileName = path;
+        return true;
     }
 
     private unsafe IFontHandle GetToolbarFont()
@@ -86,7 +57,7 @@ public sealed partial class MultiToolbar
         {
             toolbarFont?.Dispose();
             toolbarFont = null;
-            return manager.UIFont;
+            return OmniFonts.GetUIFont();
         }
         if (toolbarFont is not null && toolbarFontPath == path && toolbarFontSize == size)
         {
@@ -96,6 +67,11 @@ public sealed partial class MultiToolbar
         toolbarFont?.Dispose();
         toolbarFontPath = path;
         toolbarFontSize = size;
+        if (OmniFonts.TryGetGameFamily(path, out var family))
+        {
+            toolbarFont = OmniFonts.CreateGameFont(family, size);
+            return toolbarFont;
+        }
         var builder = new ImFontGlyphRangesBuilderPtr(ImGuiNative.ImFontGlyphRangesBuilder());
         ushort[] ranges;
         try

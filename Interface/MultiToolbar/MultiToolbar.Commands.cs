@@ -42,9 +42,8 @@ public sealed partial class MultiToolbar
         }
 
         ImGui.SetWindowFontScale(1f);
-        OmniControls.DrawWindowBackground(ImGui.GetWindowPos(), ImGui.GetWindowSize(), false);
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.EditCommands"));
-        ImGui.Separator();
+        DrawEditorBackground(OmniLoc.Get("Feature.MultiToolbar.EditCommands"));
+        using var childBackground = ImRaii.PushColor(ImGuiCol.ChildBg, Vector4.Zero);
         var changed = false;
         if (OmniControls.IconButton("addCommand", FontAwesomeIcon.Plus, false, OmniLoc.Get("Feature.MultiToolbar.AddCommand")))
         {

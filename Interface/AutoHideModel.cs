@@ -8,6 +8,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.Group;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using FFXIVClientStructs.FFXIV.Client.LayoutEngine;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Info;
 using OmenTools;
@@ -55,6 +56,8 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private readonly HashSet<uint> partyPlayers = [];
     private readonly HashSet<uint> freeCompanyPlayers = [];
     private readonly List<Vector3> nearbyAvailableQuestNPCPositions = [];
+    private readonly Dictionary<int, OutdoorPlotExteriorData> hiddenHouseOriginals = [];
+    private nint housingLayoutAddress;
     private FeatureLifetime? runtimeLifetime;
     private Hook<ActionEffectHandler.Delegates.Receive>? actionEffectHook;
     private long asylumBlockUntil;
@@ -68,8 +71,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
     public override bool DrawSettings()
     {
-        var changed = DrawVisibilityTable(config);
+        var changed = DrawVisibilityTable(config, out var columnPositions);
+        changed |= DrawHouseSettings(config, columnPositions);
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
+        ImGui.SetCursorPosX(
+            columnPositions.X - ImGui.CalcTextSize($"{OmniLoc.Get("Feature.AutoHideModel.Houses")}：").X * 0.5f);
         changed |= DrawCheckbox(
             "Feature.AutoHideModel.IncludeSelf",
             "includeSelf",
@@ -102,8 +108,9 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         return true;
     }
 
-    private static bool DrawVisibilityTable(AutoHideModelConfig config)
+    private static bool DrawVisibilityTable(AutoHideModelConfig config, out Vector4 columnPositions)
     {
+        columnPositions = default;
         using var table = ImRaii.Table(
             "##autoHideModelSettings",
             8,
@@ -131,6 +138,14 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         DrawHeader(OmniLoc.Get("Feature.AutoHideModel.ShowFreeCompany"));
         DrawHeader(OmniLoc.Get("Feature.AutoHideModel.ShowDead"));
         DrawHeader(OmniLoc.Get("Feature.AutoHideModel.HideUnimportantNpcs"));
+
+        for (var column = 0; column < 4; column++)
+        {
+            ImGui.TableSetColumnIndex(column);
+            columnPositions[column] = ImGui.GetCursorPosX() +
+                                      MathF.Max(0f, (ImGui.GetContentRegionAvail().X -
+                                                    (column == 0 ? 0f : ImGui.GetFrameHeight())) * 0.5f);
+        }
 
         var changed = DrawUnitRow(
             "Feature.AutoHideModel.Players",
@@ -163,6 +178,36 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         return changed;
     }
 
+    private static bool DrawHouseSettings(AutoHideModelConfig config, Vector4 columnPositions)
+    {
+        var label = $"{OmniLoc.Get("Feature.AutoHideModel.Houses")}：";
+        ImGui.SetCursorPosX(columnPositions.X - ImGui.CalcTextSize(label).X * 0.5f);
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(label);
+        ImGui.SameLine();
+        ImGui.SetCursorPosX(columnPositions.Y);
+        var changed = DrawCheckbox(
+            "Feature.AutoHideModel.HouseSize.Small",
+            "housesSmall",
+            config.HideSmallHouses,
+            value => config.HideSmallHouses = value);
+        ImGui.SameLine(0f, OmniTheme.Scale(16f));
+        ImGui.SetCursorPosX(columnPositions.Z);
+        changed |= DrawCheckbox(
+            "Feature.AutoHideModel.HouseSize.Medium",
+            "housesMedium",
+            config.HideMediumHouses,
+            value => config.HideMediumHouses = value);
+        ImGui.SameLine(0f, OmniTheme.Scale(16f));
+        ImGui.SetCursorPosX(columnPositions.W);
+        changed |= DrawCheckbox(
+            "Feature.AutoHideModel.HouseSize.Large",
+            "housesLarge",
+            config.HideLargeHouses,
+            value => config.HideLargeHouses = value);
+        return changed;
+    }
+
     private static bool DrawUnitRow(
         string labelKey,
         string id,
@@ -174,6 +219,9 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
+        ImGui.SetCursorPosX(
+            ImGui.GetCursorPosX() +
+            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(OmniLoc.Get(labelKey)).X) * 0.5f));
         ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         var changed = DrawCenteredCheckbox(
             $"{id}HideAll",
@@ -331,10 +379,12 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         if (!services.ClientState.IsLoggedIn || services.ObjectTable.LocalPlayer is null)
         {
             ShowAll();
+            RestoreHiddenHouses();
             ClearGroundEffectDecisions();
             return;
         }
 
+        UpdateHouseVisibility();
         RefreshGroundEffectResourceBlacklist();
         try
         {
@@ -801,6 +851,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private void Refresh()
     {
         ShowAll();
+        RestoreHiddenHouses();
         friendPlayers.Clear();
         partyPlayers.Clear();
         freeCompanyPlayers.Clear();
@@ -811,6 +862,171 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private void OnLogout(int _, int unusedReason) => Refresh();
 
     private void OnTerritoryChanged(uint _) => Refresh();
+
+    private void UpdateHouseVisibility()
+    {
+        var layoutWorld = LayoutWorld.Instance();
+        var layout = layoutWorld == null ? null : layoutWorld->ActiveLayout;
+        if ((!config.HideSmallHouses && !config.HideMediumHouses && !config.HideLargeHouses) ||
+            !IsHousingTerritory() || ShouldSuspendByCondition() ||
+            layout == null || layout->OutdoorExteriorData == null || layout->InitState != 7)
+        {
+            RestoreHiddenHouses();
+            return;
+        }
+
+        var layoutAddress = (nint)layout;
+        if (housingLayoutAddress != layoutAddress)
+        {
+            RestoreHiddenHouses();
+            housingLayoutAddress = layoutAddress;
+        }
+
+        var housingManager = HousingManager.Instance();
+        var currentPlot = housingManager == null ? -1 : housingManager->GetCurrentPlot();
+        var currentWard = housingManager == null ? (sbyte)-1 : (sbyte)housingManager->GetCurrentWard();
+        var ownedHousePlots = GetOwnedHousePlots(currentWard);
+        var plots = layout->OutdoorExteriorData->Plots;
+        var plotCount = Math.Min(60, plots.Length);
+        for (var plot = 0; plot < plotCount; plot++)
+        {
+            var shouldHide = plot != currentPlot &&
+                             (ownedHousePlots & (1UL << plot)) == 0 &&
+                             ShouldHideHouse(plots[plot].Size);
+            if (!shouldHide)
+            {
+                if (hiddenHouseOriginals.TryGetValue(plot, out var original))
+                {
+                    SetHouseExterior(layout, plot, original);
+                    hiddenHouseOriginals.Remove(plot);
+                }
+
+                continue;
+            }
+
+            if (plots[plot].HousingExteriorIds[0] == -1)
+            {
+                return;
+            }
+
+            if (!hiddenHouseOriginals.ContainsKey(plot))
+            {
+                hiddenHouseOriginals.Add(plot, plots[plot]);
+            }
+
+            if (IsHiddenHouse(plots[plot]))
+            {
+                continue;
+            }
+
+            var hiddenExterior = plots[plot];
+            for (var part = 0; part < 8; part++)
+            {
+                hiddenExterior.HousingExteriorIds[part] = 0;
+                hiddenExterior.StainIds[part] = 0;
+            }
+
+            SetHouseExterior(layout, plot, hiddenExterior);
+        }
+    }
+
+    private unsafe void RestoreHiddenHouses()
+    {
+        if (hiddenHouseOriginals.Count == 0)
+        {
+            housingLayoutAddress = 0;
+            return;
+        }
+
+        var layoutWorld = LayoutWorld.Instance();
+        var layout = layoutWorld == null ? null : layoutWorld->ActiveLayout;
+        if (layout != null && layout->OutdoorExteriorData != null &&
+            (nint)layout == housingLayoutAddress)
+        {
+            foreach (var (plot, original) in hiddenHouseOriginals)
+            {
+                if (plot < layout->OutdoorExteriorData->Plots.Length)
+                {
+                    SetHouseExterior(layout, plot, original);
+                }
+            }
+        }
+
+        hiddenHouseOriginals.Clear();
+        housingLayoutAddress = 0;
+    }
+
+    private static unsafe void SetHouseExterior(
+        LayoutManager* layout,
+        int plot,
+        OutdoorPlotExteriorData exteriorData)
+    {
+        layout->HousingLayoutDataUpdatePending = true;
+        for (var part = 0; part < 8; part++)
+        {
+            layout->OutdoorExteriorData->Plots[plot].HousingExteriorIds[part] =
+                exteriorData.HousingExteriorIds[part];
+            layout->OutdoorExteriorData->Plots[plot].StainIds[part] = exteriorData.StainIds[part];
+        }
+    }
+
+    private static bool IsHiddenHouse(OutdoorPlotExteriorData exteriorData)
+    {
+        for (var part = 0; part < 8; part++)
+        {
+            if (exteriorData.HousingExteriorIds[part] != 0 || exteriorData.StainIds[part] != 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool ShouldHideHouse(PlotSize size) => size switch
+    {
+        PlotSize.Small => config.HideSmallHouses,
+        PlotSize.Medium => config.HideMediumHouses,
+        PlotSize.Large => config.HideLargeHouses,
+        _ => false
+    };
+
+    private static bool IsHousingTerritory() =>
+        DService.Instance().ClientState.TerritoryType is 339 or 340 or 341 or 641 or 979;
+
+    private static ulong GetOwnedHousePlots(sbyte ward)
+    {
+        var territory = (ushort)DService.Instance().ClientState.TerritoryType;
+        if (ward < 0)
+        {
+            return 0;
+        }
+
+        static bool Matches(HouseId house, ushort territory, sbyte ward) =>
+            house.Id != 0 &&
+            !house.IsApartment &&
+            !house.IsWorkshop &&
+            house.TerritoryTypeId == territory &&
+            house.WardIndex == ward;
+
+        var plots = 0UL;
+        void AddHouse(HouseId house)
+        {
+            if (Matches(house, territory, ward))
+            {
+                plots |= 1UL << house.PlotIndex;
+            }
+        }
+
+        AddHouse(HousingManager.GetOwnedHouseId(EstateType.PersonalEstate));
+        AddHouse(HousingManager.GetOwnedHouseId(EstateType.FreeCompanyEstate));
+        for (var index = 0; index < 3; index++)
+        {
+            AddHouse(HousingManager.GetOwnedHouseId(EstateType.SharedEstate, index));
+        }
+
+        return plots;
+    }
 
     private bool ShouldHideUnimportantNPC(GameObject* gameObject)
     {
@@ -1002,6 +1218,12 @@ public sealed class AutoHideModelConfig
     public bool ReduceOnScreenPlayers { get; set; } = true;
 
     public bool HideUnimportantNpcs { get; set; } = true;
+
+    public bool HideSmallHouses { get; set; }
+
+    public bool HideMediumHouses { get; set; }
+
+    public bool HideLargeHouses { get; set; }
 }
 
 [Serializable]

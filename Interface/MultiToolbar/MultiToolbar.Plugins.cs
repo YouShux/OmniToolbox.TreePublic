@@ -29,9 +29,8 @@ public sealed partial class MultiToolbar
             return;
         }
         ImGui.SetWindowFontScale(1f);
-        OmniControls.DrawWindowBackground(ImGui.GetWindowPos(), ImGui.GetWindowSize(), false);
-        ImGui.TextUnformatted(title);
-        ImGui.Separator();
+        DrawEditorBackground(title);
+        using var childBackground = ImRaii.PushColor(ImGuiCol.ChildBg, Vector4.Zero);
         ImGui.SetNextItemWidth(-1f);
         OmniControls.InputTextWithHint("##pluginEditorSearch", OmniLoc.Get("Feature.MultiToolbar.SearchPlugin"), ref pluginEditorSearch, 64);
         RefreshPluginCache();

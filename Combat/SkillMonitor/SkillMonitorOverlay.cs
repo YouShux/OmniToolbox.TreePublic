@@ -4,6 +4,7 @@ using Dalamud.Game.ClientState.Objects.Enums;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmniToolbox.Host;
+using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Extensions;
@@ -251,12 +252,12 @@ internal sealed unsafe class SkillMonitorOverlay(
         var unit = text[^1..];
         Vector2 valueSize;
         Vector2 unitSize;
-        using (FontManager.Instance().UIFont90.Push())
+        using (OmniFonts.GetUIFont(0.9f).Push())
         {
             valueSize = ImGui.CalcTextSize(value);
         }
 
-        using (FontManager.Instance().UIFont80.Push())
+        using (OmniFonts.GetUIFont(0.8f).Push())
         {
             unitSize = ImGui.CalcTextSize(unit);
         }
@@ -265,12 +266,12 @@ internal sealed unsafe class SkillMonitorOverlay(
             position.X + (size.X - valueSize.X - unitSize.X) * 0.5f,
             position.Y + size.Y - valueSize.Y * 0.55f);
         var color = OmniTheme.Color(KnownColor.PaleTurquoise.ToVector4());
-        using (FontManager.Instance().UIFont90.Push())
+        using (OmniFonts.GetUIFont(0.9f).Push())
         {
             DrawOutlinedText(drawList, value, textPosition, color);
         }
 
-        using (FontManager.Instance().UIFont80.Push())
+        using (OmniFonts.GetUIFont(0.8f).Push())
         {
             DrawOutlinedText(
                 drawList,

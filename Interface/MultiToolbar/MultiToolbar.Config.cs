@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using Dalamud.Interface;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
@@ -20,6 +21,8 @@ public sealed partial class MultiToolbar
             MultiToolbarWidgetType.ToolbarPin => (double)MultiToolbarWidgetType.CustomButton + 0.5,
             MultiToolbarWidgetType.DtrSingle => (double)MultiToolbarWidgetType.DtrList + 0.5,
             MultiToolbarWidgetType.MailIndicator => (double)MultiToolbarWidgetType.Flag + 0.5,
+            MultiToolbarWidgetType.QuickCommands => (double)MultiToolbarWidgetType.Weather + 0.1,
+            MultiToolbarWidgetType.Separator => (double)MultiToolbarWidgetType.Weather + 0.2,
             _ => (double)type
         })
         .ToArray();
@@ -36,10 +39,17 @@ public sealed partial class MultiToolbar
         DrawPluginEditorButton();
         ImGui.SameLine();
         DrawCommandEditorButton();
+        ImGui.SameLine();
+        changed |= DrawColorSettingsButton();
         using var settingsPadding = ImRaii.PushStyle(ImGuiStyleVar.CellPadding,
             new Vector2(ImGui.GetStyle().CellPadding.X, rowSpacing * 0.5f));
         ImGui.SetCursorScreenPos(origin + new Vector2(0f, rowStride - rowSpacing * 0.5f));
-        changed |= DrawAppearanceSettings(rowHeight);
+        var autoExpandOnHover = config.AutoExpandOnHover;
+        if (OmniControls.Checkbox(OmniLoc.Get("Feature.MultiToolbar.AutoExpandOnHover"), ref autoExpandOnHover, rowHeight))
+        {
+            config.AutoExpandOnHover = autoExpandOnHover;
+            changed = true;
+        }
         ImGui.SetCursorScreenPos(origin + new Vector2(0f, rowStride * 2f - rowSpacing * 0.5f));
         changed |= DrawGeneralSettings();
 
@@ -57,9 +67,8 @@ public sealed partial class MultiToolbar
         {
             if (popup)
             {
-                OmniControls.DrawWindowBackground(ImGui.GetWindowPos(), ImGui.GetWindowSize(), false);
-                ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.EditWidgets"));
-                ImGui.Separator();
+                DrawEditorBackground(OmniLoc.Get("Feature.MultiToolbar.EditWidgets"));
+                using var childBackground = ImRaii.PushColor(ImGuiCol.ChildBg, Vector4.Zero);
                 using (var columns = ImRaii.Table("##multiToolbarEditorColumns", 4, ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.BordersInnerV))
                 {
                     if (columns)
@@ -114,81 +123,136 @@ public sealed partial class MultiToolbar
         var rowContentHeight = MathF.Max(OmniTheme.CheckboxSize(), MathF.Max(OmniTheme.SmallButtonSize().Y, ImGui.GetFrameHeight()));
         using var padding = ImRaii.PushStyle(ImGuiStyleVar.FramePadding,
             new Vector2(ImGui.GetStyle().FramePadding.X, MathF.Max(0f, (rowContentHeight - ImGui.GetTextLineHeight()) * 0.5f)));
-        using var table = ImRaii.Table("##multiToolbarGeneralSettings", 4,
-            ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
-        if (!table)
+        const ImGuiTableFlags flags = ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX;
+        using (var table = ImRaii.Table("##multiToolbarOffsets", 4, flags))
         {
-            return changed;
+            if (table)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                var offset = config.BarVerticalOffset;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.BarOffset"), "##multiToolbarBarOffset", ref offset,
+                        0f, MathF.Max(0f, ImGui.GetMainViewport().WorkSize.Y / ScaleToolbar(1f) - 40f), "%.0f"))
+                {
+                    config.BarVerticalOffset = offset;
+                    changed = true;
+                }
+                var maximum = MathF.Max(0f, ImGui.GetMainViewport().WorkSize.X / ScaleToolbar(1f) - 40f);
+                ImGui.TableNextColumn();
+                var horizontalOffset = config.BarHorizontalOffset;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.BarHorizontalOffset"), "##multiToolbarBarHorizontalOffset", ref horizontalOffset,
+                        0f, maximum, "%.0f"))
+                {
+                    config.BarHorizontalOffset = horizontalOffset;
+                    changed = true;
+                }
+                ImGui.TableNextColumn();
+                var leftMargin = config.BarLeftMargin;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.BarLeftMargin"), "##multiToolbarBarLeftMargin", ref leftMargin,
+                        0f, maximum, "%.0f"))
+                {
+                    config.BarLeftMargin = leftMargin;
+                    changed = true;
+                }
+                ImGui.TableNextColumn();
+                var rightMargin = config.BarRightMargin;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.BarRightMargin"), "##multiToolbarBarRightMargin", ref rightMargin,
+                        0f, maximum, "%.0f"))
+                {
+                    config.BarRightMargin = rightMargin;
+                    changed = true;
+                }
+            }
         }
 
-        for (var column = 0; column < 4; column++)
+        using (var table = ImRaii.Table("##multiToolbarOpacity", 3, flags))
         {
-            ImGui.TableSetupColumn($"##setting{column}", ImGuiTableColumnFlags.WidthStretch, 1f);
+            if (table)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                var barOpacity = config.BarBackgroundOpacity;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.BarOpacity"), "##multiToolbarBarOpacity", ref barOpacity, 0f, 1f, "%.2f"))
+                {
+                    config.BarBackgroundOpacity = barOpacity;
+                    changed = true;
+                }
+                ImGui.TableNextColumn();
+                var buttonOpacity = config.ButtonBackgroundOpacity;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.ButtonOpacity"), "##multiToolbarButtonOpacity", ref buttonOpacity, 0f, 1f, "%.2f"))
+                {
+                    config.ButtonBackgroundOpacity = buttonOpacity;
+                    changed = true;
+                }
+                ImGui.TableNextColumn();
+                var iconSize = config.RowIconSize;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.RowIconSize"), "##multiToolbarRowIconSize", ref iconSize, 8f, 72f, "%.0f"))
+                {
+                    config.RowIconSize = iconSize;
+                    changed = true;
+                }
+            }
         }
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        var offset = config.BarVerticalOffset;
-        if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.BarOffset"), "##multiToolbarBarOffset", ref offset,
-                0f, MathF.Max(0f, ImGui.GetMainViewport().WorkSize.Y / ScaleToolbar(1f) - 40f), "%.0f"))
+        using (var table = ImRaii.Table("##multiToolbarLayout", 4, flags))
         {
-            config.BarVerticalOffset = offset;
-            changed = true;
+            if (table)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                var componentSpacing = config.ComponentSpacing;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.ComponentSpacing"), "##multiToolbarComponentSpacing", ref componentSpacing, 0f, 40f, "%.0f"))
+                {
+                    config.ComponentSpacing = componentSpacing;
+                    changed = true;
+                }
+                ImGui.TableNextColumn();
+                var buttonPadding = config.ButtonPadding;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.ButtonPadding"), "##multiToolbarButtonPadding", ref buttonPadding, 0f, 40f, "%.0f"))
+                {
+                    config.ButtonPadding = buttonPadding;
+                    changed = true;
+                }
+                ImGui.TableNextColumn();
+                var buttonRadius = config.ButtonCornerRadius;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.ButtonCornerRadius"), "##multiToolbarButtonCornerRadius", ref buttonRadius, 0f, 20f, "%.0f"))
+                {
+                    config.ButtonCornerRadius = buttonRadius;
+                    changed = true;
+                }
+                ImGui.TableNextColumn();
+                var scale = config.ToolbarScale;
+                if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.ToolbarScale"), "##multiToolbarScale", ref scale, 0.1f, 3f, "%.2f"))
+                {
+                    config.ToolbarScale = scale;
+                    changed = true;
+                }
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.Alignment"));
+                ImGui.SameLine();
+                var alignment = (int)config.Alignment;
+                string[] alignmentLabels = [OmniLoc.Get("Feature.MultiToolbar.AlignmentTop"), OmniLoc.Get("Feature.MultiToolbar.AlignmentBottom")];
+                var alignmentLabel = alignmentLabels[Math.Clamp(alignment, 0, alignmentLabels.Length - 1)];
+                if (OmniControls.BeginCombo("##multiToolbarAlignment", alignmentLabel, ImGui.GetContentRegionAvail().X))
+                {
+                    for (var index = 0; index < alignmentLabels.Length; index++)
+                    {
+                        if (ImGui.Selectable(alignmentLabels[index], index == alignment))
+                        {
+                            config.Alignment = (MultiToolbarAlignment)index;
+                            changed = true;
+                        }
+                    }
+                    ImGui.EndCombo();
+                }
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.Font"));
+                ImGui.SameLine();
+                changed |= DrawToolbarFontSelector();
+            }
         }
-        ImGui.TableNextColumn();
-        var barOpacity = config.BarBackgroundOpacity;
-        if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.BarOpacity"), "##multiToolbarBarOpacity", ref barOpacity, 0f, 1f, "%.2f"))
-        {
-            config.BarBackgroundOpacity = barOpacity;
-            changed = true;
-        }
-        ImGui.TableNextColumn();
-        var buttonOpacity = config.ButtonBackgroundOpacity;
-        if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.ButtonOpacity"), "##multiToolbarButtonOpacity", ref buttonOpacity, 0f, 1f, "%.2f"))
-        {
-            config.ButtonBackgroundOpacity = buttonOpacity;
-            changed = true;
-        }
-        ImGui.TableNextColumn();
-        var scale = config.ToolbarScale;
-        if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.ToolbarScale"), "##multiToolbarScale", ref scale, 0.1f, 3f, "%.2f"))
-        {
-            config.ToolbarScale = scale;
-            changed = true;
-        }
-
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        var iconSize = config.RowIconSize;
-        if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.RowIconSize"), "##multiToolbarRowIconSize", ref iconSize, 8f, 72f, "%.0f"))
-        {
-            config.RowIconSize = iconSize;
-            changed = true;
-        }
-        ImGui.TableNextColumn();
-        var componentSpacing = config.ComponentSpacing;
-        if (DrawFloatSlider(OmniLoc.Get("Feature.MultiToolbar.ComponentSpacing"), "##multiToolbarComponentSpacing", ref componentSpacing, 0f, 40f, "%.0f"))
-        {
-            config.ComponentSpacing = componentSpacing;
-            changed = true;
-        }
-        ImGui.TableNextColumn();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.Alignment"));
-        ImGui.SameLine();
-        var alignment = (int)config.Alignment;
-        string[] alignmentLabels = [OmniLoc.Get("Feature.MultiToolbar.AlignmentTop"), OmniLoc.Get("Feature.MultiToolbar.AlignmentBottom")];
-        ImGui.SetNextItemWidth(-1f);
-        if (ImGui.Combo("##multiToolbarAlignment", ref alignment, alignmentLabels, alignmentLabels.Length))
-        {
-            config.Alignment = (MultiToolbarAlignment)alignment;
-            changed = true;
-        }
-        ImGui.TableNextColumn();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.Font"));
-        ImGui.SameLine();
-        changed |= DrawToolbarFontSelector();
         return changed;
     }
 
@@ -349,12 +413,11 @@ public sealed partial class MultiToolbar
                     ImGui.SetNextWindowSizeConstraints(
                         new Vector2(OmniTheme.Scale(360f), 0f),
                         ImGui.GetMainViewport().WorkSize);
-                    using (var detail = ImRaii.Popup($"##multiToolbarWidgetDetail{index}"))
+                    using (var detail = ImRaii.Popup($"##multiToolbarWidgetDetail{index}", ImGuiWindowFlags.NoBackground))
                     {
                         if (detail)
                         {
-                            ImGui.TextUnformatted(WidgetTypeLabel(widget.Type));
-                            ImGui.Separator();
+                            DrawEditorBackground(WidgetTypeLabel(widget.Type));
                             ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.WidgetPosition"));
                             var side = (int)widget.Side;
                             ImGui.SetNextItemWidth(-1f);
@@ -578,18 +641,18 @@ public sealed partial class MultiToolbar
         Type = type,
         Side = type is MultiToolbarWidgetType.DtrList or MultiToolbarWidgetType.DtrSingle or MultiToolbarWidgetType.Volume or MultiToolbarWidgetType.MailIndicator or MultiToolbarWidgetType.MarkerControl or MultiToolbarWidgetType.WalkingIndicator or MultiToolbarWidgetType.StackedClock or MultiToolbarWidgetType.ToolbarPin
             ? MultiToolbarWidgetSide.Right
-            : type is MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList
+            : type is MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList or MultiToolbarWidgetType.QuickCommands
                 ? MultiToolbarWidgetSide.Center
                 : MultiToolbarWidgetSide.Left,
         Name = type == MultiToolbarWidgetType.CustomButton ? OmniLoc.Get("Feature.MultiToolbar.NewCommand") : string.Empty,
         Command = type == MultiToolbarWidgetType.CustomButton ? "/" : MultiToolbarWidgetCommand(type),
         ShowIcon = DefaultWidgetShowIcon(type),
         DisplayName = type is MultiToolbarWidgetType.BattleEffects or MultiToolbarWidgetType.Societies or MultiToolbarWidgetType.OnlineStatus ? "" : null,
-        GameIconID = type == MultiToolbarWidgetType.BattleEffects ? 516u : 0u,
+        GameIconID = type == MultiToolbarWidgetType.BattleEffects ? 516u : type == MultiToolbarWidgetType.QuickCommands ? 14u : 0u,
     };
 
     private static bool DefaultWidgetShowIcon(MultiToolbarWidgetType type) => type is not
-        (MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList or MultiToolbarWidgetType.DtrList or MultiToolbarWidgetType.DtrSingle or MultiToolbarWidgetType.StackedClock);
+        (MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList or MultiToolbarWidgetType.DtrList or MultiToolbarWidgetType.DtrSingle or MultiToolbarWidgetType.StackedClock or MultiToolbarWidgetType.Separator);
 
     private static string MultiToolbarWidgetCommand(MultiToolbarWidgetType type) => type switch
     {
@@ -621,6 +684,8 @@ public sealed partial class MultiToolbar
         MultiToolbarWidgetType.StackedClock => OmniLoc.Get("Feature.MultiToolbar.WidgetStackedClock"),
         MultiToolbarWidgetType.ToolbarPin => OmniLoc.Get("Feature.MultiToolbar.WidgetToolbarPin"),
         MultiToolbarWidgetType.CustomButton => OmniLoc.Get("Feature.MultiToolbar.WidgetCustomButton"),
+        MultiToolbarWidgetType.QuickCommands => OmniLoc.Get("Feature.MultiToolbar.WidgetQuickCommands"),
+        MultiToolbarWidgetType.Separator => OmniLoc.Get("Feature.MultiToolbar.WidgetSeparator"),
         _ => OmniLoc.Get($"Feature.MultiToolbar.Widget{type}")
     };
 
@@ -645,10 +710,13 @@ public sealed partial class MultiToolbar
         MultiToolbarWidgetType.StackedClock => OmniLoc.Get("Feature.MultiToolbar.WidgetStackedClockHelp"),
         MultiToolbarWidgetType.ToolbarPin => OmniLoc.Get("Feature.MultiToolbar.WidgetToolbarPinHelp"),
         MultiToolbarWidgetType.CustomButton => OmniLoc.Get("Feature.MultiToolbar.WidgetCustomButtonHelp"),
+        MultiToolbarWidgetType.QuickCommands => OmniLoc.Get("Feature.MultiToolbar.WidgetQuickCommandsHelp"),
+        MultiToolbarWidgetType.Separator => OmniLoc.Get("Feature.MultiToolbar.WidgetSeparatorHelp"),
         _ => WidgetTypeLabel(type)
     };
 }
 
+[Obfuscation(Exclude = true, ApplyToMembers = true)]
 public enum MultiToolbarWidgetSide
 {
     Left,
@@ -656,6 +724,7 @@ public enum MultiToolbarWidgetSide
     Right,
 }
 
+[Obfuscation(Exclude = true, ApplyToMembers = true)]
 public enum MultiToolbarWidgetType
 {
     PluginList,
@@ -686,8 +755,11 @@ public enum MultiToolbarWidgetType
     Weather,
     SanctuaryIndicator,
     DtrSingle,
+    QuickCommands,
+    Separator,
 }
 
+[Obfuscation(Exclude = true, ApplyToMembers = true)]
 public enum MultiToolbarAlignment
 {
     Top,
@@ -695,6 +767,7 @@ public enum MultiToolbarAlignment
 }
 
 [Serializable]
+[Obfuscation(Exclude = true, ApplyToMembers = true)]
 public sealed class MultiToolbarWidgetConfig
 {
     public MultiToolbarWidgetSide Side { get; set; } = MultiToolbarWidgetSide.Left;
@@ -720,6 +793,7 @@ public sealed class MultiToolbarWidgetConfig
 }
 
 [Serializable]
+[Obfuscation(Exclude = true, ApplyToMembers = true)]
 public sealed class MultiToolbarConfig : MultiToolbarBarConfig
 {
     [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
@@ -727,6 +801,7 @@ public sealed class MultiToolbarConfig : MultiToolbarBarConfig
 }
 
 [Serializable]
+[Obfuscation(Exclude = true, ApplyToMembers = true)]
 public sealed class MultiToolbarAuxiliaryBarConfig : MultiToolbarBarConfig
 {
     public string ID { get; set; } = Guid.NewGuid().ToString("N");
@@ -734,6 +809,7 @@ public sealed class MultiToolbarAuxiliaryBarConfig : MultiToolbarBarConfig
 }
 
 [Serializable]
+[Obfuscation(Exclude = true, ApplyToMembers = true)]
 public class MultiToolbarBarConfig
 {
 
@@ -780,11 +856,21 @@ public class MultiToolbarBarConfig
 
     public float BarVerticalOffset { get; set; } = 0f;
 
+    public float BarHorizontalOffset { get; set; } = 0f;
+
+    public float BarLeftMargin { get; set; } = 0f;
+
+    public float BarRightMargin { get; set; } = 0f;
+
     // 工具栏自身的尺寸倍率，叠加 Omni 全局主题缩放。
     public float ToolbarScale { get; set; } = 0.75f;
     public string FontFileName { get; set; } = string.Empty;
 
     public float ComponentSpacing { get; set; } = 6f;
+
+    public float ButtonPadding { get; set; } = 2f;
+
+    public float ButtonCornerRadius { get; set; } = 10f;
 
     public bool IsLocked { get; set; } = true;
 
@@ -813,6 +899,8 @@ public class MultiToolbarBarConfig
     public Vector4? BackgroundColor { get; set; }
 
     public Vector4? TextColor { get; set; }
+
+    public Vector4 ToolbarTextColor { get; set; } = Vector4.One;
 
     public Vector4? AccentColor { get; set; }
 

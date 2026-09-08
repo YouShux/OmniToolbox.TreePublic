@@ -163,8 +163,12 @@ public sealed partial class MultiToolbar
             !Enum.IsDefined(item.Type) || !Enum.IsDefined(item.Side)) &&
         float.IsFinite(bar.ToolbarScale) && bar.ToolbarScale is >= 0.1f and <= 3f &&
         float.IsFinite(bar.ComponentSpacing) && bar.ComponentSpacing is >= 0f and <= 40f &&
+        float.IsFinite(bar.ButtonCornerRadius) && bar.ButtonCornerRadius is >= 0f and <= 20f &&
         float.IsFinite(bar.RowIconSize) && bar.RowIconSize is >= 8f and <= 72f &&
         float.IsFinite(bar.BarVerticalOffset) && bar.BarVerticalOffset >= 0f &&
+        float.IsFinite(bar.BarHorizontalOffset) && bar.BarHorizontalOffset >= 0f &&
+        float.IsFinite(bar.BarLeftMargin) && bar.BarLeftMargin >= 0f &&
+        float.IsFinite(bar.BarRightMargin) && bar.BarRightMargin >= 0f &&
         float.IsFinite(bar.BarBackgroundOpacity) && bar.BarBackgroundOpacity is >= 0f and <= 1f &&
         float.IsFinite(bar.ButtonBackgroundOpacity) && bar.ButtonBackgroundOpacity is >= 0f and <= 1f &&
         Enum.IsDefined(bar.Alignment);

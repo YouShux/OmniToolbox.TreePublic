@@ -76,7 +76,7 @@ public sealed partial class MultiToolbar
         }
 
         DrawCurrentGearsetHeader(module);
-        using var spacing = ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(ScaleToolbar(8f), ScaleToolbar(4f)));
+        using var spacing = ImRaii.PushStyle(ImGuiStyleVar.ItemSpacing, new Vector2(OmniTheme.Scale(8f), OmniTheme.Scale(4f)));
         using var table = ImRaii.Table("##multiToolbarGearsets", 3,
             ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoSavedSettings);
         if (!table)
@@ -171,7 +171,7 @@ public sealed partial class MultiToolbar
         ImGui.SameLine();
         using (ImRaii.Group())
         {
-            ImGui.TextUnformatted(EllipsizeToolbarText(GetCurrentGearsetLabel(), width - iconSize - bisSize.X - ScaleToolbar(28f)));
+            ImGui.TextUnformatted(EllipsizeToolbarText(GetCurrentGearsetLabel(), width - iconSize - bisSize.X - OmniTheme.Scale(28f)));
             ImGui.TextUnformatted($"{string.Format(OmniLoc.Get("Feature.MultiToolbar.GearsetLevel"), LocalPlayerState.GetClassJobLevel(current->ClassJob, false))} / {current->ItemLevel}");
 
             if (DrawGearsetNativeButton("##gearsetRecommend", 13, 2, OmniLoc.Get("Feature.MultiToolbar.GearsetRecommend")))
@@ -250,7 +250,7 @@ public sealed partial class MultiToolbar
     private bool DrawGearsetCard(byte id, string name, byte classJob, short itemLevel, bool selected)
     {
         var theme = ToolbarTheme;
-        var padding = ScaleToolbar(2f);
+        var padding = OmniTheme.Scale(2f);
         var height = ImGui.GetTextLineHeight() * 1.7f + padding * 2f;
         var origin = ImGui.GetCursorScreenPos();
         var width = ImGui.GetContentRegionAvail().X;
@@ -266,7 +266,7 @@ public sealed partial class MultiToolbar
         var left = origin.X + iconSize + padding * 2f;
         var value = itemLevel.ToString();
         var valueWidth = ImGui.CalcTextSize(value).X;
-        var valueX = origin.X + width - valueWidth - ScaleToolbar(8f);
+        var valueX = origin.X + width - valueWidth - OmniTheme.Scale(8f);
         var textColor = ImGui.GetColorU32(ImGuiCol.Text);
         drawList.AddText(new Vector2(left, origin.Y + padding), textColor,
             EllipsizeToolbarText(name, MathF.Max(0f, valueX - left - padding)));
@@ -490,7 +490,7 @@ public sealed partial class MultiToolbar
         }
 
         var iconSize = OmniTheme.TableItemIconSize();
-        var rowHeight = MathF.Max(iconSize, ImGui.GetTextLineHeight() * 2f) + ScaleToolbar(8f);
+        var rowHeight = MathF.Max(iconSize, ImGui.GetTextLineHeight() * 2f) + OmniTheme.Scale(8f);
         using var table = ImRaii.Table(
             "##multiToolbarRetainers", 5,
             ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoSavedSettings);
@@ -502,11 +502,11 @@ public sealed partial class MultiToolbar
         var ventureWidth = MathF.Max(ImGui.CalcTextSize("00:00:00").X,
             ImGui.CalcTextSize(OmniLoc.Get("Feature.MultiToolbar.RetainerCompleted")).X) + ImGui.GetStyle().CellPadding.X * 2f;
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.WidgetRetainerList"), ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerGil"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(108f));
+        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerGil"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(108f));
         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerInventory"), ImGuiTableColumnFlags.WidthFixed,
             ImGui.CalcTextSize("175/175").X + ImGui.GetStyle().CellPadding.X * 2f);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerMarket"), ImGuiTableColumnFlags.WidthFixed, ScaleToolbar(44f));
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerVenture"), ImGuiTableColumnFlags.WidthFixed, MathF.Max(ScaleToolbar(80f), ventureWidth));
+        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerMarket"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(44f));
+        ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.RetainerVenture"), ImGuiTableColumnFlags.WidthFixed, MathF.Max(OmniTheme.Scale(80f), ventureWidth));
         OmniControls.BeginTableHeaderRow();
         OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.WidgetRetainerList"));
         OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.RetainerGil"));
@@ -528,7 +528,7 @@ public sealed partial class MultiToolbar
             ImGui.TableNextColumn();
             var origin = ImGui.GetCursorScreenPos();
             var cellWidth = ImGui.GetContentRegionAvail().X;
-            var padding = ScaleToolbar(4f);
+            var padding = OmniTheme.Scale(4f);
             var drawList = ImGui.GetWindowDrawList();
             if (retainer->ClassJob != 0 && ImageHelper.GetGameIcon(LuminaWrapper.GetJobIcon(retainer->ClassJob, ClassJobIconType.Normal)) is { } texture)
             {

@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.InteropServices;
 using Dalamud.Game.Text;
 using Dalamud.Interface;
@@ -149,7 +150,7 @@ public sealed partial class MultiToolbar
         {
             ImGui.TableSetupColumn("##slider", ImGuiTableColumnFlags.WidthStretch);
             ImGui.TableSetupColumn("##mute", ImGuiTableColumnFlags.WidthFixed, buttonSize);
-            ImGui.TableSetupColumn("##label", ImGuiTableColumnFlags.WidthFixed, ImGui.CalcTextSize("乐器演奏").X + ScaleToolbar(8f));
+            ImGui.TableSetupColumn("##label", ImGuiTableColumnFlags.WidthFixed, ImGui.CalcTextSize("乐器演奏").X + OmniTheme.Scale(8f));
             foreach (var channel in VolumeChannels)
             {
                 if (channel.Volume == "SoundPlayer")
@@ -274,7 +275,7 @@ public sealed partial class MultiToolbar
             var preset = config.VolumePresets[i];
             using var presetID = ImRaii.PushId(i);
             var selected = config.ActiveVolumePreset == i;
-            var size = new Vector2(ScaleToolbar(28f));
+            var size = new Vector2(OmniTheme.Scale(28f));
             using var color = ImRaii.PushColor(ImGuiCol.Button,
                 selected ? ImGui.GetStyle().Colors[(int)ImGuiCol.ButtonActive] : ImGui.GetStyle().Colors[(int)ImGuiCol.Button]);
             var clicked = ImageHelper.GetGameIcon((uint)(66162 + i)) is { } icon
@@ -505,6 +506,7 @@ public sealed partial class MultiToolbar
     }
 }
 
+[Obfuscation(Exclude = true, ApplyToMembers = true)]
 public sealed class MultiToolbarVolumePreset
 {
     public string Name { get; set; } = string.Empty;

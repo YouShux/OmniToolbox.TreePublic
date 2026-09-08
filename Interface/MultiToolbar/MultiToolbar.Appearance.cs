@@ -10,74 +10,92 @@ public sealed partial class MultiToolbar
     {
         get
         {
-            var theme = OmniTheme.Tokens with { Text = Vector4.One };
+            var theme = OmniTheme.BaseTokens;
+            var background = OmniTheme.UsesDarkPalette ? theme.Background : theme.Surface with { W = 1f };
             return theme with
             {
-                Background = config.BackgroundColor ?? theme.Background,
-                Surface = config.BackgroundColor ?? theme.Surface,
+                Background = config.BackgroundColor ?? background,
+                Surface = config.BackgroundColor ?? (OmniTheme.UsesDarkPalette ? theme.Surface : background),
                 Text = config.TextColor ?? theme.Text,
                 Primary = config.AccentColor ?? theme.Primary,
                 Accent = config.AccentColor ?? theme.Accent,
+                Secondary = config.AccentColor ?? theme.Secondary,
                 Border = config.BorderColor ?? theme.Border,
             };
         }
     }
 
-    private bool DrawAppearanceSettings(float rowHeight)
+    private static void DrawEditorBackground(string title)
     {
-        var changed = false;
-        var autoExpandLabel = OmniLoc.Get("Feature.MultiToolbar.AutoExpandOnHover");
-        using var table = ImRaii.Table("##toolbarColors", 5,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX);
+        using var theme = new OmniTheme.ColorScope(OmniTheme.BaseTokens);
+        OmniControls.DrawWindowBackground(ImGui.GetWindowPos(), ImGui.GetWindowSize(), false);
+        ImGui.TextUnformatted(title);
+        ImGui.Separator();
+        var inset = ImGui.GetStyle().WindowPadding * 0.5f;
+        var panelPosition = ImGui.GetCursorScreenPos() - inset;
+        var panelSize = ImGui.GetWindowPos() + ImGui.GetWindowSize() - inset - panelPosition;
+        OmniControls.DrawPanelBackground(panelPosition, panelSize, OmniTheme.Tokens.Surface);
+    }
+
+    private bool DrawColorSettingsButton()
+    {
+        var label = OmniLoc.Get("Feature.MultiToolbar.ColorSettings");
+        if (OmniControls.SmallButton(label + "##multiToolbarColorSettings", false,
+                OmniControls.CompactButtonSize(label)))
+        {
+            ImGui.OpenPopup("##multiToolbarColorSettingsPopup");
+        }
+        using var popup = ImRaii.Popup("##multiToolbarColorSettingsPopup",
+            ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.AlwaysAutoResize);
+        if (!popup)
+        {
+            return false;
+        }
+
+        DrawEditorBackground(label);
+        using var table = ImRaii.Table("##toolbarColors", 2,
+            ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX);
         if (!table)
         {
-            return changed;
+            return false;
         }
+        ImGui.TableSetupColumn("##label", ImGuiTableColumnFlags.WidthFixed);
+        ImGui.TableSetupColumn("##color", ImGuiTableColumnFlags.WidthFixed, ImGui.GetFrameHeight());
 
-        ImGui.TableSetupColumn("##autoExpand", ImGuiTableColumnFlags.WidthFixed,
-            ImGui.CalcTextSize(autoExpandLabel).X + rowHeight + ImGui.GetStyle().ItemInnerSpacing.X);
-        for (var index = 0; index < 4; index++)
-        {
-            ImGui.TableSetupColumn($"##color{index}", ImGuiTableColumnFlags.WidthStretch, 1f);
-        }
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        var autoExpandOnHover = config.AutoExpandOnHover;
-        if (OmniControls.Checkbox(autoExpandLabel, ref autoExpandOnHover, rowHeight))
-        {
-            config.AutoExpandOnHover = autoExpandOnHover;
-            changed = true;
-        }
-
+        var changed = false;
         var theme = ToolbarTheme;
-        for (var index = 0; index < 4; index++)
+        for (var index = 0; index < 5; index++)
         {
+            ImGui.TableNextRow();
             ImGui.TableNextColumn();
             var key = index switch
             {
                 0 => "BackgroundColor",
                 1 => "TextColor",
-                2 => "AccentColor",
+                2 => "ToolbarTextColor",
+                3 => "AccentColor",
                 _ => "BorderColor",
             };
             var color = index switch
             {
                 0 => theme.Background,
                 1 => theme.Text,
-                2 => theme.Accent,
+                2 => config.ToolbarTextColor,
+                3 => theme.Accent,
                 _ => theme.Border,
             };
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted(OmniLoc.Get($"Feature.MultiToolbar.{key}"));
-            ImGui.SameLine();
+            ImGui.TableNextColumn();
             if (OmniControls.ColorEdit($"##toolbar{key}", ref color))
             {
                 switch (index)
                 {
                     case 0: config.BackgroundColor = color; break;
                     case 1: config.TextColor = color; break;
-                    case 2: config.AccentColor = color; break;
-                    case 3: config.BorderColor = color; break;
+                    case 2: config.ToolbarTextColor = color; break;
+                    case 3: config.AccentColor = color; break;
+                    case 4: config.BorderColor = color; break;
                 }
             }
 
