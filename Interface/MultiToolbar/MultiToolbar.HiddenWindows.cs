@@ -43,6 +43,11 @@ public sealed partial class MultiToolbar
         DrawHiddenWindowPicker();
         if (hiddenWindowManagerOpen)
         {
+            using var theme = new OmniTheme.ColorScope(ToolbarTheme with
+            {
+                Background = OmniTheme.BaseTokens.Background,
+                Surface = OmniTheme.BaseTokens.Surface,
+            }, config.AccentColor);
             using var textColor = ImRaii.PushColor(ImGuiCol.Text,
                 OmniTheme.UsesDarkPalette ? ToolbarTheme.Text : OmniTheme.Tokens.Text);
             var viewport = ImGui.GetMainViewport();
@@ -66,6 +71,11 @@ public sealed partial class MultiToolbar
                 }
                 ImGui.SetCursorPos(new Vector2(frameInset + OmniTheme.WindowInset(),
                     frameInset + OmniTheme.TitleBarHeight() + OmniTheme.WindowInset()));
+                var panelInset = ImGui.GetStyle().WindowPadding * 0.5f;
+                var panelPosition = ImGui.GetCursorScreenPos() - panelInset;
+                OmniControls.DrawPanelBackground(panelPosition,
+                    framePosition + frameSize - panelInset - panelPosition, OmniTheme.Tokens.Surface);
+                using var childBackground = ImRaii.PushColor(ImGuiCol.ChildBg, Vector4.Zero);
                 var pickLabel = OmniLoc.Get("Feature.MultiDock.WindowSource.Pick");
                 var pickSize = OmniControls.CompactButtonSize(pickLabel);
                 var inputWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X - pickSize.X - ImGui.GetStyle().ItemSpacing.X);

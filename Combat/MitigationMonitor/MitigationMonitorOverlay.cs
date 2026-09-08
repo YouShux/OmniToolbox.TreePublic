@@ -47,7 +47,7 @@ internal sealed class MitigationMonitorOverlay
             return;
         }
 
-        using var font = FontManager.Instance().UIFont.Push();
+        using var font = OmniFonts.GetUIFont().Push();
         if (config.Collapsed)
         {
             DrawCollapsedIcon();

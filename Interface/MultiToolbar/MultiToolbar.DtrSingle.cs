@@ -37,10 +37,11 @@ public sealed partial class MultiToolbar
 
     private void DrawDtrEntry(IReadOnlyDtrBarEntry entry, int index)
     {
-        var size = new Vector2(MeasureDtrText(entry).X + ScaleToolbar(16f), toolbarButtonHeight);
+        var padding = ScaleToolbar(8f) + ToolbarButtonPadding;
+        var size = new Vector2(MeasureDtrText(entry).X + padding * 2f, toolbarButtonHeight);
         ImGui.InvisibleButton($"##multiToolbarDtrVisible{index}_{entry.Title}", size);
         DrawWidgetVisual(string.Empty, size);
-        DrawDtrText(entry, ImGui.GetItemRectMin() + new Vector2(ScaleToolbar(8f), 0f), size.X - ScaleToolbar(16f));
+        DrawDtrText(entry, ImGui.GetItemRectMin() + new Vector2(padding, 0f), size.X - padding * 2f);
         if (entry.HasClickAction && (ImGui.IsItemClicked(ImGuiMouseButton.Left) || ImGui.IsItemClicked(ImGuiMouseButton.Right)))
         {
             entry.OnClick?.Invoke(new DtrInteractionEvent

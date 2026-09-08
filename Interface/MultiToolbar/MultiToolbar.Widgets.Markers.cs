@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Utility;
@@ -365,6 +366,7 @@ public sealed partial class MultiToolbar
     private readonly record struct ToolbarWorldMarker(Vector3 Position, uint IconID, string Label, string? SubLabel = null);
 }
 
+[Obfuscation(Exclude = true, ApplyToMembers = true)]
 public enum MultiToolbarWorldMarkerType
 {
     AetherCurrent,

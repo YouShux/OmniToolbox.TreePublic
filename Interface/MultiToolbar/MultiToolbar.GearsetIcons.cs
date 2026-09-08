@@ -1,6 +1,7 @@
 using Lumina.Data.Files;
 using OmniToolbox.Host;
 using OmniToolbox.UI.Controls;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
@@ -11,7 +12,7 @@ public sealed partial class MultiToolbar
     private bool DrawGearsetNativeButton(string id, uint partsID, uint partID, string tooltip)
     {
         gearsetCharacterUld ??= DalamudServices.DataManager.GetFile<UldFile>("ui/uld/Character.uld");
-        var size = new Vector2(ScaleToolbar(32f));
+        var size = new Vector2(OmniTheme.Scale(32f));
         var position = ImGui.GetCursorScreenPos();
         var clicked = ImGui.InvisibleButton(id, size);
         var hovered = ImGui.IsItemHovered();

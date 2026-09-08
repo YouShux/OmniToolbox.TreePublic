@@ -77,7 +77,7 @@ public sealed partial class MultiToolbar
         }
 
         ImGui.TableSetupColumn("##multiToolbarBattleEffectsLabel", ImGuiTableColumnFlags.WidthFixed,
-            MathF.Max(ImGui.CalcTextSize("其他玩家特效").X, ImGui.CalcTextSize("PvP 敌方特效").X) + ScaleToolbar(8f));
+            MathF.Max(ImGui.CalcTextSize("其他玩家特效").X, ImGui.CalcTextSize("PvP 敌方特效").X) + OmniTheme.Scale(8f));
         ImGui.TableSetupColumn("##multiToolbarBattleEffectsValue", ImGuiTableColumnFlags.WidthStretch);
 
         DrawGameConfigSlider("自身特效", "BattleEffectSelf", ["完全", "简单", "不显示"], true);
@@ -115,7 +115,7 @@ public sealed partial class MultiToolbar
         var displayed = reverse && values.Length == 3 ? 2 - raw : raw;
         ImGui.TableNextRow();
         var valueWidth = ImGui.CalcTextSize("不显示").X;
-        var rowHeight = ScaleToolbar(28f);
+        var rowHeight = OmniTheme.Scale(28f);
         ImGui.PushID($"multiToolbarSocial_{configKey}");
         ImGui.AlignTextToFramePadding();
         ImGui.TableSetColumnIndex(0);
@@ -123,20 +123,20 @@ public sealed partial class MultiToolbar
         ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(0f, ImGui.GetContentRegionAvail().X - labelSize.X));
         ImGui.TextUnformatted(label);
         ImGui.TableNextColumn();
-        var trackWidth = MathF.Max(ScaleToolbar(60f), ImGui.GetContentRegionAvail().X - valueWidth - ScaleToolbar(15f));
+        var trackWidth = MathF.Max(OmniTheme.Scale(60f), ImGui.GetContentRegionAvail().X - valueWidth - OmniTheme.Scale(15f));
         var trackPosition = ImGui.GetCursorScreenPos();
         ImGui.InvisibleButton("##track", new Vector2(trackWidth, rowHeight));
-        var trackMin = trackPosition + new Vector2(0f, ScaleToolbar(6f));
-        var trackMax = trackPosition + new Vector2(trackWidth, rowHeight - ScaleToolbar(6f));
+        var trackMin = trackPosition + new Vector2(0f, OmniTheme.Scale(6f));
+        var trackMax = trackPosition + new Vector2(trackWidth, rowHeight - OmniTheme.Scale(6f));
         var drawList = ImGui.GetWindowDrawList();
-        var radius = ScaleToolbar(8f);
+        var radius = OmniTheme.Scale(8f);
         drawList.AddRectFilled(trackMin, trackMax, ImGui.GetColorU32(WithAlpha(OmniTheme.Tokens.Background, 0.88f)), radius);
         drawList.AddRect(trackMin, trackMax, ImGui.GetColorU32(OmniTheme.Tokens.Border), radius);
         var fraction = values.Length <= 1 ? 0f : displayed / (float)(values.Length - 1);
-        var knobWidth = MathF.Max(ScaleToolbar(32f), trackWidth / values.Length);
+        var knobWidth = MathF.Max(OmniTheme.Scale(32f), trackWidth / values.Length);
         var knobX = trackMin.X + (trackWidth - knobWidth) * fraction;
-        var knobMin = new Vector2(knobX, trackMin.Y + ScaleToolbar(1f));
-        var knobMax = new Vector2(knobX + knobWidth, trackMax.Y - ScaleToolbar(1f));
+        var knobMin = new Vector2(knobX, trackMin.Y + OmniTheme.Scale(1f));
+        var knobMax = new Vector2(knobX + knobWidth, trackMax.Y - OmniTheme.Scale(1f));
         drawList.AddRectFilled(knobMin, knobMax, ImGui.GetColorU32(OmniTheme.Tokens.Secondary), radius);
         if (ImGui.IsItemClicked() || ImGui.IsItemActive())
         {
@@ -154,8 +154,8 @@ public sealed partial class MultiToolbar
                 }
             }
         }
-        ImGui.SameLine(0f, ScaleToolbar(15f));
-        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + ScaleToolbar(4f));
+        ImGui.SameLine(0f, OmniTheme.Scale(15f));
+        ImGui.SetCursorPosY(ImGui.GetCursorPosY() + OmniTheme.Scale(4f));
         ImGui.SetNextItemWidth(valueWidth);
         var valueIndex = reverse && values.Length == 3 ? 2 - displayed : displayed;
         ImGui.TextUnformatted(values[valueIndex]);
@@ -216,7 +216,7 @@ public sealed partial class MultiToolbar
             }
 
             var groups = societies.GroupBy(society => society.Tribe.Expansion.RowId).OrderBy(group => group.Key).ToArray();
-            var columns = societies.Count < 10 ? 1 : Math.Min(groups.Length, Math.Max(1, (int)(ImGui.GetContentRegionAvail().X / ScaleToolbar(250f))));
+            var columns = societies.Count < 10 ? 1 : Math.Min(groups.Length, Math.Max(1, (int)(ImGui.GetContentRegionAvail().X / OmniTheme.Scale(250f))));
             using var table = ImRaii.Table(
                 "##multiToolbarSocieties",
                 columns,
@@ -277,7 +277,7 @@ public sealed partial class MultiToolbar
 
     private void DrawSocietyCard((BeastTribe Tribe, uint Rank, uint Current, uint Needed, string Name) society)
     {
-        var cardSize = new Vector2(ImGui.GetContentRegionAvail().X, MathF.Max(ScaleToolbar(50f), ImGui.GetTextLineHeight() * 2f + ScaleToolbar(16f)));
+        var cardSize = new Vector2(ImGui.GetContentRegionAvail().X, MathF.Max(OmniTheme.Scale(50f), ImGui.GetTextLineHeight() * 2f + OmniTheme.Scale(16f)));
         var cardPosition = ImGui.GetCursorScreenPos();
         ImGui.PushID($"multiToolbarSociety_{society.Tribe.RowId}");
         ImGui.InvisibleButton("##card", cardSize);
@@ -310,54 +310,54 @@ public sealed partial class MultiToolbar
 
         var drawList = ImGui.GetWindowDrawList();
         var cardEnd = cardPosition + cardSize;
-        var radius = ScaleToolbar(OmniTheme.Tokens.ButtonRadius);
+        var radius = OmniTheme.Scale(OmniTheme.Tokens.ButtonRadius);
         var background = hovered || config.TrackedSocietyID == society.Tribe.RowId
             ? OmniTheme.HoverBackground
             : OmniTheme.Tokens.Surface;
         drawList.AddRectFilled(cardPosition, cardEnd, OmniTheme.Color(background), radius);
-        drawList.AddRect(cardPosition, cardEnd, OmniTheme.Color(OmniTheme.Tokens.Border), radius, ImDrawFlags.None, ScaleToolbar(OmniTheme.Tokens.BorderThickness));
+        drawList.AddRect(cardPosition, cardEnd, OmniTheme.Color(OmniTheme.Tokens.Border), radius, ImDrawFlags.None, OmniTheme.Scale(OmniTheme.Tokens.BorderThickness));
 
-        var iconSize = ScaleToolbar(38f);
-        var iconPosition = cardPosition + new Vector2(ScaleToolbar(6f), (cardSize.Y - iconSize) * 0.5f);
+        var iconSize = OmniTheme.Scale(38f);
+        var iconPosition = cardPosition + new Vector2(OmniTheme.Scale(6f), (cardSize.Y - iconSize) * 0.5f);
         if (ImageHelper.GetGameIcon(society.Tribe.Icon) is { } texture)
         {
             drawList.AddImage(texture.Handle, iconPosition, iconPosition + new Vector2(iconSize));
         }
 
         var currencyItemID = society.Tribe.CurrencyItem.RowId;
-        var bodyX = iconPosition.X + iconSize + ScaleToolbar(6f);
-        var bodyWidth = MathF.Max(1f, cardEnd.X - bodyX - iconSize - ScaleToolbar(12f));
+        var bodyX = iconPosition.X + iconSize + OmniTheme.Scale(6f);
+        var bodyWidth = MathF.Max(1f, cardEnd.X - bodyX - iconSize - OmniTheme.Scale(12f));
         var textColor = ImGui.GetColorU32(OmniTheme.Tokens.Text);
         var mutedColor = ImGui.GetColorU32(WithAlpha(OmniTheme.Tokens.Text, 0.68f));
         var lineHeight = ImGui.GetTextLineHeight();
         drawList.PushClipRect(new Vector2(bodyX, cardPosition.Y), new Vector2(bodyX + bodyWidth, cardEnd.Y), true);
-        drawList.AddText(new Vector2(bodyX, cardPosition.Y + ScaleToolbar(5f)), textColor, EllipsizeToolbarText(society.Name, bodyWidth));
+        drawList.AddText(new Vector2(bodyX, cardPosition.Y + OmniTheme.Scale(5f)), textColor, EllipsizeToolbarText(society.Name, bodyWidth));
         var (rank, rankName, needed) = GetSocietyRank(society.Tribe, society.Rank, society.Needed);
         var rankText = $"{rankName} ({rank}/{Math.Max(rank, society.Tribe.MaxRank)})";
         var progress = needed == 0 ? 1f : Math.Clamp(society.Current / (float)needed, 0f, 1f);
         var percentage = $"{(int)(progress * 100f)}%";
-        var rankY = cardPosition.Y + ScaleToolbar(5f) + lineHeight;
+        var rankY = cardPosition.Y + OmniTheme.Scale(5f) + lineHeight;
         var percentageWidth = ImGui.CalcTextSize(percentage).X;
-        drawList.PushClipRect(new Vector2(bodyX, rankY), new Vector2(bodyX + MathF.Max(0f, bodyWidth - percentageWidth - ScaleToolbar(4f)), rankY + lineHeight), true);
-        drawList.AddText(new Vector2(bodyX, cardPosition.Y + ScaleToolbar(5f) + lineHeight), mutedColor, rankText);
+        drawList.PushClipRect(new Vector2(bodyX, rankY), new Vector2(bodyX + MathF.Max(0f, bodyWidth - percentageWidth - OmniTheme.Scale(4f)), rankY + lineHeight), true);
+        drawList.AddText(new Vector2(bodyX, cardPosition.Y + OmniTheme.Scale(5f) + lineHeight), mutedColor, rankText);
         drawList.PopClipRect();
         drawList.AddText(new Vector2(bodyX + bodyWidth - percentageWidth, rankY), mutedColor, percentage);
-        var barPosition = new Vector2(bodyX, cardEnd.Y - ScaleToolbar(8f));
-        var barSize = new Vector2(bodyWidth, ScaleToolbar(3f));
-        drawList.AddRectFilled(barPosition, barPosition + barSize, OmniTheme.Color(OmniTheme.Tokens.Background), ScaleToolbar(1f));
+        var barPosition = new Vector2(bodyX, cardEnd.Y - OmniTheme.Scale(8f));
+        var barSize = new Vector2(bodyWidth, OmniTheme.Scale(3f));
+        drawList.AddRectFilled(barPosition, barPosition + barSize, OmniTheme.Color(OmniTheme.Tokens.Background), OmniTheme.Scale(1f));
         drawList.AddRectFilled(
                 barPosition,
                 barPosition + new Vector2(barSize.X * progress, barSize.Y),
                 OmniTheme.Color(OmniTheme.Tokens.Accent),
-                ScaleToolbar(1f));
+                OmniTheme.Scale(1f));
         drawList.PopClipRect();
 
         if (currencyItemID > 0 && LuminaGetter.TryGetRow<Item>(currencyItemID, out var currency) && ImageHelper.GetGameIcon((uint)currency.Icon) is { } currencyTexture)
         {
-            var currencyPosition = new Vector2(cardEnd.X - iconSize - ScaleToolbar(6f), iconPosition.Y);
-            drawList.AddRectFilled(currencyPosition, currencyPosition + new Vector2(iconSize), OmniTheme.Color(OmniTheme.Tokens.Background), ScaleToolbar(6f));
-            drawList.AddRect(currencyPosition, currencyPosition + new Vector2(iconSize), OmniTheme.Color(OmniTheme.Tokens.Border), ScaleToolbar(6f));
-            drawList.AddImage(currencyTexture.Handle, currencyPosition + new Vector2(ScaleToolbar(2f)), currencyPosition + new Vector2(iconSize - ScaleToolbar(2f)));
+            var currencyPosition = new Vector2(cardEnd.X - iconSize - OmniTheme.Scale(6f), iconPosition.Y);
+            drawList.AddRectFilled(currencyPosition, currencyPosition + new Vector2(iconSize), OmniTheme.Color(OmniTheme.Tokens.Background), OmniTheme.Scale(6f));
+            drawList.AddRect(currencyPosition, currencyPosition + new Vector2(iconSize), OmniTheme.Color(OmniTheme.Tokens.Border), OmniTheme.Scale(6f));
+            drawList.AddImage(currencyTexture.Handle, currencyPosition + new Vector2(OmniTheme.Scale(2f)), currencyPosition + new Vector2(iconSize - OmniTheme.Scale(2f)));
             var count = LocalPlayerState.GetItemCount(currencyItemID).ToString();
             var countPosition = currencyPosition + new Vector2(iconSize - ImGui.CalcTextSize(count).X, iconSize - lineHeight);
             drawList.AddText(countPosition + new Vector2(1f), OmniTheme.Color(OmniTheme.Tokens.Background), count);
@@ -416,8 +416,8 @@ public sealed partial class MultiToolbar
             var info = InfoModule.Instance();
             var detail = info is null ? null : (InfoProxyDetail*)info->GetInfoProxyById(InfoProxyId.Detail);
             var playerState = PlayerState.Instance();
-            var rowHeight = MathF.Max(ImGui.GetFrameHeight(), ScaleToolbar(28f));
-            var iconSize = MathF.Max(GetPopupRowIconSize(), ScaleToolbar(22f));
+            var rowHeight = MathF.Max(ImGui.GetFrameHeight(), OmniTheme.Scale(28f));
+            var iconSize = MathF.Max(GetPopupRowIconSize(), OmniTheme.Scale(22f));
             foreach (var statusId in OnlineStatusIds)
             {
                 if (!sheet.TryGetRow(statusId, out var status))
@@ -455,12 +455,12 @@ public sealed partial class MultiToolbar
 
                 if (ImageHelper.GetGameIcon(status.Icon) is { } texture)
                 {
-                    var iconPosition = rowPosition + new Vector2(ScaleToolbar(6f), (rowHeight - iconSize) * 0.5f);
+                    var iconPosition = rowPosition + new Vector2(OmniTheme.Scale(6f), (rowHeight - iconSize) * 0.5f);
                     drawList.AddImage(texture.Handle, iconPosition, iconPosition + new Vector2(iconSize));
                 }
 
                 drawList.AddText(
-                    rowPosition + new Vector2(ScaleToolbar(6f) + iconSize + ScaleToolbar(6f), (rowHeight - ImGui.GetTextLineHeight()) * 0.5f),
+                    rowPosition + new Vector2(OmniTheme.Scale(6f) + iconSize + OmniTheme.Scale(6f), (rowHeight - ImGui.GetTextLineHeight()) * 0.5f),
                     ImGui.GetColorU32(OmniTheme.Tokens.Text),
                     label);
 

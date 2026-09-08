@@ -111,7 +111,7 @@ public sealed partial class MultiToolbar : ModuleBase
                 continue;
             }
 
-            if (widget.Type is not (MultiToolbarWidgetType.CustomButton or MultiToolbarWidgetType.DtrSingle) &&
+            if (widget.Type is not (MultiToolbarWidgetType.CustomButton or MultiToolbarWidgetType.DtrSingle or MultiToolbarWidgetType.Separator) &&
                 !seenBuiltIns.Add(widget.Type))
             {
                 changed = true;
