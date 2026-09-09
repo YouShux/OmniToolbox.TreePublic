@@ -7,6 +7,11 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Info;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using OmenTools;
+using OmenTools.Interop.Game.Helpers;
+using OmenTools.Interop.Game.Lumina;
+using OmenTools.OmenService;
+using ContentFinderCondition = Lumina.Excel.Sheets.ContentFinderCondition;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -15,11 +20,6 @@ using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
-using OmenTools;
-using OmenTools.Interop.Game.Helpers;
-using OmenTools.Interop.Game.Lumina;
-using OmenTools.OmenService;
-using ContentFinderCondition = Lumina.Excel.Sheets.ContentFinderCondition;
 
 namespace OmniToolbox.TreePublic;
 

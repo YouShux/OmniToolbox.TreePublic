@@ -1,4 +1,5 @@
 using Dalamud.Utility;
+using OmenTools.ImGuiOm;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -8,7 +9,6 @@ using OmniToolbox.Lifecycle;
 using OmniToolbox.Tooltips;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
-using OmenTools.ImGuiOm;
 
 namespace OmniToolbox.TreePublic;
 

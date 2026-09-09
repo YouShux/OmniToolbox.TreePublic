@@ -4,11 +4,11 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Excel.Sheets;
 using Lumina.Text;
 using Lumina.Text.ReadOnly;
+using OmenTools;
+using OmenTools.OmenService;
 using OmniToolbox.Tooltips;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

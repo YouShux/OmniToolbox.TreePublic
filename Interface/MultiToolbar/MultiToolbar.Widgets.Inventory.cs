@@ -6,14 +6,14 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
-using OmniToolbox.Items;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
-using OmniToolbox.UI.Theme;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Info.Game.Enums;
 using OmenTools.ImGuiOm;
 using OmenTools.OmenService;
+using OmniToolbox.Items;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 

@@ -7,6 +7,9 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
+using OmenTools;
+using OmenTools.Interop.Game.Helpers;
+using OmenTools.OmenService;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -16,9 +19,6 @@ using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
-using OmenTools;
-using OmenTools.Interop.Game.Helpers;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

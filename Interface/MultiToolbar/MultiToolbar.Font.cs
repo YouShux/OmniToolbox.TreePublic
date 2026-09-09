@@ -1,10 +1,10 @@
 using System.IO;
 using Dalamud.Interface.ManagedFontAtlas;
+using OmenTools.OmenService;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

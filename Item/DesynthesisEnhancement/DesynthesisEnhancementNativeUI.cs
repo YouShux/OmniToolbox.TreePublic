@@ -12,16 +12,16 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
-using OmniToolbox.Config;
-using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
-using OmniToolbox.Tooltips;
-using OmniToolbox.UI;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Interop.Game.Models;
+using OmniToolbox.Config;
+using OmniToolbox.Host;
+using OmniToolbox.Lifecycle;
+using OmniToolbox.Tooltips;
+using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

@@ -1,7 +1,7 @@
 using Dalamud.Utility;
 using Lumina.Excel.Sheets;
-using OmniToolbox.Host;
 using OmenTools.Interop.Game.Lumina;
+using OmniToolbox.Host;
 
 namespace OmniToolbox.TreePublic;
 

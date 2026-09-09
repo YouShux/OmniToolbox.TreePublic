@@ -12,13 +12,6 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit;
 using KamiToolKit.Nodes;
-using OmniToolbox.Common.Module.Abstractions;
-using OmniToolbox.Common.Module.Enums;
-using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
-using OmniToolbox.Config;
-using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.ExecuteCommand.Implementations;
@@ -26,6 +19,13 @@ using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Interop.Game.Models;
 using OmenTools.OmenService;
+using OmniToolbox.Common.Module.Abstractions;
+using OmniToolbox.Common.Module.Enums;
+using OmniToolbox.Common.Module.Models;
+using OmniToolbox.UI;
+using OmniToolbox.Config;
+using OmniToolbox.Host;
+using OmniToolbox.Lifecycle;
 
 namespace OmniToolbox.TreePublic;
 

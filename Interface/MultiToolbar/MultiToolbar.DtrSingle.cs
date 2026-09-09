@@ -1,9 +1,9 @@
 using System.Linq;
 using Dalamud.Game.Gui.Dtr;
 using Lumina.Text.ReadOnly;
+using OmenTools;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
-using OmenTools;
 
 namespace OmniToolbox.TreePublic;
 

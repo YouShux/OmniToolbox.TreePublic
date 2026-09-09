@@ -8,13 +8,13 @@ using Dalamud.Interface.ImGuiSeStringRenderer;
 using Dalamud.Plugin;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Text.ReadOnly;
+using OmenTools;
+using OmenTools.Interop.Game.Helpers;
+using OmenTools.OmenService;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
-using OmenTools;
-using OmenTools.Interop.Game.Helpers;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
@@ -78,6 +78,10 @@ public sealed partial class MultiToolbar
         {
             DrawWorldMarkerOverlay();
         }
+        else
+        {
+            ReleaseWorldMarkerLabelTextures();
+        }
         DrawToolbar();
         if (barID == "main")
         {
@@ -127,7 +131,10 @@ public sealed partial class MultiToolbar
         var targetOffset = toolbarVisible
             ? 0f
             : config.Alignment == MultiToolbarAlignment.Top ? -rowHeight - ScaleToolbar(2f) : rowHeight + ScaleToolbar(2f);
-        autoHideOffset += (targetOffset - autoHideOffset) * MathF.Min(1f, deltaTime * 10f);
+        autoHideOffset += (targetOffset - autoHideOffset) *
+                          (OmniTheme.UsesMaterial && GlassMotion.Mode != OmniToolbox.Config.UIMotionMode.Full
+                              ? 1f
+                              : MathF.Min(1f, deltaTime * 10f));
         if (MathF.Abs(autoHideOffset - targetOffset) < 0.5f)
         {
             autoHideOffset = targetOffset;
@@ -183,6 +190,12 @@ public sealed partial class MultiToolbar
             ? ImDrawFlags.RoundCornersBottomLeft | ImDrawFlags.RoundCornersBottomRight
             : ImDrawFlags.RoundCornersTopLeft | ImDrawFlags.RoundCornersTopRight;
 
+        if (OmniTheme.UsesMaterial)
+        {
+            OmniControls.DrawGlassSurface(drawList, min, max - min, theme.Background, radius, opacity,
+                corners: rounding);
+            return;
+        }
         drawList.AddRectFilled(min, max, ImGui.GetColorU32(background), radius, rounding);
         drawList.AddRect(
             min,
@@ -276,18 +289,18 @@ public sealed partial class MultiToolbar
 
     private float ScaleToolbar(float value) => OmniTheme.Scale(value * GetToolbarScale());
 
-    // 保留上下留白与描边空间，锁图标大小独立于文字字号。
-    private float GetLockFontSize() => ScaleToolbar(Math.Clamp(toolbarButtonHeight / ScaleToolbar(1f) - 10f, 6f, 32f));
+    private Vector2 GetLockIconSize()
+    {
+        var bottomInset = ScaleToolbar(MathF.Max(2f, ToolbarTheme.ShadowOffset));
+        var height = MathF.Max(0f, toolbarButtonHeight - bottomInset - ScaleToolbar(2f));
+        return new Vector2(height * (20f / 24f), height);
+    }
 
     private float ToolbarButtonPadding => ScaleToolbar(Math.Clamp(config.ButtonPadding, 0f, 40f));
 
     private float MeasureLockWidth()
     {
-        var fontSize = GetLockFontSize();
-        using var font = ImRaii.PushFont(UiBuilder.IconFont);
-        var width = MathF.Max(ImGui.CalcTextSize(FontAwesomeIcon.Lock.ToIconString()).X,
-            ImGui.CalcTextSize(FontAwesomeIcon.LockOpen.ToIconString()).X);
-        return width * fontSize / ImGui.GetFontSize() + ScaleToolbar(8f) + ToolbarButtonPadding * 2f;
+        return GetLockIconSize().X + ScaleToolbar(12f) + ToolbarButtonPadding * 2f;
     }
 
     private void DrawLockButton()
@@ -295,15 +308,16 @@ public sealed partial class MultiToolbar
         var size = new Vector2(MeasureLockWidth(), toolbarButtonHeight);
         ImGui.InvisibleButton("##multiToolbarLock", size);
         DrawWidgetVisual(string.Empty, size);
-        var fontSize = GetLockFontSize();
-        using (var font = ImRaii.PushFont(UiBuilder.IconFont))
+        if (DalamudServices.TextureProvider.GetFromGame("ui/uld/ActionBar.tex").GetWrapOrDefault() is { } texture)
         {
-            var text = (config.IsLocked ? FontAwesomeIcon.Lock : FontAwesomeIcon.LockOpen).ToIconString();
-            var textSize = ImGui.CalcTextSize(text) * (fontSize / ImGui.GetFontSize());
-            var position = Vector2.Round(ImGui.GetItemRectMin() + (size - textSize) * 0.5f + new Vector2(0f, ScaleToolbar(1f)));
-            var drawList = ImGui.GetWindowDrawList();
-            DrawToolbarTextOutline(drawList, text, position, fontSize);
-            drawList.AddText(ImGui.GetFont(), fontSize, position, ImGui.GetColorU32(config.ToolbarTextColor), text);
+            var iconSize = GetLockIconSize();
+            var position = ImGui.GetItemRectMin() + new Vector2(
+                (size.X - iconSize.X) * 0.5f, ScaleToolbar(2f));
+            var coordinates = new Vector2(config.IsLocked ? 88f : 48f, 0f);
+            var textureSize = new Vector2(texture.Width, texture.Height);
+            ImGui.GetWindowDrawList().AddImage(texture.Handle, position, position + iconSize,
+                coordinates / textureSize, (coordinates + new Vector2(20f, 24f)) / textureSize,
+                ImGui.GetColorU32(Vector4.One));
         }
         if (ImGui.IsItemHovered())
         {
@@ -809,18 +823,26 @@ public sealed partial class MultiToolbar
             var shadowOffset = new Vector2(ScaleToolbar(MathF.Max(0f, theme.ShadowOffset)));
             var backgroundMin = min + new Vector2(0f, ScaleToolbar(2f));
             var backgroundMax = max - new Vector2(0f, MathF.Max(ScaleToolbar(2f), shadowOffset.Y));
-            drawList.AddRectFilled(backgroundMin + shadowOffset, backgroundMax + shadowOffset,
-                OmniTheme.Color(WithAlpha(theme.Shadow, theme.Shadow.W * opacity)), radius);
             var background = active
                 ? OmniTheme.UsesDarkPalette ? OmniTheme.ActiveBackground : theme.Accent
                 : hovered
                     ? OmniTheme.UsesDarkPalette ? OmniTheme.HoverBackground : theme.Primary
                     : theme.Surface;
-            drawList.AddRectFilled(backgroundMin, backgroundMax, OmniTheme.Color(WithAlpha(background, background.W * opacity)), radius);
-            var border = OmniTheme.BorderThickness();
-            drawList.AddRect(backgroundMin + new Vector2(border * 0.5f), backgroundMax - new Vector2(border * 0.5f),
-                OmniTheme.Color(WithAlpha(theme.Border, theme.Border.W * opacity)),
-                MathF.Max(0f, radius - border * 0.5f), ImDrawFlags.RoundCornersAll, border);
+            if (OmniTheme.UsesMaterial)
+            {
+                OmniControls.DrawGlassSurface(drawList, backgroundMin, backgroundMax - backgroundMin,
+                    GlassMotion.ButtonFill(theme.Surface), radius, opacity, sampleBackground: false);
+            }
+            else
+            {
+                drawList.AddRectFilled(backgroundMin + shadowOffset, backgroundMax + shadowOffset,
+                    OmniTheme.Color(WithAlpha(theme.Shadow, theme.Shadow.W * opacity)), radius);
+                drawList.AddRectFilled(backgroundMin, backgroundMax, OmniTheme.Color(WithAlpha(background, background.W * opacity)), radius);
+                var border = OmniTheme.BorderThickness();
+                drawList.AddRect(backgroundMin + new Vector2(border * 0.5f), backgroundMax - new Vector2(border * 0.5f),
+                    OmniTheme.Color(WithAlpha(theme.Border, theme.Border.W * opacity)),
+                    MathF.Max(0f, radius - border * 0.5f), ImDrawFlags.RoundCornersAll, border);
+            }
         }
         var buttonPadding = ToolbarButtonPadding;
         drawList.PushClipRect(min + new Vector2(buttonPadding, 0f), max - new Vector2(buttonPadding, 0f), true);
@@ -1018,7 +1040,7 @@ public sealed partial class MultiToolbar
         var popupTheme = ToolbarTheme with
         {
             Background = config.BackgroundColor ?? OmniTheme.BaseTokens.Background,
-            Surface = OmniTheme.BaseTokens.Surface,
+            Surface = config.BackgroundColor ?? OmniTheme.BaseTokens.Surface,
         };
         using var colors = ImRaii.PushColor(
                 ImGuiCol.WindowBg,
@@ -1058,6 +1080,11 @@ public sealed partial class MultiToolbar
             return;
         }
 
+        if (OmniTheme.UsesMaterial)
+        {
+            OmniControls.DrawGlassSurface(ImGui.GetWindowDrawList(), ImGui.GetWindowPos(), ImGui.GetWindowSize(),
+                popupTheme.Background, OmniTheme.Scale(popupTheme.BorderRadius));
+        }
         var panelInset = ImGui.GetStyle().WindowPadding * 0.5f;
         OmniControls.DrawPanelBackground(ImGui.GetWindowPos() + panelInset,
             ImGui.GetWindowSize() - panelInset * 2f, popupTheme.Surface);

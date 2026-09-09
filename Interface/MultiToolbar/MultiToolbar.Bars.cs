@@ -123,7 +123,7 @@ public sealed partial class MultiToolbar
                 if (menu)
                 {
                     var name = bar.Name;
-                    if (ImGui.InputText(OmniLoc.Get("Feature.MultiToolbar.BarName"), ref name, 80) &&
+                    if (OmniControls.InputText(OmniLoc.Get("Feature.MultiToolbar.BarName"), ref name, 80) &&
                         !string.IsNullOrWhiteSpace(name))
                     {
                         bar.Name = name;
@@ -196,6 +196,7 @@ public sealed partial class MultiToolbar
 
     private void ReleaseBarResources()
     {
+        ReleaseWorldMarkerLabelTextures();
         onlineStatusDetailTasks?.Dispose();
         onlineStatusDetailTasks = null;
         toolbarFont?.Dispose();

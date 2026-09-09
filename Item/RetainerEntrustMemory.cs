@@ -5,14 +5,14 @@ using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Excel.Sheets;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
-using OmenTools.Extensions;
-using OmenTools.Interop.Game.Lumina;
 
 namespace OmniToolbox.TreePublic;
 

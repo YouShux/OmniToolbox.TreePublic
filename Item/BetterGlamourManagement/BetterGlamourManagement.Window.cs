@@ -3,11 +3,11 @@ using System.Numerics;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
+using OmenTools.Interop.Game.Lumina;
+using OmenTools.Extensions;
 using OmniToolbox.Items;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
-using OmenTools.Interop.Game.Lumina;
-using OmenTools.Extensions;
 
 namespace OmniToolbox.TreePublic;
 
