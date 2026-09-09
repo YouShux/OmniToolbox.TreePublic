@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+using System.Text;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game;
@@ -13,9 +15,6 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.Interop;
 using InteropGenerator.Runtime;
-using OmniToolbox.Config;
-using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Interop.Game.Models;
@@ -24,8 +23,9 @@ using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaItem = Lumina.Excel.Sheets.Item;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 using LuminaWeather = Lumina.Excel.Sheets.Weather;
-using System.Runtime.InteropServices;
-using System.Text;
+using OmniToolbox.Config;
+using OmniToolbox.Host;
+using OmniToolbox.Lifecycle;
 
 namespace OmniToolbox.TreePublic;
 

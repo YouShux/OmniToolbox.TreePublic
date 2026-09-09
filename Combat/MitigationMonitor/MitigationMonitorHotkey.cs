@@ -1,10 +1,10 @@
 using Dalamud.Plugin.Services;
+using OmenTools;
+using OmenTools.OmenService;
 using OmniToolbox.Config;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

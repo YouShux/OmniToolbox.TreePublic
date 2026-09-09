@@ -1,11 +1,11 @@
 using System.Drawing;
 using Dalamud.Interface;
+using OmenTools;
+using OmenTools.Extensions;
 using OmniToolbox.Config;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools;
-using OmenTools.Extensions;
 
 namespace OmniToolbox.TreePublic;
 

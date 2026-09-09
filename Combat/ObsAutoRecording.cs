@@ -10,6 +10,9 @@ using Dalamud.Game.DutyState;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using OmenTools;
+using OmenTools.Extensions;
+using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -18,14 +21,18 @@ using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
-using OmenTools;
-using OmenTools.Extensions;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed class ObsAutoRecording : ModuleBase
 {
+    public override ModuleInfo Info { get; } = new()
+    {
+        Title = OmniLoc.Get("ObsAutoRecordingTitle"),
+        Description = OmniLoc.Get("ObsAutoRecordingDescription"),
+        Category = ModuleCategory.Combat
+    };
+
     private const string DefaultEndpoint = "ws://127.0.0.1:4455";
 
     private readonly ObsAutoRecordingConfig config;
@@ -40,13 +47,6 @@ public sealed class ObsAutoRecording : ModuleBase
             config.Endpoint = DefaultEndpoint;
         }
     }
-
-    public override ModuleInfo Info { get; } = new()
-    {
-        Title = OmniLoc.Get("ObsAutoRecordingTitle"),
-        Description = OmniLoc.Get("ObsAutoRecordingDescription"),
-        Category = ModuleCategory.Combat
-    };
 
     public override bool HasSettings => true;
 

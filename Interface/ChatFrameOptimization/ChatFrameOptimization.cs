@@ -12,6 +12,12 @@ using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
 using Lumina.Text.ReadOnly;
+using OmenTools;
+using OmenTools.Dalamud.Helpers;
+using OmenTools.Interop.Game;
+using OmenTools.Interop.Game.Models;
+using OmenTools.ImGuiOm;
+using OmenTools.OmenService;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -20,12 +26,6 @@ using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
-using OmenTools;
-using OmenTools.Dalamud.Helpers;
-using OmenTools.Interop.Game;
-using OmenTools.Interop.Game.Models;
-using OmenTools.ImGuiOm;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
@@ -660,31 +660,27 @@ internal sealed class ChatFrameOptimizationPanel
                 }
 
                 ImGuiOm.HelpMarker(OmniLoc.Get("Feature.ChatFrameOptimization.LogFileCount.Help"));
+                ImGui.TableNextColumn();
+                using (ImRaii.Disabled(!isEnabled || storage is null))
+                {
+                    if (OmniControls.SmallButton(OmniLoc.Get("Feature.ChatFrameOptimization.OpenReplay"), false))
+                    {
+                        openReplay();
+                    }
+
+                    ImGui.TableNextColumn();
+                    if (OmniControls.SmallButton(OmniLoc.Get("Feature.ChatFrameOptimization.OpenDirectory"), false) &&
+                        storage is not null)
+                    {
+                        OpenDirectory(storage.DirectoryPath);
+                    }
+                }
+                ImGui.SameLine(0f, ImGui.GetStyle().ItemInnerSpacing.X);
+                OmniControls.HelpIcon(string.Format(
+                    OmniLoc.Get("Feature.ChatFrameOptimization.Directory"),
+                    storage?.DirectoryPath ?? ChatLogReplayStorage.GetDirectoryPath()));
             }
         }
-
-        using (ImRaii.Disabled(!isEnabled || storage is null))
-        {
-            if (ImGuiOm.ButtonIconWithText(
-                    FontAwesomeIcon.History,
-                    OmniLoc.Get("Feature.ChatFrameOptimization.OpenReplay")))
-            {
-                openReplay();
-            }
-
-            ImGui.SameLine();
-            if (ImGuiOm.ButtonIconWithText(
-                    FontAwesomeIcon.FolderOpen,
-                    OmniLoc.Get("Feature.ChatFrameOptimization.OpenDirectory")) &&
-                storage is not null)
-            {
-                OpenDirectory(storage.DirectoryPath);
-            }
-        }
-
-        ImGui.TextDisabled(string.Format(
-            OmniLoc.Get("Feature.ChatFrameOptimization.Directory"),
-            storage?.DirectoryPath ?? ChatLogReplayStorage.GetDirectoryPath()));
         return changed;
     }
 

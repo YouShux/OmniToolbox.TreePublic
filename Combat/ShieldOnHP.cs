@@ -4,6 +4,11 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Helpers;
+using OmenTools.ImGuiOm;
+using OmenTools.OmenService;
+using Control = FFXIVClientStructs.FFXIV.Client.Game.Control.Control;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -13,10 +18,6 @@ using OmniToolbox.UI.Theme;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
-using OmenTools.Interop.Game.Helpers;
-using OmenTools.ImGuiOm;
-using OmenTools.OmenService;
-using Control = FFXIVClientStructs.FFXIV.Client.Game.Control.Control;
 
 namespace OmniToolbox.TreePublic;
 
@@ -172,7 +173,7 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
             return;
         }
 
-        var scale = GetNodeScale(&hpBar->AtkResNode);
+        var scale = hpBar->AtkResNode.GetScale();
         using var font = FontManager.Instance().MiedingerMidFont140.Push();
         var text = metrics.ShieldAmount.ToString();
         var textSize = ImGui.CalcTextSize(text);
@@ -447,17 +448,6 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
 
     private static byte ToColorByte(float value) =>
         (byte)Math.Clamp((int)MathF.Round(value * byte.MaxValue), byte.MinValue, byte.MaxValue);
-
-    private static Vector2 GetNodeScale(AtkResNode* node)
-    {
-        var scale = new Vector2(node->ScaleX, node->ScaleY);
-        for (var parent = node->ParentNode; parent != null; parent = parent->ParentNode)
-        {
-            scale *= new Vector2(parent->ScaleX, parent->ScaleY);
-        }
-
-        return scale;
-    }
 
     private readonly struct ShieldMetrics(
         float hpPercentage,

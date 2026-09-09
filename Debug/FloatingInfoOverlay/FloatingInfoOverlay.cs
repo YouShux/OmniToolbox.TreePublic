@@ -1,4 +1,6 @@
 using System.Globalization;
+using OmenTools.ImGuiOm;
+using OmenTools.OmenService;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -8,8 +10,6 @@ using OmniToolbox.UI.Theme;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.TreeHouse;
-using OmenTools.ImGuiOm;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

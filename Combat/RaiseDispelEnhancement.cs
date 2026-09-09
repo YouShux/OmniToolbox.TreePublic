@@ -6,6 +6,10 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Info;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
+using OmenTools;
+using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
+using OmenTools.Interop.Game.Lumina;
+using OmenTools.OmenService;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -17,10 +21,6 @@ using OmniToolbox.UI.Theme;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
-using OmenTools;
-using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
-using OmenTools.Interop.Game.Lumina;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
@@ -37,9 +37,11 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
     private const uint RaiseStatusID = 148;
     private const uint DispelIconID = 215530;
+    private static readonly string[] DisplayColumns =
+        ["Party", "Alliance", "ShowWorldIcon", "ShowWorldText", "CasterName", "CastProgress", "List"];
     private readonly Dictionary<ulong, ActorState> states = [];
     private readonly Dictionary<ulong, string> names = [];
-    private readonly Dictionary<ulong, Vector3> positions = [];
+    private readonly Dictionary<ulong, (int Index, ulong ObjectID)> actorObjects = [];
     private readonly Dictionary<uint, ISharedImmediateTexture> statusIconTextures = [];
     private FeatureLifetime? runtimeLifetime;
     private ISharedImmediateTexture? dispelIcon;
@@ -50,135 +52,101 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     public override bool DrawSettings()
     {
         var changed = false;
-        var style = ImGui.GetStyle();
-        using (var spacing = ImRaii.PushStyle(
-                   ImGuiStyleVar.CellPadding,
-                   new Vector2(
-                       Math.Clamp(style.CellPadding.X * 0.9f, OmniTheme.Scale(5f), OmniTheme.Scale(11f)),
-                       style.CellPadding.Y))
-               .Push(
-                   ImGuiStyleVar.ItemSpacing,
-                   new Vector2(
-                       Math.Clamp(style.ItemSpacing.X, OmniTheme.Scale(9f), OmniTheme.Scale(17f)),
-                       style.ItemSpacing.Y)))
-        using (var table = ImRaii.Table(
-                   "##raiseDispelEnhancementOptions",
-                   4,
-                   ImGuiTableFlags.SizingStretchProp,
+        using (var table = ImRaii.Table("##raiseDispelMatrix", 8,
+                   ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchSame,
                    new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
         {
             if (table)
             {
-                ImGui.TableSetupColumn("##raiseDispelEnhancementOptions0", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##raiseDispelEnhancementOptions1", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##raiseDispelEnhancementOptions2", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##raiseDispelEnhancementOptions3", ImGuiTableColumnFlags.WidthStretch, 1.25f);
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                changed |= DrawCheckbox(
-                    config.ShowRaise,
-                    "Feature.RaiseDispelEnhancement.ShowRaise",
-                    "showRaise",
-                    value => config.ShowRaise = value);
-                ImGui.TableNextColumn();
-                changed |= DrawCheckbox(
-                    config.ShowDispel,
-                    "Feature.RaiseDispelEnhancement.ShowDispel",
-                    "showDispel",
-                    value => config.ShowDispel = value);
-                ImGui.TableNextColumn();
-                changed |= DrawCheckbox(
-                    config.ShowWorldIcon,
-                    "Feature.RaiseDispelEnhancement.ShowWorldIcon",
-                    "showWorldIcon",
-                    value => config.ShowWorldIcon = value);
-                ImGui.TableNextColumn();
-                changed |= DrawCheckbox(
-                    config.ShowWorldText,
-                    "Feature.RaiseDispelEnhancement.ShowWorldText",
-                    "showWorldText",
-                    value => config.ShowWorldText = value);
-
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                changed |= DrawCheckbox(
-                    config.ShowCasterName,
-                    "Feature.RaiseDispelEnhancement.ShowCasterName",
-                    "showCasterName",
-                    value => config.ShowCasterName = value);
-                ImGui.TableNextColumn();
-                changed |= DrawCheckbox(
-                    config.ShowCastProgress,
-                    "Feature.RaiseDispelEnhancement.ShowCastProgress",
-                    "showCastProgress",
-                    value => config.ShowCastProgress = value);
-                ImGui.TableNextColumn();
-                changed |= DrawCheckbox(
-                    config.ShowRaiseOnList,
-                    "Feature.RaiseDispelEnhancement.ShowRaiseOnList",
-                    "showRaiseOnList",
-                    value => config.ShowRaiseOnList = value);
-                ImGui.TableNextColumn();
-                changed |= DrawCheckbox(
-                    config.ShowDispelOnList,
-                    "Feature.RaiseDispelEnhancement.ShowDispelOnList",
-                    "showDispelOnList",
-                    value => config.ShowDispelOnList = value);
+                ImGui.TableSetupColumn("##kind", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(78f));
+                foreach (var key in DisplayColumns)
+                {
+                    ImGui.TableSetupColumn(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}"));
+                }
+                ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
+                DrawMatrixLabel(string.Empty);
+                foreach (var key in DisplayColumns)
+                {
+                    DrawMatrixLabel(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}"));
+                }
+                changed |= DrawReminderRow("Raise", config.GetRaiseOptions());
+                changed |= DrawMatrixCheckbox("raiseList", config.ShowRaiseOnList, value => config.ShowRaiseOnList = value);
+                changed |= DrawReminderRow("Dispel", config.GetDispelOptions());
+                changed |= DrawMatrixCheckbox("dispelList", config.ShowDispelOnList, value => config.ShowDispelOnList = value);
             }
         }
 
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
-        changed |= DrawScaleSlider(
-            config.IconScale,
-            "Feature.RaiseDispelEnhancement.IconScale",
-            "iconScale",
-            value => config.IconScale = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(24f));
-        changed |= DrawScaleSlider(
-            config.WorldTextScale,
-            "Feature.RaiseDispelEnhancement.WorldTextScale",
-            "worldTextScale",
-            value => config.WorldTextScale = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(24f));
-        changed |= DrawColorEdit(
-            config.RaiseListColor,
-            "Feature.RaiseDispelEnhancement.RaiseListColor",
-            "raiseListColor",
-            value => config.RaiseListColor = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(24f));
-        changed |= DrawColorEdit(
-            config.DispelListColor,
-            "Feature.RaiseDispelEnhancement.DispelListColor",
-            "dispelListColor",
-            value => config.DispelListColor = value);
-
-        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
-        changed |= DrawColorEdit(
-            config.SelfRaiseBackgroundColor,
-            "Feature.RaiseDispelEnhancement.SelfRaiseWorldColor",
-            "selfRaiseBackgroundColor",
-            value => config.SelfRaiseBackgroundColor = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(24f));
-        changed |= DrawColorEdit(
-            config.OtherRaiseBackgroundColor,
-            "Feature.RaiseDispelEnhancement.OtherRaiseWorldColor",
-            "otherRaiseBackgroundColor",
-            value => config.OtherRaiseBackgroundColor = value);
+        using (var table = ImRaii.Table("##raiseDispelScales", 2, ImGuiTableFlags.SizingStretchSame,
+                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+        {
+            if (table)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                changed |= DrawScaleSlider(config.IconScale, "Feature.RaiseDispelEnhancement.IconScale", "IconScale",
+                    value => config.IconScale = value);
+                ImGui.TableNextColumn();
+                changed |= DrawScaleSlider(config.WorldTextScale, "Feature.RaiseDispelEnhancement.WorldTextScale", "WorldTextScale",
+                    value => config.WorldTextScale = value);
+            }
+        }
+        using (var table = ImRaii.Table("##raiseDispelColors", 4, ImGuiTableFlags.SizingStretchSame,
+                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+        {
+            if (table)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                changed |= DrawColorEdit(config.RaiseListColor, "Feature.RaiseDispelEnhancement.RaiseListColor", "RaiseListColor",
+                    value => config.RaiseListColor = value);
+                ImGui.TableNextColumn();
+                changed |= DrawColorEdit(config.DispelListColor, "Feature.RaiseDispelEnhancement.DispelListColor", "DispelListColor",
+                    value => config.DispelListColor = value);
+                ImGui.TableNextColumn();
+                changed |= DrawColorEdit(config.SelfRaiseBackgroundColor, "Feature.RaiseDispelEnhancement.SelfRaiseWorldColor", "SelfRaiseBackgroundColor",
+                    value => config.SelfRaiseBackgroundColor = value);
+                ImGui.TableNextColumn();
+                changed |= DrawColorEdit(config.OtherRaiseBackgroundColor, "Feature.RaiseDispelEnhancement.OtherRaiseWorldColor", "OtherRaiseBackgroundColor",
+                    value => config.OtherRaiseBackgroundColor = value);
+            }
+        }
         return changed;
     }
 
-    private static bool DrawCheckbox(
-        bool current,
-        string labelKey,
-        string id,
-        Action<bool> setter)
+    private static void DrawMatrixLabel(string label)
     {
-        var value = current;
-        if (!OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##raiseDispel{id}", ref value))
+        ImGui.TableNextColumn();
+        ImGui.AlignTextToFramePadding();
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() +
+            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(label).X) * 0.5f));
+        ImGui.TextUnformatted(label);
+    }
+
+    private static bool DrawReminderRow(string kind, RaiseDispelDisplayOptions options)
+    {
+        using var id = ImRaii.PushId(kind);
+        ImGui.TableNextRow();
+        DrawMatrixLabel(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{kind}"));
+        var changed = false;
+        changed |= DrawMatrixCheckbox("ShowPartyFrame", options.ShowPartyFrame, value => options.ShowPartyFrame = value);
+        changed |= DrawMatrixCheckbox("ShowAllianceFrame", options.ShowAllianceFrame, value => options.ShowAllianceFrame = value);
+        changed |= DrawMatrixCheckbox("ShowWorldIcon", options.ShowWorldIcon, value => options.ShowWorldIcon = value);
+        changed |= DrawMatrixCheckbox("ShowWorldText", options.ShowWorldText, value => options.ShowWorldText = value);
+        changed |= DrawMatrixCheckbox("ShowCasterName", options.ShowCasterName, value => options.ShowCasterName = value);
+        changed |= DrawMatrixCheckbox("ShowCastProgress", options.ShowCastProgress, value => options.ShowCastProgress = value);
+        return changed;
+    }
+
+    private static bool DrawMatrixCheckbox(string id, bool value, Action<bool> setter)
+    {
+        ImGui.TableNextColumn();
+        ImGui.SetCursorPosX(ImGui.GetCursorPosX() +
+            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - OmniTheme.CheckboxSize()) * 0.5f));
+        if (!OmniControls.Checkbox($"##{id}", ref value))
         {
             return false;
         }
-
         setter(value);
         return true;
     }
@@ -218,7 +186,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             0.3f,
             3f,
             "%.2f",
-            OmniTheme.Scale(128f));
+            MathF.Max(1f, ImGui.GetContentRegionAvail().X));
         if (changed)
         {
             setter(value);
@@ -290,7 +258,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     {
         states.Clear();
         names.Clear();
-        positions.Clear();
+        actorObjects.Clear();
 
         CombatCharacterSnapshot.Refresh();
         var localPlayerEntityID = DService.Instance().ObjectTable.LocalPlayer?.EntityID ?? 0;
@@ -298,7 +266,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         {
             var actorKey = GetActorKey(player);
             names[actorKey] = player.Name;
-            positions[actorKey] = player.Position;
+            actorObjects[actorKey] = (player.ObjectIndex, player.GameObjectID);
 
             if (player.IsDead)
             {
@@ -422,39 +390,54 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
     private void DrawActor(ImDrawListPtr drawList, ulong actorKey, ActorState state)
     {
-        var drawRaise = config.ShowRaise && (state.HasRaisedStatus || state.Type == CastType.Raise);
-        var drawDispel = config.ShowDispel && (state.HasDispellableStatus || state.Type == CastType.Dispel);
+        var drawRaise = config.GetRaiseOptions().Enabled && (state.HasRaisedStatus || state.Type == CastType.Raise);
+        var drawDispel = config.GetDispelOptions().Enabled && (state.HasDispellableStatus || state.Type == CastType.Dispel);
         if (!drawRaise && !drawDispel)
         {
             return;
         }
 
-        if (TryGetListColor(state, out var listColor))
+        if (TryGetListColor(actorKey, state, out var listColor, out var listType))
         {
-            DrawFrameMarker(drawList, actorKey, state, listColor);
+            DrawFrameMarker(drawList, actorKey, state, listColor, listType);
         }
 
-        if (positions.TryGetValue(actorKey, out var position) &&
-            DService.Instance().GameGUI.WorldToScreen(position, out var screenPosition))
+        if (!actorObjects.TryGetValue(actorKey, out var actor))
+        {
+            return;
+        }
+
+        // 状态扫描限频，世界坐标逐帧读取；校验身份以防对象槽位被复用。
+        var services = DService.Instance();
+        var gameObject = services.ObjectTable[actor.Index];
+        if (gameObject != null && gameObject.GameObjectID == actor.ObjectID &&
+            services.GameGUI.WorldToScreen(gameObject.Position, out var screenPosition))
         {
             DrawWorldMarker(drawList, screenPosition, state);
         }
     }
 
-    private bool TryGetListColor(ActorState state, out uint color)
+    private bool TryGetListColor(ulong actorKey, ActorState state, out uint color, out CastType type)
     {
-        if (config.ShowDispelOnList && (state.HasDispellableStatus || state.Type == CastType.Dispel))
+        var hud = GetHudPosition(actorKey);
+        var isParty = hud?.GroupNumber == 0;
+        var dispel = config.GetDispelOptions();
+        var raise = config.GetRaiseOptions();
+        if (config.ShowDispelOnList && (isParty ? dispel.ShowPartyFrame : dispel.ShowAllianceFrame) && (state.HasDispellableStatus || state.Type == CastType.Dispel))
         {
+            type = CastType.Dispel;
             color = config.DispelListColor;
             return true;
         }
 
-        if (config.ShowRaiseOnList && (state.HasRaisedStatus || state.Type == CastType.Raise))
+        if (config.ShowRaiseOnList && (isParty ? raise.ShowPartyFrame : raise.ShowAllianceFrame) && (state.HasRaisedStatus || state.Type == CastType.Raise))
         {
+            type = CastType.Raise;
             color = config.RaiseListColor;
             return true;
         }
 
+        type = CastType.None;
         color = 0;
         return false;
     }
@@ -467,9 +450,10 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             return;
         }
 
+        var options = type == CastType.Raise ? config.GetRaiseOptions() : config.GetDispelOptions();
         var scale = Math.Clamp(config.IconScale <= 0f ? 1f : config.IconScale, 0.3f, 3f) * ImGui.GetIO().FontGlobalScale;
         var iconSize = new Vector2(40.5f, 54.3f) * scale;
-        if (config.ShowWorldIcon)
+        if (options.ShowWorldIcon)
         {
             var iconHandle = GetWorldIconHandle(type, state);
             if (iconHandle != nint.Zero)
@@ -479,7 +463,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             }
         }
 
-        if (!config.ShowWorldText)
+        if (!options.ShowWorldText)
         {
             return;
         }
@@ -537,10 +521,11 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
     private (CastType Type, string Text) GetWorldText(ActorState state)
     {
-        var casterName = GetCasterDisplayName(state);
+        var options = state.Type == CastType.Raise ? config.GetRaiseOptions() : config.GetDispelOptions();
+        var casterName = options.ShowCasterName ? GetCasterDisplayName(state) : string.Empty;
         if (state.Caster != 0)
         {
-            if (state.Type == CastType.Raise && config.ShowRaise)
+            if (state.Type == CastType.Raise && (config.GetRaiseOptions().ShowWorldIcon || config.GetRaiseOptions().ShowWorldText))
             {
                 return (
                     CastType.Raise,
@@ -551,7 +536,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                             casterName));
             }
 
-            if (state.Type == CastType.Dispel && config.ShowDispel)
+            if (state.Type == CastType.Dispel && (config.GetDispelOptions().ShowWorldIcon || config.GetDispelOptions().ShowWorldText))
             {
                 return (
                     CastType.Dispel,
@@ -563,12 +548,12 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             }
         }
 
-        if (state.HasDispellableStatus && config.ShowDispel)
+        if (state.HasDispellableStatus && (config.GetDispelOptions().ShowWorldIcon || config.GetDispelOptions().ShowWorldText))
         {
             return (CastType.Dispel, OmniLoc.Get("Feature.RaiseDispelEnhancement.NeedDispel"));
         }
 
-        if (state.HasRaisedStatus && config.ShowRaise)
+        if (state.HasRaisedStatus && (config.GetRaiseOptions().ShowWorldIcon || config.GetRaiseOptions().ShowWorldText))
         {
             return (CastType.Raise, OmniLoc.Get("Feature.RaiseDispelEnhancement.Raised"));
         }
@@ -579,7 +564,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     private string GetCasterDisplayName(ActorState state) =>
         state.Caster != 0 && names.TryGetValue(state.Caster, out var name) ? name : string.Empty;
 
-    private void DrawFrameMarker(ImDrawListPtr drawList, ulong actorKey, ActorState state, uint color)
+    private void DrawFrameMarker(ImDrawListPtr drawList, ulong actorKey, ActorState state, uint color, CastType type)
     {
         var position = GetHudPosition(actorKey);
         if (position is null)
@@ -587,21 +572,23 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             return;
         }
 
-        var casterName = config.ShowCasterName ? GetCasterDisplayName(state) : string.Empty;
-        var progress = config.ShowCastProgress ? state.Percentage : (byte)100;
+        var options = type == CastType.Raise ? config.GetRaiseOptions() : config.GetDispelOptions();
+        var matchingCast = state.Type == type;
+        var casterName = matchingCast && options.ShowCasterName ? GetCasterDisplayName(state) : string.Empty;
+        var progress = matchingCast && options.ShowCastProgress ? state.Percentage : (byte)100;
         switch (position.Value.GroupNumber)
         {
-            case 0 when config.ShowPartyFrame:
+            case 0 when options.ShowPartyFrame:
                 DrawPartyRect(drawList, position.Value.MemberIndex, color, progress, casterName);
                 break;
-            case 1 when config.ShowAllianceFrame:
+            case 1 when options.ShowAllianceFrame:
                 DrawAllianceRect(drawList, "_AllianceList1", position.Value.MemberIndex, color, progress, casterName);
                 break;
-            case 2 when config.ShowAllianceFrame:
+            case 2 when options.ShowAllianceFrame:
                 DrawAllianceRect(drawList, "_AllianceList2", position.Value.MemberIndex, color, progress, casterName);
                 break;
             default:
-                if (position.Value.CrossWorld && config.ShowAllianceFrame)
+                if (position.Value.CrossWorld && options.ShowAllianceFrame)
                 {
                     DrawCrossWorldAllianceRect(
                         drawList,
@@ -946,7 +933,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     {
         states.Clear();
         names.Clear();
-        positions.Clear();
+        actorObjects.Clear();
     }
 
     private enum CastType : byte
@@ -978,6 +965,23 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 [Serializable]
 public sealed class RaiseDispelEnhancementConfig
 {
+    public RaiseDispelDisplayOptions? Raise { get; set; }
+    public RaiseDispelDisplayOptions? Dispel { get; set; }
+
+    public RaiseDispelDisplayOptions GetRaiseOptions() => Raise ??= CreateDisplayOptions(ShowRaise);
+    public RaiseDispelDisplayOptions GetDispelOptions() => Dispel ??= CreateDisplayOptions(ShowDispel);
+
+    // 旧配置首次使用时继承共享开关；独立配置保存后不再受旧字段影响。
+    private RaiseDispelDisplayOptions CreateDisplayOptions(bool enabled) => new()
+    {
+        ShowPartyFrame = enabled && ShowPartyFrame,
+        ShowAllianceFrame = enabled && ShowAllianceFrame,
+        ShowWorldIcon = enabled && ShowWorldIcon,
+        ShowWorldText = enabled && ShowWorldText,
+        ShowCasterName = ShowCasterName,
+        ShowCastProgress = ShowCastProgress
+    };
+
     public bool ShowRaise { get; set; } = true;
 
     public bool ShowDispel { get; set; } = true;
@@ -1013,4 +1017,19 @@ public sealed class RaiseDispelEnhancementConfig
     public uint OtherRaiseBackgroundColor { get; set; } = 0xC8FF0000;
 
     public uint DispelWorldColor { get; set; } = 0xC8140A3C;
+}
+
+
+[Serializable]
+public sealed class RaiseDispelDisplayOptions
+{
+    public bool ShowPartyFrame { get; set; } = true;
+    public bool ShowAllianceFrame { get; set; } = true;
+    public bool ShowWorldIcon { get; set; } = true;
+    public bool ShowWorldText { get; set; } = true;
+    public bool ShowCasterName { get; set; } = true;
+    public bool ShowCastProgress { get; set; } = true;
+
+    [Newtonsoft.Json.JsonIgnore]
+    public bool Enabled => ShowPartyFrame || ShowAllianceFrame || ShowWorldIcon || ShowWorldText;
 }
