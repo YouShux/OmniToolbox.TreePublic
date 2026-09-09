@@ -1,7 +1,7 @@
 using System.Drawing;
+using OmenTools.Extensions;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools.Extensions;
 
 namespace OmniToolbox.TreePublic;
 

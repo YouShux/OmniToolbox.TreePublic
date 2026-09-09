@@ -6,11 +6,11 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
-using OmniToolbox.Lifecycle;
-using OmniToolbox.UI;
 using OmenTools;
 using OmenTools.OmenService;
 using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
+using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

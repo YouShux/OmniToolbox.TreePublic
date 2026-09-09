@@ -1,4 +1,7 @@
 using Dalamud.Interface.Textures;
+using OmenTools;
+using OmenTools.Extensions;
+using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -7,9 +10,6 @@ using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools;
-using OmenTools.Extensions;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

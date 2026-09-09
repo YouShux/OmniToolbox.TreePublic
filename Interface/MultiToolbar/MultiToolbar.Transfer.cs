@@ -52,24 +52,9 @@ public sealed partial class MultiToolbar
             }
         }
         config.Commands = commands;
-        KeepBuiltInCommandsFirst();
         config.HiddenWindows = hidden;
         config.MultiDockMigrated = true;
         saveConfig();
-    }
-
-    private void KeepBuiltInCommandsFirst()
-    {
-        var builtIns = new MultiToolbarConfig().Commands;
-        for (var index = builtIns.Count - 1; index >= 0; index--)
-        {
-            var template = builtIns[index];
-            var existing = config.Commands.FirstOrDefault(item => item.Command.Trim().Equals(template.Command, StringComparison.OrdinalIgnoreCase));
-            config.Commands.RemoveAll(item => item.Command.Trim().Equals(template.Command, StringComparison.OrdinalIgnoreCase));
-            var command = existing ?? template;
-            command.Enabled = true;
-            config.Commands.Insert(0, command);
-        }
     }
 
     private void MigrateMultiDockPlugins()
@@ -131,15 +116,14 @@ public sealed partial class MultiToolbar
                 }
                 imported.HiddenWindows = imported.HiddenWindows.Select(NormalizeHiddenWindowName)
                     .Where(CanManageHiddenWindow).ToHashSet(StringComparer.OrdinalIgnoreCase);
-                imported.MultiDockMigrated = config.MultiDockMigrated;
+                imported.MultiDockMigrated = true;
                 imported.SelectedPlugins = imported.SelectedPlugins.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-                imported.MultiDockPluginsMigrated = payload.ContainsKey(nameof(MultiToolbarConfig.SelectedPlugins)) || config.MultiDockPluginsMigrated;
+                imported.MultiDockPluginsMigrated = true;
                 RestoreHiddenWindows();
                 ReleaseBarResources();
                 ReleaseAuxiliaryBars();
                 selectedBarID = "main";
                 JsonConvert.PopulateObject(JsonConvert.SerializeObject(imported, TransferSettings), config, TransferSettings);
-                KeepBuiltInCommandsFirst();
                 autoHideOffset = 0f;
                 nextMarkerRefresh = 0;
                 changed = true;

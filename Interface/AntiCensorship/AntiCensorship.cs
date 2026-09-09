@@ -5,6 +5,10 @@ using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Helpers;
+using OmenTools.Interop.Game.Models;
+using OmenTools.ImGuiOm;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -14,10 +18,6 @@ using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
-using OmenTools.Extensions;
-using OmenTools.Interop.Game.Helpers;
-using OmenTools.Interop.Game.Models;
-using OmenTools.ImGuiOm;
 
 namespace OmniToolbox.TreePublic;
 

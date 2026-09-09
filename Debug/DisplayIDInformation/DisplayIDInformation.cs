@@ -1,4 +1,7 @@
 using Dalamud.Plugin.Services;
+using OmenTools;
+using OmenTools.ImGuiOm;
+using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -6,9 +9,6 @@ using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using OmniToolbox.Config;
 using OmniToolbox.Lifecycle;
-using OmenTools;
-using OmenTools.ImGuiOm;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
@@ -110,8 +110,6 @@ internal static class DisplayIDInformationPanel
     public static bool Draw(DisplayIDInformationConfig config, IconBrowser iconBrowser)
     {
         var changed = false;
-        using var cellPadding = ImRaii.PushStyle(ImGuiStyleVar.CellPadding,
-            new Vector2(ImGui.GetStyle().CellPadding.X, ImGui.GetStyle().CellPadding.Y + ImGui.GetStyle().ItemSpacing.Y * 0.5f));
         using var table = ImRaii.Table(
             "##displayIdInformationSettings",
             4,

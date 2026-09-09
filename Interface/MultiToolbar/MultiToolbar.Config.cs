@@ -2,12 +2,12 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Dalamud.Interface;
+using OmenTools;
+using OmenTools.OmenService;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
-using OmenTools;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
@@ -886,6 +886,7 @@ public class MultiToolbarBarConfig
 
     public bool ShowWorldMarkerOverlay { get; set; } = true;
 
+    [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
     public HashSet<MultiToolbarWorldMarkerType> EnabledWorldMarkers { get; set; } = [..Enum.GetValues<MultiToolbarWorldMarkerType>()];
 
     public List<MultiToolbarVolumePreset> VolumePresets { get; set; } = [];

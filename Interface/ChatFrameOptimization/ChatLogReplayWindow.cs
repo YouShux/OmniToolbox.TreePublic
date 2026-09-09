@@ -255,7 +255,7 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
     private void DrawReplayControls()
     {
         ImGui.SetNextItemWidth(MathF.Min(360f, ImGui.GetContentRegionAvail().X));
-        if (ImGui.InputText(
+        if (OmniControls.InputText(
                 $"{OmniLoc.Get("Feature.ChatLogReplay.Search")}##chatLogReplaySearch",
                 ref searchText,
                 128))

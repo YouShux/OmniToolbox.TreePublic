@@ -1,5 +1,8 @@
 using Dalamud.Interface;
 using Lumina.Excel.Sheets;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Lumina;
+using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -8,9 +11,6 @@ using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools.Extensions;
-using OmenTools.Interop.Game.Lumina;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

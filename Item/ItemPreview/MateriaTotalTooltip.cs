@@ -8,13 +8,13 @@ using InteropGenerator.Runtime;
 using Lumina.Excel.Sheets;
 using Lumina.Text;
 using Lumina.Text.ReadOnly;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Lumina;
+using OmenTools.OmenService;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.Tooltips;
 using OmniToolbox.UI;
-using OmenTools.Extensions;
-using OmenTools.Interop.Game.Lumina;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

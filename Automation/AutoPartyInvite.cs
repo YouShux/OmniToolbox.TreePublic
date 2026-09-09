@@ -461,7 +461,7 @@ internal static class AutoPartyInvitePanel
         ImGui.TextUnformatted(OmniLoc.Get("Feature.AutoPartyInvite.Territory.WorkMode"));
         ImGui.SameLine();
         var changed = false;
-        if (ImGui.RadioButton(
+        if (OmniControls.RadioButton(
                 $"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.Blacklist")}##autoPartyInviteBlacklist",
                 !config.UseWhitelist))
         {
@@ -470,7 +470,7 @@ internal static class AutoPartyInvitePanel
         }
 
         ImGui.SameLine();
-        if (ImGui.RadioButton(
+        if (OmniControls.RadioButton(
                 $"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.Whitelist")}##autoPartyInviteWhitelist",
                 config.UseWhitelist))
         {
@@ -483,9 +483,9 @@ internal static class AutoPartyInvitePanel
         ImGui.Spacing();
         changed |= TerritorySelector.Draw(
             config.UseWhitelist ? config.WhitelistTerritoryIds : config.BlacklistTerritoryIds,
-            OmniLoc.Get(config.UseWhitelist
-                ? "Feature.AutoPartyInvite.Territory.Whitelist.Empty"
-                : "Feature.AutoPartyInvite.Territory.Blacklist.Empty"));
+            config.UseWhitelist
+                ? string.Empty
+                : OmniLoc.Get("Feature.AutoPartyInvite.Territory.Blacklist.Empty"));
         return changed;
     }
 
@@ -689,11 +689,6 @@ internal static class AutoPartyInvitePanel
                     config.EnabledChannels.Count),
                 ImGuiTreeNodeFlags.DefaultOpen | ImGuiTreeNodeFlags.SpanAvailWidth))
         {
-            if (config.EnabledChannels.Count == 0)
-            {
-                ImGui.TextDisabled(OmniLoc.Get("Feature.AutoPartyInvite.Channel.EmptySelection"));
-            }
-
             return changed;
         }
 
@@ -748,11 +743,6 @@ internal static class AutoPartyInvitePanel
                     }
                 }
             }
-        }
-
-        if (config.EnabledChannels.Count == 0)
-        {
-            ImGui.TextDisabled(OmniLoc.Get("Feature.AutoPartyInvite.Channel.EmptySelection"));
         }
 
         return changed;

@@ -3,13 +3,13 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
+using OmniToolbox.Host;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 

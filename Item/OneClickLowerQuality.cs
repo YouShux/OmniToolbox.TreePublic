@@ -132,7 +132,7 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
             return;
         }
 
-        var itemID = ItemUtil.GetBaseId(ContextMenuItemManager.Instance().CurrentItemID).ItemId;
+        var itemID = ItemUtil.GetBaseId(targetItem.ItemId).ItemId;
         if (itemID == 0)
         {
             return;

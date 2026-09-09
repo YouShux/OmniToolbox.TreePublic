@@ -140,7 +140,7 @@ internal static class FoodReminderPanel
         ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Territory.WorkMode"));
         ImGui.SameLine();
         var changed = false;
-        if (ImGui.RadioButton(
+        if (OmniControls.RadioButton(
                 $"{OmniLoc.Get("Feature.FoodReminder.Territory.Blacklist")}##foodReminderBlacklist",
                 !config.UseWhitelist))
         {
@@ -149,7 +149,7 @@ internal static class FoodReminderPanel
         }
 
         ImGui.SameLine();
-        if (ImGui.RadioButton(
+        if (OmniControls.RadioButton(
                 $"{OmniLoc.Get("Feature.FoodReminder.Territory.Whitelist")}##foodReminderWhitelist",
                 config.UseWhitelist))
         {

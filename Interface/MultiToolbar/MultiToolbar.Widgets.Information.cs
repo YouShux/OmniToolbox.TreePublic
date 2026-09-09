@@ -1,6 +1,4 @@
 using Dalamud.Interface;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 using Dalamud.Game.Text;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -13,6 +11,8 @@ using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using WeatherRow = Lumina.Excel.Sheets.Weather;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
 
 namespace OmniToolbox.TreePublic;
 

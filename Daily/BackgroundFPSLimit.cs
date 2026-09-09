@@ -1,14 +1,14 @@
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
+using OmenTools.OmenService;
+using OmenTools.ImGuiOm;
+using ClientFramework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools.OmenService;
-using OmenTools.ImGuiOm;
-using ClientFramework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework;
 
 namespace OmniToolbox.TreePublic;
 

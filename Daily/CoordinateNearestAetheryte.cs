@@ -1,6 +1,8 @@
 using Dalamud.Game.Chat;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
+using OmenTools;
+using OmenTools.OmenService;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -11,8 +13,6 @@ using OmniToolbox.UI.Theme;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.Teleport;
-using OmenTools;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

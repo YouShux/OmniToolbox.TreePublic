@@ -1,14 +1,14 @@
 using System.Drawing;
 using System.Globalization;
 using Lumina.Excel.Sheets;
+using OmenTools.Interop.Game.Lumina;
+using OmenTools.Extensions;
+using LuminaAction = Lumina.Excel.Sheets.Action;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools.Interop.Game.Lumina;
-using OmenTools.Extensions;
-using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreePublic;
 

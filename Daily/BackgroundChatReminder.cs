@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using Dalamud.Game.Chat;
 using Dalamud.Game.Text;
 using Dalamud.Plugin.Services;
+using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -10,7 +11,6 @@ using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

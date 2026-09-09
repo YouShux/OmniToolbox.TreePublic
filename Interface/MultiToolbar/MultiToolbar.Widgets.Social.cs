@@ -6,20 +6,22 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Info;
 using Lumina.Excel.Sheets;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.ImGuiOm;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using OmenTools.Threading.TaskHelper;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed partial class MultiToolbar
 {
     private TaskHelper? onlineStatusDetailTasks;
+    private int beastSize = -1;
     private static readonly uint[] OnlineStatusIds = [47, 17, 12, 22, 21, 23, 32, 31, 27, 28, 30, 29];
     private static readonly uint[] SocietyAetheryteIds = [0, 19, 4, 16, 14, 7, 73, 76, 79, 105, 99, 128, 144, 143, 136, 169, 181, 175, 238, 206, 201];
     private bool DrawSocialWidgetPopup(MultiToolbarWidgetType type)
@@ -101,6 +103,13 @@ public sealed partial class MultiToolbar
         {
             DrawGameConfigSlider(petName, key, ["小", "中", "大"]);
         }
+
+        if (DrawSizeSlider(OmniLoc.Get("Feature.MultiToolbar.BeastSize"), "BeastSize", ref beastSize,
+                [OmniLoc.Get("Feature.MultiToolbar.BeastSizeSmall"), OmniLoc.Get("Feature.MultiToolbar.BeastSizeMedium"), OmniLoc.Get("Feature.MultiToolbar.BeastSizeLarge")]))
+        {
+            var argument = beastSize switch { 0 => "小", 1 => "中", _ => "大" };
+            ExecuteCommand($"/驯兽尺寸 全部 {argument}");
+        }
     }
 
     private void DrawGameConfigSlider(string label, string key, string[] values, bool reverse = false)
@@ -112,7 +121,19 @@ public sealed partial class MultiToolbar
         var raw = DService.Instance().GameConfig.UiConfig.TryGetUInt(configKey, out var configuredValue)
             ? (int)Math.Clamp(configuredValue, 0u, (uint)(values.Length - 1))
             : 0;
-        var displayed = reverse && values.Length == 3 ? 2 - raw : raw;
+        if (DrawSizeSlider(label, configKey, ref raw, values, reverse))
+        {
+            foreach (var key in keys)
+            {
+                DService.Instance().GameConfig.UiConfig.Set(key, (uint)raw);
+            }
+        }
+    }
+
+    private bool DrawSizeSlider(string label, string configKey, ref int raw, string[] values, bool reverse = false)
+    {
+        var changed = false;
+        var displayed = reverse && values.Length == 3 ? 2 - raw : Math.Max(0, raw);
         ImGui.TableNextRow();
         var valueWidth = ImGui.CalcTextSize("不显示").X;
         var rowHeight = OmniTheme.Scale(28f);
@@ -144,22 +165,21 @@ public sealed partial class MultiToolbar
             var next = values.Length <= 1
                 ? 0
                 : (int)MathF.Round((mouseX - trackMin.X - knobWidth * 0.5f) / MathF.Max(1f, trackWidth - knobWidth) * (values.Length - 1));
-            if (next != displayed)
+            next = Math.Clamp(next, 0, values.Length - 1);
+            if (next != displayed || raw < 0)
             {
-                displayed = Math.Clamp(next, 0, values.Length - 1);
-                var value = reverse && values.Length == 3 ? 2 - displayed : displayed;
-                foreach (var key in keys)
-                {
-                    DService.Instance().GameConfig.UiConfig.Set(key, (uint)value);
-                }
+                displayed = next;
+                raw = reverse && values.Length == 3 ? 2 - displayed : displayed;
+                changed = true;
             }
         }
         ImGui.SameLine(0f, OmniTheme.Scale(15f));
         ImGui.SetCursorPosY(ImGui.GetCursorPosY() + OmniTheme.Scale(4f));
         ImGui.SetNextItemWidth(valueWidth);
         var valueIndex = reverse && values.Length == 3 ? 2 - displayed : displayed;
-        ImGui.TextUnformatted(values[valueIndex]);
+        ImGui.TextUnformatted(raw < 0 ? "-" : values[valueIndex]);
         ImGui.PopID();
+        return changed;
     }
 
     private void DrawSocietiesPopup()

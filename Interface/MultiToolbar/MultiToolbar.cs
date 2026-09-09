@@ -1,10 +1,12 @@
-using System.Linq;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Interface;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using OmenTools.Dalamud.Helpers;
+using OmenTools.Extensions;
+using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -13,9 +15,6 @@ using OmniToolbox.Lifecycle;
 using OmniToolbox.Notifications;
 using OmniToolbox.Teleport;
 using OmniToolbox.UI;
-using OmenTools.Dalamud.Helpers;
-using OmenTools.Extensions;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
@@ -70,108 +69,17 @@ public sealed partial class MultiToolbar : ModuleBase
 
     public override bool HasSettings => true;
 
-    // 兼容旧版本重复写入内置按钮的配置，保留用户自定义按钮。
+    // 仅移除已下线的组件，保留用户保存的布局和条目。
     private bool NormalizeWidgets()
     {
         if (config.Widgets is null)
         {
             config.Widgets = [];
+            return true;
         }
 
-        var seenBuiltIns = new HashSet<MultiToolbarWidgetType>();
-        var normalized = new List<MultiToolbarWidgetConfig>(config.Widgets.Count);
-        var changed = false;
-        var commands = config.Commands.DistinctBy(command =>
-            (command.Type, command.Side, command.Enabled, command.ShowIcon, command.DisplayName,
-                command.Name, command.Command, command.RightCommand, command.GameIconID, command.IconFilePath, command.IconGlyph)).ToList();
-        if (commands.Count != config.Commands.Count)
-        {
-            config.Commands = commands;
-            changed = true;
-        }
-        if (!config.TextEntryDefaultsApplied)
-        {
-            foreach (var entry in config.Widgets)
-            {
-                if (entry.Type is (MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList) &&
-                    entry.GameIconID == 0 && entry.DisplayName is null)
-                {
-                    entry.ShowIcon = false;
-                }
-            }
-
-            config.TextEntryDefaultsApplied = true;
-            changed = true;
-        }
-        foreach (var widget in config.Widgets)
-        {
-            if (widget.Type is MultiToolbarWidgetType.ExperienceBar or MultiToolbarWidgetType.SanctuaryIndicator)
-            {
-                changed = true;
-                continue;
-            }
-
-            if (widget.Type is not (MultiToolbarWidgetType.CustomButton or MultiToolbarWidgetType.DtrSingle or MultiToolbarWidgetType.Separator) &&
-                !seenBuiltIns.Add(widget.Type))
-            {
-                changed = true;
-                continue;
-            }
-
-            normalized.Add(widget);
-        }
-
-        if (changed)
-        {
-            config.Widgets = normalized;
-        }
-
-        // 迁移旧版三个内置组件均位于左侧的默认布局。
-        if (config.Widgets.Count == 3 &&
-            config.Widgets.All(static widget => widget.Type != MultiToolbarWidgetType.CustomButton) &&
-            config.Widgets.All(static widget => widget.Side == MultiToolbarWidgetSide.Left))
-        {
-            foreach (var widget in config.Widgets)
-            {
-                widget.Side = widget.Type == MultiToolbarWidgetType.DtrList
-                    ? MultiToolbarWidgetSide.Right
-                    : MultiToolbarWidgetSide.Center;
-            }
-
-            changed = true;
-        }
-
-        var defaults = new (MultiToolbarWidgetType Type, MultiToolbarWidgetSide Side)[]
-        {
-            (MultiToolbarWidgetType.BattleEffects, MultiToolbarWidgetSide.Left),
-            (MultiToolbarWidgetType.Societies, MultiToolbarWidgetSide.Left),
-            (MultiToolbarWidgetType.OnlineStatus, MultiToolbarWidgetSide.Left),
-            (MultiToolbarWidgetType.GearsetSwitcher, MultiToolbarWidgetSide.Left),
-            (MultiToolbarWidgetType.Durability, MultiToolbarWidgetSide.Left),
-            (MultiToolbarWidgetType.RetainerList, MultiToolbarWidgetSide.Left),
-            (MultiToolbarWidgetType.Currencies, MultiToolbarWidgetSide.Left),
-            (MultiToolbarWidgetType.Flag, MultiToolbarWidgetSide.Right),
-            (MultiToolbarWidgetType.Volume, MultiToolbarWidgetSide.Right),
-            (MultiToolbarWidgetType.MailIndicator, MultiToolbarWidgetSide.Right),
-            (MultiToolbarWidgetType.MarkerControl, MultiToolbarWidgetSide.Right),
-            (MultiToolbarWidgetType.WalkingIndicator, MultiToolbarWidgetSide.Right),
-            (MultiToolbarWidgetType.StackedClock, MultiToolbarWidgetSide.Right),
-            (MultiToolbarWidgetType.ToolbarPin, MultiToolbarWidgetSide.Right),
-        };
-        foreach (var (type, side) in defaults)
-        {
-            if (config.Widgets.Any(widget => widget.Type == type))
-            {
-                continue;
-            }
-
-            var widget = CreateDefaultWidget(type);
-            widget.Side = side;
-            config.Widgets.Add(widget);
-            changed = true;
-        }
-
-        return changed;
+        return config.Widgets.RemoveAll(static widget =>
+            widget.Type is MultiToolbarWidgetType.ExperienceBar or MultiToolbarWidgetType.SanctuaryIndicator) > 0;
     }
 
     protected override void OnEnable()
