@@ -1,7 +1,5 @@
 using System.Collections.Frozen;
 using System.Globalization;
-using OmniToolbox.Game;
-using OmniToolbox.UI;
 using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
@@ -10,6 +8,8 @@ using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKi
 using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
+using OmniToolbox.Game;
+using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

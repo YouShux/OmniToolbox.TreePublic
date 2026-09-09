@@ -13,13 +13,13 @@ using KamiToolKit.Controllers;
 using KamiToolKit.Extensions;
 using KamiToolKit.Nodes;
 using KamiToolKit.Premade.Node.Simple;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Helpers;
+using OmenTools.OmenService;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
-using OmenTools.Extensions;
-using OmenTools.Interop.Game.Helpers;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

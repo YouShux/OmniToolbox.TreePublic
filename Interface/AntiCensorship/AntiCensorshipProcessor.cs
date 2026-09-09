@@ -1,9 +1,9 @@
 using System.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
+using TinyPinyin;
 using OmniToolbox.Config;
 using OmniToolbox.UI.Controls;
-using TinyPinyin;
 
 namespace OmniToolbox.TreePublic;
 

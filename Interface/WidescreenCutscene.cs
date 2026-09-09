@@ -1,13 +1,13 @@
 using System.Runtime.InteropServices;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
+using OmenTools;
+using OmenTools.Interop.Game.Models;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.UI;
 using OmniToolbox.Lifecycle;
-using OmenTools;
-using OmenTools.Interop.Game.Models;
 
 namespace OmniToolbox.TreePublic;
 

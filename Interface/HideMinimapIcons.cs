@@ -3,6 +3,7 @@ using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Extensions;
+using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -11,7 +12,6 @@ using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

@@ -2,6 +2,8 @@ using System.Globalization;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using OmenTools;
+using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -9,8 +11,6 @@ using OmniToolbox.Config;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
-using OmenTools;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

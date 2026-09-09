@@ -1,13 +1,13 @@
 using Dalamud.Hooking;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using OmenTools;
+using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
-using OmenTools;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 

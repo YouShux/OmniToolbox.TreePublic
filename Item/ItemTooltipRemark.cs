@@ -3,6 +3,8 @@ using Dalamud.Game.Gui.ContextMenu;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Utility;
+using OmenTools;
+using OmenTools.OmenService;
 using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -10,8 +12,6 @@ using OmniToolbox.Common.Module.Models;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
-using OmenTools;
-using OmenTools.OmenService;
 
 namespace OmniToolbox.TreePublic;
 
@@ -209,13 +209,12 @@ public sealed class ItemTooltipRemark : ModuleBase
 
     private bool DrawRemarkList()
     {
-        ImGui.Separator();
         if (config.Remarks.Count == 0)
         {
-            ImGui.TextDisabled(OmniLoc.Get("Feature.ItemTooltipRemark.Empty"));
             return false;
         }
 
+        ImGui.Separator();
         var editLabel = OmniLoc.Get("Feature.ItemTooltipRemark.Edit");
         var deleteLabel = OmniLoc.Get("Common.Delete");
         var editButtonSize = OmniControls.CompactButtonSize(editLabel);

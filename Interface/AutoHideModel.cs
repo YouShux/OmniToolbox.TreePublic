@@ -1209,7 +1209,7 @@ public sealed class AutoHideModelConfig
         ShowFreeCompany = true
     };
 
-    public bool IncludeSelf { get; set; } = true;
+    public bool IncludeSelf { get; set; }
 
     public bool HideGroundHealingEffects { get; set; } = true;
 

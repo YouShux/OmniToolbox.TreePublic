@@ -9,13 +9,6 @@ using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Nodes;
-using OmniToolbox.Config;
-using OmniToolbox.Common.Module.Abstractions;
-using OmniToolbox.Common.Module.Enums;
-using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
-using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
@@ -23,6 +16,13 @@ using OmenTools.Interop.Game.Lumina;
 using OmenTools.ImGuiOm;
 using OmenTools.OmenService;
 using LuminaAction = Lumina.Excel.Sheets.Action;
+using OmniToolbox.Config;
+using OmniToolbox.Common.Module.Abstractions;
+using OmniToolbox.Common.Module.Enums;
+using OmniToolbox.Common.Module.Models;
+using OmniToolbox.UI;
+using OmniToolbox.Host;
+using OmniToolbox.Lifecycle;
 
 namespace OmniToolbox.TreePublic;
 

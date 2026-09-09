@@ -8,15 +8,15 @@ using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel;
-using OmniToolbox.Config;
-using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmenTools;
 using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Models;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
+using OmniToolbox.Config;
+using OmniToolbox.Host;
+using OmniToolbox.Lifecycle;
 
 namespace OmniToolbox.TreePublic;
 
