@@ -41,13 +41,13 @@ internal static class SkillMonitorDefinitions
     private const ulong Melee = (1UL << 20) | (1UL << 22) | (1UL << 30) | (1UL << 34) | (1UL << 39) | (1UL << 41);
     private const ulong Ranged = (1UL << 23) | (1UL << 31) | (1UL << 38);
     private const ulong Casters = (1UL << 25) | (1UL << 27) | (1UL << 35) | (1UL << 42);
-    private const ulong AllCombat = Tanks | Healers | Melee | Ranged | Casters | (1UL << 36);
+    private const ulong AllCombat = Tanks | Healers | Melee | Ranged | Casters | (1UL << 36) | (1UL << 43);
 
     internal static readonly (SkillMonitorGroup Group, uint[] JobIDs)[] JobGroups =
     [
         (SkillMonitorGroup.Tank, [19, 21, 32, 37]),
         (SkillMonitorGroup.Healer, [33, 24, 40, 28]),
-        (SkillMonitorGroup.Dps, [20, 22, 30, 34, 39, 41, 23, 31, 38, 25, 27, 35, 42])
+        (SkillMonitorGroup.Dps, [20, 22, 30, 34, 39, 41, 23, 31, 38, 25, 27, 35, 42, 36, 43])
     ];
 
     private static readonly RawDefinition[] Defaults =

@@ -225,6 +225,7 @@ public sealed partial class MultiToolbar
             return;
         }
         ref var windows = ref new ImGuiContextPtr(context).Windows;
+        mouseBlockedWindowIDs.Clear();
         for (var index = 0; index < windows.Size; index++)
         {
             var window = windows[index];
@@ -252,6 +253,7 @@ public sealed partial class MultiToolbar
             window.DisableInputsFrames = hidden ? sbyte.MaxValue : (sbyte)0;
             if (hidden)
             {
+                mouseBlockedWindowIDs.Add(window.ID);
                 ref var drawList = ref window.DrawList;
                 drawList.CmdBuffer.Clear();
                 drawList.IdxBuffer.Clear();
@@ -269,6 +271,7 @@ public sealed partial class MultiToolbar
     {
         ApplyHiddenWindows(true);
         nextHiddenWindowRefresh = 0;
+        mouseBlockedWindowIDs.Clear();
         revealedWindows.Clear();
         hiddenWindowManagerOpen = false;
         pickingHiddenWindow = false;
