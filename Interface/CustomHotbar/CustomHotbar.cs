@@ -20,7 +20,8 @@ public sealed class CustomHotbar : ModuleBase
         Title = "自定义热键栏",
         Description = "在屏幕上放置一组可自定义图标、悬浮说明与指令的热键栏, 点击图标即可执行对应的游戏或插件指令",
         Category = ModuleCategory.Interface,
-        Author = "WYJD"
+        Author = "WYJD",
+        SupportUrls = ["https://github.com/wuyujindu"]
     };
 
     private readonly CustomHotbarConfig config;
