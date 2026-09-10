@@ -91,6 +91,7 @@ public sealed partial class MultiToolbar : ModuleBase
         try
         {
             RegisterHiddenWindowEntry(lifetime);
+            RegisterHiddenWindowMouseGuard(lifetime);
             DalamudServices.PluginInterface.UiBuilder.Draw += Draw;
             lifetime.Add(() => DalamudServices.PluginInterface.UiBuilder.Draw -= Draw);
             if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))

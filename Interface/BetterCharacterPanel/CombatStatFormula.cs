@@ -1,3 +1,6 @@
+using Lumina.Excel.Sheets;
+using OmenTools.Interop.Game.Lumina;
+
 namespace OmniToolbox.TreePublic;
 
 internal readonly record struct CombatLevelModifier(int Main, int Sub, int Div);
@@ -37,41 +40,22 @@ internal static class CombatStatFormula
     internal static bool IsCaster(int jobID) =>
         jobID is 6 or 7 or 24 or 25 or 26 or 27 or 28 or 33 or 35 or 36 or 40 or 42;
 
-    internal static int GetAttackModifier(int jobID) => jobID switch
+    internal static int GetAttackModifier(int jobID)
     {
-        1 => 95,
-        2 => 100,
-        3 => 100,
-        4 => 105,
-        5 => 105,
-        6 => 105,
-        7 => 105,
-        19 => 100,
-        20 => 110,
-        21 => 105,
-        22 => 115,
-        23 => 115,
-        24 => 115,
-        25 => 115,
-        26 => 105,
-        27 => 115,
-        28 => 115,
-        29 => 100,
-        30 => 110,
-        31 => 115,
-        32 => 105,
-        33 => 115,
-        34 => 112,
-        35 => 115,
-        36 => 115,
-        37 => 100,
-        38 => 115,
-        39 => 115,
-        40 => 115,
-        41 => 110,
-        42 => 115,
-        _ => 0
-    };
+        if (!LuminaGetter.TryGetRow<ClassJob>((uint)jobID, out var job))
+        {
+            return 0;
+        }
+
+        return job.PrimaryStat switch
+        {
+            1 => job.ModifierStrength,
+            2 => job.ModifierDexterity,
+            4 => job.ModifierIntelligence,
+            5 => job.ModifierMind,
+            _ => 0
+        };
+    }
 
     internal static double GetTraitModifier(int jobID, int level)
     {
