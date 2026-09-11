@@ -898,7 +898,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         return 0;
     }
 
-    private static uint ResolveNativeMacroIconID(
+    internal static uint ResolveNativeMacroIconID(
         RaptureMacroModule* macroModule,
         uint set,
         uint index)
