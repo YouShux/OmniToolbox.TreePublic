@@ -45,6 +45,7 @@ public sealed partial class MultiToolbar
     private float toolbarWidth;
     private int quickCommandCategory = 7;
     private string pluginSearchText = string.Empty;
+    private string commandSearchText = string.Empty;
     private readonly List<IExposedPlugin> loadedPlugins = [];
     private readonly Dictionary<string, IExposedPlugin> installedPlugins = new(StringComparer.OrdinalIgnoreCase);
     private double nextPluginCacheRefreshAt;
@@ -245,11 +246,16 @@ public sealed partial class MultiToolbar
         var centerWidth = MeasureGroupWidth(center);
         var rightWidth = MeasureGroupWidth(right);
         var widgetAvailable = available;
-        if (right.Any(static widget => widget.Type == MultiToolbarWidgetType.DtrList))
+        if (left.Any(static widget => widget.Type == MultiToolbarWidgetType.DtrList) ||
+            center.Any(static widget => widget.Type == MultiToolbarWidgetType.DtrList) ||
+            right.Any(static widget => widget.Type == MultiToolbarWidgetType.DtrList))
         {
-            var rightOtherWidth = MeasureGroupWidth(right, excludeDtr: true);
-            var dtrBudget = MathF.Max(0f, widgetAvailable - leftWidth - centerWidth - rightOtherWidth);
+            var otherWidth = MeasureGroupWidth(left, excludeDtr: true) +
+                MeasureGroupWidth(center, excludeDtr: true) + MeasureGroupWidth(right, excludeDtr: true);
+            var dtrBudget = MathF.Max(0f, widgetAvailable - otherWidth);
             LimitDtrEntries(dtrBudget);
+            leftWidth = MeasureGroupWidth(left);
+            centerWidth = MeasureGroupWidth(center);
             rightWidth = MeasureGroupWidth(right);
         }
 
@@ -526,6 +532,7 @@ public sealed partial class MultiToolbar
             MultiToolbarWidgetType.Durability => "Feature.MultiToolbar.WidgetDurabilityHelp",
             MultiToolbarWidgetType.GearsetSwitcher => "Feature.MultiToolbar.WidgetGearsetSwitcherHelp",
             MultiToolbarWidgetType.Currencies => "Feature.MultiToolbar.WidgetCurrenciesHelp",
+            MultiToolbarWidgetType.DynamicMenu => "Feature.MultiToolbar.DynamicMenu.InteractionHelp",
             _ => null
         };
         if (interactionHelp is not null)
@@ -599,6 +606,26 @@ public sealed partial class MultiToolbar
                     ToggleWidgetPopup(widget.Type);
                 }
 
+                break;
+            case MultiToolbarWidgetType.DynamicMenu:
+                if (ImGui.IsItemClicked(ImGuiMouseButton.Left) || ImGui.IsItemClicked(ImGuiMouseButton.Right))
+                {
+                    var sameMenu = ReferenceEquals(dynamicMenuWidget, widget);
+                    var wasEditing = dynamicMenuEditing;
+                    dynamicMenuWidget = widget;
+                    widget.MenuEntries ??= [];
+                    RefreshDynamicMacroIcons(widget);
+                    dynamicMenuEditing = ImGui.IsItemClicked(ImGuiMouseButton.Right);
+                    if (sameMenu && dynamicMenuEditing && activePopup == PopupKind.Widget && activeWidgetPopupType == widget.Type)
+                    {
+                        break;
+                    }
+                    if ((!sameMenu || wasEditing != dynamicMenuEditing) && activePopup == PopupKind.Widget && activeWidgetPopupType == widget.Type)
+                    {
+                        ClosePopup();
+                    }
+                    ToggleWidgetPopup(widget.Type);
+                }
                 break;
             case MultiToolbarWidgetType.ToolbarPin:
                 if (ImGui.IsItemClicked())
@@ -731,6 +758,7 @@ public sealed partial class MultiToolbar
     {
         MultiToolbarWidgetType.PluginList => FontAwesomeIcon.Plug,
         MultiToolbarWidgetType.CommandList => FontAwesomeIcon.Terminal,
+        MultiToolbarWidgetType.DynamicMenu => null,
         MultiToolbarWidgetType.DtrList => FontAwesomeIcon.List,
         MultiToolbarWidgetType.CustomButton => FontAwesomeIcon.Terminal,
         MultiToolbarWidgetType.QuickCommands => null,
@@ -999,6 +1027,7 @@ public sealed partial class MultiToolbar
             MultiToolbarWidgetType.CommandList => commandEntryLabel,
             MultiToolbarWidgetType.DtrList => dtrEntryLabel,
             MultiToolbarWidgetType.QuickCommands => OmniLoc.Get("Feature.MultiToolbar.WidgetQuickCommands"),
+            MultiToolbarWidgetType.DynamicMenu => OmniLoc.Get("Feature.MultiToolbar.WidgetDynamicMenu"),
             MultiToolbarWidgetType.BattleEffects => OmniLoc.Get("Feature.MultiToolbar.WidgetBattleEffects"),
             MultiToolbarWidgetType.Societies => OmniLoc.Get("Feature.MultiToolbar.WidgetSocieties"),
             MultiToolbarWidgetType.OnlineStatus => OmniLoc.Get("Feature.MultiToolbar.WidgetOnlineStatus"),
@@ -1028,7 +1057,9 @@ public sealed partial class MultiToolbar
         var popupWidth = MathF.Min(GetPopupWidth(activePopup), viewport.WorkSize.X);
         var isListPopup = activePopup is PopupKind.Plugins or PopupKind.Commands ||
                           activePopup == PopupKind.Widget && activeWidgetPopupType == MultiToolbarWidgetType.QuickCommands;
-        ImGui.SetNextWindowSize(new Vector2(popupWidth, isListPopup ? OmniTheme.Scale(PopupListHeight + 70f) : 0f), ImGuiCond.Always);
+        var dynamicEditor = activePopup == PopupKind.Widget && activeWidgetPopupType == MultiToolbarWidgetType.DynamicMenu && dynamicMenuEditing;
+        ImGui.SetNextWindowSize(new Vector2(popupWidth, dynamicEditor ? OmniTheme.Scale(640f) :
+            isListPopup ? OmniTheme.Scale(PopupListHeight + 70f) : 0f), ImGuiCond.Always);
         var availableHeight = config.Alignment == MultiToolbarAlignment.Bottom
             ? popupPosition.Y - viewport.WorkPos.Y
             : viewport.WorkPos.Y + viewport.WorkSize.Y - popupPosition.Y;
@@ -1067,6 +1098,8 @@ public sealed partial class MultiToolbar
         var visible = ImGui.Begin($"##multiToolbarPopup_{barID}", flags);
         var hasFocus = ImGui.IsWindowFocused(ImGuiFocusedFlags.RootAndChildWindows);
         var editingList = ImGui.IsPopupOpen("##multiToolbarPluginsEditor") || ImGui.IsPopupOpen("##multiToolbarCommandsEditor");
+        editingList |= activeWidgetPopupType == MultiToolbarWidgetType.DynamicMenu &&
+            (ImGui.IsPopupOpen("##addDynamicEntry") || ImGui.IsPopupOpen("##dynamicShortcutPicker"));
         if (!editingList && ((!popupOpenedThisFrame && !hasFocus) || ImGui.IsKeyPressed(ImGuiKey.Escape)))
         {
             ImGui.End();
@@ -1107,6 +1140,10 @@ public sealed partial class MultiToolbar
                 if (activeWidgetPopupType == MultiToolbarWidgetType.QuickCommands)
                 {
                     DrawQuickCommandsPopup();
+                }
+                else if (activeWidgetPopupType == MultiToolbarWidgetType.DynamicMenu)
+                {
+                    DrawDynamicMenuPopup();
                 }
                 else if (!DrawSocialWidgetPopup(activeWidgetPopupType) &&
                     !DrawInventoryWidgetPopup(activeWidgetPopupType) &&
@@ -1165,6 +1202,7 @@ public sealed partial class MultiToolbar
                 MultiToolbarWidgetType.OnlineStatus => 320f,
                 MultiToolbarWidgetType.BattleEffects => 380f,
                 MultiToolbarWidgetType.QuickCommands => 760f,
+                MultiToolbarWidgetType.DynamicMenu => dynamicMenuEditing ? 640f : 360f,
                 _ => PopupWidth,
             }
             : kind is PopupKind.Plugins or PopupKind.Commands ? 440f : PopupWidth);
@@ -1417,20 +1455,19 @@ public sealed partial class MultiToolbar
 
     private void DrawCommandPopup()
     {
-        var headerPosition = ImGui.GetCursorScreenPos();
-        var headerWidth = ImGui.GetContentRegionAvail().X;
-        var buttonSize = OmniControls.CompactButtonSize(OmniLoc.Get("Feature.MultiToolbar.EditCommands"));
-        ImGui.BeginGroup();
-        ImGui.SetCursorScreenPos(headerPosition + new Vector2(0f, MathF.Max(0f, (buttonSize.Y - ImGui.GetTextLineHeight()) * 0.5f)));
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.CommandList"));
+        ImGui.SetNextItemWidth(MathF.Max(1f, ImGui.GetContentRegionAvail().X - ImGui.GetFrameHeight() - ImGui.GetStyle().ItemSpacing.X));
+        OmniControls.InputTextWithHint(
+            "##multiToolbarCommandSearch",
+            OmniLoc.Get("Feature.MultiToolbar.SearchCommand"),
+            ref commandSearchText,
+            64);
         ImGui.SameLine();
-        ImGui.SetCursorScreenPos(new Vector2(
-            MathF.Max(ImGui.GetCursorScreenPos().X, headerPosition.X + headerWidth - buttonSize.X),
-            headerPosition.Y));
-        DrawCommandEditorButton();
-        ImGui.EndGroup();
+        DrawCommandEditorButton(true);
         ImGui.Spacing();
-        List<MultiToolbarWidgetConfig> widgets = [..config.Commands.Where(command => command.Enabled)];
+        var search = commandSearchText.Trim();
+        List<MultiToolbarWidgetConfig> widgets = [..config.Commands.Where(command => command.Enabled &&
+            (search.Length == 0 || command.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+             command.Command.Contains(search, StringComparison.OrdinalIgnoreCase)))];
 
         if (widgets.Count == 0)
         {
@@ -1581,6 +1618,10 @@ public sealed partial class MultiToolbar
         foreach (var entry in DService.Instance().DTRBar.Entries.OrderBy(entry =>
                      config.DtrOrder.IndexOf(entry.Title) is var order && order >= 0 ? order : int.MaxValue).Reverse())
         {
+            if (config.Widgets.Any(widget => widget.Type == MultiToolbarWidgetType.DtrSingle && widget.DtrTitle == entry.Title))
+            {
+                continue;
+            }
             if (!entry.Shown || entry.UserHidden || string.IsNullOrWhiteSpace(DtrText(entry)))
             {
                 continue;

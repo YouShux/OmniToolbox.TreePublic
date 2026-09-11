@@ -7,6 +7,7 @@ using OmenTools.Extensions;
 using OmenTools.OmenService;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
@@ -131,9 +132,9 @@ public sealed partial class MultiToolbar
 
         var iconSize = GetPopupRowIconSize();
         var iconPosition = origin + new Vector2(ImGui.GetStyle().FramePadding.X, (rowHeight - iconSize) * 0.5f);
-        if (iconID > 0 && ImageHelper.GetGameIcon(iconID) is { } texture)
+        if (iconID > 0)
         {
-            ImGui.GetWindowDrawList().AddImage(texture.Handle, iconPosition, iconPosition + new Vector2(iconSize));
+            FramedGameIcon.Draw(iconID, iconPosition, new Vector2(iconSize), drawFrame: IconBrowser.IsActionOrItemIcon(iconID));
         }
 
         ImGui.GetWindowDrawList().AddText(

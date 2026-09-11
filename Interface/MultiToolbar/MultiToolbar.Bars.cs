@@ -174,7 +174,7 @@ public sealed partial class MultiToolbar
     private void Draw()
     {
         SyncAuxiliaryBars();
-        UpdateNativeDtrVisibility(UsesNativeDtr());
+        UpdateNativeDtrVisibility(ShouldHideNativeInfoBar());
         var worldMarkersDrawn = HasWorldMarkerOverlay();
         DrawBar(worldMarkersDrawn);
         foreach (var bar in auxiliaryToolbars)
@@ -193,6 +193,9 @@ public sealed partial class MultiToolbar
         config.Widgets.Any(widget => widget.Enabled && widget.Type == MultiToolbarWidgetType.DtrList) ||
         CollectionConfig.AuxiliaryBars.Any(bar =>
             bar.Widgets.Any(widget => widget.Enabled && widget.Type == MultiToolbarWidgetType.DtrList));
+
+    private bool ShouldHideNativeInfoBar() =>
+        config.HideNativeInfoBar && UsesNativeDtr();
 
     private void ReleaseBarResources()
     {
