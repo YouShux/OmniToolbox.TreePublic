@@ -558,7 +558,10 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
 
     private void AlignJobDropDownList()
     {
-        if (jobDropDown is null) return;
+        if (jobDropDown is null)
+        {
+            return;
+        }
 
         jobDropDown.OptionListNode.Width = ContentSize.X;
         jobDropDown.RecalculateScrollParams();
@@ -590,13 +593,22 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
 
     private bool FollowSelected()
     {
-        if (batchMode || listNode is null || selected is null) return true;
+        if (batchMode || listNode is null || selected is null)
+        {
+            return true;
+        }
 
         var index = rows.FindIndex(row => ReferenceEquals(row.Entry, selected));
-        if (index < 0) return true;
+        if (index < 0)
+        {
+            return true;
+        }
 
         var itemHeight = MoreGearSetListItemNode.ItemHeight + ItemSpacing;
-        if (itemHeight <= 0f || listNode.Height < itemHeight) return false;
+        if (itemHeight <= 0f || listNode.Height < itemHeight)
+        {
+            return false;
+        }
 
         var visible   = Math.Max(1, (int)(listNode.Height / itemHeight));
         var maxScroll = Math.Max(0, rows.Count - visible);
@@ -609,14 +621,20 @@ internal sealed class MoreGearSetListNativeUI : NativeAddon
     private int GetListScroll()
     {
         var itemHeight = MoreGearSetListItemNode.ItemHeight + ItemSpacing;
-        if (listNode is null || itemHeight <= 0f) return 0;
+        if (listNode is null || itemHeight <= 0f)
+        {
+            return 0;
+        }
 
         return (int)(listNode.ScrollBarNode.ScrollPosition / itemHeight);
     }
 
     private void SetListScroll(int position)
     {
-        if (listNode is null) return;
+        if (listNode is null)
+        {
+            return;
+        }
 
         var itemHeight = MoreGearSetListItemNode.ItemHeight + ItemSpacing;
         listNode.ScrollBarNode.ScrollPosition = (int)(position * itemHeight);
