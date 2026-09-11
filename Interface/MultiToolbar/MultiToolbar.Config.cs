@@ -50,6 +50,16 @@ public sealed partial class MultiToolbar
             config.AutoExpandOnHover = autoExpandOnHover;
             changed = true;
         }
+        if (barID == "main")
+        {
+            ImGui.SameLine();
+            var hideNativeInfoBar = config.HideNativeInfoBar;
+            if (OmniControls.Checkbox(OmniLoc.Get("Feature.MultiToolbar.HideNativeInfoBar"), ref hideNativeInfoBar, rowHeight))
+            {
+                config.HideNativeInfoBar = hideNativeInfoBar;
+                changed = true;
+            }
+        }
         ImGui.SetCursorScreenPos(origin + new Vector2(0f, rowStride * 2f - rowSpacing * 0.5f));
         changed |= DrawGeneralSettings();
 
@@ -77,12 +87,27 @@ public sealed partial class MultiToolbar
                         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.WidgetSideCenter"));
                         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.WidgetSideRight"));
                         ImGui.TableSetupColumn(OmniLoc.Get("Feature.MultiToolbar.ServerInfoBar"));
-                        var headerHeight = ImGui.GetTextLineHeight();
+                        var editorOrder = GetWidgetEditorColumnOrder();
+                        var headerMoveFrom = -1;
+                        var headerMoveTo = -1;
+                        var headerHeight = MathF.Max(OmniTheme.CheckboxSize(), ImGui.GetFrameHeight());
                         OmniControls.BeginTableHeaderRow(headerHeight);
-                        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.WidgetSideLeft"), headerHeight);
-                        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.WidgetSideCenter"), headerHeight);
-                        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.WidgetSideRight"), headerHeight);
-                        OmniControls.TableHeader(OmniLoc.Get("Feature.MultiToolbar.ServerInfoBar"), headerHeight);
+                        for (var column = 0; column < 4; column++)
+                        {
+                            ImGui.TableNextColumn();
+                            using var headerID = ImRaii.PushId($"header{column}");
+                            var source = DrawReorderHandle("OMNI_TOOLBAR_COLUMN", column, headerHeight);
+                            if (source >= 0)
+                            {
+                                headerMoveFrom = source;
+                                headerMoveTo = column;
+                            }
+                            ImGui.SameLine();
+                            ImGui.AlignTextToFramePadding();
+                            ImGui.TextUnformatted(editorOrder[column] == 3
+                                ? OmniLoc.Get("Feature.MultiToolbar.ServerInfoBar")
+                                : OmniLoc.Get(WidgetEditorSideKey(GetWidgetEditorSide(editorOrder, column))));
+                        }
                         ImGui.TableNextRow();
                         var columnHeight = MathF.Max(ImGui.GetFrameHeight(), ImGui.GetContentRegionAvail().Y - ImGui.GetStyle().CellPadding.Y * 2f);
                         for (var column = 0; column < 4; column++)
@@ -95,20 +120,20 @@ public sealed partial class MultiToolbar
                             {
                                 continue;
                             }
-                            if (column == 3)
+                            if (editorOrder[column] == 3)
                             {
                                 changed |= DrawDtrSelection();
+                                DrawWidgetEditorDropArea(null);
                             }
                             else
                             {
-                                changed |= DrawWidgetEditor(column switch
-                                {
-                                    0 => MultiToolbarWidgetSide.Left,
-                                    1 => MultiToolbarWidgetSide.Center,
-                                    _ => MultiToolbarWidgetSide.Right,
-                                });
+                                var side = GetWidgetEditorSide(editorOrder, column);
+                                changed |= DrawWidgetEditor(side);
+                                DrawWidgetEditorDropArea(side);
                             }
                         }
+                        changed |= ApplyWidgetEditorDrop();
+                        changed |= SwapWidgetEditorColumns(editorOrder, headerMoveFrom, headerMoveTo);
                     }
                 }
             }
@@ -274,6 +299,10 @@ public sealed partial class MultiToolbar
         var moveTo = -1;
         foreach (var entry in entries.OrderBy(entry => config.DtrOrder.IndexOf(entry.Title)).Reverse())
         {
+            if (config.Widgets.Any(widget => widget.Type == MultiToolbarWidgetType.DtrSingle && widget.DtrTitle == entry.Title))
+            {
+                continue;
+            }
             var index = config.DtrOrder.IndexOf(entry.Title);
             using var id = ImRaii.PushId(index);
             var source = DrawReorderHandle("OMNI_TOOLBAR_DTR", index, ImGui.GetFrameHeight());
@@ -282,6 +311,7 @@ public sealed partial class MultiToolbar
                 moveFrom = source;
                 moveTo = index;
             }
+            AcceptReturnedDtrDrop(index);
             ImGui.SameLine();
             var selected = config.CollapsedDtrTitles.Contains(entry.Title);
             if (OmniControls.Checkbox($"{entry.Title}##multiToolbarDtr_{entry.Title}", ref selected))
@@ -317,8 +347,6 @@ public sealed partial class MultiToolbar
     {
         var changed = false;
         var removeIndex = -1;
-        var moveFrom = -1;
-        var moveTo = -1;
         var rowContentHeight = MathF.Max(OmniTheme.CheckboxSize(), ImGui.GetFrameHeight());
         using var padding = ImRaii.PushStyle(
             ImGuiStyleVar.FramePadding,
@@ -364,12 +392,12 @@ public sealed partial class MultiToolbar
                     using var widgetID = ImRaii.PushId(index);
                     ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
                     ImGui.TableNextColumn();
-                    var source = DrawReorderHandle($"OMNI_TOOLBAR_WIDGET_{columnSide}", index, rowContentHeight);
+                    var source = DrawReorderHandle("OMNI_TOOLBAR_WIDGET", index, rowContentHeight);
                     if (source >= 0)
                     {
-                        moveFrom = source;
-                        moveTo = index;
+                        pendingWidgetDrop = (source, columnSide, index, false);
                     }
+                    AcceptDtrWidgetDrop(columnSide, index);
                     ImGui.TableNextColumn();
                     var enabled = widget.Enabled;
                     if (OmniControls.Checkbox($"##multiToolbarWidgetEnabled{index}", ref enabled, rowContentHeight))
@@ -410,6 +438,12 @@ public sealed partial class MultiToolbar
                         ImGui.OpenPopup($"##multiToolbarWidgetDetail{index}");
                     }
 
+                    if (widget.Type == MultiToolbarWidgetType.DynamicMenu)
+                    {
+                        ImGui.SetNextWindowSize(
+                            Vector2.Min(OmniTheme.Scale(new Vector2(640f)), ImGui.GetMainViewport().WorkSize),
+                            ImGuiCond.Always);
+                    }
                     ImGui.SetNextWindowSizeConstraints(
                         new Vector2(OmniTheme.Scale(360f), 0f),
                         ImGui.GetMainViewport().WorkSize);
@@ -418,7 +452,9 @@ public sealed partial class MultiToolbar
                         if (detail)
                         {
                             DrawEditorBackground(WidgetTypeLabel(widget.Type));
+                            ImGui.AlignTextToFramePadding();
                             ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.WidgetPosition"));
+                            ImGui.SameLine();
                             var side = (int)widget.Side;
                             ImGui.SetNextItemWidth(-1f);
                             if (ImGui.Combo($"##multiToolbarWidgetSide{index}", ref side, sideLabels, sideLabels.Length))
@@ -431,20 +467,27 @@ public sealed partial class MultiToolbar
                             {
                                 changed |= DrawSingleDtrSettings(widget);
                             }
+                            ImGui.AlignTextToFramePadding();
+                            ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.CommandName"));
+                            ImGui.SameLine();
+                            var name = widget.DisplayName ?? WidgetLabel(widget, index);
+                            ImGui.SetNextItemWidth(-1f);
+                            if (ImGui.InputText($"##multiToolbarWidgetName{index}", ref name, 128))
+                            {
+                                widget.DisplayName = name;
+                                changed = true;
+                                if (widget.Type == MultiToolbarWidgetType.CustomButton)
+                                {
+                                    widget.Name = name;
+                                }
+                            }
+                            if (widget.Type == MultiToolbarWidgetType.DynamicMenu)
+                            {
+                                changed |= DrawWidgetIconEditor(widget, index);
+                                changed |= DrawDynamicMenuEditor(widget);
+                            }
                             else
                             {
-                                ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.CommandName"));
-                                var name = widget.DisplayName ?? WidgetLabel(widget, index);
-                                ImGui.SetNextItemWidth(-1f);
-                                if (ImGui.InputText($"##multiToolbarWidgetName{index}", ref name, 128))
-                                {
-                                    widget.DisplayName = name;
-                                    changed = true;
-                                    if (widget.Type == MultiToolbarWidgetType.CustomButton)
-                                    {
-                                        widget.Name = name;
-                                    }
-                                }
                                 if (widget.Type == MultiToolbarWidgetType.CustomButton)
                                 {
                                     for (var button = 0; button < 2; button++)
@@ -474,7 +517,6 @@ public sealed partial class MultiToolbar
                                     }
                                 }
 
-                                ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.CommandIcon"));
                                 changed |= DrawWidgetIconEditor(widget, index);
                             }
                         }
@@ -498,10 +540,6 @@ public sealed partial class MultiToolbar
         {
             config.Widgets.RemoveAt(removeIndex);
             changed = true;
-        }
-        else
-        {
-            changed |= MoveEntry(config.Widgets, moveFrom, moveTo);
         }
 
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
@@ -607,6 +645,9 @@ public sealed partial class MultiToolbar
         }
 
         ImGui.SameLine();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.CommandIcon"));
+        ImGui.SameLine();
         var iconText = widget.GameIconID.ToString(CultureInfo.InvariantCulture);
         ImGui.SetNextItemWidth(MathF.Max(1f, ImGui.GetContentRegionAvail().X - OmniTheme.CheckboxSize() - ImGui.GetStyle().ItemSpacing.X));
         if (ImGui.InputText($"##multiToolbarWidgetIcon{index}", ref iconText, 16) &&
@@ -652,7 +693,7 @@ public sealed partial class MultiToolbar
     };
 
     private static bool DefaultWidgetShowIcon(MultiToolbarWidgetType type) => type is not
-        (MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList or MultiToolbarWidgetType.DtrList or MultiToolbarWidgetType.DtrSingle or MultiToolbarWidgetType.StackedClock or MultiToolbarWidgetType.Separator);
+        (MultiToolbarWidgetType.PluginList or MultiToolbarWidgetType.CommandList or MultiToolbarWidgetType.DtrList or MultiToolbarWidgetType.DtrSingle or MultiToolbarWidgetType.StackedClock or MultiToolbarWidgetType.Separator or MultiToolbarWidgetType.DynamicMenu);
 
     private static string MultiToolbarWidgetCommand(MultiToolbarWidgetType type) => type switch
     {
@@ -712,6 +753,7 @@ public sealed partial class MultiToolbar
         MultiToolbarWidgetType.CustomButton => OmniLoc.Get("Feature.MultiToolbar.WidgetCustomButtonHelp"),
         MultiToolbarWidgetType.QuickCommands => OmniLoc.Get("Feature.MultiToolbar.WidgetQuickCommandsHelp"),
         MultiToolbarWidgetType.Separator => OmniLoc.Get("Feature.MultiToolbar.WidgetSeparatorHelp"),
+        MultiToolbarWidgetType.DynamicMenu => OmniLoc.Get("Feature.MultiToolbar.WidgetDynamicMenuHelp"),
         _ => WidgetTypeLabel(type)
     };
 }
@@ -757,6 +799,7 @@ public enum MultiToolbarWidgetType
     DtrSingle,
     QuickCommands,
     Separator,
+    DynamicMenu,
 }
 
 [Obfuscation(Exclude = true, ApplyToMembers = true)]
@@ -783,6 +826,8 @@ public sealed class MultiToolbarWidgetConfig
 
     public string Name { get; set; } = string.Empty;
     public string DtrTitle { get; set; } = string.Empty;
+    [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
+    public List<MultiToolbarMenuEntry> MenuEntries { get; set; } = [];
 
     public string Command { get; set; } = string.Empty;
     public string RightCommand { get; set; } = string.Empty;
@@ -850,9 +895,15 @@ public class MultiToolbarBarConfig
         new() { Side = MultiToolbarWidgetSide.Right, Type = MultiToolbarWidgetType.ToolbarPin },
     ];
 
+    [Newtonsoft.Json.JsonProperty(ObjectCreationHandling = Newtonsoft.Json.ObjectCreationHandling.Replace)]
+    public List<int> WidgetEditorColumnOrder { get; set; } = [0, 1, 2, 3];
+
     public MultiToolbarAlignment Alignment { get; set; } = MultiToolbarAlignment.Top;
 
     public bool AutoExpandOnHover { get; set; } = true;
+
+    // 仅主工具栏读取；使用服务器信息栏组件时隐藏原生 _DTR 信息栏。
+    public bool HideNativeInfoBar { get; set; } = true;
 
     public float BarVerticalOffset { get; set; } = 0f;
 

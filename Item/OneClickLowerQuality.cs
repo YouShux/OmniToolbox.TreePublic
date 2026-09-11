@@ -10,9 +10,10 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmenTools;
 using OmenTools.Extensions;
+using OmenTools.Info.Game.Data;
+using OmenTools.Interop.Game.AddonEvent;
 using OmenTools.OmenService;
 using OmenTools.Threading.TaskHelper;
-using OmenTools.Threading.TaskHelper.Enums;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -72,10 +73,15 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
     ];
 
     private readonly Queue<InventorySlot> pendingSlots = new();
-    private AddonEventRegistry? addonEvents;
     private TaskHelper? taskHelper;
+    private AddonEventRegistry? addonEvents;
     private InventorySlot currentSlot;
-    private bool skipCurrent;
+    private uint ownerAddonID;
+    private ushort confirmationAddonID;
+    private nint confirmationAddonAddress;
+    private bool awaitingWindow;
+    private bool checkboxSent;
+    private bool confirmationClosed;
 
     public override bool HasSettings => true;
 
@@ -86,11 +92,13 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
         taskHelper = new()
         {
             RetryIntervalMS = 100,
-            TimeoutMS = 2_000
+            TimeoutMS = 15_000,
+            TimeoutAction = StopPending,
+            ExceptionAction = StopPending
         };
-        var events = new AddonEventRegistry(DalamudServices.AddonLifecycle);
-        events.Register(AddonEvent.PostSetup, "SelectYesno", OnSelectYesnoSetup);
-        addonEvents = events;
+        addonEvents = new(DalamudServices.AddonLifecycle);
+        addonEvents.Register(AddonEvent.PostSetup, "SelectYesno", OnConfirmation);
+        addonEvents.Register(AddonEvent.PreFinalize, "SelectYesno", OnConfirmation);
         DService.Instance().ContextMenu.OnMenuOpened += OnMenuOpened;
     }
 
@@ -99,10 +107,11 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
         DService.Instance().ContextMenu.OnMenuOpened -= OnMenuOpened;
         addonEvents?.Dispose();
         addonEvents = null;
+        awaitingWindow = false;
         pendingSlots.Clear();
+        taskHelper?.Abort();
         taskHelper?.Dispose();
         taskHelper = null;
-        skipCurrent = false;
     }
 
     protected override bool OnInterruptAutomation()
@@ -114,7 +123,7 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
 
         pendingSlots.Clear();
         taskHelper?.Abort();
-        skipCurrent = false;
+        awaitingWindow = false;
         return true;
     }
 
@@ -159,6 +168,13 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
             return;
         }
 
+        var context = AgentInventoryContext.Instance();
+        if (context == null || context->OwnerAddonId == 0)
+        {
+            return;
+        }
+
+        ownerAddonID = context->OwnerAddonId;
         pendingSlots.Clear();
         CollectSlots(sourceContainer, itemID);
         foreach (var configuredItemID in config.ItemIDs)
@@ -189,81 +205,156 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
             return;
         }
 
-        skipCurrent = false;
-        EnqueueCurrent(OpenCurrent);
-        taskHelper.DelayNext(300);
-        EnqueueCurrent(WaitCurrentApplied);
+        confirmationAddonID = 0;
+        confirmationAddonAddress = 0;
+        awaitingWindow = false;
+        checkboxSent = false;
+        confirmationClosed = false;
+        taskHelper.Enqueue(OpenCurrent);
+        taskHelper.Enqueue(ConfirmCurrent);
+        taskHelper.Enqueue(WaitCurrentApplied);
         taskHelper.Enqueue(EnqueueNext);
     }
 
-    private void EnqueueCurrent(Func<bool> action) => taskHelper!.Enqueue(
-        action,
-        timeoutBehaviour: TaskAbortBehaviour.AbortCurrent,
-        exceptionBehaviour: TaskAbortBehaviour.AbortCurrent,
-        timeoutAction: SkipCurrent,
-        exceptionAction: SkipCurrent);
-
     private bool OpenCurrent()
     {
-        if (skipCurrent)
+        if (!CheckFrameworkThread())
         {
             return true;
         }
 
         if (!TryGetCurrentSlot(out var slot))
         {
-            skipCurrent = true;
             return true;
         }
 
         var context = AgentInventoryContext.Instance();
-        var inventory = AgentInventory.Instance();
-        if (context == null || inventory == null)
+        var manager = RaptureAtkUnitManager.Instance();
+        var owner = manager == null ? null : manager->GetAddonById((ushort)ownerAddonID);
+        var confirmation = Addons.SelectYesno;
+        if (context == null || owner == null || !owner->IsAddonAndNodesReady() ||
+            confirmation != null && confirmation->IsVisible)
         {
             return false;
         }
 
-        context->LowerItemQuality(slot, currentSlot.Container, currentSlot.Slot, inventory->GetActiveAddonID());
+        awaitingWindow = true;
+        context->LowerItemQuality(slot, currentSlot.Container, currentSlot.Slot, ownerAddonID);
         return true;
     }
 
-    private void OnSelectYesnoSetup(AddonEvent _, AddonArgs args)
+    private void OnConfirmation(AddonEvent type, AddonArgs args)
     {
-        if (taskHelper is null ||
-            !taskHelper.IsBusy ||
-            skipCurrent ||
-            !TryGetCurrentSlot(out var _))
+        var addon = (AtkUnitBase*)args.Addon.Address;
+        if (type == AddonEvent.PreFinalize)
+        {
+            if ((nint)addon == confirmationAddonAddress && addon->Id == confirmationAddonID)
+            {
+                confirmationClosed = true;
+            }
+
+            return;
+        }
+
+        if (!awaitingWindow || taskHelper?.IsBusy != true || !TryGetCurrentSlot(out _))
         {
             return;
         }
 
-        var addon = (AddonSelectYesno*)args.Addon.Address;
-        var confirm = addon->ConfirmCheckBox;
-        if (confirm == null ||
-            confirm->AtkResNode == null ||
-            !confirm->AtkResNode->NodeFlags.HasFlag(NodeFlags.Visible))
-        {
-            return;
-        }
-
-        if (!confirm->IsChecked)
-        {
-            confirm->Click(3);
-        }
-
-        var yesButton = addon->YesButton;
-        if (yesButton != null && !yesButton->IsEnabled && yesButton->AtkComponentBase.OwnerNode != null)
-        {
-            var flags = (ushort*)&yesButton->AtkComponentBase.OwnerNode->AtkResNode.NodeFlags;
-            *flags |= 1 << 5;
-        }
-
-        addon->AtkUnitBase.FireCallbackInt(0);
+        confirmationAddonID = addon->Id;
+        confirmationAddonAddress = (nint)addon;
+        awaitingWindow = false;
     }
 
-    private bool WaitCurrentApplied() => skipCurrent || !TryGetCurrentSlot(out _);
+    private bool ConfirmCurrent()
+    {
+        if (!CheckFrameworkThread())
+        {
+            return true;
+        }
 
-    private void SkipCurrent() => skipCurrent = true;
+        if (confirmationClosed)
+        {
+            StopPending();
+            taskHelper?.Abort();
+            return true;
+        }
+
+        if (!TryGetCurrentSlot(out _))
+        {
+            return true;
+        }
+
+        var addon = (AddonSelectYesno*)Addons.SelectYesno;
+        // 只确认本次原生调用打开的窗口，等创建调用返回后再操作控件。
+        if (addon == null || !addon->AtkUnitBase.IsAddonAndNodesReady() ||
+            confirmationAddonID == 0 || addon->Id != confirmationAddonID ||
+            (nint)addon != confirmationAddonAddress)
+        {
+            return false;
+        }
+
+        var confirm = addon->ConfirmCheckBox;
+        if (confirm != null && confirm->AtkResNode != null &&
+            confirm->AtkResNode->IsVisible() && !confirm->IsChecked)
+        {
+            if (checkboxSent)
+            {
+                return false;
+            }
+
+            if (confirm->OwnerNode == null)
+            {
+                return false;
+            }
+
+            checkboxSent = true;
+            // 窗口点击通知不改变控件状态，先通过原生接口勾选，再通知窗口。
+            confirm->SetChecked(true);
+            addon->AtkUnitBase.ClickComponent(confirm->OwnerNode, 3, AtkEventType.ButtonClick);
+            return false;
+        }
+
+        if (addon->YesButton == null || !addon->YesButton->IsEnabled)
+        {
+            return false;
+        }
+
+        return AddonSelectYesnoEvent.ClickYes();
+    }
+
+    private bool WaitCurrentApplied()
+    {
+        if (!CheckFrameworkThread())
+        {
+            return true;
+        }
+
+        var confirmation = Addons.SelectYesno;
+        return (confirmation == null || !confirmation->IsVisible) && !TryGetCurrentSlot(out _);
+    }
+
+    private void StopPending()
+    {
+        awaitingWindow = false;
+        pendingSlots.Clear();
+        DalamudServices.PluginLog.Warning(
+            "[OneClickLowerQuality] 批次中止: ItemID={ItemID}, Container={Container}, Slot={Slot}",
+            currentSlot.ItemID, currentSlot.Container, currentSlot.Slot);
+    }
+
+    private bool CheckFrameworkThread()
+    {
+        if (DalamudServices.Framework.IsInFrameworkUpdateThread)
+        {
+            return true;
+        }
+
+        DalamudServices.PluginLog.Error("[OneClickLowerQuality] 非 Framework 线程，停止原生操作");
+        StopPending();
+        taskHelper?.Abort();
+        return false;
+    }
 
     private void CollectSlots(InventoryType sourceContainer, uint itemID)
     {

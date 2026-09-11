@@ -128,12 +128,12 @@ public sealed partial class MultiToolbar : ModuleBase
 
     private void OnFrameworkUpdate(IFramework _)
     {
-        UpdateNativeDtrVisibility(UsesNativeDtr());
+        UpdateNativeDtrVisibility(ShouldHideNativeInfoBar());
     }
 
     private unsafe void OnNativeDtrPreDraw(AddonEvent _, AddonArgs args)
     {
-        if (!UsesNativeDtr())
+        if (!ShouldHideNativeInfoBar())
         {
             return;
         }

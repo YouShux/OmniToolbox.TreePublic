@@ -25,11 +25,13 @@ public sealed partial class MultiToolbar
         return false;
     }
 
-    private void DrawCommandEditorButton()
+    private void DrawCommandEditorButton(bool iconOnly = false)
     {
         var editCommandsLabel = OmniLoc.Get("Feature.MultiToolbar.EditCommands");
-        if (OmniControls.SmallButton(editCommandsLabel + "##multiToolbarEditCommands", false,
-                OmniControls.CompactButtonSize(editCommandsLabel)) || openCommandEditor)
+        var clicked = iconOnly
+            ? OmniControls.IconButton("multiToolbarEditCommands", FontAwesomeIcon.Cog, false, new Vector2(ImGui.GetFrameHeight()), editCommandsLabel)
+            : OmniControls.SmallButton(editCommandsLabel + "##multiToolbarEditCommands", false, OmniControls.CompactButtonSize(editCommandsLabel));
+        if (clicked || openCommandEditor)
         {
             openCommandEditor = false;
             ImGui.OpenPopup("##multiToolbarCommandsEditor");
