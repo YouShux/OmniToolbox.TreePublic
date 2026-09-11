@@ -10,23 +10,36 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
-using OmniToolbox.Common.Module.Abstractions;
-using OmniToolbox.Common.Module.Enums;
-using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
-using OmniToolbox.Notifications;
-using OmniToolbox.UI.Theme;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using OmenTools.Threading.TaskHelper;
+using OmniToolbox.Common.Module.Abstractions;
+using OmniToolbox.Common.Module.Enums;
+using OmniToolbox.Common.Module.Models;
+using OmniToolbox.Host;
+using OmniToolbox.Notifications;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed unsafe class MoreGearSetList : ModuleBase
 {
+    public override ModuleInfo Info { get; } = new()
+    {
+        Title       = "更多的套装列表",
+        Description = "提供一个额外的套装列表用来保存你更多的套装，原生列表打开时会自动打开。",
+        Category    = ModuleCategory.Item,
+        Author      = "咕咕",
+        SupportUrls = ["https://github.com/xiaoxiaogugu"],
+        Commands    =
+        [
+            new ModuleCommand("打开额外的套装列表", "/omni 套装列表")
+        ]
+    };
+
     private const string GearSetListAddonName = "GearSetList";
     private const string BannerEditorAddonName = "BannerEditor";
     private const string MiragePlateAddonName = "MiragePrismMiragePlate";
@@ -126,26 +139,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     private readonly Dictionary<int, (uint ItemID, bool HQ)> equippedSnapshot = [];
     private readonly Dictionary<(uint ItemID, bool HQ), int> availableSnapshot = [];
 
-    public override ModuleInfo Info { get; } = new()
-    {
-        Title       = "更多的套装列表",
-        Description = "提供一个额外的套装列表用来保存你更多的套装，原生列表打开时会自动打开。",
-        Category    = ModuleCategory.Item,
-        Author      = "咕咕",
-        Commands    =
-        [
-            new ModuleCommand("打开额外的套装列表", "/omni 套装列表")
-        ]
-    };
-
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings()
-    {
-        MoreGearSetListPanel.Draw(this);
-        return false;
-    }
-
     public MoreGearSetList() : this(new MoreGearSetListConfig())
     {
     }
@@ -159,6 +152,38 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         this.config     = config;
         this.saveConfig = saveConfig;
         windowSize      = new(OmniTheme.Scale(268f), OmniTheme.Scale(480f));
+    }
+
+    public override bool HasSettings => true;
+
+    public override bool DrawSettings()
+    {
+        MoreGearSetListPanel.Draw(this);
+        return false;
+    }
+
+    public void ToggleList()
+    {
+        if (nativeUI is null)
+        {
+            return;
+        }
+
+        if (windowOpen && nativeUI.IsOpen)
+        {
+            followNative = false;
+            CloseList();
+            return;
+        }
+
+        followNative = false;
+        if (TryGetNativeAddon(out var addon))
+        {
+            CaptureNativeRect(addon);
+            placeWindow = true;
+        }
+
+        OpenList();
     }
 
     #region 生命周期
@@ -211,27 +236,6 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         availableSnapshot.Clear();
     }
 
-    public void ToggleList()
-    {
-        if (nativeUI is null) return;
-
-        if (windowOpen && nativeUI.IsOpen)
-        {
-            followNative = false;
-            CloseList();
-            return;
-        }
-
-        followNative = false;
-        if (TryGetNativeAddon(out var addon))
-        {
-            CaptureNativeRect(addon);
-            placeWindow = true;
-        }
-
-        OpenList();
-    }
-
     private void OnGearSetListSetup(AddonEvent type, AddonArgs args)
     {
         if (nativeUI is null || borrowedGearsetID >= 0)
@@ -256,7 +260,9 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     private void ShowBesideNativeIfVisible()
     {
         if (TryGetNativeAddon(out var addon))
+        {
             ShowBesideNative(addon);
+        }
     }
 
     private void ShowBesideNative(AtkUnitBase* addon)
@@ -304,7 +310,9 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         }
 
         if (expectOpen && nativeUI.IsOpen)
+        {
             expectOpen = false;
+        }
 
         if (!expectOpen && windowOpen && !nativeUI.IsOpen)
         {
@@ -315,10 +323,14 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         }
 
         if (!windowOpen)
+        {
             return;
+        }
 
         if (placeWindow && TryPlaceWindow())
+        {
             placeWindow = false;
+        }
 
         RefreshNative();
     }
@@ -1137,7 +1149,9 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     {
         var labels = new List<string>();
         foreach (var choice in GetJobChoices())
+        {
             labels.Add(choice.Label);
+        }
         return labels;
     }
 
@@ -1381,7 +1395,10 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         var manager = InventoryManager.Instance();
         if (manager == null)
         {
-            if (gearSnapshotKey.Length == 0) return;
+            if (gearSnapshotKey.Length == 0)
+            {
+                return;
+            }
 
             gearSnapshotKey = string.Empty;
             equippedSnapshot.Clear();
@@ -1875,7 +1892,9 @@ public sealed unsafe class MoreGearSetList : ModuleBase
     private static void AppendLine(StringBuilder builder, string text)
     {
         if (builder.Length > 0)
+        {
             builder.Append('\n');
+        }
         builder.Append(text);
     }
 
@@ -1958,6 +1977,8 @@ internal static class MoreGearSetListPanel
     public static void Draw(MoreGearSetList feature)
     {
         if (OmniControls.SmallButton("打开套装列表", false))
+        {
             feature.ToggleList();
+        }
     }
 }
