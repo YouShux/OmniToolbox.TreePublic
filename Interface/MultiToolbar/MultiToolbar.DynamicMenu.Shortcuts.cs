@@ -84,7 +84,7 @@ public sealed partial class MultiToolbar
         var icon = DynamicAddIcon(kind);
         var label = MenuText(kind.ToString());
         var clicked = ImGui.Selectable("##add" + kind, false, ImGuiSelectableFlags.None,
-            new Vector2(MathF.Max(OmniTheme.Scale(250f), ImGui.CalcTextSize(label).X + height + 8f), height));
+            new Vector2(MathF.Max(OmniTheme.Scale(250f), ImGui.CalcTextSize(label).X + height + OmniTheme.Scale(8f)), height));
         if (icon != 0) FramedGameIcon.Draw(icon, position, new Vector2(height), drawFrame: false);
         ImGui.GetWindowDrawList().AddText(position + new Vector2(height + ImGui.GetStyle().ItemInnerSpacing.X, 0f),
             OmniTheme.Color(OmniTheme.Tokens.Text), label);
@@ -110,8 +110,11 @@ public sealed partial class MultiToolbar
             openDynamicPicker = false;
             ImGui.OpenPopup("##dynamicShortcutPicker");
         }
-        ImGui.SetNextWindowSize(Vector2.Min(ImGui.GetMainViewport().WorkSize, OmniTheme.Scale(new Vector2(560f, 700f))), ImGuiCond.Appearing);
-        using var popup = ImRaii.Popup("##dynamicShortcutPicker", ImGuiWindowFlags.NoBackground);
+        var pickerSize = Vector2.Min(ImGui.GetMainViewport().WorkSize, OmniTheme.Scale(new Vector2(560f, 700f)));
+        ImGui.SetNextWindowSize(pickerSize, ImGuiCond.Always);
+        ImGui.SetNextWindowSizeConstraints(pickerSize, pickerSize);
+        using var popup = ImRaii.Popup("##dynamicShortcutPicker",
+            ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoSavedSettings);
         if (!popup) return false;
         DrawEditorBackground(MenuText(dynamicPickerKind.ToString()));
         const int pageSize = 50;

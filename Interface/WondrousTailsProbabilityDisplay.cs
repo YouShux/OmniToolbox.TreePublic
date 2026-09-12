@@ -22,7 +22,7 @@ public sealed unsafe class WondrousTailsProbabilityDisplay : ModuleBase
     public override ModuleInfo Info { get; } = new()
     {
         Title = "天书概率助手",
-        Description = "在天书界面实时显示至少 1 / 2 / 3 线的概率和重排平均参考（均匀模型精确值）。",
+        Description = "在天书界面显示至少 1 / 2 / 3 线的概率和重排平均参考。",
         Category = ModuleCategory.Interface,
         Author = "小朱诺诺的",
         SupportUrls = ["https://github.com/xiaozhunuonuode"]

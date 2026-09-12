@@ -17,6 +17,10 @@ public sealed partial class MultiToolbar
     private string toolbarFontPath = string.Empty;
     private float toolbarFontSize;
     private string toolbarFontSearch = string.Empty;
+    private float? toolbarFontSizeInput;
+
+    private float GetToolbarFontSize() => Math.Clamp(config.ToolbarFontSize ??
+        FontManager.Instance().Config.FontSize * GetToolbarScale(), OmniTheme.MinimumFontSize, OmniTheme.MaximumFontSize);
 
     private string GetDefaultToolbarFontPath()
     {
@@ -52,8 +56,9 @@ public sealed partial class MultiToolbar
     {
         var manager = FontManager.Instance();
         var path = string.IsNullOrWhiteSpace(config.FontFileName) ? GetDefaultToolbarFontPath() : config.FontFileName;
-        var size = manager.GetActualFontSize(1f);
-        if (string.Equals(path, manager.Config.FontFileName, StringComparison.OrdinalIgnoreCase))
+        var size = manager.GetActualFontSize(GetToolbarFontSize() / manager.Config.FontSize);
+        if (size == manager.GetActualFontSize(1f) &&
+            string.Equals(path, manager.Config.FontFileName, StringComparison.OrdinalIgnoreCase))
         {
             toolbarFont?.Dispose();
             toolbarFont = null;

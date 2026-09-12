@@ -338,9 +338,6 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
     {
         awaitingWindow = false;
         pendingSlots.Clear();
-        DalamudServices.PluginLog.Warning(
-            "[OneClickLowerQuality] 批次中止: ItemID={ItemID}, Container={Container}, Slot={Slot}",
-            currentSlot.ItemID, currentSlot.Container, currentSlot.Slot);
     }
 
     private bool CheckFrameworkThread()
@@ -350,7 +347,6 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
             return true;
         }
 
-        DalamudServices.PluginLog.Error("[OneClickLowerQuality] 非 Framework 线程，停止原生操作");
         StopPending();
         taskHelper?.Abort();
         return false;

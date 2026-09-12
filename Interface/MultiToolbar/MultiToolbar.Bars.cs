@@ -195,7 +195,7 @@ public sealed partial class MultiToolbar
             bar.Widgets.Any(widget => widget.Enabled && widget.Type == MultiToolbarWidgetType.DtrList));
 
     private bool ShouldHideNativeInfoBar() =>
-        config.HideNativeInfoBar && UsesNativeDtr();
+        OmenTools.DService.Instance().ClientState.IsLoggedIn && config.HideNativeInfoBar && UsesNativeDtr();
 
     private void ReleaseBarResources()
     {

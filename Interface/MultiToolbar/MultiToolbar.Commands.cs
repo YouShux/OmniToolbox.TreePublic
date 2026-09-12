@@ -106,7 +106,7 @@ public sealed partial class MultiToolbar
                     ImGui.TableNextColumn();
                     var name = command.Name;
                     ImGui.SetNextItemWidth(-1f);
-                    if (ImGui.InputTextWithHint("##name", OmniLoc.Get("Feature.MultiToolbar.CommandName"), ref name, 128))
+                    if (OmniControls.InputTextWithHint("##name", OmniLoc.Get("Feature.MultiToolbar.CommandName"), ref name, 128))
                     {
                         command.Name = name;
                     }
@@ -114,7 +114,7 @@ public sealed partial class MultiToolbar
                     ImGui.TableNextColumn();
                     var text = command.Command;
                     ImGui.SetNextItemWidth(-1f);
-                    if (ImGui.InputTextWithHint("##command", OmniLoc.Get("Feature.MultiToolbar.CommandBody"), ref text, 256))
+                    if (OmniControls.InputTextWithHint("##command", OmniLoc.Get("Feature.MultiToolbar.CommandBody"), ref text, 256))
                     {
                         command.Command = text;
                     }

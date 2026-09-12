@@ -78,8 +78,18 @@ public sealed partial class MultiToolbar : ModuleBase
             return true;
         }
 
-        return config.Widgets.RemoveAll(static widget =>
+        var changed = config.Widgets.RemoveAll(static widget =>
             widget.Type is MultiToolbarWidgetType.ExperienceBar or MultiToolbarWidgetType.SanctuaryIndicator) > 0;
+        foreach (var widget in config.Widgets)
+        {
+            if (widget.Type == MultiToolbarWidgetType.CustomButton && widget.Name == "卫月" &&
+                widget.Command == "/xlplugins" && widget.GameIconID == 61574)
+            {
+                widget.GameIconID = 0;
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     protected override void OnEnable()
@@ -191,15 +201,7 @@ public sealed partial class MultiToolbar : ModuleBase
         }
     }
 
-    private static bool TryEnablePlugin(IExposedPlugin plugin)
-    {
-        ExecuteCommand($"/xlenableplugin \"{plugin.InternalName}\"");
-        return true;
-    }
+    private void TryEnablePlugin(IExposedPlugin plugin) => RequestPluginState(plugin, true);
 
-    private static bool TryDisablePlugin(IExposedPlugin plugin)
-    {
-        ExecuteCommand($"/xldisableplugin \"{plugin.InternalName}\"");
-        return true;
-    }
+    private void TryDisablePlugin(IExposedPlugin plugin) => RequestPluginState(plugin, false);
 }

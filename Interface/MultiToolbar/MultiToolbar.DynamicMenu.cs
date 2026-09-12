@@ -168,10 +168,14 @@ public sealed partial class MultiToolbar
     private bool DrawDynamicMenuAddPopup(MultiToolbarWidgetConfig widget)
     {
         var changed = false;
-        using (var popup = ImRaii.Popup("##addDynamicEntry"))
+        using var rounding = ImRaii.PushStyle(ImGuiStyleVar.PopupRounding,
+            OmniTheme.Scale(OmniTheme.Tokens.BorderRadius));
+        using (var popup = ImRaii.Popup("##addDynamicEntry",
+                   ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoSavedSettings))
         {
             if (popup)
             {
+                DrawEditorBackground(MenuText("Add"));
                 foreach (var kind in DynamicMenuAddOrder)
                 {
                     if (!DrawDynamicAddOption(kind)) continue;

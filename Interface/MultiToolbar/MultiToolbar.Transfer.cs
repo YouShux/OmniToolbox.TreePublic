@@ -146,6 +146,8 @@ public sealed partial class MultiToolbar
             item.RightCommand is null || item.Name is null || item.DtrTitle is null ||
             !Enum.IsDefined(item.Type) || !Enum.IsDefined(item.Side)) &&
         float.IsFinite(bar.ToolbarScale) && bar.ToolbarScale is >= 0.1f and <= 3f &&
+        (bar.ToolbarFontSize is null || float.IsFinite(bar.ToolbarFontSize.Value) &&
+            bar.ToolbarFontSize.Value is >= OmniToolbox.UI.Theme.OmniTheme.MinimumFontSize and <= OmniToolbox.UI.Theme.OmniTheme.MaximumFontSize) &&
         float.IsFinite(bar.ComponentSpacing) && bar.ComponentSpacing is >= 0f and <= 40f &&
         float.IsFinite(bar.ButtonCornerRadius) && bar.ButtonCornerRadius is >= 0f and <= 20f &&
         float.IsFinite(bar.RowIconSize) && bar.RowIconSize is >= 8f and <= 72f &&

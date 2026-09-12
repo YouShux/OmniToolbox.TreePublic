@@ -18,21 +18,22 @@ public sealed partial class MultiToolbar
     {
         ImGui.TextUnformatted(OmniLoc.Get("Feature.MultiToolbar.SingleDtrEntry"));
         ImGui.SetNextItemWidth(-1f);
-        using var combo = ImRaii.Combo("##singleDtrEntry", widget.DtrTitle);
-        if (!combo)
+        if (!OmniControls.BeginCombo("##singleDtrEntry", widget.DtrTitle, ImGui.GetContentRegionAvail().X))
         {
             return false;
         }
 
+        var changed = false;
         foreach (var entry in DService.Instance().DTRBar.Entries.OrderBy(entry => entry.Title))
         {
             if (ImGui.Selectable(entry.Title, entry.Title == widget.DtrTitle))
             {
                 widget.DtrTitle = entry.Title;
-                return true;
+                changed = true;
             }
         }
-        return false;
+        ImGui.EndCombo();
+        return changed;
     }
 
     private void DrawDtrEntry(IReadOnlyDtrBarEntry entry, int index)
