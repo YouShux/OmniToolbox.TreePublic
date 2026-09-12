@@ -46,6 +46,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private const float QuestNPCNearbyModelDistanceSquared = 25f;
     private const uint InvalidEntityID = 0xE0000000;
     private const uint EarthlyStarNameID = 6565;
+    private const byte BeastmasterClassJobID = 43;
     private const uint AsylumActionID = 3569;
     private const uint SacredSoilActionID = 188;
     private const VisibilityFlags InvisibleFlags = (VisibilityFlags)256;
@@ -55,6 +56,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private readonly HashSet<uint> friendPlayers = [];
     private readonly HashSet<uint> partyPlayers = [];
     private readonly HashSet<uint> freeCompanyPlayers = [];
+    private readonly HashSet<uint> beastmasterPlayers = [];
     private readonly List<Vector3> nearbyAvailableQuestNPCPositions = [];
     private readonly Dictionary<int, OutdoorPlotExteriorData> hiddenHouseOriginals = [];
     private nint housingLayoutAddress;
@@ -158,6 +160,13 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             "Feature.AutoHideModel.Pets",
             "pets",
             config.Pets,
+            false,
+            false,
+            null);
+        changed |= DrawUnitRow(
+            "Feature.AutoHideModel.Beasts",
+            "beasts",
+            config.Beasts,
             false,
             false,
             null);
@@ -481,6 +490,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
                     SetVisibility(gameObject, !ShouldHideGroundEffectOwner(gameObject->OwnerId, localPlayer));
                     break;
                 case ClientObjectKind.BattleNpc
+                    when (BattleNpcSubKind)gameObject->SubKind != BattleNpcSubKind.Buddy &&
+                         beastmasterPlayers.Contains(gameObject->OwnerId):
+                    ProcessOwnedObject(gameObject, gameObject->OwnerId, localPlayer, config.Beasts, false);
+                    break;
+                case ClientObjectKind.BattleNpc
                     when (BattleNpcSubKind)gameObject->SubKind == BattleNpcSubKind.Pet:
                     ProcessOwnedObject(gameObject, gameObject->OwnerId, localPlayer, config.Pets, isBound);
                     break;
@@ -502,6 +516,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
     private void RefreshPlayerContainers(GameObjectManager* objectManager, Character* localPlayer)
     {
+        beastmasterPlayers.Clear();
+        if (localPlayer->CharacterData.ClassJob == BeastmasterClassJobID)
+        {
+            beastmasterPlayers.Add(localPlayer->GameObject.EntityId);
+        }
         friendPlayers.Clear();
         partyPlayers.Clear();
         freeCompanyPlayers.Clear();
@@ -517,6 +536,10 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             }
 
             var character = (Character*)gameObject;
+            if (character->CharacterData.ClassJob == BeastmasterClassJobID)
+            {
+                beastmasterPlayers.Add(gameObject->EntityId);
+            }
             if (character->IsFriend)
             {
                 friendPlayers.Add(gameObject->EntityId);
@@ -1186,6 +1209,14 @@ public sealed class AutoHideModelConfig
     };
 
     public AutoHideUnitConfig Pets { get; set; } = new()
+    {
+        HideAll = true,
+        ShowParty = true,
+        ShowFriends = true,
+        ShowFreeCompany = true
+    };
+
+    public AutoHideUnitConfig Beasts { get; set; } = new()
     {
         HideAll = true,
         ShowParty = true,

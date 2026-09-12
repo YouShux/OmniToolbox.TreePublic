@@ -36,7 +36,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
         SupportUrls = ["https://github.com/xiaoxiaogugu"],
         Commands    =
         [
-            new ModuleCommand("打开额外的套装列表", "/omni 套装列表")
+            new ModuleCommand("Feature.MoreGearSetList.CommandDescription", "/omni 套装列表")
         ]
     };
 

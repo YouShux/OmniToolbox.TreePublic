@@ -190,18 +190,6 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         queuedCategories.Clear();
     }
 
-    protected override bool OnInterruptAutomation()
-    {
-        if (taskHelper?.IsBusy != true && queuedCategories.Count == 0)
-        {
-            return false;
-        }
-
-        taskHelper?.Abort();
-        ResetQueue();
-        return true;
-    }
-
     private void RegisterAutoSortAddon(string addonName, System.Action queueAction) =>
         addonEvents!.Register(AddonEvent.PostShow, addonName, (_, _) => queueAction());
 
