@@ -20,7 +20,7 @@ public sealed unsafe class LargeCooldownCounter(LargeCooldownCounterConfig confi
         Category = ModuleCategory.Interface
     };
 
-    private static readonly FontType[] SupportedFonts =
+    internal static readonly FontType[] SupportedFonts =
     [
         FontType.Axis,
         FontType.MiedingerMed,
@@ -208,7 +208,7 @@ public sealed unsafe class LargeCooldownCounter(LargeCooldownCounterConfig confi
 
     private static byte ToByte(float value) => (byte)Math.Clamp(MathF.Round(value * 255f), 0f, 255f);
 
-    private static string GetFontName(FontType font) => font switch
+    internal static string GetFontName(FontType font) => font switch
     {
         FontType.Axis => "Axis",
         FontType.MiedingerMed => "Miedinger Medium",
