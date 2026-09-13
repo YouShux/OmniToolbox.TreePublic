@@ -1,4 +1,5 @@
 using Dalamud.Interface;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
@@ -60,6 +61,8 @@ public sealed class SkillMonitor : ModuleBase
         config.Offset = defaults.Offset;
         config.IconScale = defaults.IconScale;
         config.IconSpacing = defaults.IconSpacing;
+        config.IconsPerRow = defaults.IconsPerRow;
+        config.Font = defaults.Font;
         config.Alignment = defaults.Alignment;
         config.ShowActive = defaults.ShowActive;
         config.ShowOnCooldown = defaults.ShowOnCooldown;
@@ -83,6 +86,7 @@ public sealed class SkillMonitor : ModuleBase
         try
         {
             tracker.Register(lifetime);
+            lifetime.Add(overlay.Dispose);
             var windowManager = WindowManager.Instance();
             _ = windowManager.WindowSystem;
             windowManager.PostDraw += overlay.Draw;
@@ -126,6 +130,7 @@ public sealed class SkillMonitor : ModuleBase
             SkillMonitorConfig.DefaultIconScale * 0.5f,
             SkillMonitorConfig.DefaultIconScale * 2f);
         config.IconSpacing = Math.Clamp(config.IconSpacing, 0f, 12f);
+        config.IconsPerRow = Math.Clamp(config.IconsPerRow, 0, 20);
         if (!Enum.IsDefined(config.Alignment))
         {
             config.Alignment = SkillMonitorAlignment.Right;
@@ -181,7 +186,7 @@ public sealed class SkillMonitor : ModuleBase
             for (var definitionIndex = 0; definitionIndex < definitions.Length; definitionIndex++)
             {
                 if (definitions[definitionIndex].ConfigID == order[index] &&
-                    definitions[definitionIndex].Group == group &&
+                    definitions[definitionIndex].MatchesGroup(group) &&
                     (scopeID == 0 || definitions[definitionIndex].AppliesTo(scopeID)))
                 {
                     valid = true;
@@ -198,7 +203,7 @@ public sealed class SkillMonitor : ModuleBase
         for (var definitionIndex = 0; definitionIndex < definitions.Length; definitionIndex++)
         {
             var definition = definitions[definitionIndex];
-            if (definition.Group != group ||
+            if (!definition.MatchesGroup(group) ||
                 (scopeID != 0 && !definition.AppliesTo(scopeID)) ||
                 seen.Contains(definition.ConfigID))
             {
@@ -206,6 +211,10 @@ public sealed class SkillMonitor : ModuleBase
             }
 
             order.Add(definition.ConfigID);
+            if (definition.ActionID == 7561 && group == SkillMonitorGroup.Dps && !disabled.Contains(definition.ConfigID))
+            {
+                disabled.Add(definition.ConfigID);
+            }
             seen.Add(definition.ConfigID);
         }
 
@@ -627,7 +636,7 @@ internal static class SkillMonitorPanel
         for (var index = 0; index < definitions.Length; index++)
         {
             if (definitions[index].ConfigID == configID &&
-                definitions[index].Group == group &&
+                definitions[index].MatchesGroup(group) &&
                 (scopeID == 0 || definitions[index].AppliesTo(scopeID)))
             {
                 return index;
@@ -813,6 +822,36 @@ internal static class SkillMonitorPanel
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         ImGui.TableNextColumn();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.SkillMonitor.IconsPerRow"));
+        ImGui.SameLine();
+        var iconsPerRow = config.IconsPerRow;
+        if (OmniControls.SliderInt("##skillMonitorIconsPerRow", ref iconsPerRow, 0, 20, "%d",
+                MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
+        {
+            config.IconsPerRow = Math.Clamp(iconsPerRow, 0, 20);
+        }
+        changed |= ImGui.IsItemDeactivatedAfterEdit();
+
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.LargeCooldownCounter.Font"));
+        ImGui.SameLine();
+        if (OmniControls.BeginCombo("##skillMonitorFont", LargeCooldownCounter.GetFontName(config.Font),
+                MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
+        {
+            foreach (var font in LargeCooldownCounter.SupportedFonts)
+            {
+                if (ImGui.Selectable(LargeCooldownCounter.GetFontName(font), config.Font == font))
+                {
+                    config.Font = font;
+                    changed = true;
+                }
+            }
+            ImGui.EndCombo();
+        }
+        ImGui.TableNextColumn();
         var generalPositionLabel = OmniLoc.Get("Feature.SkillMonitor.GeneralPosition");
         var generalPositionWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(generalPositionLabel).X -
                                    ImGui.GetStyle().ItemSpacing.X;
@@ -847,7 +886,6 @@ internal static class SkillMonitorPanel
             ImGui.EndCombo();
         }
 
-        ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var alignmentLabel = OmniLoc.Get("Feature.SkillMonitor.Alignment");
         var alignmentWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(alignmentLabel).X -
@@ -899,6 +937,8 @@ public sealed class SkillMonitorConfig
     public Vector2 Offset { get; set; } = new(17f, 0f);
     public float IconScale { get; set; } = DefaultIconScale;
     public float IconSpacing { get; set; } = 3f;
+    public int IconsPerRow { get; set; } = 12;
+    public FontType Font { get; set; } = FontType.TrumpGothic;
     public SkillMonitorAlignment Alignment { get; set; }
     public bool ShowActive { get; set; } = true;
     public bool ShowOnCooldown { get; set; } = true;

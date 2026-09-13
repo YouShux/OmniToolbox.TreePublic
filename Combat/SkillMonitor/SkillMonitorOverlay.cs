@@ -1,4 +1,6 @@
 using System.Drawing;
+using Dalamud.Interface.GameFonts;
+using Dalamud.Interface.ManagedFontAtlas;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -17,9 +19,18 @@ internal sealed unsafe class SkillMonitorOverlay(
     SkillMonitorConfig config,
     SkillMonitorDefinition[] definitions,
     SkillMonitorTracker tracker,
-    int[][] definitionIndexesByJob)
+    int[][] definitionIndexesByJob) : IDisposable
 {
     private uint activeCountdownColor = 0xFFFFFFFF;
+    private readonly List<int> visibleDefinitions = [];
+    private IFontHandle? countdownFont;
+    private FontType loadedFont;
+
+    public void Dispose()
+    {
+        countdownFont?.Dispose();
+        countdownFont = null;
+    }
 
     public void Draw()
     {
@@ -43,16 +54,38 @@ internal sealed unsafe class SkillMonitorOverlay(
         }
 
         UpdateActiveCountdownColor(partyList);
-        var drawList = ImGui.GetBackgroundDrawList();
-        for (var memberIndex = 0; memberIndex < 8; memberIndex++)
+        if (countdownFont == null || loadedFont != config.Font)
         {
-            var member = tracker.GetMember(memberIndex);
-            if (!member.Visible)
+            Dispose();
+            loadedFont = config.Font;
+            countdownFont = OmniFonts.CreateGameFont(config.Font switch
             {
-                continue;
-            }
+                FontType.Axis => GameFontFamily.Axis,
+                FontType.MiedingerMed => GameFontFamily.MiedingerMid,
+                FontType.Miedinger => GameFontFamily.Meidinger,
+                _ => GameFontFamily.TrumpGothic
+            }, 32f);
+        }
+        if (!countdownFont.Available)
+        {
+            return;
+        }
+        using var font = countdownFont.Push();
+        var drawList = ImGui.GetBackgroundDrawList();
+        foreach (var clip in GameWindowClip.GetVisibleRegions())
+        {
+            drawList.PushClipRect(clip.Min, clip.Max, true);
+            for (var memberIndex = 0; memberIndex < 8; memberIndex++)
+            {
+                var member = tracker.GetMember(memberIndex);
+                if (!member.Visible)
+                {
+                    continue;
+                }
 
-            DrawMember(memberIndex, member.ClassJobID, partyList, drawList);
+                DrawMember(memberIndex, member.ClassJobID, partyList, drawList);
+            }
+            drawList.PopClipRect();
         }
     }
 
@@ -108,16 +141,18 @@ internal sealed unsafe class SkillMonitorOverlay(
             return;
         }
 
-        var visibleCount = 0;
+        visibleDefinitions.Clear();
+        var mirrored = config.Alignment == SkillMonitorAlignment.Mirror;
         for (var index = 0; index < definitionIndexes.Length; index++)
         {
-            if (ShouldShow(tracker.GetState(memberIndex, definitionIndexes[index]).DisplayState))
+            var definitionIndex = definitionIndexes[mirrored ? index : definitionIndexes.Length - 1 - index];
+            if (ShouldShow(tracker.GetState(memberIndex, definitionIndex).DisplayState))
             {
-                visibleCount++;
+                visibleDefinitions.Add(definitionIndex);
             }
         }
 
-        if (visibleCount == 0)
+        if (visibleDefinitions.Count == 0)
         {
             return;
         }
@@ -130,64 +165,31 @@ internal sealed unsafe class SkillMonitorOverlay(
             config.IconScale,
             SkillMonitorConfig.DefaultIconScale * 0.5f,
             SkillMonitorConfig.DefaultIconScale * 2f));
-        var spacing = Math.Clamp(config.IconSpacing, 0f, 12f) * partyList->Scale;
-        var groupWidth = (visibleCount - 1) * spacing;
-        for (var index = 0; index < definitionIndexes.Length; index++)
-        {
-            var definitionIndex = definitionIndexes[index];
-            var definition = definitions[definitionIndex];
-            if (ShouldShow(tracker.GetState(memberIndex, definitionIndex).DisplayState))
-            {
-                groupWidth += GetIconSize(definition, iconSize).X;
-            }
-        }
-
+        var scale = config.IconScale / SkillMonitorConfig.DefaultIconScale;
+        var spacing = Math.Clamp(config.IconSpacing, 0f, 12f) * partyList->Scale * scale;
         var anchorX = memberNode->AtkResNode.ScreenX + config.Offset.X * partyList->Scale;
-        var mirrored = config.Alignment == SkillMonitorAlignment.Mirror;
-        var position = new Vector2(
-            mirrored ? anchorX + spacing : anchorX - spacing - groupWidth,
-            iconNode->ScreenY + config.Offset.Y * partyList->Scale);
-
-        if (mirrored)
+        var perRow = config.IconsPerRow == 0 ? visibleDefinitions.Count : Math.Clamp(config.IconsPerRow, 1, 20);
+        for (var start = 0; start < visibleDefinitions.Count; start += perRow)
         {
-            for (var index = 0; index < definitionIndexes.Length; index++)
+            var end = Math.Min(start + perRow, visibleDefinitions.Count);
+            var rowWidth = (end - start - 1) * spacing;
+            for (var index = start; index < end; index++)
             {
-                DrawMemberIcon(memberIndex, definitionIndexes[index], classJobIconSize, iconSize, spacing, drawList, ref position);
+                rowWidth += GetIconSize(definitions[visibleDefinitions[index]], iconSize).X;
             }
-
-            return;
+            var position = new Vector2(mirrored ? anchorX + spacing : anchorX - spacing - rowWidth,
+                iconNode->ScreenY + config.Offset.Y * partyList->Scale +
+                start / perRow * (iconSize.Y * 1.1f + spacing));
+            for (var index = start; index < end; index++)
+            {
+                var definitionIndex = visibleDefinitions[index];
+                var definition = definitions[definitionIndex];
+                var currentSize = GetIconSize(definition, iconSize);
+                DrawIcon(drawList, definition, tracker.GetState(memberIndex, definitionIndex),
+                    position + new Vector2(0f, (classJobIconSize - currentSize.Y) * 0.5f), currentSize);
+                position.X += currentSize.X + spacing;
+            }
         }
-
-        for (var index = definitionIndexes.Length - 1; index >= 0; index--)
-        {
-            DrawMemberIcon(memberIndex, definitionIndexes[index], classJobIconSize, iconSize, spacing, drawList, ref position);
-        }
-    }
-
-    private void DrawMemberIcon(
-        int memberIndex,
-        int definitionIndex,
-        float classJobIconSize,
-        Vector2 iconSize,
-        float spacing,
-        ImDrawListPtr drawList,
-        ref Vector2 position)
-    {
-        var definition = definitions[definitionIndex];
-        var state = tracker.GetState(memberIndex, definitionIndex);
-        if (!ShouldShow(state.DisplayState))
-        {
-            return;
-        }
-
-        var currentSize = GetIconSize(definition, iconSize);
-        DrawIcon(
-            drawList,
-            definition,
-            state,
-            position + new Vector2(0f, (classJobIconSize - currentSize.Y) * 0.5f),
-            currentSize);
-        position.X += currentSize.X + spacing;
     }
 
     private void DrawIcon(
@@ -236,59 +238,33 @@ internal sealed unsafe class SkillMonitorOverlay(
 
     private static void DrawCenteredText(ImDrawListPtr drawList, string text, Vector2 position, Vector2 size, uint color)
     {
-        using var font = (size.Y >= 39f
-            ? FontManager.Instance().TrumpGothicFont340
-            : size.Y >= 29f
-                ? FontManager.Instance().TrumpGothicFont230
-                : FontManager.Instance().TrumpGothicFont184).Push();
-        var textSize = ImGui.CalcTextSize(text);
+        var fontSize = size.Y * 0.8f;
+        var textSize = ImGui.CalcTextSize(text) * (fontSize / ImGui.GetFontSize());
         var textPosition = position + (size - textSize) * 0.5f;
-        DrawOutlinedText(drawList, text, textPosition, color);
+        DrawOutlinedText(drawList, text, textPosition, color, fontSize);
     }
 
     private static void DrawFoodDuration(ImDrawListPtr drawList, string text, Vector2 position, Vector2 size)
     {
-        var value = text[..^1];
-        var unit = text[^1..];
-        Vector2 valueSize;
-        Vector2 unitSize;
-        using (OmniFonts.GetUIFont(0.9f).Push())
-        {
-            valueSize = ImGui.CalcTextSize(value);
-        }
-
-        using (OmniFonts.GetUIFont(0.8f).Push())
-        {
-            unitSize = ImGui.CalcTextSize(unit);
-        }
-
+        var fontSize = size.Y * 0.6f;
+        var textSize = ImGui.CalcTextSize(text) * (fontSize / ImGui.GetFontSize());
         var textPosition = new Vector2(
-            position.X + (size.X - valueSize.X - unitSize.X) * 0.5f,
-            position.Y + size.Y - valueSize.Y * 0.55f);
+            position.X + (size.X - textSize.X) * 0.5f,
+            position.Y + size.Y - textSize.Y * 0.55f);
         var color = OmniTheme.Color(KnownColor.PaleTurquoise.ToVector4());
-        using (OmniFonts.GetUIFont(0.9f).Push())
-        {
-            DrawOutlinedText(drawList, value, textPosition, color);
-        }
-
-        using (OmniFonts.GetUIFont(0.8f).Push())
-        {
-            DrawOutlinedText(
-                drawList,
-                unit,
-                textPosition + new Vector2(valueSize.X, valueSize.Y - unitSize.Y),
-                color);
-        }
+        DrawOutlinedText(drawList, text, textPosition, color, fontSize);
     }
 
-    private static void DrawOutlinedText(ImDrawListPtr drawList, string text, Vector2 position, uint color)
+    private static void DrawOutlinedText(ImDrawListPtr drawList, string text, Vector2 position, uint color, float fontSize)
     {
         var outline = OmniTheme.Color(KnownColor.Black.ToVector4() with { W = 0.95f });
-        drawList.AddText(position + new Vector2(-1f, 0f), outline, text);
-        drawList.AddText(position + new Vector2(1f, 0f), outline, text);
-        drawList.AddText(position + new Vector2(0f, -1f), outline, text);
-        drawList.AddText(position + new Vector2(0f, 1f), outline, text);
-        drawList.AddText(position, color, text);
+        var edge = fontSize / 20f;
+        var font = ImGui.GetFont();
+        drawList.AddText(font, fontSize, position + new Vector2(-edge, 0f), outline, text);
+        drawList.AddText(font, fontSize, position + new Vector2(edge, 0f), outline, text);
+        drawList.AddText(font, fontSize, position + new Vector2(0f, -edge), outline, text);
+        drawList.AddText(font, fontSize, position + new Vector2(0f, edge), outline, text);
+        drawList.AddText(font, fontSize, position, color, text);
     }
 
     private static void DrawCooldownMask(ImDrawListPtr drawList, Vector2 position, Vector2 size, float progress)

@@ -1,8 +1,6 @@
-using System.Reflection;
 
 namespace OmniToolbox.TreePublic;
 
-[Obfuscation(Exclude = true, ApplyToMembers = true)]
 internal sealed record ChatFrameOptimizationLogEntry(
     string Version,
     string TimestampLocal,
@@ -27,7 +25,6 @@ internal sealed record ChatFrameOptimizationLogEntry(
     IReadOnlyList<ChatFrameOptimizationPayloadEntry> MessagePayloads,
     IReadOnlyList<ChatFrameOptimizationPayloadEntry> NativeSegments);
 
-[Obfuscation(Exclude = true, ApplyToMembers = true)]
 internal sealed record ChatFrameOptimizationPayloadEntry(
     string Type,
     string Kind,

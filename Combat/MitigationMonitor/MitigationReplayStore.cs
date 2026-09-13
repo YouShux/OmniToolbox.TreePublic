@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.IO;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -314,7 +313,6 @@ internal sealed class MitigationReplayStore
             : result;
     }
 
-    [Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
     private sealed class ReplayDto
     {
         public int Version { get; set; } = ExportVersion;
@@ -326,7 +324,6 @@ internal sealed class MitigationReplayStore
         public List<RecordDto?> Records { get; set; } = [];
     }
 
-    [Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
     private sealed class RecordDto
     {
         public MitigationRecordKind Kind { get; set; }
@@ -351,7 +348,6 @@ internal sealed class MitigationReplayStore
         public uint CurrentHp { get; set; }
     }
 
-    [Obfuscation(Exclude = true, ApplyToMembers = true, Feature = "renaming")]
     private sealed class ActiveMitigationDto
     {
         public uint StatusID { get; set; }

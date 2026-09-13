@@ -22,6 +22,9 @@ internal readonly record struct SkillMonitorDefinition(
 
     public bool IsFood => ActionID == 0 && StatusID == 48;
 
+    public bool MatchesGroup(SkillMonitorGroup group) =>
+        Group == group || ActionID == 7561 && group == SkillMonitorGroup.Dps;
+
     public bool AppliesTo(uint classJobID) =>
         classJobID < 64 && (ClassJobs & (1UL << (int)classJobID)) != 0;
 }
@@ -98,7 +101,7 @@ internal static class SkillMonitorDefinitions
         new(37035, 3898, 0, 1, 1UL << 40, SkillMonitorGroup.Healer),
         new(24311, 2613, 120, 15, 1UL << 40, SkillMonitorGroup.Healer),
         new(24303, 2619, 45, 15, 1UL << 40, SkillMonitorGroup.Healer),
-        new(7561, 167, 0, 1, Healers, SkillMonitorGroup.Healer),
+        new(7561, 167, 0, 1, Healers | Casters | (1UL << 36), SkillMonitorGroup.Healer),
 
         new(7549, 1195, 90, 10, Melee, SkillMonitorGroup.Dps),
         new(7560, 1203, 90, 10, Casters, SkillMonitorGroup.Dps),
