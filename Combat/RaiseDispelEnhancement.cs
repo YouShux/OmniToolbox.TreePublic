@@ -37,6 +37,8 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
     private const uint RaiseStatusID = 148;
     private const uint DispelIconID = 215530;
+    private static readonly HashSet<uint> PartialDisplayJobs =
+        [23, 24, 25, 27, 28, 31, 33, 35, 36, 40];
     private static readonly string[] DisplayColumns =
         ["Party", "Alliance", "ShowWorldIcon", "ShowWorldText", "CasterName", "CastProgress", "List"];
     private readonly Dictionary<ulong, ActorState> states = [];
@@ -77,12 +79,41 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
 
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
-        using (var table = ImRaii.Table("##raiseDispelScales", 2, ImGuiTableFlags.SizingStretchSame,
+        using (var table = ImRaii.Table("##raiseDispelScales", 3, ImGuiTableFlags.SizingStretchSame,
                    new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
         {
             if (table)
             {
                 ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextUnformatted(OmniLoc.Get("Feature.RaiseDispelEnhancement.DisplayRange"));
+                ImGui.SameLine(0f, OmniTheme.Scale(8f));
+                var range = config.DisplayRange;
+                if (OmniControls.BeginCombo("##raiseDispelDisplayRange",
+                        OmniLoc.Get($"Feature.RaiseDispelEnhancement.DisplayRange.{range}"),
+                        MathF.Max(1f, ImGui.GetContentRegionAvail().X - OmniControls.HelpIconSize().X - OmniTheme.Scale(4f))))
+                {
+                    foreach (var option in Enum.GetValues<RaiseDispelDisplayRange>())
+                    {
+                        var selected = range == option;
+                        if (ImGui.Selectable(
+                                OmniLoc.Get($"Feature.RaiseDispelEnhancement.DisplayRange.{option}"), selected))
+                        {
+                            config.DisplayRange = option;
+                            changed = true;
+                        }
+
+                        if (selected)
+                        {
+                            ImGui.SetItemDefaultFocus();
+                        }
+                    }
+
+                    ImGui.EndCombo();
+                }
+                ImGui.SameLine(0f, OmniTheme.Scale(4f));
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.RaiseDispelEnhancement.DisplayRangeHelp"));
                 ImGui.TableNextColumn();
                 changed |= DrawScaleSlider(config.IconScale, "Feature.RaiseDispelEnhancement.IconScale", "IconScale",
                     value => config.IconScale = value);
@@ -246,6 +277,12 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
         try
         {
+            if (config.DisplayRange == RaiseDispelDisplayRange.Partial &&
+                !IsPartialDisplayJob(services.ObjectTable.LocalPlayer?.ClassJob.RowId ?? 0))
+            {
+                Clear();
+                return;
+            }
             ScanActors();
         }
         catch (Exception ex)
@@ -253,6 +290,8 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             DalamudServices.PluginLog.Warning(ex, "Raise/dispel enhancement scan failed.");
         }
     }
+
+    private static bool IsPartialDisplayJob(uint classJobID) => PartialDisplayJobs.Contains(classJobID);
 
     private void ScanActors()
     {
@@ -965,6 +1004,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 [Serializable]
 public sealed class RaiseDispelEnhancementConfig
 {
+    public RaiseDispelDisplayRange DisplayRange { get; set; } = RaiseDispelDisplayRange.Partial;
     public RaiseDispelDisplayOptions? Raise { get; set; }
     public RaiseDispelDisplayOptions? Dispel { get; set; }
 
@@ -1017,6 +1057,12 @@ public sealed class RaiseDispelEnhancementConfig
     public uint OtherRaiseBackgroundColor { get; set; } = 0xC8FF0000;
 
     public uint DispelWorldColor { get; set; } = 0xC8140A3C;
+}
+
+public enum RaiseDispelDisplayRange
+{
+    All,
+    Partial
 }
 
 
