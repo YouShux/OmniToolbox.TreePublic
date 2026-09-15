@@ -177,6 +177,11 @@ public sealed unsafe partial class BetterGlamourManagement(
         }
 
         var inspectState = inspectAddon->WindowNode->GetNodeState();
+        var inspectScale = inspectAddon->WindowNode->GetScale().X;
+        if (MathF.Abs(actionAddon->WindowNode->GetScale().X - inspectScale) > 0.001f)
+        {
+            actionAddon->SetScale(inspectScale / AtkUnitBase.GetGlobalUIScale(), true);
+        }
         var actionState = actionAddon->WindowNode->GetNodeState();
         var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
         var x = inspectState.TopLeft.X + inspectState.Width + 2f;

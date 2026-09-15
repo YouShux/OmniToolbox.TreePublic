@@ -203,6 +203,11 @@ public sealed unsafe class ChocoboColorPreview(
         }
 
         var buddyState = buddyWindow->GetNodeState();
+        var buddyScale = buddyWindow->GetScale().X;
+        if (MathF.Abs(previewAddon->WindowNode->GetScale().X - buddyScale) > 0.001f)
+        {
+            previewAddon->SetScale(buddyScale / AtkUnitBase.GetGlobalUIScale(), true);
+        }
         var previewState = previewAddon->WindowNode->GetNodeState();
         var screenSize = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
         var position = new Vector2(

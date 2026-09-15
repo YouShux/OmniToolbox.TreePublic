@@ -342,7 +342,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             return;
         }
 
-        nativeScale = addon->Scale > 0f ? addon->Scale : 1f;
+        nativeScale = addon->GetScale() > 0f ? addon->GetScale() : 1f;
         if (addon->WindowNode == null)
         {
             return;
@@ -368,7 +368,7 @@ public sealed unsafe class MoreGearSetList : ModuleBase
             return false;
         }
 
-        if (nativeScale > 0f && MathF.Abs(extraAddon->Scale - nativeScale) > 0.001f)
+        if (nativeScale > 0f && MathF.Abs(extraAddon->GetScale() - nativeScale) > 0.001f)
         {
             extraAddon->SetScale(nativeScale / AtkUnitBase.GetGlobalUIScale(), true);
         }

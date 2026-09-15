@@ -160,6 +160,11 @@ public sealed unsafe class LockedDutyPreview(
         }
 
         var state = windowNode->GetNodeState();
+        var scale = windowNode->GetScale().X;
+        if (MathF.Abs(previewAddon->WindowNode->GetScale().X - scale) > 0.001f)
+        {
+            previewAddon->SetScale(scale / AtkUnitBase.GetGlobalUIScale(), true);
+        }
         var previewState = previewAddon->WindowNode->GetNodeState();
         var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
         var windowX = state.TopLeft.X - previewState.Width - 2f;
