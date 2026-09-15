@@ -50,7 +50,10 @@ internal sealed class ChatLogReplayStorage : IDisposable
     public string DirectoryPath { get; }
 
     public static string GetDirectoryPath() =>
-        Path.Combine(DalamudServices.PluginInterface.GetPluginConfigDirectory(), "ChatLogs");
+        Path.Combine(
+            DalamudServices.PluginInterface.GetPluginConfigDirectory(),
+            "TreeHouse",
+            "ChatFrameOptimization");
 
     public static int NormalizeFileSize(int value) =>
         Math.Clamp(value, MinLogFileSizeKb, MaxLogFileSizeKb);
