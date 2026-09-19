@@ -162,9 +162,7 @@ internal static class FoodReminderPanel
         ImGui.Spacing();
         changed |= TerritorySelector.Draw(
             config.UseWhitelist ? config.WhitelistTerritoryIds : config.BlacklistTerritoryIds,
-            OmniLoc.Get(config.UseWhitelist
-                ? "Feature.FoodReminder.Territory.Whitelist.Empty"
-                : "Feature.FoodReminder.Territory.Blacklist.Empty"));
+            string.Empty);
         return changed;
     }
 }

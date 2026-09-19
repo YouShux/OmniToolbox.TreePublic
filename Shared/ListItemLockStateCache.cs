@@ -4,7 +4,7 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class ListItemLockStateCache
 {
-    private const byte LockedAlpha = 0x90;
+    private const byte LOCKED_ALPHA = 0x90;
     internal const int MaxDepth = 8;
     private readonly Dictionary<nint, NodeFlags> nodeFlags = [];
     private readonly Dictionary<nint, NodeAlpha> nodeAlphas = [];
@@ -77,12 +77,12 @@ internal sealed unsafe class ListItemLockStateCache
                     : new(node->Color.A, 0, 0, false);
             }
 
-            node->Color.A = LockedAlpha;
+            node->Color.A = LOCKED_ALPHA;
             if (node->Type == NodeType.Text)
             {
                 var text = (AtkTextNode*)node;
-                text->TextColor.A = LockedAlpha;
-                text->EdgeColor.A = LockedAlpha;
+                text->TextColor.A = LOCKED_ALPHA;
+                text->EdgeColor.A = LOCKED_ALPHA;
             }
         }
         else if (nodeAlphas.TryGetValue(address, out var original))
@@ -109,21 +109,21 @@ internal sealed unsafe class ListItemLockStateCache
             return;
         }
 
-        const NodeFlags interactionFlags =
+        const NodeFlags INTERACTION_FLAGS =
             NodeFlags.RespondToMouse | NodeFlags.EmitsEvents | NodeFlags.HasCollision;
         var address = (nint)node;
         if (!locked && nodeFlags.TryGetValue(address, out var original))
         {
             node->NodeFlags = original;
         }
-        else if (locked && ((node->NodeFlags & interactionFlags) != 0 || node->Type == NodeType.Collision))
+        else if (locked && ((node->NodeFlags & INTERACTION_FLAGS) != 0 || node->Type == NodeType.Collision))
         {
             if (!nodeFlags.ContainsKey(address))
             {
                 nodeFlags[address] = node->NodeFlags;
             }
 
-            node->NodeFlags &= ~interactionFlags;
+            node->NodeFlags &= ~INTERACTION_FLAGS;
         }
 
         for (var child = node->ChildNode; child != null; child = child->PrevSiblingNode)

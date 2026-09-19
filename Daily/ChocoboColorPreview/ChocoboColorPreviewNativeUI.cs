@@ -1,4 +1,3 @@
-using System.Numerics;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit;
 using KamiToolKit.Classes;
@@ -12,7 +11,7 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
 {
-    private const float RowHeight = 24f;
+    private const float ROW_HEIGHT = 24f;
     private static readonly float FeedListHeight = ChocoboFeedOrderListItemNode.ItemHeight * 6f;
 
     private readonly System.Action<byte> onTargetColorSelected;
@@ -233,96 +232,96 @@ internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
         var contentX = ContentStartPosition.X;
         var contentY = ContentStartPosition.Y;
         var contentWidth = ContentSize.X;
-        const float labelWidth = 66f;
-        const float colorSize = 18f;
-        const float gap = 4f;
-        const float buttonWidth = 52f;
+        const float LABEL_WIDTH = 66f;
+        const float COLOR_SIZE = 18f;
+        const float GAP = 4f;
+        const float BUTTON_WIDTH = 52f;
 
         if (currentLabelNode is not null)
         {
             currentLabelNode.Position = new(contentX, contentY);
-            currentLabelNode.Size = new(labelWidth, RowHeight);
+            currentLabelNode.Size = new(LABEL_WIDTH, ROW_HEIGHT);
         }
 
         if (currentColorNode is not null)
         {
-            currentColorNode.Position = new(contentX + labelWidth, contentY + 3f);
-            currentColorNode.Size = new(colorSize, colorSize);
+            currentColorNode.Position = new(contentX + LABEL_WIDTH, contentY + 3f);
+            currentColorNode.Size = new(COLOR_SIZE, COLOR_SIZE);
         }
 
         if (currentColorNameNode is not null)
         {
-            currentColorNameNode.Position = new(contentX + labelWidth + colorSize + gap, contentY);
-            currentColorNameNode.Size = new(contentWidth - labelWidth - colorSize - gap, RowHeight);
+            currentColorNameNode.Position = new(contentX + LABEL_WIDTH + COLOR_SIZE + GAP, contentY);
+            currentColorNameNode.Size = new(contentWidth - LABEL_WIDTH - COLOR_SIZE - GAP, ROW_HEIGHT);
         }
 
-        var targetY = contentY + RowHeight;
-        var dropdownX = contentX + labelWidth + colorSize + gap;
-        var dropdownWidth = MathF.Max(100f, contentWidth - labelWidth - colorSize - buttonWidth * 2f - gap * 4f);
-        var previewX = dropdownX + dropdownWidth + gap;
-        var clearX = previewX + buttonWidth + gap;
+        var targetY = contentY + ROW_HEIGHT;
+        var dropdownX = contentX + LABEL_WIDTH + COLOR_SIZE + GAP;
+        var dropdownWidth = MathF.Max(100f, contentWidth - LABEL_WIDTH - COLOR_SIZE - BUTTON_WIDTH * 2f - GAP * 4f);
+        var previewX = dropdownX + dropdownWidth + GAP;
+        var clearX = previewX + BUTTON_WIDTH + GAP;
         if (targetLabelNode is not null)
         {
             targetLabelNode.Position = new(contentX, targetY);
-            targetLabelNode.Size = new(labelWidth, RowHeight);
+            targetLabelNode.Size = new(LABEL_WIDTH, ROW_HEIGHT);
         }
 
         if (targetColorDropDown is not null)
         {
             targetColorDropDown.Position = new(dropdownX, targetY);
-            targetColorDropDown.Size = new(dropdownWidth, RowHeight);
+            targetColorDropDown.Size = new(dropdownWidth, ROW_HEIGHT);
         }
 
         if (targetColorNode is not null)
         {
-            targetColorNode.Position = new(contentX + labelWidth, targetY + 3f);
-            targetColorNode.Size = new(colorSize, colorSize);
+            targetColorNode.Position = new(contentX + LABEL_WIDTH, targetY + 3f);
+            targetColorNode.Size = new(COLOR_SIZE, COLOR_SIZE);
         }
 
         if (previewButton is not null)
         {
             previewButton.Position = new(previewX, targetY);
-            previewButton.Size = new(buttonWidth, RowHeight);
+            previewButton.Size = new(BUTTON_WIDTH, ROW_HEIGHT);
         }
 
         if (clearButton is not null)
         {
             clearButton.Position = new(clearX, targetY);
-            clearButton.Size = new(buttonWidth, RowHeight);
+            clearButton.Size = new(BUTTON_WIDTH, ROW_HEIGHT);
         }
 
-        var fruitRequirementsY = targetY + RowHeight + 8f;
+        var fruitRequirementsY = targetY + ROW_HEIGHT + 8f;
         if (fruitRequirementsLabelNode is not null)
         {
             fruitRequirementsLabelNode.Position = new(contentX, fruitRequirementsY);
-            fruitRequirementsLabelNode.Size = new(contentWidth, RowHeight);
+            fruitRequirementsLabelNode.Size = new(contentWidth, ROW_HEIGHT);
         }
 
         if (fruitRequirementsListNode is not null)
         {
-            fruitRequirementsListNode.Position = new(contentX, fruitRequirementsY + RowHeight);
+            fruitRequirementsListNode.Position = new(contentX, fruitRequirementsY + ROW_HEIGHT);
             fruitRequirementsListNode.Size = new(contentWidth, ChocoboFruitRequirementListItemNode.ItemHeight * 3f);
         }
 
-        var feedOrderY = fruitRequirementsY + RowHeight * 4f + 4f;
+        var feedOrderY = fruitRequirementsY + ROW_HEIGHT * 4f + 4f;
         if (feedOrderLabelNode is not null)
         {
             feedOrderLabelNode.Position = new(contentX, feedOrderY);
-            feedOrderLabelNode.Size = new(contentWidth, RowHeight);
+            feedOrderLabelNode.Size = new(contentWidth, ROW_HEIGHT);
         }
 
         if (noFruitNode is not null)
         {
-            noFruitNode.Position = new(contentX + 8f, feedOrderY + RowHeight);
-            noFruitNode.Size = new(contentWidth - 8f, RowHeight);
+            noFruitNode.Position = new(contentX + 8f, feedOrderY + ROW_HEIGHT);
+            noFruitNode.Size = new(contentWidth - 8f, ROW_HEIGHT);
         }
 
         if (feedOrderListNode is not null)
         {
-            feedOrderListNode.Position = new(contentX, feedOrderY + RowHeight);
+            feedOrderListNode.Position = new(contentX, feedOrderY + ROW_HEIGHT);
             feedOrderListNode.Size = new(
                 contentWidth,
-                MathF.Min(FeedListHeight, MathF.Max(ChocoboFeedOrderListItemNode.ItemHeight, ContentSize.Y - (feedOrderY + RowHeight - contentY))));
+                MathF.Min(FeedListHeight, MathF.Max(ChocoboFeedOrderListItemNode.ItemHeight, ContentSize.Y - (feedOrderY + ROW_HEIGHT - contentY))));
         }
     }
 }

@@ -89,15 +89,15 @@ internal readonly record struct BetterCharacterPanelStats(
 
 internal static unsafe class BetterCharacterPanelState
 {
-    private const nint CharacterPanelEquipmentDataOffset = 0x2490;
-    private const int PhysicalDamageIndex = 20;
-    private const int MagicDamageIndex = 21;
-    private const int HighQualityDamageBonusIndex = 33;
-    private const int EquipmentLevelIndex = 39;
-    private const ushort TooltipTitleColor = 8;
-    private const ushort TooltipHighlightColor = 33;
-    private const ushort TooltipGoodColor = 43;
-    private const ushort TooltipWasteColor = 31;
+    private const nint CHARACTER_PANEL_EQUIPMENT_DATA_OFFSET = 0x2490;
+    private const int PHYSICAL_DAMAGE_INDEX = 20;
+    private const int MAGIC_DAMAGE_INDEX = 21;
+    private const int HIGH_QUALITY_DAMAGE_BONUS_INDEX = 33;
+    private const int EQUIPMENT_LEVEL_INDEX = 39;
+    private const ushort TOOLTIP_TITLE_COLOR = 8;
+    private const ushort TOOLTIP_HIGHLIGHT_COLOR = 33;
+    private const ushort TOOLTIP_GOOD_COLOR = 43;
+    private const ushort TOOLTIP_WASTE_COLOR = 31;
 
     private enum Attribute
     {
@@ -464,11 +464,11 @@ internal static unsafe class BetterCharacterPanelState
             return 0;
         }
 
-        var equipmentData = (ushort*)((nint)inventoryManager + CharacterPanelEquipmentDataOffset);
-        var weaponBaseDamage = equipmentData[IsCaster(jobID) ? MagicDamageIndex : PhysicalDamageIndex]
-                               + equipmentData[HighQualityDamageBonusIndex];
+        var equipmentData = (ushort*)((nint)inventoryManager + CHARACTER_PANEL_EQUIPMENT_DATA_OFFSET);
+        var weaponBaseDamage = equipmentData[IsCaster(jobID) ? MAGIC_DAMAGE_INDEX : PHYSICAL_DAMAGE_INDEX]
+                               + equipmentData[HIGH_QUALITY_DAMAGE_BONUS_INDEX];
         if (GetLevelBasedItemLevel(playerState) is { } syncedItemLevel
-            && equipmentData[EquipmentLevelIndex] > playerState->CurrentLevel
+            && equipmentData[EQUIPMENT_LEVEL_INDEX] > playerState->CurrentLevel
             && LuminaGetter.TryGetRow<ItemLevel>(syncedItemLevel, out var itemLevel))
         {
             weaponBaseDamage = Math.Min(weaponBaseDamage, itemLevel.PhysicalDamage);
@@ -570,7 +570,7 @@ internal static unsafe class BetterCharacterPanelState
         double pointsPerTier)
     {
         using var rented = new RentedSeStringBuilder();
-        AppendColored(rented, OmniLoc.Get(titleKey), TooltipTitleColor);
+        AppendColored(rented, OmniLoc.Get(titleKey), TOOLTIP_TITLE_COLOR);
         rented.Builder.Append("\n").Append(Format(bodyKey, pointsPerTier));
         AppendTierLine(rented, info);
         return rented.Builder.ToReadOnlySeString();
@@ -584,7 +584,7 @@ internal static unsafe class BetterCharacterPanelState
         AppendColored(
             rented,
             OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.Tenacity.Title"),
-            TooltipTitleColor);
+            TOOLTIP_TITLE_COLOR);
         rented.Builder
             .Append("\n")
             .Append(Format("Feature.BetterCharacterPanel.Tooltip.Tenacity.Mitigation", mitigation.PointsPerTier));
@@ -612,7 +612,7 @@ internal static unsafe class BetterCharacterPanelState
             OmniLoc.Get(caster
                 ? "Feature.BetterCharacterPanel.Tooltip.Speed.SpellTitle"
                 : "Feature.BetterCharacterPanel.Tooltip.Speed.SkillTitle"),
-            TooltipTitleColor);
+            TOOLTIP_TITLE_COLOR);
         rented.Builder.Append("\n").Append(Format(
             "Feature.BetterCharacterPanel.Tooltip.Speed.Body",
             speed.MainGcd.DisplayValue,
@@ -644,7 +644,7 @@ internal static unsafe class BetterCharacterPanelState
         double average)
     {
         using var rented = new RentedSeStringBuilder();
-        AppendColored(rented, OmniLoc.Get(titleKey), TooltipTitleColor);
+        AppendColored(rented, OmniLoc.Get(titleKey), TOOLTIP_TITLE_COLOR);
         rented.Builder.Append("\n").Append(Format(
             bodyKey,
             OmniNumberFormatter.Format((long)Math.Round(normal)),
@@ -662,12 +662,12 @@ internal static unsafe class BetterCharacterPanelState
         AppendColored(
             rented,
             wasted.ToString(CultureInfo.CurrentCulture),
-            wasted == 0 ? TooltipGoodColor : TooltipWasteColor);
+            wasted == 0 ? TOOLTIP_GOOD_COLOR : TOOLTIP_WASTE_COLOR);
         rented.Builder.Append(OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.Tier.Next"));
         AppendColored(
             rented,
             Math.Max(0, info.NextTier - info.CurrentValue).ToString(CultureInfo.CurrentCulture),
-            TooltipHighlightColor);
+            TOOLTIP_HIGHLIGHT_COLOR);
         rented.Builder.Append(OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.Tier.Suffix"));
     }
 

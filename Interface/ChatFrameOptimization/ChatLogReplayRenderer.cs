@@ -38,29 +38,21 @@ internal sealed class ChatLogReplayRenderer
 
     private void DrawEntry(ChatLogReplayEntry entry, bool showTime, bool anonymousMode)
     {
-        ImGui.PushStyleColor(ImGuiCol.Text, ChatLogReplayPresentation.GetChannelColor(entry.ChannelName));
-        try
+        using var color = ImRaii.PushColor(ImGuiCol.Text, ChatLogReplayPresentation.GetChannelColor(entry.ChannelName));
+        if (showTime)
         {
-            if (showTime)
-            {
-                ImGui.TextUnformatted($"[{entry.TimeText}] ");
-                ImGui.SameLine(0f, 0f);
-            }
-
-            DrawJobIcon(entry);
-            if (TryDrawNativePayload(entry, anonymousMode))
-            {
-                return;
-            }
-
-            ImGui.PushTextWrapPos();
-            ImGui.TextWrapped(GetFallbackLine(entry, anonymousMode));
-            ImGui.PopTextWrapPos();
+            ImGui.TextUnformatted($"[{entry.TimeText}] ");
+            ImGui.SameLine(0f, 0f);
         }
-        finally
+
+        DrawJobIcon(entry);
+        if (TryDrawNativePayload(entry, anonymousMode))
         {
-            ImGui.PopStyleColor();
+            return;
         }
+
+        using var wrap = ImRaii.TextWrapPos(0f);
+        ImGui.TextWrapped(GetFallbackLine(entry, anonymousMode));
     }
 
     private static void DrawJobIcon(ChatLogReplayEntry entry)

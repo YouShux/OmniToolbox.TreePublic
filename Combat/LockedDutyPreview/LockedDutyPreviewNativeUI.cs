@@ -20,7 +20,7 @@ internal enum LockedDutyPreviewView
 
 internal sealed class LockedDutyPreviewNativeUI : NativeAddon
 {
-    private const float ItemSpacing = 2f;
+    private const float ITEM_SPACING = 2f;
 
     private List<LockedDutyPreviewRow> rows = [];
     private TextNode? summaryNode;
@@ -73,7 +73,7 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
 
         listNode = new()
         {
-            ItemSpacing = ItemSpacing,
+            ItemSpacing = ITEM_SPACING,
             Position = new(ContentStartPosition.X + 2f, ContentStartPosition.Y + 30f),
             Size = new(ContentSize.X - 4f, ContentSize.Y - 72f),
             OptionsList = rows,
@@ -220,9 +220,9 @@ internal sealed class LockedDutyPreviewListItemNode : ListItemNode<LockedDutyPre
 {
     public static float ItemHeight => 28f;
 
-    private static Action<LockedDutyPreviewRow>? onExclude;
-    private static Action<LockedDutyPreviewRow>? onRestore;
-    private static Action<LockedDutyPreviewRow>? onWiki;
+    private static Action<LockedDutyPreviewRow>? OnExclude;
+    private static Action<LockedDutyPreviewRow>? OnRestore;
+    private static Action<LockedDutyPreviewRow>? OnWiki;
 
     private readonly TextNode nameNode;
     private readonly TextButtonNode primaryButton;
@@ -245,11 +245,11 @@ internal sealed class LockedDutyPreviewListItemNode : ListItemNode<LockedDutyPre
             {
                 if (item.IsExcluded)
                 {
-                    onRestore?.Invoke(item);
+                    OnRestore?.Invoke(item);
                 }
                 else
                 {
-                    onExclude?.Invoke(item);
+                    OnExclude?.Invoke(item);
                 }
             }
         };
@@ -258,7 +258,7 @@ internal sealed class LockedDutyPreviewListItemNode : ListItemNode<LockedDutyPre
         wikiButton = new()
         {
             String = OmniLoc.Get("Feature.LockedDutyPreview.Wiki"),
-            OnClick = () => onWiki?.Invoke(item)
+            OnClick = () => OnWiki?.Invoke(item)
         };
         wikiButton.AttachNode(this);
     }
@@ -268,27 +268,27 @@ internal sealed class LockedDutyPreviewListItemNode : ListItemNode<LockedDutyPre
         Action<LockedDutyPreviewRow> restore,
         Action<LockedDutyPreviewRow> wiki)
     {
-        onExclude = exclude;
-        onRestore = restore;
-        onWiki = wiki;
+        OnExclude = exclude;
+        OnRestore = restore;
+        OnWiki = wiki;
     }
 
     public static void ClearCallbacks()
     {
-        onExclude = null;
-        onRestore = null;
-        onWiki = null;
+        OnExclude = null;
+        OnRestore = null;
+        OnWiki = null;
     }
 
     protected override void OnSizeChanged()
     {
         base.OnSizeChanged();
-        const float gap = 4f;
+        const float GAP = 4f;
         var primaryWidth = item.IsExcluded ? 72f : 52f;
         var wikiWidth = item.IsExcluded ? 0f : 52f;
-        var rightWidth = primaryWidth + (item.IsExcluded ? 0f : gap + wikiWidth);
+        var rightWidth = primaryWidth + (item.IsExcluded ? 0f : GAP + wikiWidth);
         nameNode.Position = new(2f, 4f);
-        nameNode.Size = new(MathF.Max(40f, Width - rightWidth - gap - 4f), Height - 2f);
+        nameNode.Size = new(MathF.Max(40f, Width - rightWidth - GAP - 4f), Height - 2f);
         primaryButton.Position = new(Width - rightWidth, 0f);
         primaryButton.Size = new(primaryWidth, 26f);
         wikiButton.Position = new(Width - wikiWidth, 0f);

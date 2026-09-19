@@ -7,18 +7,18 @@ using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using CSCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
-using LuminaStatus = Lumina.Excel.Sheets.Status;
 using OmniToolbox.Config;
 using OmniToolbox.TreeHouse;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
+using CSCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
+using LuminaStatus = Lumina.Excel.Sheets.Status;
 
 namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class FloatingInfoOverlayState : IDisposable
 {
-    private const int MaxStatusCount = 8;
+    private const int MAX_STATUS_COUNT = 8;
     private readonly FloatingInfoOverlayConfig config;
     private readonly NonEntityTargetVisibility targetVisibility;
     private readonly List<FloatingInfoObject> objects = [];
@@ -381,9 +381,9 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
         }
 
         statuses.Sort(static (left, right) => right.RemainingTime.CompareTo(left.RemainingTime));
-        if (statuses.Count > MaxStatusCount)
+        if (statuses.Count > MAX_STATUS_COUNT)
         {
-            statuses.RemoveRange(MaxStatusCount, statuses.Count - MaxStatusCount);
+            statuses.RemoveRange(MAX_STATUS_COUNT, statuses.Count - MAX_STATUS_COUNT);
         }
     }
 

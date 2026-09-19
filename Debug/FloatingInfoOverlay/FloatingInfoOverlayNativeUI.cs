@@ -1,14 +1,14 @@
 using System.Drawing;
 using System.Globalization;
 using Lumina.Excel.Sheets;
-using OmenTools.Interop.Game.Lumina;
 using OmenTools.Extensions;
-using LuminaAction = Lumina.Excel.Sheets.Action;
+using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
+using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreePublic;
 
@@ -109,7 +109,7 @@ internal sealed class FloatingInfoOverlayNativeUI(
     {
         ImGui.SetNextWindowPos(minimum, ImGuiCond.Always);
         ImGui.SetNextWindowSize(maximum - minimum, ImGuiCond.Always);
-        const ImGuiWindowFlags flags =
+        const ImGuiWindowFlags FLAGS =
             ImGuiWindowFlags.NoDecoration |
             ImGuiWindowFlags.NoSavedSettings |
             ImGuiWindowFlags.NoFocusOnAppearing |
@@ -120,7 +120,7 @@ internal sealed class FloatingInfoOverlayNativeUI(
         using var padding = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, Vector2.Zero);
         using var colors = ImRaii.PushColor(ImGuiCol.WindowBg, Vector4.Zero)
             .Push(ImGuiCol.Border, Vector4.Zero);
-        var windowOpen = ImGui.Begin($"##OmniFloatingInfo_{groupID:X8}", flags);
+        var windowOpen = ImGui.Begin($"##OmniFloatingInfo_{groupID:X8}", FLAGS);
         try
         {
             if (!windowOpen || !ImGui.IsWindowHovered() || !ImGui.IsMouseClicked(ImGuiMouseButton.Left))

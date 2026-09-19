@@ -1,14 +1,16 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Dalamud.Plugin.Services;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
-using OmenTools.OmenService;
+using Microsoft.Win32.SafeHandles;
 using OmenTools.ImGuiOm;
-using ClientFramework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework;
+using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Config;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
+using ClientFramework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framework;
 
 namespace OmniToolbox.TreePublic;
 
@@ -21,12 +23,12 @@ public sealed unsafe class BackgroundFPSLimit(BackgroundFPSLimitConfig config) :
         Category = ModuleCategory.Daily
     };
 
-    private bool hasOriginalState;
-    private bool originalLimited;
-    private short originalLimit;
-    private int currentTargetLimit;
-    private short deviceLimit;
-    private DateTime nextCalibrationUTC;
+    private const uint CREATE_WAITABLE_TIMER_HIGH_RESOLUTION = 0x00000002;
+    private const uint TIMER_MODIFY_STATE = 0x00000002;
+    private const uint SYNCHRONIZE = 0x00100000;
+
+    private readonly Stopwatch frameTimer = new();
+    private SafeWaitHandle? frameWaitHandle;
 
     public override bool HasSettings => true;
 
@@ -49,96 +51,103 @@ public sealed unsafe class BackgroundFPSLimit(BackgroundFPSLimitConfig config) :
 
     protected override void OnEnable()
     {
-        if (!FrameworkManager.Instance().Reg(OnUpdate, 100))
+        try
         {
-            throw new InvalidOperationException("Background FPS update registration failed.");
+            frameWaitHandle = CreateWaitableTimerExW(
+                nint.Zero,
+                nint.Zero,
+                CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
+                TIMER_MODIFY_STATE | SYNCHRONIZE);
+            if (frameWaitHandle.IsInvalid)
+            {
+                throw new Win32Exception(Marshal.GetLastPInvokeError());
+            }
+
+            if (!FrameworkManager.Instance().Reg(OnUpdate))
+            {
+                throw new InvalidOperationException("Background FPS update registration failed.");
+            }
+
+            frameTimer.Restart();
+        }
+        catch
+        {
+            frameWaitHandle?.Dispose();
+            frameWaitHandle = null;
+            throw;
         }
     }
 
     protected override void OnDisable()
     {
         FrameworkManager.Instance().Unreg(OnUpdate);
-        RestoreOriginalState();
+        frameWaitHandle?.Dispose();
+        frameWaitHandle = null;
+        frameTimer.Reset();
     }
 
     private void OnUpdate(IFramework _)
     {
-        if (GameState.IsForeground)
-        {
-            RestoreOriginalState();
-            return;
-        }
-
-        var device = Device.Instance();
-        if (device is null)
-        {
-            return;
-        }
-
-        if (!hasOriginalState)
-        {
-            originalLimited = device->IsFrameRateLimited;
-            originalLimit = device->FrameRateLimit;
-            hasOriginalState = true;
-        }
-
-        var limit = Math.Clamp(config.Limit, 20, short.MaxValue);
-        if (currentTargetLimit != limit)
-        {
-            currentTargetLimit = limit;
-            deviceLimit = (short)limit;
-            nextCalibrationUTC = DateTime.MinValue;
-        }
-
-        device->IsFrameRateLimited = true;
-        device->FrameRateLimit = deviceLimit;
-        CalibrateDeviceLimit(limit, device);
-    }
-
-    private void RestoreOriginalState()
-    {
-        if (!hasOriginalState)
-        {
-            return;
-        }
-
-        var device = Device.Instance();
-        if (device is not null)
-        {
-            device->IsFrameRateLimited = originalLimited;
-            device->FrameRateLimit = originalLimit;
-        }
-
-        hasOriginalState = false;
-        currentTargetLimit = 0;
-        deviceLimit = 0;
-        nextCalibrationUTC = DateTime.MinValue;
-    }
-
-    private void CalibrateDeviceLimit(int targetLimit, Device* device)
-    {
-        var now = DateTime.UtcNow;
-        if (now < nextCalibrationUTC)
-        {
-            return;
-        }
-
-        nextCalibrationUTC = now.AddMilliseconds(500);
         var framework = ClientFramework.Instance();
-        if (framework is null)
+        if (framework is null || framework->GameWindow is null ||
+            framework->GameWindow->WindowHandle == nint.Zero ||
+            GetForegroundWindow() == framework->GameWindow->WindowHandle)
         {
+            frameTimer.Restart();
             return;
         }
 
-        var currentFps = (int)MathF.Round(Math.Max(framework->FrameRate, 0f));
-        if (currentFps <= 0 || currentFps == targetLimit)
+        var delayMS = GetFrameDelayMilliseconds(config.Limit, frameTimer.Elapsed.TotalMilliseconds);
+        if (delayMS > 0)
         {
-            return;
+            try
+            {
+                WaitForFrame(frameWaitHandle!, delayMS);
+            }
+            catch (Win32Exception)
+            {
+                SetEnabled(false);
+                throw;
+            }
         }
 
-        deviceLimit = (short)Math.Clamp(deviceLimit + targetLimit - currentFps, targetLimit, short.MaxValue);
-        device->FrameRateLimit = deviceLimit;
+        frameTimer.Restart();
     }
+
+    internal static int GetFrameDelayMilliseconds(int limit, double elapsedMS)
+    {
+        limit = Math.Clamp(limit, 20, short.MaxValue);
+        return limit == short.MaxValue
+            ? 0
+            : (int)Math.Max(0, Math.Ceiling(1000d / limit - elapsedMS));
+    }
+
+    private static void WaitForFrame(SafeWaitHandle timer, int delayMS)
+    {
+        // 负值表示相对等待时间，单位与 TimeSpan.Ticks 相同；等待期间让出 CPU。
+        var dueTime = -delayMS * TimeSpan.TicksPerMillisecond;
+        if (!SetWaitableTimer(timer, in dueTime, 0, nint.Zero, nint.Zero, false) ||
+            WaitForSingleObject(timer, uint.MaxValue) == uint.MaxValue)
+        {
+            throw new Win32Exception(Marshal.GetLastPInvokeError());
+        }
+    }
+
+    [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+    private static extern SafeWaitHandle CreateWaitableTimerExW(
+        nint timerAttributes, nint timerName, uint flags, uint desiredAccess);
+
+    [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWaitableTimer(
+        SafeWaitHandle timer, in long dueTime, int period, nint completionRoutine, nint argument,
+        [MarshalAs(UnmanagedType.Bool)] bool resume);
+
+    [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+    private static extern uint WaitForSingleObject(SafeWaitHandle handle, uint milliseconds);
+
+    [DllImport("user32.dll")]
+    private static extern nint GetForegroundWindow();
 }
 
 [Serializable]

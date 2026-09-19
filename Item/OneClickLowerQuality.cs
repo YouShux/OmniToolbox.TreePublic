@@ -20,7 +20,6 @@ using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
@@ -232,7 +231,7 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
         var manager = RaptureAtkUnitManager.Instance();
         var owner = manager == null ? null : manager->GetAddonById((ushort)ownerAddonID);
         var confirmation = Addons.SelectYesno;
-        if (context == null || owner == null || !owner->IsAddonAndNodesReady() ||
+        if (context == null || !owner->IsAddonAndNodesReady() ||
             confirmation != null && confirmation->IsVisible)
         {
             return false;
@@ -433,7 +432,7 @@ public sealed class OneClickLowerQualityConfig
 
 internal static class OneClickLowerQualityPanel
 {
-    private static int itemIDInput;
+    private static int ItemIDInput;
 
     public static bool Draw(OneClickLowerQualityConfig config)
     {
@@ -441,12 +440,12 @@ internal static class OneClickLowerQualityPanel
         ImGui.TextUnformatted(OmniLoc.Get("Feature.OneClickLowerQuality.ItemId"));
         ImGui.SameLine();
         ImGui.SetNextItemWidth(OmniTheme.Scale(110f));
-        if (OmniControls.InputInt("##oneClickLowerQualityItemId", ref itemIDInput) && itemIDInput < 0)
+        if (OmniControls.InputInt("##oneClickLowerQualityItemId", ref ItemIDInput) && ItemIDInput < 0)
         {
-            itemIDInput = 0;
+            ItemIDInput = 0;
         }
 
-        var itemID = ItemUtil.GetBaseId((uint)Math.Max(0, itemIDInput)).ItemId;
+        var itemID = ItemUtil.GetBaseId((uint)Math.Max(0, ItemIDInput)).ItemId;
         ImGui.SameLine();
         var changed = OmniControls.SmallButton(
                           $"{OmniLoc.Get("Feature.OneClickLowerQuality.Add")}##oneClickLowerQualityAdd",

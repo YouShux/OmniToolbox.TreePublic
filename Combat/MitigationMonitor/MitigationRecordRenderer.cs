@@ -12,10 +12,10 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 {
-    private const uint PhysicalDamageIconID = 60011;
-    private const uint MagicalDamageIconID = 60012;
-    private const uint SpecialDamageIconID = 60013;
-    private const float StatusIconTextGap = -6f;
+    private const uint PHYSICAL_DAMAGE_ICON_ID = 60011;
+    private const uint MAGICAL_DAMAGE_ICON_ID = 60012;
+    private const uint SPECIAL_DAMAGE_ICON_ID = 60013;
+    private const float STATUS_ICON_TEXT_GAP = -6f;
 
     private static readonly uint[] JobIconV3ByRowID =
     [
@@ -198,9 +198,9 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 
         var iconID = record.DamageKind switch
         {
-            DamageKind.Physical => PhysicalDamageIconID,
-            DamageKind.Magical => MagicalDamageIconID,
-            _ => SpecialDamageIconID
+            DamageKind.Physical => PHYSICAL_DAMAGE_ICON_ID,
+            DamageKind.Magical => MAGICAL_DAMAGE_ICON_ID,
+            _ => SPECIAL_DAMAGE_ICON_ID
         };
         var text = record.Missed
             ? OmniLoc.Get("Feature.MitigationMonitor.Damage.Miss")
@@ -237,7 +237,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         }
 
         var iconWidth = config.Scale(26f);
-        var lineHeight = config.Scale(28f + StatusIconTextGap) + ImGui.GetFontSize() * 0.82f;
+        var lineHeight = config.Scale(28f + STATUS_ICON_TEXT_GAP) + ImGui.GetFontSize() * 0.82f;
         var availableWidth = MathF.Max(iconWidth, statusWidth - config.Scale(8f));
         var lineCount = 1;
         var usedWidth = 0f;
@@ -279,7 +279,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         var iconSlotSize = config.Scale(new Vector2(26f, 28f));
         var iconSize = OmniTheme.StatusIconSize(iconSlotSize.Y);
         var smallFontSize = ImGui.GetFontSize() * 0.76f;
-        var lineHeight = iconSlotSize.Y + config.Scale(StatusIconTextGap) + smallFontSize;
+        var lineHeight = iconSlotSize.Y + config.Scale(STATUS_ICON_TEXT_GAP) + smallFontSize;
         var y = min.Y + MathF.Max(0f, (rowHeight - CalculateStatusHeight(record, width)) * 0.5f);
         var availableWidth = MathF.Max(iconSlotSize.X, width - config.Scale(8f));
         var gap = config.Scale(-3f);
@@ -327,7 +327,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                 ImGui.GetWindowDrawList().AddText(
                     ImGui.GetFont(),
                     smallFontSize,
-                    new Vector2(x + (slotWidth - textSize.X) * 0.5f, iconMax.Y + config.Scale(StatusIconTextGap)),
+                    new Vector2(x + (slotWidth - textSize.X) * 0.5f, iconMax.Y + config.Scale(STATUS_ICON_TEXT_GAP)),
                     OmniTheme.Color(status.Category switch
                     {
                         MitigationStatusCategory.Mitigation => KnownColor.LightSkyBlue.ToVector4(),
@@ -418,18 +418,18 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
             return text;
         }
 
-        const string ellipsis = "...";
-        var available = MathF.Max(0f, width - ImGui.CalcTextSize(ellipsis).X);
+        const string ELLIPSIS = "...";
+        var available = MathF.Max(0f, width - ImGui.CalcTextSize(ELLIPSIS).X);
         var info = new StringInfo(text);
         for (var length = info.LengthInTextElements - 1; length > 0; length--)
         {
             var candidate = info.SubstringByTextElements(0, length);
             if (ImGui.CalcTextSize(candidate).X <= available)
             {
-                return candidate + ellipsis;
+                return candidate + ELLIPSIS;
             }
         }
 
-        return ellipsis;
+        return ELLIPSIS;
     }
 }

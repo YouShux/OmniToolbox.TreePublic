@@ -1,10 +1,9 @@
 using System.Text;
-using System.Numerics;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
-using OmenTools.Interop.Game.Lumina;
 using OmenTools.Extensions;
+using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Items;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
@@ -13,9 +12,9 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class BetterGlamourManagement
 {
-    private static BetterGlamourItemSearchResult[]? itemSearchIndex;
-    private static BetterGlamourItemSearchResult[]? hairstyleSearchIndex;
-    private static BetterGlamourItemSearchResult[]? glassesSearchIndex;
+    private static BetterGlamourItemSearchResult[]? ItemSearchIndex;
+    private static BetterGlamourItemSearchResult[]? HairstyleSearchIndex;
+    private static BetterGlamourItemSearchResult[]? GlassesSearchIndex;
 
     internal static readonly GlamourPart[] Parts =
     [
@@ -31,7 +30,7 @@ public sealed unsafe partial class BetterGlamourManagement
         new("Feature.BetterGlamourManagement.Part.RingLeft", 12)
     ];
 
-    private static List<GlamourDyeOption>? dyeOptions;
+    private static List<GlamourDyeOption>? CachedDyeOptions;
 
     private void NormalizeSelection()
     {
@@ -156,20 +155,20 @@ public sealed unsafe partial class BetterGlamourManagement
 
     internal static List<BetterGlamourItemSearchResult> SearchItems(string query)
     {
-        itemSearchIndex ??= BuildItemSearchIndex();
-        return SearchItems(query, itemSearchIndex);
+        ItemSearchIndex ??= BuildItemSearchIndex();
+        return SearchItems(query, ItemSearchIndex);
     }
 
     internal static List<BetterGlamourItemSearchResult> SearchHairstyles(string query)
     {
-        hairstyleSearchIndex ??= BuildHairstyleSearchIndex();
-        return SearchItems(query, hairstyleSearchIndex);
+        HairstyleSearchIndex ??= BuildHairstyleSearchIndex();
+        return SearchItems(query, HairstyleSearchIndex);
     }
 
     internal static List<BetterGlamourItemSearchResult> SearchGlasses(string query)
     {
-        glassesSearchIndex ??= BuildGlassesSearchIndex();
-        return SearchItems(query, glassesSearchIndex);
+        GlassesSearchIndex ??= BuildGlassesSearchIndex();
+        return SearchItems(query, GlassesSearchIndex);
     }
 
     private static List<BetterGlamourItemSearchResult> SearchItems(
@@ -349,12 +348,12 @@ public sealed unsafe partial class BetterGlamourManagement
     {
         get
         {
-            if (dyeOptions is not null)
+            if (CachedDyeOptions is not null)
             {
-                return dyeOptions;
+                return CachedDyeOptions;
             }
 
-            dyeOptions = [new(0, OmniLoc.Get("Feature.BetterGlamourManagement.NoDye"), Vector4.Zero)];
+            CachedDyeOptions = [new(0, OmniLoc.Get("Feature.BetterGlamourManagement.NoDye"), Vector4.Zero)];
             foreach (var stain in LuminaGetter.Get<Stain>())
             {
                 if (stain.RowId is 0 or > byte.MaxValue)
@@ -365,11 +364,11 @@ public sealed unsafe partial class BetterGlamourManagement
                 var name = stain.Name.ExtractText();
                 if (!string.IsNullOrWhiteSpace(name))
                 {
-                    dyeOptions.Add(new((byte)stain.RowId, name, stain.Color.ReverseToVector4()));
+                    CachedDyeOptions.Add(new((byte)stain.RowId, name, stain.Color.ReverseToVector4()));
                 }
             }
 
-            return dyeOptions;
+            return CachedDyeOptions;
         }
     }
 

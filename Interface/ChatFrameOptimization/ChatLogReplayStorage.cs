@@ -20,7 +20,7 @@ internal sealed class ChatLogReplayStorage : IDisposable
     public const int MinLogFileCount = 1;
     public const int MaxLogFileCount = 200;
 
-    private const string LogExtension = ".omnilog";
+    private const string LOG_EXTENSION = ".omnilog";
 
     private static readonly JsonSerializerOptions JSONOptions = new()
     {
@@ -163,7 +163,7 @@ internal sealed class ChatLogReplayStorage : IDisposable
             return currentLogPath;
         }
 
-        currentLogPath = Path.Combine(DirectoryPath, $"chat_{DateTime.Now:yyyyMMdd_HHmmss_fff}{LogExtension}");
+        currentLogPath = Path.Combine(DirectoryPath, $"chat_{DateTime.Now:yyyyMMdd_HHmmss_fff}{LOG_EXTENSION}");
         created = true;
         return currentLogPath;
     }
@@ -175,7 +175,7 @@ internal sealed class ChatLogReplayStorage : IDisposable
             return;
         }
 
-        var files = System.IO.Directory.GetFiles(DirectoryPath, $"*{LogExtension}")
+        var files = System.IO.Directory.GetFiles(DirectoryPath, $"*{LOG_EXTENSION}")
             .Select(path => new FileInfo(path))
             .OrderBy(file => file.CreationTimeUtc)
             .ThenBy(file => file.Name, StringComparer.Ordinal)
@@ -205,7 +205,7 @@ internal sealed class ChatLogReplayStorage : IDisposable
         results.Enqueue(new ChatLogReplayFileListResult(
             requestID,
             true,
-            System.IO.Directory.GetFiles(DirectoryPath, $"*{LogExtension}")
+            System.IO.Directory.GetFiles(DirectoryPath, $"*{LOG_EXTENSION}")
                 .Select(path => new FileInfo(path))
                 .OrderByDescending(file => file.LastWriteTimeUtc)
                 .ThenByDescending(file => file.Name, StringComparer.Ordinal)

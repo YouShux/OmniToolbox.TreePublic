@@ -5,12 +5,11 @@ using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Utility;
 using OmenTools;
 using OmenTools.OmenService;
-using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
+using OmniToolbox.Config;
 using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

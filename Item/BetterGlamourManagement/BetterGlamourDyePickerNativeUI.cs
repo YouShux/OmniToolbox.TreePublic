@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Numerics;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit;
@@ -13,8 +12,8 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
 {
-    private const int AllCategory = 7;
-    private const int SwatchesPerRow = 8;
+    private const int ALL_CATEGORY = 7;
+    private const int SWATCHES_PER_ROW = 8;
 
     private static readonly Vector4[] CategoryColors =
     [
@@ -49,7 +48,7 @@ internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
     private TextNineGridNode? tooltipNode;
     private BetterGlamourDyeColorNode? tooltipAnchor;
     private int selectedStain;
-    private int selectedCategory = AllCategory;
+    private int selectedCategory = ALL_CATEGORY;
     private bool pendingRowsRebuild;
 
     [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
@@ -103,12 +102,12 @@ internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
             stainPreviewNodes[index] = node;
         }
 
-        for (var index = 0; index <= AllCategory; index++)
+        for (var index = 0; index <= ALL_CATEGORY; index++)
         {
             var category = index;
             var node = new BetterGlamourDyeColorNode(0f, 1f, 0f)
             {
-                Color = index == AllCategory ? new(0.2f, 0.2f, 0.2f, 1f) : CategoryColors[index]
+                Color = index == ALL_CATEGORY ? new(0.2f, 0.2f, 0.2f, 1f) : CategoryColors[index]
             };
             node.CollisionNode.AddEvent(AtkEventType.MouseClick, () => SelectCategory(category));
             node.SetFixedTooltip(OmniLoc.Get(CategoryTooltipKeys[index]), ShowDyeTooltip, HideDyeTooltip);
@@ -133,7 +132,7 @@ internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
         };
         tooltipNode.AttachNode(this);
         ResizeContent();
-        SelectCategory(AllCategory);
+        SelectCategory(ALL_CATEGORY);
     }
 
     protected override unsafe void OnUpdate(AtkUnitBase* addon)
@@ -208,16 +207,16 @@ internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
         var options = new List<BetterGlamourManagement.GlamourDyeOption>();
         foreach (var option in BetterGlamourManagement.DyeOptions)
         {
-            if (selectedCategory == AllCategory || GetCategory(option) == selectedCategory)
+            if (selectedCategory == ALL_CATEGORY || GetCategory(option) == selectedCategory)
             {
                 options.Add(option);
             }
         }
 
-        for (var index = 0; index < options.Count; index += SwatchesPerRow)
+        for (var index = 0; index < options.Count; index += SWATCHES_PER_ROW)
         {
             rows.Add(new(
-                options.GetRange(index, Math.Min(SwatchesPerRow, options.Count - index)),
+                options.GetRange(index, Math.Min(SWATCHES_PER_ROW, options.Count - index)),
                 item is null ? (byte)0 : selectedStain == 0 ? item.Stain0 : item.Stain1,
                 SelectDye,
                 ShowDyeTooltip,
@@ -238,8 +237,8 @@ internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
             return;
         }
 
-        const float categoryWidth = 42f;
-        const float gap = 8f;
+        const float CATEGORY_WIDTH = 42f;
+        const float GAP = 8f;
         tabBarNode.Position = ContentStartPosition;
         tabBarNode.Size = new(ContentSize.X, 28f);
         var tabWidth = ContentSize.X / stainPreviewNodes.Length;
@@ -258,9 +257,9 @@ internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
             categoryNodes[index].Size = new(36f, 36f);
         }
 
-        listNode.Position = new(ContentStartPosition.X + categoryWidth + gap, ContentStartPosition.Y + 38f);
+        listNode.Position = new(ContentStartPosition.X + CATEGORY_WIDTH + GAP, ContentStartPosition.Y + 38f);
         listNode.Size = new(
-            MathF.Max(120f, ContentSize.X - categoryWidth - gap),
+            MathF.Max(120f, ContentSize.X - CATEGORY_WIDTH - GAP),
             MathF.Max(80f, ContentSize.Y - 38f));
     }
 

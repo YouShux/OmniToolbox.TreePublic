@@ -11,12 +11,12 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationReplayStore
 {
-    private const int ExportVersion = 1;
-    private const int MaxReplayRecords = 100_000;
-    private const int MaxStatusesPerRecord = 64;
-    private const int MaxTextLength = 4096;
-    private const string ExportDirectoryName = "MitigationExports";
-    private const string ExportExtension = ".omni-mitigation.json";
+    private const int EXPORT_VERSION = 1;
+    private const int MAX_REPLAY_RECORDS = 100_000;
+    private const int MAX_STATUSES_PER_RECORD = 64;
+    private const int MAX_TEXT_LENGTH = 4096;
+    private const string EXPORT_DIRECTORY_NAME = "MitigationExports";
+    private const string EXPORT_EXTENSION = ".omni-mitigation.json";
 
     private static readonly JsonSerializerOptions JSONOptions = new()
     {
@@ -71,7 +71,7 @@ internal sealed class MitigationReplayStore
                 return [];
             }
 
-            var files = Directory.GetFiles(ExportDirectory, $"*{ExportExtension}");
+            var files = Directory.GetFiles(ExportDirectory, $"*{EXPORT_EXTENSION}");
             Array.Sort(files, static (left, right) =>
                 File.GetLastWriteTimeUtc(right).CompareTo(File.GetLastWriteTimeUtc(left)));
             return files;
@@ -83,13 +83,13 @@ internal sealed class MitigationReplayStore
     }
 
     public string ExportDirectory =>
-        Path.Combine(DService.Instance().PI.GetPluginConfigDirectory(), ExportDirectoryName);
+        Path.Combine(DService.Instance().PI.GetPluginConfigDirectory(), EXPORT_DIRECTORY_NAME);
 
     private static ReplayDto ToDTO(MitigationCombatHistory history)
     {
         var dto = new ReplayDto
         {
-            Version = ExportVersion,
+            Version = EXPORT_VERSION,
             ExportedUTC = DateTime.UtcNow,
             ZoneName = history.ZoneName,
             StartUTC = history.StartUTC,
@@ -146,13 +146,13 @@ internal sealed class MitigationReplayStore
     {
         history = default;
         error = string.Empty;
-        if (dto == null || dto.Version != ExportVersion)
+        if (dto == null || dto.Version != EXPORT_VERSION)
         {
             error = "Unsupported or empty replay file.";
             return false;
         }
 
-        if (dto.Records is not { Count: > 0 } || dto.Records.Count > MaxReplayRecords)
+        if (dto.Records is not { Count: > 0 } || dto.Records.Count > MAX_REPLAY_RECORDS)
         {
             error = "Replay record count is invalid.";
             return false;
@@ -201,7 +201,7 @@ internal sealed class MitigationReplayStore
             dto.TimestampUTC == default ||
             !float.IsFinite(dto.MitigationPercent) ||
             dto.Statuses == null ||
-            dto.Statuses.Count > MaxStatusesPerRecord ||
+            dto.Statuses.Count > MAX_STATUSES_PER_RECORD ||
             !HasValidText(dto.ActionName) ||
             !HasValidText(dto.SourceName) ||
             !HasValidText(dto.TargetName) ||
@@ -260,7 +260,7 @@ internal sealed class MitigationReplayStore
         return true;
     }
 
-    private static bool HasValidText(string? text) => text is { Length: <= MaxTextLength };
+    private static bool HasValidText(string? text) => text is { Length: <= MAX_TEXT_LENGTH };
 
     private static string BuildFileName(MitigationCombatHistory history)
     {
@@ -269,7 +269,7 @@ internal sealed class MitigationReplayStore
             ? OmniLoc.Get("Feature.MitigationMonitor.History.UnknownZone")
             : history.ZoneName);
         var elapsed = SanitizeFileName(string.IsNullOrWhiteSpace(history.ElapsedLabel) ? "00_00" : history.ElapsedLabel);
-        return $"{timestamp}_{zoneName}_{elapsed}{ExportExtension}";
+        return $"{timestamp}_{zoneName}_{elapsed}{EXPORT_EXTENSION}";
     }
 
     private static string EnsureUniquePath(string path)
@@ -288,14 +288,14 @@ internal sealed class MitigationReplayStore
 
         for (var index = 2; index < 1000; index++)
         {
-            var candidate = Path.Combine(directory, $"{name}_{index}{ExportExtension}");
+            var candidate = Path.Combine(directory, $"{name}_{index}{EXPORT_EXTENSION}");
             if (!File.Exists(candidate))
             {
                 return candidate;
             }
         }
 
-        return Path.Combine(directory, $"{name}_{DateTime.UtcNow.Ticks:X}{ExportExtension}");
+        return Path.Combine(directory, $"{name}_{DateTime.UtcNow.Ticks:X}{EXPORT_EXTENSION}");
     }
 
     private static string SanitizeFileName(string text)
@@ -315,7 +315,7 @@ internal sealed class MitigationReplayStore
 
     private sealed class ReplayDto
     {
-        public int Version { get; set; } = ExportVersion;
+        public int Version { get; set; } = EXPORT_VERSION;
         public DateTime ExportedUTC { get; set; }
         public string ZoneName { get; set; } = string.Empty;
         public DateTime StartUTC { get; set; }

@@ -11,7 +11,7 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationRecordTable
 {
-    private const float HeaderHeight = 28f;
+    private const float HEADER_HEIGHT = 28f;
     private static readonly float[] ColumnMinimumWidths = [44f, 70f, 60f, 42f, 34f];
 
     private readonly MitigationMonitorConfig config;
@@ -54,47 +54,49 @@ internal sealed class MitigationRecordTable
         var headerMin = ImGui.GetCursorScreenPos();
         DrawHeader(headerMin, width, layout, openHistory, collapse, toggleLock, openSettings);
         ImGui.SetCursorScreenPos(headerMin);
-        ImGui.Dummy(new Vector2(width, config.Scale(HeaderHeight)));
+        ImGui.Dummy(new Vector2(width, config.Scale(HEADER_HEIGHT)));
 
-        var bodyHeight = MathF.Max(config.Scale(30f), height - config.Scale(HeaderHeight));
-        if (ImGui.BeginChild(
+        var bodyHeight = MathF.Max(config.Scale(30f), height - config.Scale(HEADER_HEIGHT));
+        using (var child = ImRaii.Child(
                 "##MitigationRecordsBody",
                 new Vector2(width, bodyHeight),
                 false,
                 ImGuiWindowFlags.NoScrollbar))
         {
-            var bodyMin = ImGui.GetCursorScreenPos();
-            if (visibleRecords.Count == 0)
+            if (child)
             {
-                DrawNoData(bodyMin, new Vector2(width, bodyHeight));
-            }
-            else
-            {
-                for (var index = 0; index < visibleRecords.Count; index++)
+                var bodyMin = ImGui.GetCursorScreenPos();
+                if (visibleRecords.Count == 0)
                 {
-                    var record = visibleRecords[index];
-                    var rowMin = ImGui.GetCursorScreenPos();
-                    var rowHeight = renderer.CalculateRowHeight(record, layout.Status);
-                    if (ImGui.InvisibleButton($"##MitigationRecord{index}", new Vector2(width, rowHeight)))
+                    DrawNoData(bodyMin, new Vector2(width, bodyHeight));
+                }
+                else
+                {
+                    for (var index = 0; index < visibleRecords.Count; index++)
                     {
-                        ImGui.SetClipboardText(MitigationRecordCopyText.Build(record));
-                        OmniNotifier.Banner(OmniLoc.Get("Feature.MitigationMonitor.Copy.Success"));
-                    }
+                        var record = visibleRecords[index];
+                        var rowMin = ImGui.GetCursorScreenPos();
+                        var rowHeight = renderer.CalculateRowHeight(record, layout.Status);
+                        if (ImGui.InvisibleButton($"##MitigationRecord{index}", new Vector2(width, rowHeight)))
+                        {
+                            ImGui.SetClipboardText(MitigationRecordCopyText.Build(record));
+                            OmniNotifier.Banner(OmniLoc.Get("Feature.MitigationMonitor.Copy.Success"));
+                        }
 
-                    renderer.Draw(
-                        record,
-                        index,
-                        rowMin,
-                        width,
-                        rowHeight,
-                        layout,
-                        ImGui.IsItemHovered(),
-                        ImGui.IsItemActive());
+                        renderer.Draw(
+                            record,
+                            index,
+                            rowMin,
+                            width,
+                            rowHeight,
+                            layout,
+                            ImGui.IsItemHovered(),
+                            ImGui.IsItemActive());
+                    }
                 }
             }
         }
 
-        ImGui.EndChild();
         DrawTargetPopup();
     }
 
@@ -250,7 +252,7 @@ internal sealed class MitigationRecordTable
         Action toggleLock,
         Action openSettings)
     {
-        var height = config.Scale(HeaderHeight);
+        var height = config.Scale(HEADER_HEIGHT);
         ImGui.GetWindowDrawList().AddRectFilled(
             min,
             min + new Vector2(width, height),
@@ -294,7 +296,7 @@ internal sealed class MitigationRecordTable
         ImGui.GetWindowDrawList().AddText(
             new Vector2(
                 x + MathF.Max(0f, (width - textSize.X) * 0.5f),
-                y + MathF.Max(config.Scale(1f), (config.Scale(HeaderHeight) - textSize.Y) * 0.5f)),
+                y + MathF.Max(config.Scale(1f), (config.Scale(HEADER_HEIGHT) - textSize.Y) * 0.5f)),
             OmniTheme.Color(KnownColor.White.ToVector4()),
             text);
     }
@@ -302,7 +304,7 @@ internal sealed class MitigationRecordTable
     private void DrawTargetHeader(Vector2 min, float width)
     {
         ImGui.SetCursorScreenPos(min);
-        ImGui.InvisibleButton("##MitigationTargetFilterHeader", new Vector2(width, config.Scale(HeaderHeight)));
+        ImGui.InvisibleButton("##MitigationTargetFilterHeader", new Vector2(width, config.Scale(HEADER_HEIGHT)));
         var label = OmniLoc.Get("Feature.MitigationMonitor.Column.Target");
         if (selectedTargetName != null)
         {
@@ -329,18 +331,18 @@ internal sealed class MitigationRecordTable
         {
             ImGui.GetWindowDrawList().AddRectFilled(
                 min + config.Scale(new Vector2(2f, 3f)),
-                min + new Vector2(width, config.Scale(HeaderHeight)) - config.Scale(new Vector2(2f, 3f)),
+                min + new Vector2(width, config.Scale(HEADER_HEIGHT)) - config.Scale(new Vector2(2f, 3f)),
                 OmniTheme.Color((active ? KnownColor.SteelBlue : KnownColor.White).ToVector4() with { W = active ? 0.18f : 0.08f }),
                 config.Scale(3f));
         }
 
-        var textY = min.Y + MathF.Max(config.Scale(1f), (config.Scale(HeaderHeight) - textSize.Y) * 0.5f);
+        var textY = min.Y + MathF.Max(config.Scale(1f), (config.Scale(HEADER_HEIGHT) - textSize.Y) * 0.5f);
         ImGui.GetWindowDrawList().AddText(
             new Vector2(startX, textY),
             OmniTheme.Color(active ? KnownColor.LightSkyBlue.ToVector4() : KnownColor.White.ToVector4()),
             display);
         ImGui.GetWindowDrawList().AddText(
-            new Vector2(startX + textSize.X + config.Scale(4f), min.Y + MathF.Max(config.Scale(1f), (config.Scale(HeaderHeight) - caretSize.Y) * 0.5f)),
+            new Vector2(startX + textSize.X + config.Scale(4f), min.Y + MathF.Max(config.Scale(1f), (config.Scale(HEADER_HEIGHT) - caretSize.Y) * 0.5f)),
             OmniTheme.Color(KnownColor.White.ToVector4() with { W = ImGui.IsItemHovered() || active ? 1f : 0.72f }),
             caret);
 
@@ -369,7 +371,7 @@ internal sealed class MitigationRecordTable
         var spacing = config.Scale(3f);
         var x = headerMin.X + width - config.Scale(4f) - buttonSize.X * 4f - spacing * 3f;
         var y = headerMin.Y +
-                MathF.Max(config.Scale(1f), (config.Scale(HeaderHeight) - buttonSize.Y) * 0.5f) +
+                MathF.Max(config.Scale(1f), (config.Scale(HEADER_HEIGHT) - buttonSize.Y) * 0.5f) +
                 config.Scale(1f);
         DrawIconButton(FontAwesomeIcon.History, "##MitigationHistory", "Feature.MitigationMonitor.History.Title", new(x, y), buttonSize, openHistory);
         x += buttonSize.X + spacing;
@@ -441,7 +443,7 @@ internal sealed class MitigationRecordTable
         ImGui.SetCursorScreenPos(min);
         ImGui.InvisibleButton(
             $"##MitigationColumnResize{index}",
-            new Vector2(handleWidth, config.Scale(HeaderHeight)));
+            new Vector2(handleWidth, config.Scale(HEADER_HEIGHT)));
         var hovered = ImGui.IsItemHovered();
         var active = ImGui.IsItemActive();
         if (hovered || active)
@@ -451,7 +453,7 @@ internal sealed class MitigationRecordTable
 
         ImGui.GetWindowDrawList().AddLine(
             new Vector2(x, y + config.Scale(hovered || active ? 2f : 6f)),
-            new Vector2(x, y + config.Scale(HeaderHeight - (hovered || active ? 2f : 6f))),
+            new Vector2(x, y + config.Scale(HEADER_HEIGHT - (hovered || active ? 2f : 6f))),
             OmniTheme.Color((hovered || active ? KnownColor.LightSkyBlue : KnownColor.LightSlateGray).ToVector4() with
             {
                 W = active ? 0.95f : hovered ? 0.65f : 0.46f

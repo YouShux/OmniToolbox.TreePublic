@@ -6,18 +6,17 @@ using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmenTools.Extensions;
+using OmenTools.ImGuiOm;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Models;
-using OmenTools.ImGuiOm;
-using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
-using OmniToolbox.UI.Theme;
+using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
@@ -44,7 +43,7 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
         "4C 8B DC 55 53 57 41 54 41 57 49 8D AB ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ?? 48 8B 9D");
 
     [ThreadStatic]
-    private static bool allowFilterCall;
+    private static bool AllowFilterCall;
 
     private FeatureLifetime? runtimeLifetime;
     private AntiCensorshipProcessor? processor;
@@ -205,7 +204,7 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
 
     private void GetFilteredUtf8StringDetour(nint vulgarInstance, Utf8String* text)
     {
-        if (allowFilterCall || vulgarInstance == nint.Zero || text == null)
+        if (AllowFilterCall || vulgarInstance == nint.Zero || text == null)
         {
             getFilteredUtf8StringHook!.Original(vulgarInstance, text);
         }
@@ -345,13 +344,13 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
         var utf8String = Utf8String.FromString(text);
         try
         {
-            allowFilterCall = true;
+            AllowFilterCall = true;
             getFilteredUtf8StringHook.Original(vulgarInstance, utf8String);
             return utf8String->ToString();
         }
         finally
         {
-            allowFilterCall = false;
+            AllowFilterCall = false;
             utf8String->Dtor(true);
         }
     }

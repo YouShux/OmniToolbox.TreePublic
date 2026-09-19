@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Numerics;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -12,7 +11,6 @@ using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 
 namespace OmniToolbox.TreePublic;
 
@@ -25,7 +23,7 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         Category = ModuleCategory.Combat
     };
 
-    private const string AddonName = "_BattleTalk";
+    private const string ADDON_NAME = "_BattleTalk";
 
     private readonly BattleTalkAdjustmentsConfig config;
     private readonly Stopwatch previewTimer = new();
@@ -127,15 +125,15 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
     protected override void OnEnable()
     {
         runtimeLifetime = new();
-        DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, AddonName, OnPreDraw);
-        DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PostUpdate, AddonName, OnPostUpdate);
+        DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, ADDON_NAME, OnPreDraw);
+        DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PostUpdate, ADDON_NAME, OnPostUpdate);
         runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
             AddonEvent.PreDraw,
-            AddonName,
+            ADDON_NAME,
             OnPreDraw));
         runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
             AddonEvent.PostUpdate,
-            AddonName,
+            ADDON_NAME,
             OnPostUpdate));
     }
 
