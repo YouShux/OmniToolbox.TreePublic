@@ -14,6 +14,7 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using Lumina.Excel.Sheets;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -21,7 +22,9 @@ using OmniToolbox.Host;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmenTools.Dalamud;
+using OmenTools.Extensions;
 using OmenTools.Info.Game.Packets.Upstream;
+using OmenTools.Interop.Game.Lumina;
 using GameEventHandler = FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandler;
 using GameEventHandlerContent = FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandlerContent;
 using GameEventID = FFXIVClientStructs.FFXIV.Client.Game.Event.EventId;
@@ -55,61 +58,61 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
 
     private static readonly RecipeOption[] Recipes =
     [
-        new(34433, 31913, 8, 20, false, "刻木匠", "第四期重建用的合板"),
-        new(34441, 31921, 8, 40, false, "刻木匠", "第四期重建用的木箱"),
-        new(34449, 31929, 8, 60, false, "刻木匠", "第四期重建用的纺车"),
-        new(34457, 31937, 8, 70, false, "刻木匠", "第四期重建用的梯子"),
-        new(34465, 31945, 8, 80, false, "刻木匠", "第四期重建用的睡床"),
-        new(34473, 31953, 8, 80, true,  "刻木匠", "第四期重建用的特供冰盒"),
+        new(34433, 31913, 8, 20, false, "第四期重建用的合板"),
+        new(34441, 31921, 8, 40, false, "第四期重建用的木箱"),
+        new(34449, 31929, 8, 60, false, "第四期重建用的纺车"),
+        new(34457, 31937, 8, 70, false, "第四期重建用的梯子"),
+        new(34465, 31945, 8, 80, false, "第四期重建用的睡床"),
+        new(34473, 31953, 8, 80, true,  "第四期重建用的特供冰盒"),
 
-        new(34434, 31914, 9, 20, false, "锻铁匠", "第四期重建用的合金"),
-        new(34442, 31922, 9, 40, false, "锻铁匠", "第四期重建用的铁钉"),
-        new(34450, 31930, 9, 60, false, "锻铁匠", "第四期重建用的手斧"),
-        new(34458, 31938, 9, 70, false, "锻铁匠", "第四期重建用的锯子"),
-        new(34466, 31946, 9, 80, false, "锻铁匠", "第四期重建用的火炉"),
-        new(34474, 31954, 9, 80, true,  "锻铁匠", "第四期重建用的特供风向陆行鸟"),
+        new(34434, 31914, 9, 20, false, "第四期重建用的合金"),
+        new(34442, 31922, 9, 40, false, "第四期重建用的铁钉"),
+        new(34450, 31930, 9, 60, false, "第四期重建用的手斧"),
+        new(34458, 31938, 9, 70, false, "第四期重建用的锯子"),
+        new(34466, 31946, 9, 80, false, "第四期重建用的火炉"),
+        new(34474, 31954, 9, 80, true,  "第四期重建用的特供风向陆行鸟"),
 
-        new(34435, 31915, 10, 20, false, "铸甲匠", "第四期重建用的金属板"),
-        new(34443, 31923, 10, 40, false, "铸甲匠", "第四期重建用的铆钉"),
-        new(34451, 31931, 10, 60, false, "铸甲匠", "第四期重建用的吊锅"),
-        new(34459, 31939, 10, 70, false, "铸甲匠", "第四期重建用的口罩"),
-        new(34467, 31947, 10, 80, false, "铸甲匠", "第四期重建用的街灯"),
-        new(34475, 31955, 10, 80, true,  "铸甲匠", "第四期重建用的特供部队储物柜"),
+        new(34435, 31915, 10, 20, false, "第四期重建用的金属板"),
+        new(34443, 31923, 10, 40, false, "第四期重建用的铆钉"),
+        new(34451, 31931, 10, 60, false, "第四期重建用的吊锅"),
+        new(34459, 31939, 10, 70, false, "第四期重建用的口罩"),
+        new(34467, 31947, 10, 80, false, "第四期重建用的街灯"),
+        new(34475, 31955, 10, 80, true,  "第四期重建用的特供部队储物柜"),
 
-        new(34436, 31916, 11, 20, false, "雕金匠", "第四期重建用的金属锭"),
-        new(34444, 31924, 11, 40, false, "雕金匠", "第四期重建用的铁环"),
-        new(34452, 31932, 11, 60, false, "雕金匠", "第四期重建用的裁衣工具"),
-        new(34460, 31940, 11, 70, false, "雕金匠", "第四期重建用的石材"),
-        new(34468, 31948, 11, 80, false, "雕金匠", "第四期重建用的篝火台"),
-        new(34476, 31956, 11, 80, true,  "雕金匠", "第四期重建用的特供天文仪"),
+        new(34436, 31916, 11, 20, false, "第四期重建用的金属锭"),
+        new(34444, 31924, 11, 40, false, "第四期重建用的铁环"),
+        new(34452, 31932, 11, 60, false, "第四期重建用的裁衣工具"),
+        new(34460, 31940, 11, 70, false, "第四期重建用的石材"),
+        new(34468, 31948, 11, 80, false, "第四期重建用的篝火台"),
+        new(34476, 31956, 11, 80, true,  "第四期重建用的特供天文仪"),
 
-        new(34437, 31917, 12, 20, false, "制革匠", "第四期重建用的鞣革"),
-        new(34445, 31925, 12, 40, false, "制革匠", "第四期重建用的皮绳"),
-        new(34453, 31933, 12, 60, false, "制革匠", "第四期重建用的皮袋"),
-        new(34461, 31941, 12, 70, false, "制革匠", "第四期重建用的长靴"),
-        new(34469, 31949, 12, 80, false, "制革匠", "第四期重建用的工作服"),
-        new(34477, 31957, 12, 80, true,  "制革匠", "第四期重建用的特供工具腰带"),
+        new(34437, 31917, 12, 20, false, "第四期重建用的鞣革"),
+        new(34445, 31925, 12, 40, false, "第四期重建用的皮绳"),
+        new(34453, 31933, 12, 60, false, "第四期重建用的皮袋"),
+        new(34461, 31941, 12, 70, false, "第四期重建用的长靴"),
+        new(34469, 31949, 12, 80, false, "第四期重建用的工作服"),
+        new(34477, 31957, 12, 80, true,  "第四期重建用的特供工具腰带"),
 
-        new(34438, 31918, 13, 20, false, "裁衣匠", "第四期重建用的草绳"),
-        new(34446, 31926, 13, 40, false, "裁衣匠", "第四期重建用的布料"),
-        new(34454, 31934, 13, 60, false, "裁衣匠", "第四期重建用的扫把"),
-        new(34462, 31942, 13, 70, false, "裁衣匠", "第四期重建用的手套"),
-        new(34470, 31950, 13, 80, false, "裁衣匠", "第四期重建用的遮蓬"),
-        new(34478, 31958, 13, 80, true,  "裁衣匠", "第四期重建用的特供坎肩"),
+        new(34438, 31918, 13, 20, false, "第四期重建用的草绳"),
+        new(34446, 31926, 13, 40, false, "第四期重建用的布料"),
+        new(34454, 31934, 13, 60, false, "第四期重建用的扫把"),
+        new(34462, 31942, 13, 70, false, "第四期重建用的手套"),
+        new(34470, 31950, 13, 80, false, "第四期重建用的遮蓬"),
+        new(34478, 31958, 13, 80, true,  "第四期重建用的特供坎肩"),
 
-        new(34439, 31919, 14, 20, false, "炼金术士", "第四期重建用的墨水"),
-        new(34447, 31927, 14, 40, false, "炼金术士", "第四期重建用的植物油"),
-        new(34455, 31935, 14, 60, false, "炼金术士", "第四期重建用的圣水"),
-        new(34463, 31943, 14, 70, false, "炼金术士", "第四期重建用的肥皂"),
-        new(34471, 31951, 14, 80, false, "炼金术士", "第四期重建用的植物成长剂"),
-        new(34479, 31959, 14, 80, true,  "炼金术士", "第四期重建用的特供幻药"),
+        new(34439, 31919, 14, 20, false, "第四期重建用的墨水"),
+        new(34447, 31927, 14, 40, false, "第四期重建用的植物油"),
+        new(34455, 31935, 14, 60, false, "第四期重建用的圣水"),
+        new(34463, 31943, 14, 70, false, "第四期重建用的肥皂"),
+        new(34471, 31951, 14, 80, false, "第四期重建用的植物成长剂"),
+        new(34479, 31959, 14, 80, true,  "第四期重建用的特供幻药"),
 
-        new(34440, 31920, 15, 20, false, "烹调师", "第四期重建用的麻乳"),
-        new(34448, 31928, 15, 40, false, "烹调师", "第四期重建用的芝麻饼干"),
-        new(34456, 31936, 15, 60, false, "烹调师", "第四期重建用的红茶"),
-        new(34464, 31944, 15, 70, false, "烹调师", "第四期重建用的药汤"),
-        new(34472, 31952, 15, 80, false, "烹调师", "第四期重建用的炖菜"),
-        new(34480, 31960, 15, 80, true,  "烹调师", "第四期重建用的特供冰糕")
+        new(34440, 31920, 15, 20, false, "第四期重建用的麻乳"),
+        new(34448, 31928, 15, 40, false, "第四期重建用的芝麻饼干"),
+        new(34456, 31936, 15, 60, false, "第四期重建用的红茶"),
+        new(34464, 31944, 15, 70, false, "第四期重建用的药汤"),
+        new(34472, 31952, 15, 80, false, "第四期重建用的炖菜"),
+        new(34480, 31960, 15, 80, true,  "第四期重建用的特供冰糕")
     ];
 
     private ICallGateSubscriber<ushort, int, object>? craftItem;
@@ -254,6 +257,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
             : "目标物品达到指定数量时提交";
         if (ImGui.BeginCombo("物品提交条件", stopModePreview))
         {
+            ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
             if (ImGui.Selectable("背包剩余空格达到下限时提交", stopMode == 0))
             {
                 config.StopMode = 0;
@@ -829,7 +833,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         addon->FireCallback(2, values, true);
         EnterPhase(AutomationPhase.SelectItem);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(700);
-        status = $"已选择{recipe.JobName}提交列表";
+        status = $"已选择{GetJobName(recipe.JobID)}提交列表";
     }
 
     private unsafe void DriveSelectItem(RecipeOption recipe)
@@ -1724,18 +1728,10 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         return null;
     }
 
-    private static string GetJobName(uint jobID) => jobID switch
-    {
-        8 => "刻木匠",
-        9 => "锻铁匠",
-        10 => "铸甲匠",
-        11 => "雕金匠",
-        12 => "制革匠",
-        13 => "裁衣匠",
-        14 => "炼金术士",
-        15 => "烹调师",
-        _ => $"职业 #{jobID}"
-    };
+    private static string GetJobName(uint jobID) =>
+        LuminaGetter.TryGetRow<ClassJob>(jobID, out var job)
+            ? job.Name.ExtractText()
+            : $"职业 #{jobID}";
 
     private static string FormatRecipe(RecipeOption recipe) =>
         $"{recipe.Level}级{(recipe.IsExpert ? "高难度" : string.Empty)} · {recipe.ItemName}" +
@@ -1747,7 +1743,6 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         uint JobID,
         int Level,
         bool IsExpert,
-        string JobName,
         string ItemName);
 
     private readonly record struct InventorySnapshot(int FreeSlots, int TotalSlots, int ItemCount);
