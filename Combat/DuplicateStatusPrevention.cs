@@ -3,20 +3,19 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using OmenTools;
-using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Dalamud.Services.Game;
+using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using LuminaAction = Lumina.Excel.Sheets.Action;
-using LuminaStatus = Lumina.Excel.Sheets.Status;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Config;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
+using LuminaAction = Lumina.Excel.Sheets.Action;
+using LuminaStatus = Lumina.Excel.Sheets.Status;
 
 namespace OmniToolbox.TreePublic;
 

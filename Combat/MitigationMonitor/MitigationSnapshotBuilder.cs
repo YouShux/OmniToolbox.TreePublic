@@ -3,19 +3,19 @@ using System.Globalization;
 using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using IBattleChara = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IBattleChara;
-using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IGameObject;
-using LuminaAction = Lumina.Excel.Sheets.Action;
-using LuminaStatus = Lumina.Excel.Sheets.Status;
-using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 using OmniToolbox.Game;
 using OmniToolbox.UI;
+using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
+using LuminaAction = Lumina.Excel.Sheets.Action;
+using LuminaStatus = Lumina.Excel.Sheets.Status;
+using IBattleChara = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IBattleChara;
+using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IGameObject;
 
 namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class MitigationSnapshotBuilder
 {
-    private const uint SacredSoilStatusID = 299;
+    private const uint SACRED_SOIL_STATUS_ID = 299;
 
     private static readonly TimeSpan SacredSoilDuration = TimeSpan.FromSeconds(15);
     private static readonly FrozenDictionary<uint, MitigationDefinition> MitigationByStatusID =
@@ -47,10 +47,10 @@ internal sealed unsafe class MitigationSnapshotBuilder
             new(3838, 40, 40, 40), new(3890, 10, 10, 10), new(3896, 10, 10, 10)
         }.ToFrozenDictionary(static definition => definition.StatusID);
 
-    private static readonly FrozenSet<uint> SourceDebuffStatusIds =
+    private static readonly FrozenSet<uint> SourceDebuffStatusIDs =
         new uint[] { 1193, 1195, 1203, 860, 9, 1715, 2115 }.ToFrozenSet();
 
-    private static readonly FrozenSet<uint> AlwaysShowStatusIds = new uint[]
+    private static readonly FrozenSet<uint> AlwaysShowStatusIDs = new uint[]
     {
         3830, 1175, 82, 1362, 77, 1858, 87, 1457, 409, 2680, 1178, 810, 811,
         3255, 1898, 1836, 1218, 2710, 1889, 3892, 3903, 1921, 2607, 2608, 2609,
@@ -79,7 +79,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
 
             foreach (var status in enemy.ToBCStruct()->StatusManager.Status)
             {
-                if (status.StatusId != 0 && SourceDebuffStatusIds.Contains(status.StatusId))
+                if (status.StatusId != 0 && SourceDebuffStatusIDs.Contains(status.StatusId))
                 {
                     visibleEnemyDebuffs.Add(new(
                         status.StatusId,
@@ -115,7 +115,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
         var found = false;
         foreach (var status in target.ToBCStruct()->StatusManager.Status)
         {
-            if (status.StatusId == SacredSoilStatusID)
+            if (status.StatusId == SACRED_SOIL_STATUS_ID)
             {
                 found = true;
                 break;
@@ -266,7 +266,7 @@ internal sealed unsafe class MitigationSnapshotBuilder
         DateTime now)
     {
         var sourceStatus = sourceKind is MitigationStatusSourceKind.CurrentSource or MitigationStatusSourceKind.VisibleEnemyFallback;
-        if (sourceStatus && !SourceDebuffStatusIds.Contains(statusID) ||
+        if (sourceStatus && !SourceDebuffStatusIDs.Contains(statusID) ||
             !seenStatusKeys.Add(((ulong)statusID << 32) | sourceID))
         {
             return;
@@ -276,12 +276,12 @@ internal sealed unsafe class MitigationSnapshotBuilder
         var stackCount = Math.Max(1, (int)param);
         var iconID = stackCount is > 1 and <= 16 ? display.IconID + (uint)(stackCount - 1) : display.IconID;
         var displayRemainingTime = MathF.Max(0f, remainingTime);
-        if (statusID == SacredSoilStatusID && sacredSoilUntilUTC.TryGetValue(target.EntityID, out var seenUntil))
+        if (statusID == SACRED_SOIL_STATUS_ID && sacredSoilUntilUTC.TryGetValue(target.EntityID, out var seenUntil))
         {
             displayRemainingTime = MathF.Max(displayRemainingTime, (float)Math.Max(0d, (seenUntil - now).TotalSeconds));
         }
 
-        if (AlwaysShowStatusIds.Contains(statusID))
+        if (AlwaysShowStatusIDs.Contains(statusID))
         {
             mitigationBuilder.Add(new(
                 statusID, display.Name, iconID, displayRemainingTime, 0, stackCount,

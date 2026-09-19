@@ -6,8 +6,8 @@ using OmenTools.Interop.Game.Models;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
@@ -20,7 +20,7 @@ public sealed unsafe class WidescreenCutscene : ModuleBase
         Category = ModuleCategory.Interface
     };
 
-    private const int LetterboxFlag = 1 << 5;
+    private const int LETTERBOX_FLAG = 1 << 5;
     private static readonly CompSig UpdateLetterboxingSignature = new(
         "E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 8B ?? ?? ?? ??");
 
@@ -50,7 +50,7 @@ public sealed unsafe class WidescreenCutscene : ModuleBase
         if (DService.Instance().Condition[ConditionFlag.OccupiedInCutSceneEvent] ||
             DService.Instance().Condition[ConditionFlag.WatchingCutscene78])
         {
-            ((LetterboxConfig*)instance)->ShouldLetterBox &= ~LetterboxFlag;
+            ((LetterboxConfig*)instance)->ShouldLetterBox &= ~LETTERBOX_FLAG;
         }
 
         return hook!.Original(instance);

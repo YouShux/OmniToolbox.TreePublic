@@ -170,7 +170,7 @@ internal static class AutoSortItemsPanel
         float rowContentHeight,
         ref bool changed)
     {
-        ImGui.PushID(category);
+        using var id = ImRaii.PushId(category);
         ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
         ImGui.TableSetColumnIndex(0);
         ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
@@ -211,8 +211,6 @@ internal static class AutoSortItemsPanel
                 changed = true;
             }
         }
-
-        ImGui.PopID();
     }
 
     private static void DrawRule(
@@ -224,7 +222,7 @@ internal static class AutoSortItemsPanel
         ref bool changed)
     {
         var rule = config.Rules![index];
-        ImGui.PushID(index);
+        using var id = ImRaii.PushId(index);
         ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
         ImGui.TableNextColumn();
         ImGui.TableNextColumn();
@@ -264,8 +262,6 @@ internal static class AutoSortItemsPanel
         {
             removeIndex = index;
         }
-
-        ImGui.PopID();
     }
 
     private static AutoSortItemsCategoryHeader GetCategoryHeader(AutoSortItemsConfig config, string category) =>

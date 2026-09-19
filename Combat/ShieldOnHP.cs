@@ -5,19 +5,18 @@ using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmenTools.Extensions;
-using OmenTools.Interop.Game.Helpers;
 using OmenTools.ImGuiOm;
+using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
-using Control = FFXIVClientStructs.FFXIV.Client.Game.Control.Control;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
-using OmniToolbox.UI.Theme;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
+using Control = FFXIVClientStructs.FFXIV.Client.Game.Control.Control;
 
 namespace OmniToolbox.TreePublic;
 
@@ -30,10 +29,10 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
         Category = ModuleCategory.Combat
     };
 
-    private const string ParameterWidgetAddonName = "_ParameterWidget";
-    private const uint ShieldBarNodeID = 32680;
-    private const uint OverShieldBarNodeID = 32681;
-    private const float BarBodyWidth = 148f;
+    private const string PARAMETER_WIDGET_ADDON_NAME = "_ParameterWidget";
+    private const uint SHIELD_BAR_NODE_ID = 32680;
+    private const uint OVER_SHIELD_BAR_NODE_ID = 32681;
+    private const float BAR_BODY_WIDTH = 148f;
     private FeatureLifetime? runtimeLifetime;
 
     public override bool HasSettings => true;
@@ -77,7 +76,7 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
             lifetime.Add(addonEvents.Dispose);
             addonEvents.Register(
                 AddonEvent.PreFinalize,
-                ParameterWidgetAddonName,
+                PARAMETER_WIDGET_ADDON_NAME,
                 OnParameterWidgetFinalize);
 
             if (!FrameworkManager.Instance().Reg(OnUpdate))
@@ -108,7 +107,7 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
         }
         finally
         {
-            RemoveNodes(AddonHelper.GetByName(ParameterWidgetAddonName));
+            RemoveNodes(AddonHelper.GetByName(PARAMETER_WIDGET_ADDON_NAME));
         }
     }
 
@@ -124,11 +123,11 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
 
         var shieldBar = FindNode<AtkNineGridNode>(
             &hpBar->Component->UldManager,
-            ShieldBarNodeID,
+            SHIELD_BAR_NODE_ID,
             NodeType.NineGrid);
         var overShieldBar = FindNode<AtkNineGridNode>(
             &hpBar->Component->UldManager,
-            OverShieldBarNodeID,
+            OVER_SHIELD_BAR_NODE_ID,
             NodeType.NineGrid);
         if (!config.ShowBar || !TryGetShieldMetrics(out var metrics))
         {
@@ -138,12 +137,12 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
 
         if (shieldBar == null)
         {
-            shieldBar = CreateShieldBarNode(hpBar, hpNineGrid, ShieldBarNodeID);
+            shieldBar = CreateShieldBarNode(hpBar, hpNineGrid, SHIELD_BAR_NODE_ID);
         }
 
         if (overShieldBar == null)
         {
-            overShieldBar = CreateShieldBarNode(hpBar, hpNineGrid, OverShieldBarNodeID);
+            overShieldBar = CreateShieldBarNode(hpBar, hpNineGrid, OVER_SHIELD_BAR_NODE_ID);
         }
 
         if (shieldBar == null || overShieldBar == null)
@@ -152,7 +151,7 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
             return;
         }
 
-        shieldBar->AtkResNode.X = metrics.HpPercentage * BarBodyWidth;
+        shieldBar->AtkResNode.X = metrics.HpPercentage * BAR_BODY_WIDTH;
         shieldBar->AtkResNode.SetWidth(ToBarWidth(metrics.ShieldPercentage));
         shieldBar->AtkResNode.DrawFlags |= 1;
         shieldBar->AtkResNode.ToggleVisibility(metrics.ShieldPercentage > 0f);
@@ -191,7 +190,7 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
     {
         hpBar = null;
         hpNineGrid = null;
-        if (!AddonHelper.TryGetByName(ParameterWidgetAddonName, out AtkUnitBase* parameterWidget) ||
+        if (!AddonHelper.TryGetByName(PARAMETER_WIDGET_ADDON_NAME, out AtkUnitBase* parameterWidget) ||
             parameterWidget->UldManager.LoadedState != AtkLoadState.Loaded ||
             !parameterWidget->IsVisible)
         {
@@ -362,8 +361,8 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
         }
 
         var manager = &hpBar->Component->UldManager;
-        var shieldBar = FindNode<AtkNineGridNode>(manager, ShieldBarNodeID, NodeType.NineGrid);
-        var overShieldBar = FindNode<AtkNineGridNode>(manager, OverShieldBarNodeID, NodeType.NineGrid);
+        var shieldBar = FindNode<AtkNineGridNode>(manager, SHIELD_BAR_NODE_ID, NodeType.NineGrid);
+        var overShieldBar = FindNode<AtkNineGridNode>(manager, OVER_SHIELD_BAR_NODE_ID, NodeType.NineGrid);
         if (shieldBar == null && overShieldBar == null)
         {
             return;
@@ -441,7 +440,7 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
     private static ushort ToBarWidth(float percentage) =>
         percentage > 0f
             ? (ushort)Math.Clamp(
-                (int)MathF.Round(percentage * BarBodyWidth + 12f),
+                (int)MathF.Round(percentage * BAR_BODY_WIDTH + 12f),
                 0,
                 ushort.MaxValue)
             : (ushort)0;

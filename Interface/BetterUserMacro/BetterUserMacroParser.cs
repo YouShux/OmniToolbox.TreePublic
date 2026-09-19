@@ -37,7 +37,7 @@ internal static class BetterUserMacroParser
     {
         iconID = 0;
         line = Trim(line);
-        if (!ConsumeAscii(ref line, "/omni"u8))
+        if (!ConsumeCommand(ref line, "/omni"u8))
         {
             return false;
         }
@@ -147,22 +147,6 @@ internal static class BetterUserMacroParser
         }
 
         if (line.Length > command.Length && !char.IsWhiteSpace(line[command.Length]))
-        {
-            return false;
-        }
-
-        line = line[command.Length..];
-        return true;
-    }
-
-    private static bool ConsumeAscii(ref ReadOnlySpan<byte> line, ReadOnlySpan<byte> command)
-    {
-        if (!line.StartsWith(command))
-        {
-            return false;
-        }
-
-        if (line.Length > command.Length && !IsWhitespace(line[command.Length]))
         {
             return false;
         }

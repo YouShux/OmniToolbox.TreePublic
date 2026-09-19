@@ -61,7 +61,7 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
         new(XivChatType.CrossLinkShell8, "Feature.AutoPartyInvite.Channel.CrossLinkshell", 8)
     ];
 
-    private static readonly HashSet<ushort> SupportedChannelIds = [];
+    private static readonly HashSet<ushort> SupportedChannelIDs = [];
     private static readonly HashSet<TerritoryIntendedUse> InvitableInstanceTypes =
     [
         TerritoryIntendedUse.Eureka,
@@ -80,7 +80,7 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
     {
         foreach (var option in ChannelOptions)
         {
-            SupportedChannelIds.Add((ushort)option.Type);
+            SupportedChannelIDs.Add((ushort)option.Type);
         }
     }
 
@@ -304,7 +304,7 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
             : !config.BlacklistTerritoryIds.Contains(DService.Instance().ClientState.TerritoryType);
 
     private bool IsAllowedChannel(XivChatType chatType) =>
-        SupportedChannelIds.Contains((ushort)chatType) &&
+        SupportedChannelIDs.Contains((ushort)chatType) &&
         (!config.ChannelsInitialized || config.EnabledChannels.Contains((ushort)chatType));
 
     private static bool CanInvite(ulong contentID)
@@ -390,7 +390,7 @@ internal static class AutoPartyInvitePanel
     ];
 
     private static readonly TerritorySelector TerritorySelector = new("autoPartyInviteTerritory");
-    private static string customTriggerInput = string.Empty;
+    private static string CustomTriggerInput = string.Empty;
 
     public static bool Draw(AutoPartyInviteConfig config)
     {
@@ -483,9 +483,7 @@ internal static class AutoPartyInvitePanel
         ImGui.Spacing();
         changed |= TerritorySelector.Draw(
             config.UseWhitelist ? config.WhitelistTerritoryIds : config.BlacklistTerritoryIds,
-            config.UseWhitelist
-                ? string.Empty
-                : OmniLoc.Get("Feature.AutoPartyInvite.Territory.Blacklist.Empty"));
+            string.Empty);
         return changed;
     }
 
@@ -505,7 +503,7 @@ internal static class AutoPartyInvitePanel
         OmniControls.InputTextWithHint(
             "##autoPartyInviteTriggerInput",
             OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Hint"),
-            ref customTriggerInput,
+            ref CustomTriggerInput,
             128);
         ImGui.SameLine();
         if (OmniControls.SmallButton(
@@ -656,7 +654,7 @@ internal static class AutoPartyInvitePanel
 
     private static bool AddCustomTrigger(AutoPartyInviteConfig config)
     {
-        var text = customTriggerInput.Trim();
+        var text = CustomTriggerInput.Trim();
         if (text.Length == 0 || IsDigitsOnly(text))
         {
             return false;
@@ -676,7 +674,7 @@ internal static class AutoPartyInvitePanel
             Enabled = true
         });
         config.CustomTriggers.Sort(static (left, right) => string.CompareOrdinal(left.Text, right.Text));
-        customTriggerInput = string.Empty;
+        CustomTriggerInput = string.Empty;
         return true;
     }
 

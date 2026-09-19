@@ -6,26 +6,26 @@ using Dalamud.Game.Chat;
 using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
-using Dalamud.Interface;
 using Dalamud.Hooking;
+using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Client.System.String;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
 using Lumina.Text.ReadOnly;
 using OmenTools;
 using OmenTools.Dalamud.Helpers;
+using OmenTools.ImGuiOm;
 using OmenTools.Interop.Game;
 using OmenTools.Interop.Game.Models;
-using OmenTools.ImGuiOm;
 using OmenTools.OmenService;
-using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Theme;
+using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
@@ -46,7 +46,7 @@ public sealed unsafe class ChatFrameOptimization(
     private static readonly CompSig ScrollToBottomSignature = new(
         "E8 ?? ?? ?? ?? 48 8B 43 10 33 D2");
 
-    private const string StickyShoutAutoSwitchSignature = "05 75 0C 8B D7 E8 ?? ?? ?? ?? E9";
+    private const string STICKY_SHOUT_AUTO_SWITCH_SIGNATURE = "05 75 0C 8B D7 E8 ?? ?? ?? ?? E9";
 
     private static readonly Regex URLRegex = new(
         @"(http|ftp|https)://([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:/~+#-]*[\w@?^=%&/~+#-])?",
@@ -118,7 +118,7 @@ public sealed unsafe class ChatFrameOptimization(
 
             lifetime.Add(() => chatManager.Unreg(OnPostExecuteCommand));
 
-            if (DService.Instance().SigScanner.TryScanText(StickyShoutAutoSwitchSignature, out var stickyShoutAddress))
+            if (DService.Instance().SigScanner.TryScanText(STICKY_SHOUT_AUTO_SWITCH_SIGNATURE, out var stickyShoutAddress))
             {
                 stickyShoutAutoSwitchPatch = new(stickyShoutAddress, "FE");
                 lifetime.Add(stickyShoutAutoSwitchPatch.Dispose);

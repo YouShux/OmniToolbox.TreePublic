@@ -8,15 +8,15 @@ using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using OmenTools;
 using OmenTools.OmenService;
-using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
+using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 
 namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] definitions)
 {
-    private const uint InvalidEntityID = 0xE0000000;
+    private const uint INVALID_ENTITY_ID = 0xE0000000;
 
     private readonly ConcurrentQueue<ActionUse> pendingActions = new();
     private readonly Dictionary<uint, int> actionIndexes = CreateActionIndexes(definitions);
@@ -113,7 +113,7 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
         for (var sourceIndex = 0; sourceIndex < count; sourceIndex++)
         {
             var hudMember = agentHud->PartyMembers[sourceIndex];
-            if (hudMember.Index >= members.Length || hudMember.EntityId is 0 or InvalidEntityID || hudMember.Object == null)
+            if (hudMember.Index >= members.Length || hudMember.EntityId is 0 or INVALID_ENTITY_ID || hudMember.Object == null)
             {
                 continue;
             }

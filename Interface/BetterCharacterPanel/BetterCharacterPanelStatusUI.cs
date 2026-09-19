@@ -12,7 +12,7 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelConfig config) : IDisposable
 {
-    private const float RowHeight = 20f;
+    private const float ROW_HEIGHT = 20f;
     private static readonly ByteColor SecondaryTextColor = new() { A = 0xFF, R = 0xA0, G = 0xA0, B = 0xA0 };
 
     private readonly List<NodeBase> injectedNodes = [];
@@ -126,7 +126,7 @@ internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelCo
             BetterCharacterPanelTooltip.ExpectedHeal,
             hideOriginal: true);
 
-        attributesHeight += RowHeight;
+        attributesHeight += ROW_HEIGHT;
         SetPosition(magicAttackPotency, magicAttackPotency->X, -attributesHeight - 10f);
         SetVisible(Previous(magicAttackPotency), false);
         expectedDamage = AddRow(
@@ -149,9 +149,9 @@ internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelCo
             (AtkComponentNode*)directHitNode,
             "Feature.BetterCharacterPanel.Row.DirectHitChance",
             BetterCharacterPanelTooltip.DirectHit);
-        offensiveHeight += RowHeight;
-        MoveY(magicAttackPotency, -RowHeight);
-        MoveY(healingMagicPotency, -RowHeight);
+        offensiveHeight += ROW_HEIGHT;
+        MoveY(magicAttackPotency, -ROW_HEIGHT);
+        MoveY(healingMagicPotency, -ROW_HEIGHT);
         directHitDamage = AddRow(
             (AtkComponentNode*)directHitNode,
             "Feature.BetterCharacterPanel.Row.DirectHitDamage",
@@ -178,11 +178,11 @@ internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelCo
             (AtkComponentNode*)criticalNode,
             "Feature.BetterCharacterPanel.Row.CriticalDamage",
             BetterCharacterPanelTooltip.CriticalHit);
-        offensiveHeight += RowHeight;
-        MoveY(directHitNode, RowHeight);
-        MoveY(determinationNode, RowHeight);
-        MoveY(magicAttackPotency, -RowHeight);
-        MoveY(healingMagicPotency, -RowHeight);
+        offensiveHeight += ROW_HEIGHT;
+        MoveY(directHitNode, ROW_HEIGHT);
+        MoveY(determinationNode, ROW_HEIGHT);
+        MoveY(magicAttackPotency, -ROW_HEIGHT);
+        MoveY(healingMagicPotency, -ROW_HEIGHT);
         criticalExpected = AddRow(
             (AtkComponentNode*)criticalNode,
             "Feature.BetterCharacterPanel.Row.CriticalExpected",
@@ -474,11 +474,11 @@ internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelCo
         if (!hideOriginal)
         {
             CaptureNode((AtkResNode*)parent);
-            parent->AtkResNode.SetHeight((ushort)(parent->AtkResNode.Height + RowHeight));
+            parent->AtkResNode.SetHeight((ushort)(parent->AtkResNode.Height + ROW_HEIGHT));
             if (expandCollision)
             {
                 CaptureNode(collision);
-                collision->SetHeight((ushort)(collision->Height + RowHeight));
+                collision->SetHeight((ushort)(collision->Height + ROW_HEIGHT));
             }
         }
 

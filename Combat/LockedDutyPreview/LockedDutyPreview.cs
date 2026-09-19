@@ -9,11 +9,10 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
@@ -31,8 +30,8 @@ public sealed unsafe class LockedDutyPreview(
         RequiresPrivateProvider = true
     };
 
-    private const string ContentsFinderAddonName = "ContentsFinder";
-    private const float ScreenPadding = 8f;
+    private const string CONTENTS_FINDER_ADDON_NAME = "ContentsFinder";
+    private const float SCREEN_PADDING = 8f;
 
     private readonly LockedDutyPreviewResolver resolver = new();
     private readonly List<LockedDutyPreviewRow> lockedRows = [];
@@ -169,17 +168,17 @@ public sealed unsafe class LockedDutyPreview(
         var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
         var windowX = state.TopLeft.X - previewState.Width - 2f;
         var windowY = state.TopLeft.Y;
-        windowX = Math.Max(ScreenPadding, Math.Min(
+        windowX = Math.Max(SCREEN_PADDING, Math.Min(
             windowX,
-            display.X - previewState.Width - ScreenPadding));
-        if (windowY < ScreenPadding)
+            display.X - previewState.Width - SCREEN_PADDING));
+        if (windowY < SCREEN_PADDING)
         {
-            windowY = ScreenPadding;
+            windowY = SCREEN_PADDING;
         }
 
-        if (windowY + previewState.Height > display.Y - ScreenPadding)
+        if (windowY + previewState.Height > display.Y - SCREEN_PADDING)
         {
-            windowY = Math.Max(ScreenPadding, display.Y - previewState.Height - ScreenPadding);
+            windowY = Math.Max(SCREEN_PADDING, display.Y - previewState.Height - SCREEN_PADDING);
         }
 
         nativeUI.SetWindowPosition(new(windowX, windowY));
@@ -188,9 +187,7 @@ public sealed unsafe class LockedDutyPreview(
     private static bool TryGetContentsFinder(out AtkUnitBase* addon)
     {
         addon = null;
-        if (!AddonHelper.TryGetByName(ContentsFinderAddonName, out addon) ||
-            addon == null ||
-            !addon->IsVisible ||
+        if (!AddonHelper.TryGetByName(CONTENTS_FINDER_ADDON_NAME, out addon) ||
             !addon->IsAddonAndNodesReady())
         {
             addon = null;

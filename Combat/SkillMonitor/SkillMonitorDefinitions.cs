@@ -39,12 +39,12 @@ public enum SkillMonitorGroup
 
 internal static class SkillMonitorDefinitions
 {
-    private const ulong Tanks = (1UL << 19) | (1UL << 21) | (1UL << 32) | (1UL << 37);
-    private const ulong Healers = (1UL << 24) | (1UL << 28) | (1UL << 33) | (1UL << 40);
-    private const ulong Melee = (1UL << 20) | (1UL << 22) | (1UL << 30) | (1UL << 34) | (1UL << 39) | (1UL << 41);
-    private const ulong Ranged = (1UL << 23) | (1UL << 31) | (1UL << 38);
-    private const ulong Casters = (1UL << 25) | (1UL << 27) | (1UL << 35) | (1UL << 42);
-    private const ulong AllCombat = Tanks | Healers | Melee | Ranged | Casters | (1UL << 36) | (1UL << 43);
+    private const ulong TANKS = (1UL << 19) | (1UL << 21) | (1UL << 32) | (1UL << 37);
+    private const ulong HEALERS = (1UL << 24) | (1UL << 28) | (1UL << 33) | (1UL << 40);
+    private const ulong MELEE = (1UL << 20) | (1UL << 22) | (1UL << 30) | (1UL << 34) | (1UL << 39) | (1UL << 41);
+    private const ulong RANGED = (1UL << 23) | (1UL << 31) | (1UL << 38);
+    private const ulong CASTERS = (1UL << 25) | (1UL << 27) | (1UL << 35) | (1UL << 42);
+    private const ulong ALL_COMBAT = TANKS | HEALERS | MELEE | RANGED | CASTERS | (1UL << 36) | (1UL << 43);
 
     internal static readonly (SkillMonitorGroup Group, uint[] JobIDs)[] JobGroups =
     [
@@ -55,9 +55,9 @@ internal static class SkillMonitorDefinitions
 
     private static readonly RawDefinition[] Defaults =
     [
-        new(7531, 1191, 90, 20, Tanks, SkillMonitorGroup.Tank),
-        new(7535, 1193, 60, 15, Tanks, SkillMonitorGroup.Tank),
-        new(7548, 1209, 120, 6, Tanks, SkillMonitorGroup.Tank),
+        new(7531, 1191, 90, 20, TANKS, SkillMonitorGroup.Tank),
+        new(7535, 1193, 60, 15, TANKS, SkillMonitorGroup.Tank),
+        new(7548, 1209, 120, 6, TANKS, SkillMonitorGroup.Tank),
         new(30, 82, 420, 10, 1UL << 19, SkillMonitorGroup.Tank),
         new(36920, 3829, 120, 15, 1UL << 19, SkillMonitorGroup.Tank),
         new(25746, 2674, 5, 8, 1UL << 19, SkillMonitorGroup.Tank),
@@ -101,10 +101,10 @@ internal static class SkillMonitorDefinitions
         new(37035, 3898, 0, 1, 1UL << 40, SkillMonitorGroup.Healer),
         new(24311, 2613, 120, 15, 1UL << 40, SkillMonitorGroup.Healer),
         new(24303, 2619, 45, 15, 1UL << 40, SkillMonitorGroup.Healer),
-        new(7561, 167, 0, 1, Healers | Casters | (1UL << 36), SkillMonitorGroup.Healer),
+        new(7561, 167, 0, 1, HEALERS | CASTERS | (1UL << 36), SkillMonitorGroup.Healer),
 
-        new(7549, 1195, 90, 10, Melee, SkillMonitorGroup.Dps),
-        new(7560, 1203, 90, 10, Casters, SkillMonitorGroup.Dps),
+        new(7549, 1195, 90, 10, MELEE, SkillMonitorGroup.Dps),
+        new(7560, 1203, 90, 10, CASTERS, SkillMonitorGroup.Dps),
         new(7394, 1179, 120, 10, 1UL << 20, SkillMonitorGroup.Dps),
         new(65, 102, 120, 15, 1UL << 20, SkillMonitorGroup.Dps),
         new(2241, 488, 120, 20, 1UL << 30, SkillMonitorGroup.Dps),
@@ -123,8 +123,8 @@ internal static class SkillMonitorDefinitions
         new(34685, 3686, 120, 10, 1UL << 42, SkillMonitorGroup.Dps),
         new(34686, 3687, 1, 10, 1UL << 42, SkillMonitorGroup.Dps),
 
-        new(3, 50, 60, 10, AllCombat, SkillMonitorGroup.General),
-        new(0, 48, 0, 0, AllCombat, SkillMonitorGroup.General)
+        new(3, 50, 60, 10, ALL_COMBAT, SkillMonitorGroup.General),
+        new(0, 48, 0, 0, ALL_COMBAT, SkillMonitorGroup.General)
     ];
 
     public static SkillMonitorDefinition[] Create(IReadOnlyList<SkillMonitorCustomActionConfig>? customActions = null)
@@ -207,10 +207,10 @@ internal static class SkillMonitorDefinitions
             }
         }
 
-        classJobs &= AllCombat;
+        classJobs &= ALL_COMBAT;
         if (classJobs == 0)
         {
-            classJobs = AllCombat;
+            classJobs = ALL_COMBAT;
         }
 
         definition = new(
@@ -228,9 +228,9 @@ internal static class SkillMonitorDefinitions
 
     private static SkillMonitorGroup GetGroup(ulong classJobs)
     {
-        var isTank = (classJobs & Tanks) != 0;
-        var isHealer = (classJobs & Healers) != 0;
-        var isDPS = (classJobs & (Melee | Ranged | Casters)) != 0;
+        var isTank = (classJobs & TANKS) != 0;
+        var isHealer = (classJobs & HEALERS) != 0;
+        var isDPS = (classJobs & (MELEE | RANGED | CASTERS)) != 0;
         if ((isTank ? 1 : 0) + (isHealer ? 1 : 0) + (isDPS ? 1 : 0) != 1)
         {
             return SkillMonitorGroup.General;

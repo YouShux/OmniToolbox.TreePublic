@@ -12,11 +12,11 @@ using OmenTools;
 using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Models;
-using LuminaAction = Lumina.Excel.Sheets.Action;
-using LuminaStatus = Lumina.Excel.Sheets.Status;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using LuminaAction = Lumina.Excel.Sheets.Action;
+using LuminaStatus = Lumina.Excel.Sheets.Status;
 
 namespace OmniToolbox.TreePublic;
 
@@ -25,8 +25,8 @@ internal sealed unsafe class DisplayIDInformationCombat : IDisposable
     private static readonly CompSig ActionEffectSig = new(
         "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 70 4C 8B BD");
 
-    private const uint SelfCastNodeID = 32620;
-    private const uint TargetCastNodeID = 32621;
+    private const uint SELF_CAST_NODE_ID = 32620;
+    private const uint TARGET_CAST_NODE_ID = 32621;
 
     private readonly DisplayIDInformationConfig config;
     private readonly AddonEventRegistry addonEvents;
@@ -491,7 +491,7 @@ internal sealed unsafe class DisplayIDInformationCombat : IDisposable
     private void OnCastBarAddon(AddonEvent _, AddonArgs args)
     {
         var addon = (AtkUnitBase*)args.Addon.Address;
-        var nodeID = args.AddonName == "_CastBar" ? SelfCastNodeID : TargetCastNodeID;
+        var nodeID = args.AddonName == "_CastBar" ? SELF_CAST_NODE_ID : TARGET_CAST_NODE_ID;
         if (!config.DisplayActionID || !config.DisplayCastBarActionID)
         {
             ToggleNode(addon, nodeID, false);
@@ -654,17 +654,17 @@ internal sealed unsafe class DisplayIDInformationCombat : IDisposable
 
     private void RemoveCastNodes()
     {
-        RemoveCastNode(AddonHelper.GetByName("_CastBar"), SelfCastNodeID);
-        RemoveCastNode(AddonHelper.GetByName("_TargetInfoCastBar"), TargetCastNodeID);
-        RemoveCastNode(AddonHelper.GetByName("_TargetInfoCastBarMainTarget"), TargetCastNodeID);
+        RemoveCastNode(AddonHelper.GetByName("_CastBar"), SELF_CAST_NODE_ID);
+        RemoveCastNode(AddonHelper.GetByName("_TargetInfoCastBar"), TARGET_CAST_NODE_ID);
+        RemoveCastNode(AddonHelper.GetByName("_TargetInfoCastBarMainTarget"), TARGET_CAST_NODE_ID);
         castNodesVisible = false;
     }
 
     private void HideCastNodes()
     {
-        ToggleNode(AddonHelper.GetByName("_CastBar"), SelfCastNodeID, false);
-        ToggleNode(AddonHelper.GetByName("_TargetInfoCastBar"), TargetCastNodeID, false);
-        ToggleNode(AddonHelper.GetByName("_TargetInfoCastBarMainTarget"), TargetCastNodeID, false);
+        ToggleNode(AddonHelper.GetByName("_CastBar"), SELF_CAST_NODE_ID, false);
+        ToggleNode(AddonHelper.GetByName("_TargetInfoCastBar"), TARGET_CAST_NODE_ID, false);
+        ToggleNode(AddonHelper.GetByName("_TargetInfoCastBarMainTarget"), TARGET_CAST_NODE_ID, false);
         castNodesVisible = false;
     }
 

@@ -1,4 +1,3 @@
-using System.Numerics;
 using System.Linq;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
@@ -25,8 +24,18 @@ public sealed unsafe class ChocoboColorPreview(
     ChocoboColorPreviewConfig config,
     System.Action saveConfig) : ModuleBase
 {
-    private const string BuddyAddonName = "Buddy";
-    private const int ColorStep = 5;
+    public override ModuleInfo Info { get; } = new()
+    {
+        Title = OmniLoc.Get("ChocoboColorPreviewTitle"),
+        Description = OmniLoc.Get("ChocoboColorPreviewDescription"),
+        Category = ModuleCategory.Daily,
+        RequiresPrivateProvider = true,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Daily/ChocoboColorPreview-1.png"
+    };
+
+    private const string BUDDY_ADDON_NAME = "Buddy";
+    private const int COLOR_STEP = 5;
     private static readonly Vector3 DefaultChocoboColor = new(219f, 180f, 87f);
     private static readonly ChocoboFruit[] Fruits =
     [
@@ -48,16 +57,6 @@ public sealed unsafe class ChocoboColorPreview(
     private byte displayedCurrentStainID = byte.MaxValue;
     private byte displayedTargetStainID = byte.MaxValue;
 
-    public override ModuleInfo Info { get; } = new()
-    {
-        Title = OmniLoc.Get("ChocoboColorPreviewTitle"),
-        Description = OmniLoc.Get("ChocoboColorPreviewDescription"),
-        Category = ModuleCategory.Daily,
-        RequiresPrivateProvider = true,
-        PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Daily/ChocoboColorPreview-1.png"
-    };
-
     protected override void OnEnable()
     {
         nativeUI = new(OnTargetColorSelected, PreviewTargetColor, ClearPreview);
@@ -78,7 +77,7 @@ public sealed unsafe class ChocoboColorPreview(
     {
         AtkUnitBase* addon = null;
         if (!DService.Instance().ClientState.IsLoggedIn ||
-            !AddonHelper.TryGetByName(BuddyAddonName, out addon) ||
+            !AddonHelper.TryGetByName(BUDDY_ADDON_NAME, out addon) ||
             addon == null ||
             !addon->IsVisible ||
             nativeUI is null)
@@ -305,9 +304,9 @@ public sealed unsafe class ChocoboColorPreview(
         }
 
         var desired = new Vector3(
-            MathF.Round((target.X - source.X) / ColorStep),
-            MathF.Round((target.Y - source.Y) / ColorStep),
-            MathF.Round((target.Z - source.Z) / ColorStep));
+            MathF.Round((target.X - source.X) / COLOR_STEP),
+            MathF.Round((target.Y - source.Y) / COLOR_STEP),
+            MathF.Round((target.Z - source.Z) / COLOR_STEP));
         var best = default(CalculationCandidate);
         for (var r = (int)desired.X - 2; r <= desired.X + 2; r++)
         {
@@ -320,7 +319,7 @@ public sealed unsafe class ChocoboColorPreview(
                         continue;
                     }
 
-                    var result = source + new Vector3(r, g, b) * ColorStep;
+                    var result = source + new Vector3(r, g, b) * COLOR_STEP;
                     if (result.X is < 0 or > 255 || result.Y is < 0 or > 255 || result.Z is < 0 or > 255)
                     {
                         continue;
@@ -386,7 +385,7 @@ public sealed unsafe class ChocoboColorPreview(
                     continue;
                 }
 
-                var next = current + Fruits[index].Delta * ColorStep;
+                var next = current + Fruits[index].Delta * COLOR_STEP;
                 if (next.X is < 0 or > 255 || next.Y is < 0 or > 255 || next.Z is < 0 or > 255)
                 {
                     continue;
@@ -415,7 +414,7 @@ public sealed unsafe class ChocoboColorPreview(
 
             remaining[selected]--;
             order.Add(selected);
-            current += Fruits[selected].Delta * ColorStep;
+            current += Fruits[selected].Delta * COLOR_STEP;
         }
 
         return order;

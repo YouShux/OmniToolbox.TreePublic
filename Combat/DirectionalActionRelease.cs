@@ -5,14 +5,13 @@ using OmenTools.Info.Game.Packets.Upstream;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using LuminaAction = Lumina.Excel.Sheets.Action;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
+using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreePublic;
 

@@ -19,7 +19,6 @@ using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
@@ -33,7 +32,7 @@ public sealed class ObsAutoRecording : ModuleBase
         Category = ModuleCategory.Combat
     };
 
-    private const string DefaultEndpoint = "ws://127.0.0.1:4455";
+    private const string DEFAULT_ENDPOINT = "ws://127.0.0.1:4455";
 
     private readonly ObsAutoRecordingConfig config;
     private RecordingSession? session;
@@ -44,7 +43,7 @@ public sealed class ObsAutoRecording : ModuleBase
         this.config = config;
         if (string.IsNullOrWhiteSpace(config.Endpoint))
         {
-            config.Endpoint = DefaultEndpoint;
+            config.Endpoint = DEFAULT_ENDPOINT;
         }
     }
 
@@ -72,7 +71,7 @@ public sealed class ObsAutoRecording : ModuleBase
         var endpoint = config.Endpoint;
         OmniControls.InputTextWithHint(
             "##obsAutoRecordingEndpoint",
-            DefaultEndpoint,
+            DEFAULT_ENDPOINT,
             ref endpoint,
             256);
         config.Endpoint = endpoint;

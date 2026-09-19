@@ -11,15 +11,15 @@ using OmenTools;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using ContentFinderCondition = Lumina.Excel.Sheets.ContentFinderCondition;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Config;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Theme;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
+using ContentFinderCondition = Lumina.Excel.Sheets.ContentFinderCondition;
 
 namespace OmniToolbox.TreePublic;
 
@@ -34,7 +34,7 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Combat/ReadyCheck-1.png"
     };
 
-    private const uint InvalidEntityID = 0xE0000000;
+    private const uint INVALID_ENTITY_ID = 0xE0000000;
 
     private readonly List<ReadyCheckMember> members = new(48);
     private readonly HashSet<uint> instancedTerritories = [];
@@ -323,7 +323,7 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
             var entry = readyCheckEntries[index];
             var entityID = (uint)entry.ContentId;
             if (entry.ContentId == 0 ||
-                entityID == InvalidEntityID ||
+                entityID == INVALID_ENTITY_ID ||
                 !ShouldDrawStatus(entry.Status))
             {
                 continue;
@@ -451,7 +451,7 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
         out PartyListPosition position)
     {
         position = default;
-        if (contentID == 0 && entityID is 0 or InvalidEntityID)
+        if (contentID == 0 && entityID is 0 or INVALID_ENTITY_ID)
         {
             return false;
         }
@@ -462,7 +462,7 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
             {
                 var partyMember = agentHud->PartyMembers[index];
                 if ((contentID > 0 && contentID == partyMember.ContentId) ||
-                    (entityID is > 0 and not InvalidEntityID && entityID == partyMember.EntityId))
+                    (entityID is > 0 and not INVALID_ENTITY_ID && entityID == partyMember.EntityId))
                 {
                     position = new(false, 0, index);
                     return true;
@@ -471,7 +471,7 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
 
             for (var index = 0; index < 40; index++)
             {
-                if (entityID is > 0 and not InvalidEntityID && entityID == agentHud->RaidMemberIds[index])
+                if (entityID is > 0 and not INVALID_ENTITY_ID && entityID == agentHud->RaidMemberIds[index])
                 {
                     position = new(false, index / 8 + 1, index % 8);
                     return true;

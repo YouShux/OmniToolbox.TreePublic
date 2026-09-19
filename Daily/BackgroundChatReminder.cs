@@ -10,7 +10,6 @@ using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 
 namespace OmniToolbox.TreePublic;
 
@@ -23,8 +22,8 @@ public sealed class BackgroundChatReminder : ModuleBase
         Category = ModuleCategory.Daily
     };
 
-    private const uint FlashAll = 3;
-    private const uint FlashTimerNoForeground = 12;
+    private const uint FLASH_ALL = 3;
+    private const uint FLASH_TIMER_NO_FOREGROUND = 12;
 
     private readonly BackgroundChatReminderConfig config;
     private bool subscribed;
@@ -110,7 +109,7 @@ public sealed class BackgroundChatReminder : ModuleBase
         {
             Size = (uint)Marshal.SizeOf<FlashWindowInfo>(),
             Window = window,
-            Flags = FlashAll | FlashTimerNoForeground,
+            Flags = FLASH_ALL | FLASH_TIMER_NO_FOREGROUND,
             Count = uint.MaxValue
         };
         FlashWindowEx(ref info);

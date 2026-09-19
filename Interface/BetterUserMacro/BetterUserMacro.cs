@@ -11,18 +11,18 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Nodes;
 using OmenTools;
 using OmenTools.Extensions;
+using OmenTools.ImGuiOm;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
-using OmenTools.ImGuiOm;
 using OmenTools.OmenService;
-using LuminaAction = Lumina.Excel.Sheets.Action;
-using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
+using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
+using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreePublic;
 
@@ -35,13 +35,13 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         Category = ModuleCategory.Interface
     };
 
-    private const uint MacroPageCount = 2;
-    private const uint MacroSlotsPerPage = 100;
-    private const int MacroLineCount = 15;
+    private const uint MACRO_PAGE_COUNT = 2;
+    private const uint MACRO_SLOTS_PER_PAGE = 100;
+    private const int MACRO_LINE_COUNT = 15;
     private static readonly Vector2 MacroInputSizeOffset = new(20f, 150f);
 
-    private readonly List<TextNode> lineNumberNodes = new(MacroLineCount);
-    private readonly MacroDropTarget?[] macroDropTargets = new MacroDropTarget?[(int)MacroSlotsPerPage];
+    private readonly List<TextNode> lineNumberNodes = new(MACRO_LINE_COUNT);
+    private readonly MacroDropTarget?[] macroDropTargets = new MacroDropTarget?[(int)MACRO_SLOTS_PER_PAGE];
     private readonly Dictionary<string, uint> actionCache = new(StringComparer.OrdinalIgnoreCase);
     private FeatureLifetime? runtimeLifetime;
     private Hook<AddonActionBarBase.Delegates.ShowTooltip>? tooltipHook;
@@ -240,7 +240,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
     {
         var set = commandID / 256u;
         var index = commandID % 256u;
-        if (set >= MacroPageCount || index >= MacroSlotsPerPage)
+        if (set >= MACRO_PAGE_COUNT || index >= MACRO_SLOTS_PER_PAGE)
         {
             return 0;
         }
@@ -252,7 +252,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return 0;
         }
 
-        for (var lineIndex = 0; lineIndex < MacroLineCount; lineIndex++)
+        for (var lineIndex = 0; lineIndex < MACRO_LINE_COUNT; lineIndex++)
         {
             var line = BetterUserMacroParser.Decode(macro->Lines[lineIndex].AsSpan());
             if (!BetterUserMacroParser.TryParseActionName(line, out var actionName) ||
@@ -337,7 +337,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             ClearMacroLineNumbers();
         }
 
-        if (lineNumberNodes.Count == MacroLineCount)
+        if (lineNumberNodes.Count == MACRO_LINE_COUNT)
         {
             return;
         }
@@ -353,7 +353,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         macroInputRepositioned = true;
         try
         {
-            for (var index = 0; index < MacroLineCount; index++)
+            for (var index = 0; index < MACRO_LINE_COUNT; index++)
             {
                 var lineNumberNode = new TextNode
                 {
@@ -412,7 +412,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             macroDropAddonAddress = addonAddress;
         }
 
-        for (var index = 0u; index < MacroSlotsPerPage; index++)
+        for (var index = 0u; index < MACRO_SLOTS_PER_PAGE; index++)
         {
             var dragDrop = addon->DragDropComponent[(int)index].Value;
             if (dragDrop is null || dragDrop->OwnerNode is null)
@@ -493,20 +493,20 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         var payload = dragDropInterface->GetPayloadContainer();
         if (dragDropInterface->DragDropType == DragDropType.Macro &&
             payload is not null &&
-            payload->Int1 is >= 0 and < (int)MacroPageCount &&
-            payload->Int2 is >= 0 and < (int)MacroSlotsPerPage)
+            payload->Int1 is >= 0 and < (int)MACRO_PAGE_COUNT &&
+            payload->Int2 is >= 0 and < (int)MACRO_SLOTS_PER_PAGE)
         {
             slot = new((uint)payload->Int1, (uint)payload->Int2);
             return true;
         }
 
         var set = GetCurrentMacroSet();
-        if (set >= MacroPageCount)
+        if (set >= MACRO_PAGE_COUNT)
         {
             return false;
         }
 
-        for (var index = 0u; index < MacroSlotsPerPage; index++)
+        for (var index = 0u; index < MACRO_SLOTS_PER_PAGE; index++)
         {
             var dragDrop = addon->DragDropComponent[(int)index].Value;
             if (dragDrop is null || &dragDrop->AtkDragDropInterface != dragDropInterface)
@@ -528,13 +528,13 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return false;
         }
 
-        if (payload->Int2 is >= 0 and < (int)MacroSlotsPerPage)
+        if (payload->Int2 is >= 0 and < (int)MACRO_SLOTS_PER_PAGE)
         {
             slot = new(set, (uint)payload->Int2);
             return true;
         }
 
-        if (dragDropInterface->DragDropReferenceIndex is >= 0 and < (short)MacroSlotsPerPage)
+        if (dragDropInterface->DragDropReferenceIndex is >= 0 and < (short)MACRO_SLOTS_PER_PAGE)
         {
             slot = new(set, (uint)dragDropInterface->DragDropReferenceIndex);
             return true;
@@ -550,7 +550,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         uint set,
         out MacroSlot slot)
     {
-        if (set >= MacroPageCount)
+        if (set >= MACRO_PAGE_COUNT)
         {
             slot = default;
             return false;
@@ -564,7 +564,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         var mouse = ImGui.GetIO().MousePos;
         var mouseX = (short)Math.Clamp(mouse.X, short.MinValue, short.MaxValue);
         var mouseY = (short)Math.Clamp(mouse.Y, short.MinValue, short.MaxValue);
-        for (var index = 0u; index < MacroSlotsPerPage; index++)
+        for (var index = 0u; index < MACRO_SLOTS_PER_PAGE; index++)
         {
             var dragDrop = addon->DragDropComponent[(int)index].Value;
             if (dragDrop is null || dragDrop->OwnerNode is null)
@@ -597,7 +597,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return false;
         }
 
-        for (var index = 0u; index < MacroSlotsPerPage; index++)
+        for (var index = 0u; index < MACRO_SLOTS_PER_PAGE; index++)
         {
             var dragDrop = addon->DragDropComponent[(int)index].Value;
             if (dragDrop is null || dragDrop->OwnerNode != componentNode)
@@ -618,8 +618,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         MacroSlot source,
         MacroSlot target)
     {
-        if (source == target || source.Set >= MacroPageCount || target.Set >= MacroPageCount ||
-            source.Index >= MacroSlotsPerPage || target.Index >= MacroSlotsPerPage)
+        if (source == target || source.Set >= MACRO_PAGE_COUNT || target.Set >= MACRO_PAGE_COUNT ||
+            source.Index >= MACRO_SLOTS_PER_PAGE || target.Index >= MACRO_SLOTS_PER_PAGE)
         {
             return false;
         }
@@ -640,7 +640,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         RefreshMacroAddonSlot(addon, target.Set, target.Index, refreshedTargetIcon > 0 ? refreshedTargetIcon : sourceIcon);
         QueuePendingMacroRefresh(source, target, targetIcon, sourceIcon);
 
-        var agent = GetMacroAgent();
+        var agent = AgentMacro.Instance();
         if (agent is not null && (agent->SelectedMacroSet != target.Set || agent->SelectedMacroIndex != target.Index))
         {
             agent->OpenMacro(target.Set, target.Index);
@@ -738,16 +738,16 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
 
         var addon = AddonHelper.GetByName<AddonMacro>("Macro");
         var currentSet = GetCurrentMacroSet();
-        if (!IsMacroAddonVisible(addon) || currentSet >= MacroPageCount)
+        if (!IsMacroAddonVisible(addon) || currentSet >= MACRO_PAGE_COUNT)
         {
             addon = null;
         }
 
         var changed = false;
-        for (var set = 0u; set < MacroPageCount; set++)
+        for (var set = 0u; set < MACRO_PAGE_COUNT; set++)
         {
             var changedPage = false;
-            for (var index = 0u; index < MacroSlotsPerPage; index++)
+            for (var index = 0u; index < MACRO_SLOTS_PER_PAGE; index++)
             {
                 var macro = macroModule->GetMacro(set, index);
                 if (macro is null || !macro->IsNotEmpty() ||
@@ -791,7 +791,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return false;
         }
 
-        for (var index = 0; index < MacroLineCount; index++)
+        for (var index = 0; index < MACRO_LINE_COUNT; index++)
         {
             if (BetterUserMacroParser.TryParseCustomIcon(macro->Lines[index].AsSpan(), out iconID))
             {
@@ -808,19 +808,17 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         out uint set,
         out uint index)
     {
-        agent = GetMacroAgent();
+        agent = AgentMacro.Instance();
         addon = AddonHelper.GetByName<AddonMacro>("Macro");
         set = agent is null ? 0 : agent->SelectedMacroSet;
         index = agent is null ? 0 : agent->SelectedMacroIndex;
-        return agent is not null && IsMacroAddonVisible(addon) && set < MacroPageCount && index < MacroSlotsPerPage;
+        return agent is not null && IsMacroAddonVisible(addon) && set < MACRO_PAGE_COUNT && index < MACRO_SLOTS_PER_PAGE;
     }
-
-    private static AgentMacro* GetMacroAgent() => AgentMacro.Instance();
 
     private static uint GetCurrentMacroSet()
     {
-        var agent = GetMacroAgent();
-        return agent is null ? MacroPageCount : agent->SelectedMacroSet;
+        var agent = AgentMacro.Instance();
+        return agent is null ? MACRO_PAGE_COUNT : agent->SelectedMacroSet;
     }
 
     private static void ApplyMacroIcon(
@@ -843,7 +841,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
     private static uint GetCurrentMacroSlotIcon(AddonMacro* addon, MacroSlot slot)
     {
         if (addon is null || GetCurrentMacroSet() != slot.Set ||
-            slot.Index >= MacroSlotsPerPage)
+            slot.Index >= MACRO_SLOTS_PER_PAGE)
         {
             return 0;
         }
@@ -862,7 +860,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
 
     private static uint GetMacroDisplayIcon(AddonMacro* addon, MacroSlot slot, bool allowCachedNativeIcon)
     {
-        if (slot.Set >= MacroPageCount || slot.Index >= MacroSlotsPerPage)
+        if (slot.Set >= MACRO_PAGE_COUNT || slot.Index >= MACRO_SLOTS_PER_PAGE)
         {
             return 0;
         }
@@ -903,7 +901,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         uint set,
         uint index)
     {
-        if (macroModule is null || set >= MacroPageCount || index >= MacroSlotsPerPage)
+        if (macroModule is null || set >= MACRO_PAGE_COUNT || index >= MACRO_SLOTS_PER_PAGE)
         {
             return 0;
         }
@@ -939,7 +937,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         uint forcedDisplayIconID = 0)
     {
         if (addon is null || GetCurrentMacroSet() != set ||
-            index >= MacroSlotsPerPage)
+            index >= MACRO_SLOTS_PER_PAGE)
         {
             return;
         }
@@ -985,7 +983,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
 
     private static void ReloadMacroSlot(uint set, uint index)
     {
-        if (set >= MacroPageCount || index >= MacroSlotsPerPage)
+        if (set >= MACRO_PAGE_COUNT || index >= MACRO_SLOTS_PER_PAGE)
         {
             return;
         }
@@ -1027,7 +1025,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
     private static void ClearMacroDragDropTransientState(AddonMacro* addon, MacroSlot slot)
     {
         if (addon is null || GetCurrentMacroSet() != slot.Set ||
-            slot.Index >= MacroSlotsPerPage)
+            slot.Index >= MACRO_SLOTS_PER_PAGE)
         {
             return;
         }
@@ -1043,7 +1041,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         }
 
         dragDrop->SetQuantityText(string.Empty);
-        dragDrop->SetIconDisableState(false);
+        dragDrop->SetIconEnabled(false);
         var iconComponent = dragDrop->AtkComponentIcon;
         if (iconComponent is null)
         {
@@ -1086,7 +1084,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         dragDrop->VisibilityFlags &= ~DragDropVisibilityFlag.HideAfterFlyBack;
         dragDrop->LoadIcon(displayIconID);
         dragDrop->SetQuantityText(string.Empty);
-        dragDrop->SetIconDisableState(false);
+        dragDrop->SetIconEnabled(false);
         if (dragDrop->OwnerNode is not null)
         {
             dragDrop->OwnerNode->AtkResNode.ToggleVisibility(true);
@@ -1282,8 +1280,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
 
         public static MacroSnapshot Capture(RaptureMacroModule.Macro* macro)
         {
-            var lines = new byte[MacroLineCount][];
-            for (var index = 0; index < MacroLineCount; index++)
+            var lines = new byte[MACRO_LINE_COUNT][];
+            for (var index = 0; index < MACRO_LINE_COUNT; index++)
             {
                 lines[index] = CopyNullTerminated(macro->Lines[index].AsSpan());
             }
@@ -1318,7 +1316,7 @@ public sealed class BetterUserMacroConfig
 
 internal static class BetterUserMacroPanel
 {
-    private const string PreviewImageBaseURL =
+    private const string PREVIEW_IMAGE_BASE_URL =
         "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Interface/BetterUserMacro-";
 
     public static bool Draw(BetterUserMacroConfig config)
@@ -1352,7 +1350,7 @@ internal static class BetterUserMacroPanel
                 "Feature.BetterUserMacro.Tooltips",
                 "tooltips",
                 ref tooltips,
-                $"{PreviewImageBaseURL}1.png"))
+                $"{PREVIEW_IMAGE_BASE_URL}1.png"))
         {
             config.Tooltips = tooltips;
             changed = true;
@@ -1364,7 +1362,7 @@ internal static class BetterUserMacroPanel
                 "Feature.BetterUserMacro.LineNumbers",
                 "lineNumbers",
                 ref lineNumbers,
-                $"{PreviewImageBaseURL}2.png"))
+                $"{PREVIEW_IMAGE_BASE_URL}2.png"))
         {
             config.LineNumbers = lineNumbers;
             changed = true;
@@ -1384,7 +1382,7 @@ internal static class BetterUserMacroPanel
                 "Feature.BetterUserMacro.CustomIcons",
                 "customIcons",
                 ref customIcons,
-                $"{PreviewImageBaseURL}3.png"))
+                $"{PREVIEW_IMAGE_BASE_URL}3.png"))
         {
             config.CustomIcons = customIcons;
             changed = true;

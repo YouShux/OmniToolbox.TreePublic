@@ -15,16 +15,15 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Data.Icons;
 using OmenTools.OmenService;
-using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
-using ClientObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
-using TerritoryIntendedUse = FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse;
-using OmniToolbox.Config;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
-using OmniToolbox.UI.Theme;
+using OmniToolbox.Config;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
+using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
+using TerritoryIntendedUse = FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse;
+using ClientObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
 using ModuleBase = OmniToolbox.Common.Module.Abstractions.ModuleBase;
 
 namespace OmniToolbox.TreePublic;
@@ -38,18 +37,18 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         Category = ModuleCategory.Interface
     };
 
-    private const int ObjectScanStart = 1;
-    private const int ObjectScanEnd = 200;
-    private const int UnimportantNPCScanStart = 489;
-    private const int UnimportantNPCScanEnd = 630;
-    private const float AvailableQuestNPCDistanceSquared = 225f;
-    private const float QuestNPCNearbyModelDistanceSquared = 25f;
-    private const uint InvalidEntityID = 0xE0000000;
-    private const uint EarthlyStarNameID = 6565;
-    private const byte BeastmasterClassJobID = 43;
-    private const uint AsylumActionID = 3569;
-    private const uint SacredSoilActionID = 188;
-    private const VisibilityFlags InvisibleFlags = (VisibilityFlags)256;
+    private const int OBJECT_SCAN_START = 1;
+    private const int OBJECT_SCAN_END = 200;
+    private const int UNIMPORTANT_NPC_SCAN_START = 489;
+    private const int UNIMPORTANT_NPC_SCAN_END = 630;
+    private const float AVAILABLE_QUEST_NPC_DISTANCE_SQUARED = 225f;
+    private const float QUEST_NPC_NEARBY_MODEL_DISTANCE_SQUARED = 25f;
+    private const uint INVALID_ENTITY_ID = 0xE0000000;
+    private const uint EARTHLY_STAR_NAME_ID = 6565;
+    private const byte BEASTMASTER_CLASS_JOB_ID = 43;
+    private const uint ASYLUM_ACTION_ID = 3569;
+    private const uint SACRED_SOIL_ACTION_ID = 188;
+    private const VisibilityFlags INVISIBLE_FLAGS = (VisibilityFlags)256;
     private static readonly string[] AsylumVfxPaths = ["vfx/common/eff/abi_cnj022g.avfx"];
     private static readonly string[] SacredSoilVfxPaths = ["vfx/common/eff/abi_swl053g.avfx"];
     private readonly HashSet<nint> hiddenObjects = [];
@@ -420,7 +419,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         }
 
         var localGameObject = objectManager->Objects.IndexSorted[0].Value;
-        if (localGameObject == null || localGameObject->EntityId == InvalidEntityID)
+        if (localGameObject == null || localGameObject->EntityId == INVALID_ENTITY_ID)
         {
             return;
         }
@@ -439,13 +438,13 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         }
 
         var localPlayer = (Character*)localGameObject;
-        var isBound = GameState.TerritoryIntendedUse != TerritoryIntendedUse.OccultCrescent &&
+        var isBound = GameState.TerritoryIntendedUse is not (TerritoryIntendedUse.OccultCrescent or TerritoryIntendedUse.Bozja) &&
                       DService.Instance().Condition[ConditionFlag.BoundByDuty] &&
                       localGameObject->EventId.ContentId != EventHandlerContent.TreasureHuntDirector;
         RefreshPlayerContainers(objectManager, localPlayer);
         RefreshNearbyAvailableQuestNPCs(objectManager, localGameObject);
         var playerCount = 0;
-        for (var index = ObjectScanStart; index < UnimportantNPCScanEnd; index++)
+        for (var index = OBJECT_SCAN_START; index < UNIMPORTANT_NPC_SCAN_END; index++)
         {
             var gameObject = objectManager->Objects.IndexSorted[index].Value;
             if (gameObject == null || gameObject == localGameObject)
@@ -453,7 +452,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
                 continue;
             }
 
-            if (index >= UnimportantNPCScanStart)
+            if (index >= UNIMPORTANT_NPC_SCAN_START)
             {
                 SetVisibility(gameObject, !ShouldHideUnimportantNPC(gameObject));
                 continue;
@@ -466,7 +465,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             }
 
             var character = (Character*)gameObject;
-            if (gameObject->EntityId == InvalidEntityID && gameObject->ObjectKind != ClientObjectKind.Companion)
+            if (gameObject->EntityId == INVALID_ENTITY_ID && gameObject->ObjectKind != ClientObjectKind.Companion)
             {
                 continue;
             }
@@ -474,7 +473,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             switch (gameObject->ObjectKind)
             {
                 case ClientObjectKind.Pc:
-                    var reducePlayerCount = index < ObjectScanEnd && index % 2 == 0;
+                    var reducePlayerCount = index < OBJECT_SCAN_END && index % 2 == 0;
                     if (reducePlayerCount)
                     {
                         playerCount++;
@@ -486,7 +485,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
                     break;
                 case ClientObjectKind.BattleNpc
                     when (BattleNpcSubKind)gameObject->SubKind == BattleNpcSubKind.Pet &&
-                         character->NameId == EarthlyStarNameID:
+                         character->NameId == EARTHLY_STAR_NAME_ID:
                     SetVisibility(gameObject, !ShouldHideGroundEffectOwner(gameObject->OwnerId, localPlayer));
                     break;
                 case ClientObjectKind.BattleNpc
@@ -517,26 +516,26 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private void RefreshPlayerContainers(GameObjectManager* objectManager, Character* localPlayer)
     {
         beastmasterPlayers.Clear();
-        if (localPlayer->CharacterData.ClassJob == BeastmasterClassJobID)
+        if (localPlayer->CharacterData.ClassJob == BEASTMASTER_CLASS_JOB_ID)
         {
             beastmasterPlayers.Add(localPlayer->GameObject.EntityId);
         }
         friendPlayers.Clear();
         partyPlayers.Clear();
         freeCompanyPlayers.Clear();
-        for (var index = ObjectScanStart; index < ObjectScanEnd; index++)
+        for (var index = OBJECT_SCAN_START; index < OBJECT_SCAN_END; index++)
         {
             var gameObject = objectManager->Objects.IndexSorted[index].Value;
             if (gameObject == null ||
                 !gameObject->IsCharacter() ||
                 gameObject->ObjectKind != ClientObjectKind.Pc ||
-                gameObject->EntityId == InvalidEntityID)
+                gameObject->EntityId == INVALID_ENTITY_ID)
             {
                 continue;
             }
 
             var character = (Character*)gameObject;
-            if (character->CharacterData.ClassJob == BeastmasterClassJobID)
+            if (character->CharacterData.ClassJob == BEASTMASTER_CLASS_JOB_ID)
             {
                 beastmasterPlayers.Add(gameObject->EntityId);
             }
@@ -560,7 +559,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private void RefreshNearbyAvailableQuestNPCs(GameObjectManager* objectManager, GameObject* localGameObject)
     {
         nearbyAvailableQuestNPCPositions.Clear();
-        for (var index = ObjectScanStart; index < UnimportantNPCScanEnd; index++)
+        for (var index = OBJECT_SCAN_START; index < UNIMPORTANT_NPC_SCAN_END; index++)
         {
             var gameObject = objectManager->Objects.IndexSorted[index].Value;
             if (gameObject == null ||
@@ -568,7 +567,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
                 !gameObject->TargetableStatus.HasFlag(ObjectTargetableFlags.IsTargetable) ||
                 !QuestIcons.Normal.Contains(gameObject->NamePlateIconId) ||
                 Vector3.DistanceSquared(gameObject->Position, localGameObject->Position) >
-                AvailableQuestNPCDistanceSquared)
+                AVAILABLE_QUEST_NPC_DISTANCE_SQUARED)
             {
                 continue;
             }
@@ -675,7 +674,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         var address = (nint)gameObject;
         if (!hiddenObjects.Contains(address))
         {
-            if (gameObject->RenderFlags.HasFlag(InvisibleFlags))
+            if (gameObject->RenderFlags.HasFlag(INVISIBLE_FLAGS))
             {
                 return;
             }
@@ -683,7 +682,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             hiddenObjects.Add(address);
         }
 
-        gameObject->RenderFlags |= InvisibleFlags;
+        gameObject->RenderFlags |= INVISIBLE_FLAGS;
     }
 
     private void Show(GameObject* gameObject)
@@ -694,7 +693,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             return;
         }
 
-        gameObject->RenderFlags &= ~InvisibleFlags;
+        gameObject->RenderFlags &= ~INVISIBLE_FLAGS;
     }
 
     private void ShowAll()
@@ -709,7 +708,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             var gameObject = FindGameObject(address);
             if (gameObject != null)
             {
-                gameObject->RenderFlags &= ~InvisibleFlags;
+                gameObject->RenderFlags &= ~INVISIBLE_FLAGS;
             }
         }
 
@@ -723,7 +722,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             var gameObject = FindGameObject(address);
             if (gameObject != null && gameObject->ObjectKind != ClientObjectKind.Pc)
             {
-                gameObject->RenderFlags &= ~InvisibleFlags;
+                gameObject->RenderFlags &= ~INVISIBLE_FLAGS;
             }
         }
     }
@@ -1062,7 +1061,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
         foreach (var position in nearbyAvailableQuestNPCPositions)
         {
-            if (Vector3.DistanceSquared(gameObject->Position, position) <= QuestNPCNearbyModelDistanceSquared)
+            if (Vector3.DistanceSquared(gameObject->Position, position) <= QUEST_NPC_NEARBY_MODEL_DISTANCE_SQUARED)
             {
                 return false;
             }
@@ -1076,10 +1075,10 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         unitConfig.HideInCombat && DService.Instance().Condition[ConditionFlag.InCombat];
 
     private static bool ShouldTreatAsNonCharacterPet(GameObject* gameObject, int objectIndex) =>
-        objectIndex < ObjectScanEnd &&
+        objectIndex < OBJECT_SCAN_END &&
         objectIndex % 2 == 1 &&
         gameObject->ObjectKind != ClientObjectKind.Mount &&
-        gameObject->OwnerId is not 0 and not InvalidEntityID &&
+        gameObject->OwnerId is not 0 and not INVALID_ENTITY_ID &&
         (gameObject->ObjectKind == ClientObjectKind.Companion || gameObject->NamePlateIconId == 0);
 
     private static bool ShouldSuspendByCondition()
@@ -1093,7 +1092,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
     private static bool ShouldSuspendByTerritory()
     {
-        if (GameState.TerritoryIntendedUse == TerritoryIntendedUse.OccultCrescent)
+        if (GameState.TerritoryIntendedUse is TerritoryIntendedUse.OccultCrescent or TerritoryIntendedUse.Bozja)
         {
             return false;
         }
@@ -1159,7 +1158,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             return null;
         }
 
-        for (var index = 0; index < UnimportantNPCScanEnd; index++)
+        for (var index = 0; index < UNIMPORTANT_NPC_SCAN_END; index++)
         {
             var gameObject = objectManager->Objects.IndexSorted[index].Value;
             if ((nint)gameObject == address)
@@ -1175,10 +1174,10 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     {
         switch (actionID)
         {
-            case AsylumActionID:
+            case ASYLUM_ACTION_ID:
                 kind = GroundHealingVfxKind.Asylum;
                 return true;
-            case SacredSoilActionID:
+            case SACRED_SOIL_ACTION_ID:
                 kind = GroundHealingVfxKind.SacredSoil;
                 return true;
             default:

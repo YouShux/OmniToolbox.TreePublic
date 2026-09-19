@@ -9,8 +9,8 @@ internal sealed class MitigationHistoryMenu(
     MitigationCombatLog combatLog,
     MitigationReplayStore replayStore)
 {
-    private const string HistoryPopupID = "##MitigationHistoryPopup";
-    private const string ImportPopupID = "##MitigationImportPopup";
+    private const string HISTORY_POPUP_ID = "##MitigationHistoryPopup";
+    private const string IMPORT_POPUP_ID = "##MitigationImportPopup";
 
     private readonly List<MitigationCombatHistory> items = new(40);
     private string[] importFiles = [];
@@ -18,11 +18,11 @@ internal sealed class MitigationHistoryMenu(
 
     public string? ActiveHistoryKey { get; private set; }
 
-    public void Open() => ImGui.OpenPopup(HistoryPopupID);
+    public void Open() => ImGui.OpenPopup(HISTORY_POPUP_ID);
 
     public void Draw()
     {
-        if (!ImGui.BeginPopup(HistoryPopupID))
+        if (!ImGui.BeginPopup(HISTORY_POPUP_ID))
         {
             return;
         }
@@ -40,7 +40,7 @@ internal sealed class MitigationHistoryMenu(
         if (ImGui.SmallButton(OmniLoc.Get("Feature.MitigationMonitor.History.Import")))
         {
             importFiles = replayStore.GetImportableFiles();
-            ImGui.OpenPopup(ImportPopupID);
+            ImGui.OpenPopup(IMPORT_POPUP_ID);
         }
 
         DrawImportPopup();
@@ -145,7 +145,7 @@ internal sealed class MitigationHistoryMenu(
 
     private void DrawImportPopup()
     {
-        if (!ImGui.BeginPopup(ImportPopupID))
+        if (!ImGui.BeginPopup(IMPORT_POPUP_ID))
         {
             return;
         }
