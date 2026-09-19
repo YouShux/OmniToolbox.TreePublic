@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.Inventory;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Plugin.Ipc;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -19,12 +20,13 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
+using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 using OmenTools.Dalamud;
 using OmenTools.Extensions;
-using OmenTools.Info.Game.Packets.Upstream;
 using OmenTools.Interop.Game.Lumina;
+using OmenTools.Info.Game.Packets.Upstream;
 using GameEventHandler = FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandler;
 using GameEventHandlerContent = FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandlerContent;
 using GameEventID = FFXIVClientStructs.FFXIV.Client.Game.Event.EventId;
@@ -40,13 +42,17 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         Description = "准备好生产材料后，模块将通过Artisan插件进行自动生产，随后进行自动提交与库啵好运道",
         Category = ModuleCategory.Automation,
         Author = "Angelways",
+        SupportUrls = ["https://github.com/Angelways"],
         Commands =
         [
-            new ModuleCommand("开始：/omni AutoIshgardRestoration start", "/omni AutoIshgardRestoration start"),
-            new ModuleCommand("停止：/omni AutoIshgardRestoration stop", "/omni AutoIshgardRestoration stop")
+            new ModuleCommand(
+                "/omni 自动重建伊修加德 → 打开自动重建伊修加德窗口",
+                "/omni 自动重建伊修加德"),
+            new ModuleCommand(
+                "/omni 开关自动重建伊修加德 → 控制重建伊修加德自动化流程",
+                "/omni 开关自动重建伊修加德")
         ]
     };
-
 
     private static readonly GameInventoryType[] MainInventoryTypes =
     [
@@ -123,6 +129,12 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
     private DateTime phaseStartedAt;
     private DateTime nextActionAt;
     private bool running;
+    private bool windowOpen;
+    private bool windowExpanded;
+    private bool windowCollapsed;
+    private bool windowConfigChanged;
+    private bool artisanStartedByModule;
+    private bool vnavPathStartedByModule;
     private uint activeRecipeID;
     private uint activeItemID;
     private AutomationPhase phase;
@@ -138,18 +150,17 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
     private DateTime nextDebugReadAt;
     private int debugVoucherCount = -1;
     private int debugVoucherLimit = -1;
-    private string debugVoucherStatus = "HWDSupply 未打开";
     private string status = "待机";
     private string lastError = string.Empty;
 
-    private const uint FirmamentTerritoryID = 886;
-    private const string FirmamentTeleportCommand = "/pdrtelepo 无名众人广场";
-    private const uint SkybuildersScripItemID = 28063;
-    private const int RightLotteryEventParam = 22;
-    private const uint AppraiserNPCID1 = 1031690;
-    private const uint AppraiserNPCID2 = 1031677;
-    private const uint LotteryNPCID = 1031692;
-    private static readonly Regex VoucherPattern = new("^(\\d+)/(\\d+)$", RegexOptions.Compiled);
+    private const uint FIRMAMENT_TERRITORY_ID = 886;
+    private const string FIRMAMENT_TELEPORT_COMMAND = "/pdrtelepo 无名众人广场";
+    private const uint SKYBUILDERS_SCRIP_ITEM_ID = 28063;
+    private const int RIGHT_LOTTERY_EVENT_PARAM = 22;
+    private const uint APPRAISER_NPC_ID_1 = 1031690;
+    private const uint APPRAISER_NPC_ID_2 = 1031677;
+    private const uint LOTTERY_NPC_ID = 1031692;
+    private static readonly Regex VOUCHER_PATTERN = new("^(\\d+)/(\\d+)$", RegexOptions.Compiled);
 
     public override bool HasSettings => true;
 
@@ -160,11 +171,16 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         getStopRequest = DalamudServices.PluginInterface.GetIpcSubscriber<bool>("Artisan.GetStopRequest");
         setStopRequest = DalamudServices.PluginInterface.GetIpcSubscriber<bool, object>("Artisan.SetStopRequest");
         DalamudServices.Framework.Update += OnFrameworkUpdate;
+        DalamudServices.PluginInterface.UiBuilder.Draw += DrawConfigurationWindow;
     }
 
     protected override void OnDisable()
     {
         DalamudServices.Framework.Update -= OnFrameworkUpdate;
+        DalamudServices.PluginInterface.UiBuilder.Draw -= DrawConfigurationWindow;
+        windowOpen = false;
+        windowExpanded = false;
+        windowCollapsed = false;
         StopProduction("模块已停用");
         craftItem = null;
         artisanIsBusy = null;
@@ -183,33 +199,177 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         return true;
     }
 
-    public override bool TryHandleCommand(string arguments)
+    public override bool TryHandleCommand(string command, string arguments)
     {
-        var command = arguments.Trim();
-        if (string.Equals(command, "start", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(command.Trim(), "自动重建伊修加德", StringComparison.OrdinalIgnoreCase))
         {
-            StartProduction();
+            OpenConfigurationWindow();
             return true;
         }
 
-        if (string.Equals(command, "stop", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(command.Trim(), "开关自动重建伊修加德", StringComparison.OrdinalIgnoreCase))
         {
-            StopProduction("已手动停止");
+            ToggleProduction();
             return true;
         }
 
         return false;
     }
 
-    public override unsafe bool DrawSettings()
+    public override bool DrawSettings()
+    {
+        var changed = windowConfigChanged;
+        windowConfigChanged = false;
+
+        if (ImGui.Button("自动重建伊修加德"))
+        {
+            OpenConfigurationWindow();
+        }
+
+        return changed;
+    }
+
+    private void DrawConfigurationWindow()
+    {
+        if (!windowOpen)
+        {
+            return;
+        }
+
+        using var font = OmniFonts.GetUIFont().Push();
+        using var style = new ComicStyleScope();
+        var targetSize = windowCollapsed
+            ? OmniTheme.CollapsedWindowSize(OmniTheme.Scale(windowExpanded ? 720f : 340f))
+            : OmniTheme.Scale(windowExpanded ? new Vector2(720f, 760f) : new Vector2(340f, 116f));
+        ImGui.SetNextWindowSize(targetSize, ImGuiCond.Always);
+        ImGui.SetNextWindowCollapsed(false, ImGuiCond.Always);
+        var flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
+                    ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoResize;
+        if (!ImGui.Begin("###AutoIshgardRestorationWindow", flags))
+        {
+            ImGui.End();
+            return;
+        }
+
+        try
+        {
+            var windowPosition = ImGui.GetWindowPos();
+            var windowSize = ImGui.GetWindowSize();
+            var framePosition = windowCollapsed
+                ? windowPosition + new Vector2(OmniTheme.CollapsedHeaderSafeInset(), OmniTheme.CollapsedHeaderTop())
+                : windowPosition + new Vector2(OmniTheme.ChromeFrameInset());
+            var frameSize = windowCollapsed
+                ? new Vector2(
+                    MathF.Max(1f, windowSize.X - OmniTheme.CollapsedHeaderSafeInset() * 2f),
+                    OmniTheme.TitleBarHeight())
+                : windowSize - new Vector2(OmniTheme.ChromeFrameInset() * 2f);
+            var chrome = OmniWindowChrome.Draw(
+                framePosition,
+                frameSize,
+                windowCollapsed,
+                "自动重建伊修加德",
+                "##collapseAutoIshgardRestoration",
+                "##closeAutoIshgardRestoration");
+            if (chrome.ToggleCollapse)
+            {
+                windowCollapsed = !windowCollapsed;
+            }
+
+            if (chrome.CloseClicked)
+            {
+                windowOpen = false;
+            }
+
+            if (!windowOpen || windowCollapsed || chrome.ToggleCollapse)
+            {
+                return;
+            }
+
+            var contentPosition = framePosition + new Vector2(
+                OmniTheme.WindowInset(),
+                OmniTheme.TitleBarHeight() + OmniTheme.WindowInset());
+            var contentSize = new Vector2(
+                MathF.Max(1f, frameSize.X - OmniTheme.WindowInset() * 2f),
+                MathF.Max(
+                    1f,
+                    frameSize.Y - OmniTheme.TitleBarHeight() - OmniTheme.WindowInset() * 2f));
+            ImGui.SetCursorScreenPos(contentPosition);
+            if (!windowExpanded)
+            {
+                DrawWindowActionRow("展开", contentSize.X, () => windowExpanded = true);
+                return;
+            }
+
+            ImGui.PushStyleColor(ImGuiCol.ChildBg, Vector4.Zero);
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
+            try
+            {
+                using var content = ImRaii.Child(
+                    "##autoIshgardWindowContent",
+                    contentSize,
+                    false,
+                    ImGuiWindowFlags.None);
+                if (!content)
+                {
+                    return;
+                }
+
+                if (DrawConfigurationContents())
+                {
+                    windowConfigChanged = true;
+                }
+            }
+            finally
+            {
+                ImGui.PopStyleVar();
+                ImGui.PopStyleColor();
+            }
+        }
+        finally
+        {
+            ImGui.End();
+        }
+    }
+
+    private void DrawWindowActionRow(string secondaryLabel, float availableWidth, System.Action secondaryAction)
+    {
+        var rowPosition = ImGui.GetCursorScreenPos();
+        var buttonHeight = OmniTheme.SmallButtonSize().Y;
+        var secondarySize = OmniControls.CompactButtonSize(secondaryLabel);
+        var primaryWidth = MathF.Min(
+            OmniTheme.Scale(154f),
+            MathF.Max(1f, availableWidth - secondarySize.X - ImGui.GetStyle().ItemSpacing.X));
+        if (OmniControls.SmallButton(
+                running ? "停止" : "启动",
+                running,
+                new Vector2(primaryWidth, buttonHeight)))
+        {
+            ToggleProduction();
+        }
+
+        ImGui.SetCursorScreenPos(new Vector2(
+            rowPosition.X + MathF.Max(0f, availableWidth - secondarySize.X),
+            rowPosition.Y));
+        if (OmniControls.SmallButton(secondaryLabel, false, secondarySize))
+        {
+            secondaryAction();
+        }
+
+        ImGui.SetCursorScreenPos(new Vector2(
+            rowPosition.X,
+            rowPosition.Y + MathF.Max(buttonHeight, secondarySize.Y) + ImGui.GetStyle().ItemSpacing.Y));
+    }
+
+    private unsafe bool DrawConfigurationContents()
     {
         var changed = false;
+        DrawWindowActionRow("收起", ImGui.GetContentRegionAvail().X, () => windowExpanded = false);
+
+        ImGui.Separator();
         var playerState = DalamudServices.PlayerState;
         var jobID = playerState.IsLoaded ? playerState.ClassJob.RowId : 0;
         var level = playerState.IsLoaded ? playerState.Level : (short)0;
         var selected = FindRecipe(config.SelectedRecipeID);
-
-        ImGui.Separator();
 
         ImGui.TextUnformatted(jobID is >= 8 and <= 15
             ? $"当前职业：{GetJobName(jobID)}  等级：{level}"
@@ -220,34 +380,32 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
             : jobID is >= 8 and <= 15
                 ? "请先选择你要生产的物品"
                 : "请切换至生产职业";
-        if (ImGui.BeginCombo("生产内容", preview))
+        ImGui.SetNextItemWidth(GetLabeledControlWidth(520f, "生产内容"));
+        using (var combo = ImRaii.Combo("生产内容", preview))
         {
-            foreach (var recipe in Recipes)
+            if (combo)
             {
-                if (recipe.JobID != jobID)
+                foreach (var recipe in Recipes)
                 {
-                    continue;
-                }
+                    if (recipe.JobID != jobID)
+                    {
+                        continue;
+                    }
 
-                var available = recipe.Level <= level;
-                if (!available)
-                {
-                    ImGui.BeginDisabled();
-                }
-
-                if (ImGui.Selectable(FormatRecipe(recipe), config.SelectedRecipeID == recipe.RecipeID) && available)
-                {
-                    config.SelectedRecipeID = recipe.RecipeID;
-                    changed = true;
-                }
-
-                if (!available)
-                {
-                    ImGui.EndDisabled();
+                    var available = recipe.Level <= level;
+                    using (ImRaii.Disabled(!available))
+                    {
+                        if (OmniControls.RoundedSelectable(
+                                FormatRecipe(recipe),
+                                config.SelectedRecipeID == recipe.RecipeID,
+                                size: new Vector2(0f, OmniTheme.SmallButtonSize().Y)) && available)
+                        {
+                            config.SelectedRecipeID = recipe.RecipeID;
+                            changed = true;
+                        }
+                    }
                 }
             }
-
-            ImGui.EndCombo();
         }
 
         ImGui.Separator();
@@ -255,22 +413,31 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         var stopModePreview = stopMode == 0
             ? "背包剩余空格达到下限时提交"
             : "目标物品达到指定数量时提交";
-        if (ImGui.BeginCombo("物品提交条件", stopModePreview))
+        ImGui.SetNextItemWidth(GetLabeledControlWidth(360f, "物品提交条件"));
+        using (var combo = ImRaii.Combo("物品提交条件", stopModePreview))
         {
-            ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
-            if (ImGui.Selectable("背包剩余空格达到下限时提交", stopMode == 0))
+            if (combo)
             {
-                config.StopMode = 0;
-                changed = true;
-            }
+                var optionSize = new Vector2(0f, OmniTheme.SmallButtonSize().Y);
+                ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
+                if (OmniControls.RoundedSelectable(
+                        "背包剩余空格达到下限时提交",
+                        stopMode == 0,
+                        size: optionSize))
+                {
+                    config.StopMode = 0;
+                    changed = true;
+                }
 
-            if (ImGui.Selectable("目标物品达到指定数量时提交", stopMode == 1))
-            {
-                config.StopMode = 1;
-                changed = true;
+                if (OmniControls.RoundedSelectable(
+                        "目标物品达到指定数量时提交",
+                        stopMode == 1,
+                        size: optionSize))
+                {
+                    config.StopMode = 1;
+                    changed = true;
+                }
             }
-
-            ImGui.EndCombo();
         }
 
         if (config.StopMode == 0)
@@ -325,24 +492,43 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
             ImGui.TextWrapped($"错误：{lastError}");
         }
 
-        if (!running)
-        {
-            if (ImGui.Button("开始"))
-            {
-                StartProduction();
-            }
-        }
-        else if (ImGui.Button("停止生产"))
+        return changed;
+    }
+
+    private static float GetLabeledControlWidth(float preferredWidth, string label)
+    {
+        var available = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(label).X -
+                        ImGui.GetStyle().ItemSpacing.X;
+        return MathF.Max(OmniTheme.Scale(160f), MathF.Min(OmniTheme.Scale(preferredWidth), available));
+    }
+
+    private void OpenConfigurationWindow()
+    {
+        windowOpen = true;
+        windowExpanded = false;
+        windowCollapsed = false;
+    }
+
+    private void ToggleProduction()
+    {
+        if (running)
         {
             StopProduction("已手动停止");
         }
-
-        return changed;
+        else
+        {
+            StartProduction();
+        }
     }
 
     public override bool ResetSettings()
     {
-        config = new AutoIshgardRestorationConfig();
+        var defaults = new AutoIshgardRestorationConfig();
+        config.SelectedRecipeID = defaults.SelectedRecipeID;
+        config.StopMode = defaults.StopMode;
+        config.MinimumFreeSlots = defaults.MinimumFreeSlots;
+        config.TargetItemCount = defaults.TargetItemCount;
+        config.TicketThreshold = defaults.TicketThreshold;
         return true;
     }
 
@@ -394,9 +580,9 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
             activeItemID = recipe.Value.ItemID;
             nextCheckAt = DateTime.UtcNow;
 
-            if (OmenTools.DService.Instance().ClientState.TerritoryType != FirmamentTerritoryID)
+            if (OmenTools.DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
             {
-                if (!TrySendCommand(FirmamentTeleportCommand))
+                if (!TrySendCommand(FIRMAMENT_TELEPORT_COMMAND))
                 {
                     FailAutomation("无法执行传送指令 /pdrtelepo 无名众人广场。");
                     return;
@@ -417,7 +603,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
 
     private void StopProduction(string reason)
     {
-        if (running && phase is (AutomationPhase.WaitArtisanStart or AutomationPhase.Crafting or AutomationPhase.WaitArtisanStop))
+        if (artisanStartedByModule)
         {
             try
             {
@@ -430,16 +616,13 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
             {
                 lastError = $"停止 Artisan 失败：{ex.Message}";
             }
+            finally
+            {
+                artisanStartedByModule = false;
+            }
         }
 
-        try
-        {
-            vnavmeshIPC.StopPathfind();
-        }
-        catch
-        {
-            // vnavmesh may not be installed; stopping the module must still succeed.
-        }
+        StopOwnedVnavPath();
 
         running = false;
         phase = AutomationPhase.Idle;
@@ -452,6 +635,8 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         craftCycleStartingItemCount = 0;
         movableSince = null;
         initialDestination = default;
+        artisanStartedByModule = false;
+        vnavPathStartedByModule = false;
         status = reason;
     }
 
@@ -511,6 +696,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
                 }
                 else if (PhaseTimedOut(TimeSpan.FromSeconds(15)))
                 {
+                    artisanStartedByModule = false;
                     if (snapshot.ItemCount > craftCycleStartingItemCount)
                     {
                         BeginSubmission("Artisan 已完成本轮生产");
@@ -534,6 +720,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
                 }
                 else if (artisanIsBusy?.InvokeFunc() == false)
                 {
+                    artisanStartedByModule = false;
                     if (snapshot.ItemCount > craftCycleStartingItemCount)
                     {
                         BeginSubmission("Artisan 已结束本轮生产");
@@ -549,6 +736,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
             case AutomationPhase.WaitArtisanStop:
                 if (artisanIsBusy?.InvokeFunc() == false)
                 {
+                    artisanStartedByModule = false;
                     BeginSubmission("Artisan 已停止");
                 }
                 else if (PhaseTimedOut(TimeSpan.FromSeconds(30)))
@@ -557,7 +745,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
                 }
                 break;
             case AutomationPhase.MoveToAppraiser:
-                DriveStartNPCEvent([AppraiserNPCID1, AppraiserNPCID2],
+                DriveStartNPCEvent([APPRAISER_NPC_ID_1, APPRAISER_NPC_ID_2],
                     AutomationPhase.OpenAppraiser, "提交NPC");
                 break;
             case AutomationPhase.OpenAppraiser:
@@ -579,7 +767,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
                 DriveWaitSupplyRefresh(recipe);
                 break;
             case AutomationPhase.MoveToLottery:
-                DriveStartNPCEvent([LotteryNPCID], AutomationPhase.OpenLottery, "库啵好运道NPC");
+                DriveStartNPCEvent([LOTTERY_NPC_ID], AutomationPhase.OpenLottery, "库啵好运道NPC");
                 break;
             case AutomationPhase.OpenLottery:
                 DriveOpenLottery();
@@ -598,7 +786,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
 
     private void DriveWaitForFirmament()
     {
-        if (OmenTools.DService.Instance().ClientState.TerritoryType == FirmamentTerritoryID)
+        if (OmenTools.DService.Instance().ClientState.TerritoryType == FIRMAMENT_TERRITORY_ID)
         {
             movableSince = null;
             EnterPhase(AutomationPhase.WaitForPlayerMovable);
@@ -615,7 +803,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
 
     private void DriveWaitForPlayerMovable()
     {
-        if (OmenTools.DService.Instance().ClientState.TerritoryType != FirmamentTerritoryID)
+        if (OmenTools.DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
         {
             movableSince = null;
             status = "区域尚未稳定，等待进入天穹街（区域 886）";
@@ -656,12 +844,16 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
             38f + (Random.Shared.NextSingle() * 9f),
             -16f,
             162f + (Random.Shared.NextSingle() * 14f));
-        if (!TrySendCommand(BuildVnavMoveCommand(initialDestination)))
+        try
         {
-            FailAutomation("无法执行初始 /vnav moveto 指令。");
+            vnavmeshIPC.PathfindAndMoveTo(initialDestination, false);
+            vnavPathStartedByModule = true;
+        }
+        catch (Exception ex)
+        {
+            FailAutomation($"无法执行初始导航：{ex.Message}");
             return;
         }
-
         EnterPhase(AutomationPhase.MoveToInitialPoint);
         nextActionAt = DateTime.UtcNow.AddSeconds(5);
         status = $"正在前往随机生产点：{FormatPosition(initialDestination)}";
@@ -669,7 +861,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
 
     private void DriveMoveToInitialPoint(RecipeOption recipe)
     {
-        if (OmenTools.DService.Instance().ClientState.TerritoryType != FirmamentTerritoryID)
+        if (OmenTools.DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
         {
             FailAutomation("前往随机生产点时离开了天穹街（区域 886）。");
             return;
@@ -684,16 +876,21 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
 
         if (Vector3.Distance(player.Position, initialDestination) <= 2f)
         {
-            vnavmeshIPC.StopPathfind();
+            StopOwnedVnavPath();
             StartCraftingCycle(recipe, "已到达随机生产点");
             return;
         }
 
         if (!vnavmeshIPC.GetIsPathfindRunning() && DateTime.UtcNow >= nextActionAt)
         {
-            if (!TrySendCommand(BuildVnavMoveCommand(initialDestination)))
+            try
             {
-                FailAutomation("无法再次执行初始 /vnav moveto 指令。");
+                vnavmeshIPC.PathfindAndMoveTo(initialDestination, false);
+                vnavPathStartedByModule = true;
+            }
+            catch (Exception ex)
+            {
+                FailAutomation($"无法再次执行初始导航：{ex.Message}");
                 return;
             }
             nextActionAt = DateTime.UtcNow.AddSeconds(5);
@@ -730,14 +927,21 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
             ? Math.Max(1, config.TargetItemCount - snapshot.ItemCount)
             : 9999;
         craftCycleStartingItemCount = snapshot.ItemCount;
-        craftItem?.InvokeAction((ushort)recipe.RecipeID, amount);
+        if (craftItem is null)
+        {
+            FailAutomation("Artisan 插件接口不可用。");
+            return;
+        }
+
+        artisanStartedByModule = true;
+        craftItem.InvokeAction((ushort)recipe.RecipeID, amount);
         EnterPhase(AutomationPhase.WaitArtisanStart);
         status = $"{reason}；正在启动 Artisan 制作 {recipe.ItemName}";
     }
 
     private void BeginSubmission(string reason)
     {
-        if (OmenTools.DService.Instance().ClientState.TerritoryType != FirmamentTerritoryID)
+        if (OmenTools.DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
         {
             FailAutomation("自动提交仅支持在天穹街内启动（区域 886）。");
             return;
@@ -755,6 +959,11 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
 
     private void RequestArtisanStop()
     {
+        if (!artisanStartedByModule)
+        {
+            return;
+        }
+
         if (getStopRequest?.InvokeFunc() != true)
         {
             setStopRequest?.InvokeAction(true);
@@ -763,7 +972,6 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
 
     private void DriveStartNPCEvent(uint[] npcIDs, AutomationPhase nextPhase, string label)
     {
-        vnavmeshIPC.StopPathfind();
         if (IsOccupied())
         {
             status = $"等待交互结束后打开{label}";
@@ -1007,7 +1215,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
             return;
         }
 
-        if (TryGetVoucherCount(out var vouchers) && vouchers >= config.TicketThreshold)
+        if (TryReadVoucherCount(out var vouchers, out _) && vouchers >= config.TicketThreshold)
         {
             ticketsToPlay = vouchers;
             CloseAddon("HWDSupply");
@@ -1030,7 +1238,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
 
     private unsafe void FinishSubmissionOrStartLottery(RecipeOption recipe)
     {
-        if (TryGetVoucherCount(out var vouchers) && vouchers >= config.TicketThreshold)
+        if (TryReadVoucherCount(out var vouchers, out _) && vouchers >= config.TicketThreshold)
         {
             ticketsToPlay = vouchers;
             CloseAddon("HWDSupply");
@@ -1143,11 +1351,11 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         }
         else if (!lotteryScratched && DateTime.UtcNow >= nextActionAt)
         {
-            var evt = new AtkEvent { Param = RightLotteryEventParam };
+            var evt = new AtkEvent { Param = RIGHT_LOTTERY_EVENT_PARAM };
             var eventData = default(AtkEventData);
             addon->AtkUnitBase.ReceiveEvent(
                 AtkEventType.ButtonClick,
-                RightLotteryEventParam,
+                RIGHT_LOTTERY_EVENT_PARAM,
                 &evt,
                 &eventData);
             lotteryScratchAttempts++;
@@ -1218,7 +1426,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         if (ticketsToPlay > 0)
         {
             var npc = OmenTools.DService.Instance().ObjectTable
-                .FirstOrDefault(o => GetBaseID(o.Address) == LotteryNPCID && o.IsTargetable);
+                .FirstOrDefault(o => GetBaseID(o.Address) == LOTTERY_NPC_ID && o.IsTargetable);
             if (npc is null)
             {
                 FailAutomation("未找到库啵好运道NPC。");
@@ -1321,7 +1529,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
     private static unsafe uint ReadSkybuildersScrips()
     {
         var manager = CurrencyManager.Instance();
-        return manager == null ? 0 : manager->GetItemCount(SkybuildersScripItemID);
+        return manager == null ? 0 : manager->GetItemCount(SKYBUILDERS_SCRIP_ITEM_ID);
     }
 
     private static unsafe bool ClickButton(AtkUnitBase* addon, AtkComponentButton* button)
@@ -1490,11 +1698,6 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         }
     }
 
-    private static string BuildVnavMoveCommand(Vector3 destination) =>
-        $"/vnav moveto {destination.X.ToString("0.###", CultureInfo.InvariantCulture)} " +
-        $"{destination.Y.ToString("0.###", CultureInfo.InvariantCulture)} " +
-        destination.Z.ToString("0.###", CultureInfo.InvariantCulture);
-
     private static string FormatPosition(Vector3 position) =>
         $"{position.X.ToString("0.0", CultureInfo.InvariantCulture)}, " +
         $"{position.Y.ToString("0.0", CultureInfo.InvariantCulture)}, " +
@@ -1518,8 +1721,8 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
     private static unsafe int FindSupplyRow(AtkUnitBase* addon, uint itemID)
     {
         var target = itemID + 500000;
-        const int indexOffset = 18;
-        for (var i = 0; i + indexOffset < addon->AtkValuesCount; i++)
+        const int INDEX_OFFSET = 18;
+        for (var i = 0; i + INDEX_OFFSET < addon->AtkValuesCount; i++)
         {
             ref var value = ref addon->AtkValues[i];
             if (value.Type != ValueType.UInt || value.UInt != target)
@@ -1527,16 +1730,17 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
                 continue;
             }
 
-            ref var index = ref addon->AtkValues[i + indexOffset];
+            ref var index = ref addon->AtkValues[i + INDEX_OFFSET];
             return index.Type == ValueType.UInt ? (int)index.UInt : -1;
         }
 
         return -1;
     }
 
-    private static unsafe bool TryGetVoucherCount(out int current)
+    private static unsafe bool TryReadVoucherCount(out int current, out int limit)
     {
         current = -1;
+        limit = -1;
         var addon = GetAddon("HWDSupply");
         if (addon == null)
         {
@@ -1557,13 +1761,15 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
                 continue;
             }
 
-            var match = VoucherPattern.Match(text.Trim());
+            var normalized = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            var match = VOUCHER_PATTERN.Match(normalized);
             if (match.Success
                 && int.TryParse(match.Groups[1].Value, out var count)
-                && int.TryParse(match.Groups[2].Value, out var limit)
-                && limit == 10)
+                && int.TryParse(match.Groups[2].Value, out var parsedLimit)
+                && parsedLimit == 10)
             {
                 current = count;
+                limit = 10;
                 return true;
             }
         }
@@ -1582,45 +1788,7 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
         debugVoucherCount = -1;
         debugVoucherLimit = -1;
 
-        var addon = GetAddon("HWDSupply");
-        if (addon == null)
-        {
-            debugVoucherStatus = "HWDSupply 未打开，暂时无法读取票数";
-            return;
-        }
-
-        for (var i = 0; i < addon->AtkValuesCount; i++)
-        {
-            ref var value = ref addon->AtkValues[i];
-            if (value.Type != ValueType.String || value.String.Value == null)
-            {
-                continue;
-            }
-
-            var text = Marshal.PtrToStringUTF8((nint)value.String.Value);
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                continue;
-            }
-
-            var normalized = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
-            var match = VoucherPattern.Match(normalized);
-            if (!match.Success || !int.TryParse(match.Groups[1].Value, out var count)
-                || !int.TryParse(match.Groups[2].Value, out var limit))
-            {
-                continue;
-            }
-
-            if (limit == 10)
-            {
-                debugVoucherCount = count;
-                debugVoucherLimit = limit;
-                debugVoucherStatus = $"已从 HWDSupply AtkValues[{i}] 读取";
-                return;
-            }
-        }
-
-        debugVoucherStatus = "HWDSupply 已打开，但未找到上限为 10 的票数文本";
+        TryReadVoucherCount(out debugVoucherCount, out debugVoucherLimit);
     }
 
     private static string FormatDebugCounter(int count, int limit) =>
@@ -1652,18 +1820,58 @@ public sealed class AutoIshgardRestoration(AutoIshgardRestorationConfig config) 
 
     private void FailAutomation(string message)
     {
-        try
-        {
-            vnavmeshIPC.StopPathfind();
-        }
-        catch
-        {
-        }
+        StopOwnedArtisan();
+        StopOwnedVnavPath();
 
         running = false;
         phase = AutomationPhase.Idle;
         lastError = message;
         status = "自动流程已停止";
+    }
+
+    private void StopOwnedArtisan()
+    {
+        if (!artisanStartedByModule)
+        {
+            return;
+        }
+
+        try
+        {
+            if (getStopRequest?.InvokeFunc() != true)
+            {
+                setStopRequest?.InvokeAction(true);
+            }
+        }
+        catch (Exception ex)
+        {
+            lastError = $"停止 Artisan 失败：{ex.Message}";
+        }
+        finally
+        {
+            artisanStartedByModule = false;
+        }
+    }
+
+    private void StopOwnedVnavPath()
+    {
+        if (!vnavPathStartedByModule)
+        {
+            return;
+        }
+
+        try
+        {
+            vnavmeshIPC.StopPathfind();
+        }
+        catch (Exception ex)
+        {
+            lastError = $"停止导航失败：{ex.Message}";
+        }
+        finally
+        {
+            vnavPathStartedByModule = false;
+        }
     }
 
     private bool ShouldStop(InventorySnapshot snapshot, out string reason)
