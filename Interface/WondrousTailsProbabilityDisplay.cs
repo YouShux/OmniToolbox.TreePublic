@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Game;
 using Dalamud.Game.Addon.Lifecycle;
@@ -28,8 +26,8 @@ public sealed unsafe class WondrousTailsProbabilityDisplay : ModuleBase
         SupportUrls = ["https://github.com/xiaozhunuonuode"]
     };
 
-    private const string AddonName = "WeeklyBingo";
-    private const uint InstructionTextNodeID = 34;
+    private const string ADDON_NAME = "WeeklyBingo";
+    private const uint INSTRUCTION_TEXT_NODE_ID = 34;
     private static readonly AddonEvent[] Events =
     [
         AddonEvent.PostSetup, AddonEvent.PreFinalize, AddonEvent.PostRefresh,
@@ -77,10 +75,10 @@ public sealed unsafe class WondrousTailsProbabilityDisplay : ModuleBase
             lifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(OnAddonEvent));
             foreach (var addonEvent in Events)
             {
-                DalamudServices.AddonLifecycle.RegisterListener(addonEvent, AddonName, OnAddonEvent);
+                DalamudServices.AddonLifecycle.RegisterListener(addonEvent, ADDON_NAME, OnAddonEvent);
             }
 
-            var addon = AddonHelper.GetByName(AddonName);
+            var addon = AddonHelper.GetByName(ADDON_NAME);
             if (addon != null)
             {
                 Refresh(addon);
@@ -193,14 +191,14 @@ public sealed unsafe class WondrousTailsProbabilityDisplay : ModuleBase
 
     private void UpdateInstructionText(AtkUnitBase* addon, int mask)
     {
-        var node = addon->GetTextNodeById(InstructionTextNodeID);
+        var node = addon->GetTextNodeById(INSTRUCTION_TEXT_NODE_ID);
         if (node == null || node->Type != NodeType.Text)
         {
             return;
         }
 
         var currentBytes = node->NodeText.AsSpan();
-        snapshots.TryGetValue(InstructionTextNodeID, out var snapshot);
+        snapshots.TryGetValue(INSTRUCTION_TEXT_NODE_ID, out var snapshot);
         if (snapshot != null && snapshot.NodeAddress != (nint)node)
         {
             snapshot = null;
@@ -267,7 +265,7 @@ public sealed unsafe class WondrousTailsProbabilityDisplay : ModuleBase
     {
         try
         {
-            var addon = AddonHelper.GetByName(AddonName);
+            var addon = AddonHelper.GetByName(ADDON_NAME);
             if (addon == null || (nint)addon != addonAddress)
             {
                 return;
@@ -431,22 +429,22 @@ internal sealed class WondrousTailsProbabilityCalculator
 
 internal static class WondrousTailsInstructionText
 {
-    private const string ProbabilityPrefix = "连线概率：";
-    private const string AveragePrefix = "重排平均：";
-    private const ushort AboveAverageColor = 45;
-    private const ushort BelowAverageColor = 17;
+    private const string PROBABILITY_PREFIX = "连线概率：";
+    private const string AVERAGE_PREFIX = "重排平均：";
+    private const ushort ABOVE_AVERAGE_COLOR = 45;
+    private const ushort BELOW_AVERAGE_COLOR = 17;
 
     internal static bool HasProbabilityLines(string text) =>
-        text.Contains(ProbabilityPrefix, StringComparison.Ordinal) ||
-        text.Contains(AveragePrefix, StringComparison.Ordinal);
+        text.Contains(PROBABILITY_PREFIX, StringComparison.Ordinal) ||
+        text.Contains(AVERAGE_PREFIX, StringComparison.Ordinal);
 
     internal static (SeString ProbabilityLine, string AverageLine) Format(double[] values, double[] samples)
     {
         if (values[0] < 0)
         {
-            return (ProbabilityPrefix + "读取失败", AveragePrefix + "-");
+            return (PROBABILITY_PREFIX + "读取失败", AVERAGE_PREFIX + "-");
         }
-        var probability = new SeStringBuilder().Append(ProbabilityPrefix);
+        var probability = new SeStringBuilder().Append(PROBABILITY_PREFIX);
         for (var index = 0; index < values.Length; index++)
         {
             if (index > 0)
@@ -461,10 +459,10 @@ internal static class WondrousTailsInstructionText
             }
             else
             {
-                probability.AddUiForeground(text, comparison > 0 ? AboveAverageColor : BelowAverageColor);
+                probability.AddUiForeground(text, comparison > 0 ? ABOVE_AVERAGE_COLOR : BELOW_AVERAGE_COLOR);
             }
         }
-        var average = AveragePrefix + (samples[0] < 0 ? "-" : FormatValues(samples));
+        var average = AVERAGE_PREFIX + (samples[0] < 0 ? "-" : FormatValues(samples));
         return (probability.Build(), average);
     }
 
@@ -473,8 +471,8 @@ internal static class WondrousTailsInstructionText
 
     internal static string Normalize(string text) =>
         string.Join("\r", text.Replace("\r\n", "\r", StringComparison.Ordinal).Replace('\n', '\r').Split('\r')
-            .Where(line => !line.StartsWith(ProbabilityPrefix, StringComparison.Ordinal) &&
-                           !line.StartsWith(AveragePrefix, StringComparison.Ordinal))).TrimEnd('\r');
+            .Where(line => !line.StartsWith(PROBABILITY_PREFIX, StringComparison.Ordinal) &&
+                           !line.StartsWith(AVERAGE_PREFIX, StringComparison.Ordinal))).TrimEnd('\r');
 
     internal static (string Text, bool Separate) Prepare(string text, uint rowID, ClientLanguage language)
     {

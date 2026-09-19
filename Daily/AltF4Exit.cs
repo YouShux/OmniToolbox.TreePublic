@@ -20,7 +20,7 @@ public sealed unsafe class AltF4Exit : ModuleBase
         Category = ModuleCategory.Daily
     };
 
-    private const int WmClose = 0x10;
+    private const int WM_CLOSE = 0x10;
 
     protected override void OnEnable()
     {
@@ -37,7 +37,7 @@ public sealed unsafe class AltF4Exit : ModuleBase
         var input = UIInputData.Instance();
         if (input is not null && input->IsKeyDown(SeVirtualKey.MENU) && input->IsKeyPressed(SeVirtualKey.F4))
         {
-            SendMessage(Process.GetCurrentProcess().MainWindowHandle, WmClose, 0, 0);
+            SendMessage(Process.GetCurrentProcess().MainWindowHandle, WM_CLOSE, 0, 0);
         }
     }
 

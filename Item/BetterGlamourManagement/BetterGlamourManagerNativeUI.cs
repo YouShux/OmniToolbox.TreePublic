@@ -544,24 +544,24 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
 
     private void ResizeContent()
     {
-        const float presetWidth = 190f;
-        const float separatorGap = 12f;
-        const float labelWidth = 72f;
-        const float buttonGap = 8f;
+        const float PRESET_WIDTH = 190f;
+        const float SEPARATOR_GAP = 12f;
+        const float LABEL_WIDTH = 72f;
+        const float BUTTON_GAP = 8f;
         var contentX = ContentStartPosition.X;
         var contentY = ContentStartPosition.Y;
-        var detailX = contentX + presetWidth + separatorGap;
-        var detailWidth = MathF.Max(420f, ContentSize.X - presetWidth - separatorGap);
+        var detailX = contentX + PRESET_WIDTH + SEPARATOR_GAP;
+        var detailWidth = MathF.Max(420f, ContentSize.X - PRESET_WIDTH - SEPARATOR_GAP);
 
         if (presetListNode is not null)
         {
             presetListNode.Position = new(contentX, contentY);
-            presetListNode.Size = new(presetWidth, ContentSize.Y);
+            presetListNode.Size = new(PRESET_WIDTH, ContentSize.Y);
         }
 
         if (separatorNode is not null)
         {
-            separatorNode.Position = new(contentX + presetWidth + 4f, contentY);
+            separatorNode.Position = new(contentX + PRESET_WIDTH + 4f, contentY);
             separatorNode.Size = new(4f, ContentSize.Y);
         }
 
@@ -571,8 +571,8 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
             emptyNode.Size = new(detailWidth, ContentSize.Y);
         }
 
-        PositionLabeledControl(nameLabelNode, nameInputNode, detailX, contentY, detailWidth, labelWidth);
-        PositionLabeledControl(gearsetLabelNode, gearsetDropDownNode, detailX, contentY + 34f, detailWidth, labelWidth);
+        PositionLabeledControl(nameLabelNode, nameInputNode, detailX, contentY, detailWidth, LABEL_WIDTH);
+        PositionLabeledControl(gearsetLabelNode, gearsetDropDownNode, detailX, contentY + 34f, detailWidth, LABEL_WIDTH);
 
         var headerY = contentY + 72f;
         var columns = BetterGlamourEditorListItemNode.GetColumns(detailWidth);
@@ -587,10 +587,10 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
             itemListNode.Size = new(detailWidth, MathF.Max(100f, buttonY - headerY - 34f));
         }
 
-        var buttonWidth = MathF.Max(80f, (detailWidth - buttonGap * 2f) / 3f);
+        var buttonWidth = MathF.Max(80f, (detailWidth - BUTTON_GAP * 2f) / 3f);
         PositionButton(applyButton, detailX, buttonY, buttonWidth);
-        PositionButton(exportButton, detailX + buttonWidth + buttonGap, buttonY, buttonWidth);
-        PositionButton(deleteButton, detailX + (buttonWidth + buttonGap) * 2f, buttonY, buttonWidth);
+        PositionButton(exportButton, detailX + buttonWidth + BUTTON_GAP, buttonY, buttonWidth);
+        PositionButton(deleteButton, detailX + (buttonWidth + BUTTON_GAP) * 2f, buttonY, buttonWidth);
     }
 
     private void UpdateWindowTitle()
@@ -883,14 +883,14 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
 
     internal static EditorColumns GetColumns(float width)
     {
-        const float partWidth = 76f;
-        const float itemIconWidth = 44f;
-        const float dyeWidth = 148f;
+        const float PART_WIDTH = 76f;
+        const float ITEM_ICON_WIDTH = 44f;
+        const float DYE_WIDTH = 148f;
         return new(
-            partWidth,
-            itemIconWidth,
-            MathF.Max(80f, width - partWidth - itemIconWidth - dyeWidth - Gap * 3f),
-            dyeWidth);
+            PART_WIDTH,
+            ITEM_ICON_WIDTH,
+            MathF.Max(80f, width - PART_WIDTH - ITEM_ICON_WIDTH - DYE_WIDTH - Gap * 3f),
+            DYE_WIDTH);
     }
 
     private static void PositionNode(NodeBase node, float x, float width)
@@ -974,16 +974,16 @@ internal sealed class BetterGlamourDyeButtonNode : TabBarRadioButtonNode
     protected override void OnSizeChanged()
     {
         base.OnSizeChanged();
-        const float previewSize = 18f;
-        const float labelWidth = 40f;
-        const float gap = 5f;
-        var contentX = MathF.Max(8f, (Width - labelWidth - previewSize * 2f - gap * 2f) / 2f);
-        previewNodes[0].Position = new(contentX, (Height - previewSize) / 2f);
-        previewNodes[1].Position = new(contentX + previewSize + gap, (Height - previewSize) / 2f);
-        LabelNode.Position = new(contentX + previewSize * 2f + gap * 2f, 0f);
-        LabelNode.Size = new(labelWidth, Height);
-        previewNodes[0].Size = new(previewSize, previewSize);
-        previewNodes[1].Size = new(previewSize, previewSize);
+        const float PREVIEW_SIZE = 18f;
+        const float LABEL_WIDTH = 40f;
+        const float GAP = 5f;
+        var contentX = MathF.Max(8f, (Width - LABEL_WIDTH - PREVIEW_SIZE * 2f - GAP * 2f) / 2f);
+        previewNodes[0].Position = new(contentX, (Height - PREVIEW_SIZE) / 2f);
+        previewNodes[1].Position = new(contentX + PREVIEW_SIZE + GAP, (Height - PREVIEW_SIZE) / 2f);
+        LabelNode.Position = new(contentX + PREVIEW_SIZE * 2f + GAP * 2f, 0f);
+        LabelNode.Size = new(LABEL_WIDTH, Height);
+        previewNodes[0].Size = new(PREVIEW_SIZE, PREVIEW_SIZE);
+        previewNodes[1].Size = new(PREVIEW_SIZE, PREVIEW_SIZE);
     }
 
     private static Vector4 GetStainColor(byte stainID)

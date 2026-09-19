@@ -77,14 +77,14 @@ internal sealed class BetterGlamourActionsNativeUI : NativeAddon
 
     private void ResizeContent()
     {
-        const float gap = 6f;
-        var width = MathF.Max(80f, (ContentSize.X - gap) / 2f);
+        const float GAP = 6f;
+        var width = MathF.Max(80f, (ContentSize.X - GAP) / 2f);
         var x = ContentStartPosition.X;
         var y = ContentStartPosition.Y;
         PositionButton(tryOnAllButton, x, y, width);
-        PositionButton(saveButton, x + width + gap, y, width);
+        PositionButton(saveButton, x + width + GAP, y, width);
         PositionButton(exportButton, x, y + 34f, width);
-        PositionButton(managerButton, x + width + gap, y + 34f, width);
+        PositionButton(managerButton, x + width + GAP, y + 34f, width);
         PositionButton(clearButton, x, y + 68f, ContentSize.X);
     }
 

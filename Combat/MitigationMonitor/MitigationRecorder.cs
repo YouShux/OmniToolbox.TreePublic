@@ -8,13 +8,13 @@ using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using OmenTools;
 using OmenTools.OmenService;
+using OmniToolbox.Game;
+using OmniToolbox.Lifecycle;
+using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 using IBattleChara = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IBattleChara;
 using ICharacter = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.ICharacter;
 using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IGameObject;
-using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
-using OmniToolbox.Lifecycle;
-using OmniToolbox.Game;
 
 namespace OmniToolbox.TreePublic;
 

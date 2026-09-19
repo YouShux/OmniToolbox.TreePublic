@@ -19,10 +19,10 @@ internal readonly record struct LockedDutyPreviewDefinition(
 
 internal sealed unsafe class LockedDutyPreviewResolver
 {
-    private const uint BeginnerTrainingInstanceContentType = 8;
-    private const uint PvpContentType = 6;
-    private const uint GoldSaucerContentType = 19;
-    private const ushort InternalDutySortKey = 9997;
+    private const uint BEGINNER_TRAINING_INSTANCE_CONTENT_TYPE = 8;
+    private const uint PVP_CONTENT_TYPE = 6;
+    private const uint GOLD_SAUCER_CONTENT_TYPE = 19;
+    private const ushort INTERNAL_DUTY_SORT_KEY = 9997;
 
     private readonly List<LockedDutyPreviewDefinition> definitions = [];
     private readonly List<LockedDutyPreviewDuty> duties = [];
@@ -68,7 +68,7 @@ internal sealed unsafe class LockedDutyPreviewResolver
         foreach (var instanceContent in LuminaGetter.Get<LuminaInstanceContent>())
         {
             if (instanceContent.RowId == 0 ||
-                instanceContent.InstanceContentType.RowId == BeginnerTrainingInstanceContentType)
+                instanceContent.InstanceContentType.RowId == BEGINNER_TRAINING_INSTANCE_CONTENT_TYPE)
             {
                 continue;
             }
@@ -86,8 +86,8 @@ internal sealed unsafe class LockedDutyPreviewResolver
             }
 
             if (!condition.IsInDutyFinder ||
-                condition.SortKey >= InternalDutySortKey ||
-                condition.ContentType.RowId is PvpContentType or GoldSaucerContentType)
+                condition.SortKey >= INTERNAL_DUTY_SORT_KEY ||
+                condition.ContentType.RowId is PVP_CONTENT_TYPE or GOLD_SAUCER_CONTENT_TYPE)
             {
                 continue;
             }

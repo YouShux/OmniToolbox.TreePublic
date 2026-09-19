@@ -10,7 +10,6 @@ using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
@@ -24,10 +23,10 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
         Category = ModuleCategory.Interface
     };
 
-    private const string NaviMapAddonName = "_NaviMap";
-    private const string AreaMapAddonName = "AreaMap";
-    private const string TeleportTownAddonName = "TelepotTown";
-    private const int MaxVisibleRows = 6;
+    private const string NAVI_MAP_ADDON_NAME = "_NaviMap";
+    private const string AREA_MAP_ADDON_NAME = "AreaMap";
+    private const string TELEPORT_TOWN_ADDON_NAME = "TelepotTown";
+    private const int MAX_VISIBLE_ROWS = 6;
 
     private static readonly uint[] KnownIconIDs =
     [
@@ -166,7 +165,7 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
             ImGuiTableFlags.SizingFixedFit,
             new Vector2(
                 ImGui.GetContentRegionAvail().X,
-                rowHeight * Math.Min(rowCount, MaxVisibleRows)));
+                rowHeight * Math.Min(rowCount, MAX_VISIBLE_ROWS)));
         if (!table)
         {
             return false;
@@ -215,27 +214,27 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
         runtimeLifetime = new();
         DalamudServices.AddonLifecycle.RegisterListener(
             AddonEvent.PostUpdate,
-            NaviMapAddonName,
+            NAVI_MAP_ADDON_NAME,
             OnNaviMapUpdate);
         DalamudServices.AddonLifecycle.RegisterListener(
             AddonEvent.PostUpdate,
-            AreaMapAddonName,
+            AREA_MAP_ADDON_NAME,
             OnAreaMapUpdate);
         DalamudServices.AddonLifecycle.RegisterListener(
             AddonEvent.PostUpdate,
-            TeleportTownAddonName,
+            TELEPORT_TOWN_ADDON_NAME,
             OnTeleportTownUpdate);
         runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
             AddonEvent.PostUpdate,
-            NaviMapAddonName,
+            NAVI_MAP_ADDON_NAME,
             OnNaviMapUpdate));
         runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
             AddonEvent.PostUpdate,
-            AreaMapAddonName,
+            AREA_MAP_ADDON_NAME,
             OnAreaMapUpdate));
         runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
             AddonEvent.PostUpdate,
-            TeleportTownAddonName,
+            TELEPORT_TOWN_ADDON_NAME,
             OnTeleportTownUpdate));
         ApplyCurrentMaps(false);
     }
@@ -305,9 +304,9 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
         var unitManager = RaptureAtkUnitManager.Instance();
         if (unitManager != null)
         {
-            ApplyMinimap((AddonNaviMap*)unitManager->GetAddonByName(NaviMapAddonName), restore);
-            ApplyAreaMap((AddonAreaMap*)unitManager->GetAddonByName(AreaMapAddonName), restore);
-            ApplyTeleportTown((AddonTeleportTown*)unitManager->GetAddonByName(TeleportTownAddonName), restore);
+            ApplyMinimap((AddonNaviMap*)unitManager->GetAddonByName(NAVI_MAP_ADDON_NAME), restore);
+            ApplyAreaMap((AddonAreaMap*)unitManager->GetAddonByName(AREA_MAP_ADDON_NAME), restore);
+            ApplyTeleportTown((AddonTeleportTown*)unitManager->GetAddonByName(TELEPORT_TOWN_ADDON_NAME), restore);
         }
     }
 

@@ -36,7 +36,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         ]
     };
 
-    private const int SortTimeoutMs = 60_000;
+    private const int SORT_TIMEOUT_MS = 60_000;
     private static readonly InventoryType[] InventoryContainers =
     [
         InventoryType.Inventory1,
@@ -128,7 +128,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
     public void RequestSort()
     {
-        EnsureRules();
+        EnsureRules(config);
         taskHelper?.Abort();
         ResetQueue();
         if (IsCategoryVisible("retainer"))
@@ -159,11 +159,11 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
     protected override void OnEnable()
     {
-        EnsureRules();
+        EnsureRules(config);
         taskHelper = new()
         {
             RetryIntervalMS = 100,
-            TimeoutMS = SortTimeoutMs,
+            TimeoutMS = SORT_TIMEOUT_MS,
             TimeoutAction = ResetQueue,
             ExceptionAction = ResetQueue
         };
@@ -203,7 +203,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
     private void QueueAllEnabled(bool notify)
     {
-        EnsureRules();
+        EnsureRules(config);
         var queued = false;
         foreach (var category in config.Rules!
                      .Where(rule => rule.Category is not null)
@@ -229,7 +229,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
     private void QueueArmoury(bool notify = false)
     {
-        EnsureRules();
+        EnsureRules(config);
         foreach (var category in config.Rules!
                      .Where(rule => rule.Category is not null && IsArmouryCategory(rule.Category))
                      .Select(rule => rule.Category!)
@@ -242,7 +242,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
     private void QueueSaddlebags(bool notify = false)
     {
-        EnsureRules();
+        EnsureRules(config);
         var queued = new HashSet<string>(StringComparer.Ordinal);
         foreach (var category in config.Rules!
                      .Where(rule => rule.Category is "saddlebag" or "rightsaddlebag")
@@ -277,7 +277,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         bool waitForMergeContainers = false,
         bool allowInDuty = false)
     {
-        EnsureRules();
+        EnsureRules(config);
         var playerState = PlayerState.Instance();
         if (category == "rightsaddlebag" &&
             (playerState is null || !playerState->HasPremiumSaddlebag))
@@ -553,7 +553,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             return false;
         }
 
-        if (category is "armoury" or "mh" or "oh" or "head" or "body" or "hands" or "legs" or "feet" or "neck" or "ears" or "wrists" or "rings" or "soul")
+        if (IsArmouryCategory(category))
         {
             if (module->IsSavePending)
             {
@@ -657,7 +657,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
     private static string GetAddonName(string category) => category switch
     {
-        "armoury" or "mh" or "oh" or "head" or "body" or "hands" or "legs" or "feet" or "neck" or "ears" or "wrists" or "rings" or "soul" => "ArmouryBoard",
+        _ when IsArmouryCategory(category) => "ArmouryBoard",
         "retainer" => "InventoryRetainer",
         "saddlebag" or "rightsaddlebag" => "InventoryBuddy",
         _ => "Inventory"
@@ -729,8 +729,6 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             config.CategoryHeaders.Add(new("rightsaddlebag", true));
         }
     }
-
-    private void EnsureRules() => EnsureRules(config);
 
     private static List<AutoSortItemsRule> CreateDefaultRules() =>
     [

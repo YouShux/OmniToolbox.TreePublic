@@ -20,12 +20,6 @@ public sealed unsafe class RetainerEntrustMemory(
     RetainerEntrustMemoryConfig config,
     System.Action saveConfig) : ModuleBase
 {
-    private const string AddonName = "RetainerItemTransferList";
-
-    private readonly Dictionary<uint, bool> itemStates = [];
-    private AddonEventRegistry? addonEvents;
-    private Dictionary<string, uint>? itemIDsByName;
-
     public override ModuleInfo Info { get; } = new()
     {
         Title = OmniLoc.Get("RetainerEntrustMemoryTitle"),
@@ -35,12 +29,18 @@ public sealed unsafe class RetainerEntrustMemory(
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Item/RetainerEntrustMemory-1.png"
     };
 
+    private const string ADDON_NAME = "RetainerItemTransferList";
+
+    private readonly Dictionary<uint, bool> itemStates = [];
+    private AddonEventRegistry? addonEvents;
+    private Dictionary<string, uint>? itemIDsByName;
+
     protected override void OnEnable()
     {
         var events = new AddonEventRegistry(DalamudServices.AddonLifecycle);
-        events.Register(AddonEvent.PostSetup, AddonName, OnPostSetup);
-        events.Register(AddonEvent.PostUpdate, AddonName, OnPostUpdate);
-        events.Register(AddonEvent.PreFinalize, AddonName, OnPreFinalize);
+        events.Register(AddonEvent.PostSetup, ADDON_NAME, OnPostSetup);
+        events.Register(AddonEvent.PostUpdate, ADDON_NAME, OnPostUpdate);
+        events.Register(AddonEvent.PreFinalize, ADDON_NAME, OnPreFinalize);
         addonEvents = events;
     }
 

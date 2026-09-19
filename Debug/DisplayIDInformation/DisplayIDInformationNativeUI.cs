@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using Dalamud.Game;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
-using Dalamud.Game;
 using Dalamud.Game.Gui.Dtr;
 using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
@@ -19,13 +19,13 @@ using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Interop.Game.Models;
 using OmenTools.OmenService;
+using OmniToolbox.Config;
+using OmniToolbox.Host;
+using OmniToolbox.Lifecycle;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaItem = Lumina.Excel.Sheets.Item;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 using LuminaWeather = Lumina.Excel.Sheets.Weather;
-using OmniToolbox.Config;
-using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 
 namespace OmniToolbox.TreePublic;
 

@@ -10,17 +10,16 @@ using OmenTools;
 using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using LuminaStatus = Lumina.Excel.Sheets.Status;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Game;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
-using OmniToolbox.UI.Theme;
 using OmniToolbox.Config;
+using OmniToolbox.Game;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
+using LuminaStatus = Lumina.Excel.Sheets.Status;
 
 namespace OmniToolbox.TreePublic;
 
@@ -35,8 +34,8 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Combat/RaiseDispelEnhancement-1.png"
     };
 
-    private const uint RaiseStatusID = 148;
-    private const uint DispelIconID = 215530;
+    private const uint RAISE_STATUS_ID = 148;
+    private const uint DISPEL_ICON_ID = 215530;
     private static readonly HashSet<uint> PartialDisplayJobs =
         [23, 24, 25, 27, 28, 31, 33, 35, 36, 40];
     private static readonly string[] DisplayColumns =
@@ -228,8 +227,8 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
     protected override void OnEnable()
     {
-        dispelIcon ??= DService.Instance().Texture.GetFromGameIcon(new GameIconLookup(DispelIconID));
-        defaultRaiseIconID = LuminaGetter.TryGetRow<LuminaStatus>(RaiseStatusID, out var status) ? status.Icon : 0;
+        dispelIcon ??= DService.Instance().Texture.GetFromGameIcon(new GameIconLookup(DISPEL_ICON_ID));
+        defaultRaiseIconID = LuminaGetter.TryGetRow<LuminaStatus>(RAISE_STATUS_ID, out var status) ? status.Icon : 0;
         var lifetime = new FeatureLifetime();
         try
         {
@@ -278,7 +277,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         try
         {
             if (config.DisplayRange == RaiseDispelDisplayRange.Partial &&
-                !IsPartialDisplayJob(services.ObjectTable.LocalPlayer?.ClassJob.RowId ?? 0))
+                !PartialDisplayJobs.Contains(services.ObjectTable.LocalPlayer?.ClassJob.RowId ?? 0))
             {
                 Clear();
                 return;
@@ -290,8 +289,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             DalamudServices.PluginLog.Warning(ex, "Raise/dispel enhancement scan failed.");
         }
     }
-
-    private static bool IsPartialDisplayJob(uint classJobID) => PartialDisplayJobs.Contains(classJobID);
 
     private void ScanActors()
     {
@@ -391,7 +388,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
         try
         {
-            const ImGuiWindowFlags flags =
+            const ImGuiWindowFlags FLAGS =
                 ImGuiWindowFlags.NoDecoration |
                 ImGuiWindowFlags.NoSavedSettings |
                 ImGuiWindowFlags.NoMove |
@@ -402,7 +399,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             ImGuiHelpers.ForceNextWindowMainViewport();
             ImGui.SetNextWindowPos(ImGui.GetMainViewport().Pos);
             ImGui.SetNextWindowSize(ImGui.GetMainViewport().Size);
-            var windowOpen = ImGui.Begin("##omniRaiseDispelEnhancementOverlay", flags);
+            var windowOpen = ImGui.Begin("##omniRaiseDispelEnhancementOverlay", FLAGS);
             try
             {
                 if (!windowOpen)
@@ -537,7 +534,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     private ImTextureID GetWorldIconHandle(CastType type, ActorState state)
     {
         var iconID = type == CastType.Dispel
-            ? DispelIconID
+            ? DISPEL_ICON_ID
             : state.RaiseIconID != 0 ? state.RaiseIconID : defaultRaiseIconID;
         if (iconID == 0)
         {
@@ -545,7 +542,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
 
         ISharedImmediateTexture? texture;
-        if (iconID == DispelIconID)
+        if (iconID == DISPEL_ICON_ID)
         {
             texture = dispelIcon;
         }
@@ -793,7 +790,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     {
         var font = ImGui.GetFont();
         var fontSize = ImGui.GetFontSize() * MathF.Max(0.1f, scale);
-        const float shadowOffset = 1f;
+        const float SHADOW_OFFSET = 1f;
         for (var x = -1; x <= 1; x++)
         {
             for (var y = -1; y <= 1; y++)
@@ -806,7 +803,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                 drawList.AddText(
                     font,
                     fontSize,
-                    position + new Vector2(x, y) * shadowOffset,
+                    position + new Vector2(x, y) * SHADOW_OFFSET,
                     0xBB000000,
                     text);
             }
@@ -872,7 +869,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         sourceID = 0;
         foreach (var status in player.StatusList)
         {
-            if (status.StatusID is not (RaiseStatusID or 1140) ||
+            if (status.StatusID is not (RAISE_STATUS_ID or 1140) ||
                 !LuminaGetter.TryGetRow<LuminaStatus>(status.StatusID, out var row))
             {
                 continue;

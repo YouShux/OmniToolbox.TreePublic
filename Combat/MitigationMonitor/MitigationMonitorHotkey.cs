@@ -12,20 +12,20 @@ internal sealed class MitigationMonitorHotkey(
     MitigationMonitorConfig config,
     Action saveConfig)
 {
-    private const int EscapeKey = 0x1B;
-    private const int ControlKey = 0x11;
-    private const int ShiftKey = 0x10;
-    private const int AltKey = 0x12;
-    private const int LeftShiftKey = 0xA0;
-    private const int RightShiftKey = 0xA1;
-    private const int LeftControlKey = 0xA2;
-    private const int RightControlKey = 0xA3;
-    private const int LeftAltKey = 0xA4;
-    private const int RightAltKey = 0xA5;
-    private const int Numpad0Key = 0x60;
-    private const int Numpad9Key = 0x69;
-    private const int F1Key = 0x70;
-    private const int F24Key = 0x87;
+    private const int ESCAPE_KEY = 0x1B;
+    private const int CONTROL_KEY = 0x11;
+    private const int SHIFT_KEY = 0x10;
+    private const int ALT_KEY = 0x12;
+    private const int LEFT_SHIFT_KEY = 0xA0;
+    private const int RIGHT_SHIFT_KEY = 0xA1;
+    private const int LEFT_CONTROL_KEY = 0xA2;
+    private const int RIGHT_CONTROL_KEY = 0xA3;
+    private const int LEFT_ALT_KEY = 0xA4;
+    private const int RIGHT_ALT_KEY = 0xA5;
+    private const int NUMPAD0_KEY = 0x60;
+    private const int NUMPAD9_KEY = 0x69;
+    private const int F1_KEY = 0x70;
+    private const int F24_KEY = 0x87;
 
     private static readonly MitigationHotkeyModifier[] Modifiers =
     [
@@ -153,7 +153,7 @@ internal sealed class MitigationMonitorHotkey(
 
     private bool Capture()
     {
-        if (IsDown(EscapeKey))
+        if (IsDown(ESCAPE_KEY))
         {
             capturing = false;
             return false;
@@ -176,9 +176,9 @@ internal sealed class MitigationMonitorHotkey(
 
     private bool IsConfiguredModifierPressed()
     {
-        var control = IsDown(ControlKey) || IsDown(LeftControlKey) || IsDown(RightControlKey);
-        var shift = IsDown(ShiftKey) || IsDown(LeftShiftKey) || IsDown(RightShiftKey);
-        var alt = IsDown(AltKey) || IsDown(LeftAltKey) || IsDown(RightAltKey);
+        var control = IsDown(CONTROL_KEY) || IsDown(LEFT_CONTROL_KEY) || IsDown(RIGHT_CONTROL_KEY);
+        var shift = IsDown(SHIFT_KEY) || IsDown(LEFT_SHIFT_KEY) || IsDown(RIGHT_SHIFT_KEY);
+        var alt = IsDown(ALT_KEY) || IsDown(LEFT_ALT_KEY) || IsDown(RIGHT_ALT_KEY);
         return config.HideHotkeyModifier switch
         {
             MitigationHotkeyModifier.Control => control && !shift && !alt,
@@ -194,19 +194,19 @@ internal sealed class MitigationMonitorHotkey(
         switch (config.HideHotkeyModifier)
         {
             case MitigationHotkeyModifier.Control:
-                ReleaseKey(ControlKey);
-                ReleaseKey(LeftControlKey);
-                ReleaseKey(RightControlKey);
+                ReleaseKey(CONTROL_KEY);
+                ReleaseKey(LEFT_CONTROL_KEY);
+                ReleaseKey(RIGHT_CONTROL_KEY);
                 break;
             case MitigationHotkeyModifier.Shift:
-                ReleaseKey(ShiftKey);
-                ReleaseKey(LeftShiftKey);
-                ReleaseKey(RightShiftKey);
+                ReleaseKey(SHIFT_KEY);
+                ReleaseKey(LEFT_SHIFT_KEY);
+                ReleaseKey(RIGHT_SHIFT_KEY);
                 break;
             case MitigationHotkeyModifier.Alt:
-                ReleaseKey(AltKey);
-                ReleaseKey(LeftAltKey);
-                ReleaseKey(RightAltKey);
+                ReleaseKey(ALT_KEY);
+                ReleaseKey(LEFT_ALT_KEY);
+                ReleaseKey(RIGHT_ALT_KEY);
                 break;
         }
     }
@@ -241,9 +241,9 @@ internal sealed class MitigationMonitorHotkey(
             return OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Unbound");
         }
 
-        if (key is >= F1Key and <= F24Key)
+        if (key is >= F1_KEY and <= F24_KEY)
         {
-            return $"F{key - F1Key + 1}";
+            return $"F{key - F1_KEY + 1}";
         }
 
         if (key is >= 0x41 and <= 0x5A || key is >= 0x30 and <= 0x39)
@@ -251,9 +251,9 @@ internal sealed class MitigationMonitorHotkey(
             return ((char)key).ToString();
         }
 
-        if (key is >= Numpad0Key and <= Numpad9Key)
+        if (key is >= NUMPAD0_KEY and <= NUMPAD9_KEY)
         {
-            return $"Num{key - Numpad0Key}";
+            return $"Num{key - NUMPAD0_KEY}";
         }
 
         return key switch
@@ -295,12 +295,12 @@ internal sealed class MitigationMonitorHotkey(
             keys.Add(key);
         }
 
-        for (var key = Numpad0Key; key <= Numpad9Key; key++)
+        for (var key = NUMPAD0_KEY; key <= NUMPAD9_KEY; key++)
         {
             keys.Add(key);
         }
 
-        for (var key = F1Key; key <= F24Key; key++)
+        for (var key = F1_KEY; key <= F24_KEY; key++)
         {
             keys.Add(key);
         }

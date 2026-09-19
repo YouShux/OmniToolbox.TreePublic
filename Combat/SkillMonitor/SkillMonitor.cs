@@ -316,7 +316,7 @@ public sealed class SkillMonitor : ModuleBase
 
 internal static class SkillMonitorPanel
 {
-    private const string ReorderPayload = "SkillMonitorReorder";
+    private const string REORDER_PAYLOAD = "SkillMonitorReorder";
     private static readonly Vector2 DefaultOffset = new(17f, 0f);
     private static readonly int[] CustomActionInputs = new int[4];
     private static readonly string[] CustomActionErrors = new string[4];
@@ -593,10 +593,10 @@ internal static class SkillMonitorPanel
         {
             if (source)
             {
-                if (ImGui.SetDragDropPayload(ReorderPayload, []))
+                if (ImGui.SetDragDropPayload(REORDER_PAYLOAD, []))
                 {
-                    draggedScopeID = scopeID;
-                    draggedOrderIndex = orderIndex;
+                    DraggedScopeID = scopeID;
+                    DraggedOrderIndex = orderIndex;
                 }
 
                 ImGui.TextUnformatted(label);
@@ -609,21 +609,21 @@ internal static class SkillMonitorPanel
             return false;
         }
 
-        var payload = ImGui.AcceptDragDropPayload(ReorderPayload);
+        var payload = ImGui.AcceptDragDropPayload(REORDER_PAYLOAD);
         if (payload.IsNull ||
             !payload.IsDelivery() ||
-            draggedScopeID != scopeID ||
-            draggedOrderIndex < 0 ||
-            draggedOrderIndex == orderIndex)
+            DraggedScopeID != scopeID ||
+            DraggedOrderIndex < 0 ||
+            DraggedOrderIndex == orderIndex)
         {
             return false;
         }
 
-        var configID = order[draggedOrderIndex];
-        order.RemoveAt(draggedOrderIndex);
+        var configID = order[DraggedOrderIndex];
+        order.RemoveAt(DraggedOrderIndex);
         order.Insert(orderIndex, configID);
-        draggedScopeID = uint.MaxValue;
-        draggedOrderIndex = -1;
+        DraggedScopeID = uint.MaxValue;
+        DraggedOrderIndex = -1;
         return true;
     }
 
@@ -925,8 +925,8 @@ internal static class SkillMonitorPanel
     private static bool DrawCheckbox(string name, ref bool value) =>
         OmniControls.Checkbox($"{OmniLoc.Get($"Feature.SkillMonitor.{name}")}##skillMonitor{name}", ref value);
 
-    private static uint draggedScopeID = uint.MaxValue;
-    private static int draggedOrderIndex = -1;
+    private static uint DraggedScopeID = uint.MaxValue;
+    private static int DraggedOrderIndex = -1;
 }
 
 [Serializable]
