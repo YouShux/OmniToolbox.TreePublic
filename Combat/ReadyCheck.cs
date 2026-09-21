@@ -31,7 +31,7 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
         Description = OmniLoc.Get("ReadyCheckDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Combat/ReadyCheck-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/ReadyCheck-1.png"
     };
 
     private const uint INVALID_ENTITY_ID = 0xE0000000;

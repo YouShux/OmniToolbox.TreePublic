@@ -1317,7 +1317,7 @@ public sealed class BetterUserMacroConfig
 internal static class BetterUserMacroPanel
 {
     private const string PREVIEW_IMAGE_BASE_URL =
-        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Interface/BetterUserMacro-";
+        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/BetterUserMacro-";
 
     public static bool Draw(BetterUserMacroConfig config)
     {

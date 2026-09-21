@@ -26,7 +26,7 @@ public sealed unsafe class LockedDutyPreview(
         Description = OmniLoc.Get("LockedDutyPreviewDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Combat/LockedDutyPreview-1.png",
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/LockedDutyPreview-1.png",
         RequiresPrivateProvider = true
     };
 
