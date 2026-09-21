@@ -5,7 +5,6 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Config;
 using OmniToolbox.Host;
-using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using LuminaAction = Lumina.Excel.Sheets.Action;
@@ -143,7 +142,6 @@ internal sealed class FloatingInfoOverlayNativeUI(
                 }
 
                 ImGui.SetClipboardText(line.CopyValue);
-                OmniNotifier.Chat(Format("Feature.FloatingInfoOverlay.Copied", line.CopyValue));
                 return true;
             }
 
