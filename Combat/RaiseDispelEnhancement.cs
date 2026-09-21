@@ -31,7 +31,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         Description = OmniLoc.Get("RaiseDispelEnhancementDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Combat/RaiseDispelEnhancement-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/RaiseDispelEnhancement-1.png"
     };
 
     private const uint RAISE_STATUS_ID = 148;

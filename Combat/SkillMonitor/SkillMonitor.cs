@@ -23,7 +23,7 @@ public sealed class SkillMonitor : ModuleBase
         Description = OmniLoc.Get("SkillMonitorDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Combat/SkillMonitor-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/SkillMonitor-1.png"
     };
 
     private readonly SkillMonitorConfig config;

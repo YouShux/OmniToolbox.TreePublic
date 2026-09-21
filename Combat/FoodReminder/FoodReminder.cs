@@ -26,7 +26,7 @@ public sealed class FoodReminder : ModuleBase
         Description = OmniLoc.Get("FoodReminderDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Combat/FoodReminder-1.png",
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/FoodReminder-1.png",
         Commands =
         [
             new ModuleCommand("Feature.FoodReminder.CommandDescription", "/omni 食物检查")

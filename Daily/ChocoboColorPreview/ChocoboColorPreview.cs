@@ -31,7 +31,7 @@ public sealed unsafe class ChocoboColorPreview(
         Category = ModuleCategory.Daily,
         RequiresPrivateProvider = true,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Daily/ChocoboColorPreview-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Daily/ChocoboColorPreview-1.png"
     };
 
     private const string BUDDY_ADDON_NAME = "Buddy";
