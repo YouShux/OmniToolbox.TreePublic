@@ -129,11 +129,12 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     public void RequestSort()
     {
         EnsureRules(config);
-        taskHelper?.Abort();
+        EnsureTaskHelper();
+        taskHelper!.Abort();
         ResetQueue();
         if (IsCategoryVisible("retainer"))
         {
-            QueueCategory("retainer", true);
+            QueueCategory("retainer", true, manual: true);
             return;
         }
 
@@ -141,32 +142,20 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         {
             if (IsCategoryVisible("inventory"))
             {
-                QueueCategory("inventory");
+                QueueCategory("inventory", manual: true);
             }
 
-            QueueSaddlebags(true);
+            QueueSaddlebags(true, manual: true);
             return;
         }
 
-        if (GameState.ContentFinderCondition != 0)
-        {
-            QueueCategory("inventory", true, allowInDuty: true);
-            return;
-        }
-
-        QueueAllEnabled(true);
+        QueueAllEnabled(true, manual: true);
     }
 
     protected override void OnEnable()
     {
         EnsureRules(config);
-        taskHelper = new()
-        {
-            RetryIntervalMS = 100,
-            TimeoutMS = SORT_TIMEOUT_MS,
-            TimeoutAction = ResetQueue,
-            ExceptionAction = ResetQueue
-        };
+        EnsureTaskHelper();
         addonEvents = new(DalamudServices.AddonLifecycle);
         RegisterAutoSortAddon("ArmouryBoard", () => QueueArmoury());
         RegisterAutoSortAddon("Inventory", () => QueueCategory("inventory"));
@@ -190,6 +179,21 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         queuedCategories.Clear();
     }
 
+    protected override void OnDispose()
+    {
+        taskHelper?.Dispose();
+        taskHelper = null;
+        queuedCategories.Clear();
+    }
+
+    private void EnsureTaskHelper() => taskHelper ??= new()
+    {
+        RetryIntervalMS = 100,
+        TimeoutMS = SORT_TIMEOUT_MS,
+        TimeoutAction = ResetQueue,
+        ExceptionAction = ResetQueue
+    };
+
     private void RegisterAutoSortAddon(string addonName, System.Action queueAction) =>
         addonEvents!.Register(AddonEvent.PostShow, addonName, (_, _) => queueAction());
 
@@ -201,7 +205,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         }
     }
 
-    private void QueueAllEnabled(bool notify)
+    private void QueueAllEnabled(bool notify, bool manual)
     {
         EnsureRules(config);
         var queued = false;
@@ -216,7 +220,8 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             {
                 QueueCategory(
                     category,
-                    waitForMergeContainers: config.AutoMerge && category is "saddlebag" or "rightsaddlebag");
+                    waitForMergeContainers: config.AutoMerge && category is "saddlebag" or "rightsaddlebag",
+                    manual: manual);
                 queued = true;
             }
         }
@@ -240,7 +245,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         }
     }
 
-    private void QueueSaddlebags(bool notify = false)
+    private void QueueSaddlebags(bool notify = false, bool manual = false)
     {
         EnsureRules(config);
         var queued = new HashSet<string>(StringComparer.Ordinal);
@@ -250,18 +255,18 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
                      .Distinct(StringComparer.Ordinal)
                      .Where(IsCategoryEnabled))
         {
-            QueueCategory(category);
+            QueueCategory(category, manual: manual);
             queued.Add(category);
         }
 
         if (queued.Add("saddlebag"))
         {
-            QueueCategory("saddlebag");
+            QueueCategory("saddlebag", manual: manual);
         }
 
         if (queued.Add("rightsaddlebag"))
         {
-            QueueCategory("rightsaddlebag");
+            QueueCategory("rightsaddlebag", manual: manual);
         }
 
         if (notify && taskHelper is not null &&
@@ -275,7 +280,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         string category,
         bool notify = false,
         bool waitForMergeContainers = false,
-        bool allowInDuty = false)
+        bool manual = false)
     {
         EnsureRules(config);
         var playerState = PlayerState.Instance();
@@ -314,21 +319,21 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         if (shouldMerge)
         {
             taskHelper.Enqueue(
-                () => MergeNext(category, waitForMergeContainers, allowInDuty),
+                () => MergeNext(category, waitForMergeContainers, manual),
                 $"Merge stacks {category}");
         }
 
         if (rules.Length > 0)
         {
-            taskHelper.Enqueue(() => StartSort(category, rules, allowInDuty), $"Start sort {category}");
+            taskHelper.Enqueue(() => StartSort(category, rules, manual), $"Start sort {category}");
         }
 
         taskHelper.Enqueue(() => FinishSort(category, notify), $"Finish sort {category}");
     }
 
-    private bool StartSort(string category, IReadOnlyList<AutoSortItemsRule> rules, bool allowInDuty)
+    private bool StartSort(string category, IReadOnlyList<AutoSortItemsRule> rules, bool manual)
     {
-        if (!CanSort(category, allowInDuty))
+        if (!CanSort(category, manual))
         {
             return false;
         }
@@ -384,9 +389,9 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         return true;
     }
 
-    private bool MergeNext(string category, bool waitForContainers, bool allowInDuty)
+    private bool MergeNext(string category, bool waitForContainers, bool manual)
     {
-        if (!CanSort(category, allowInDuty))
+        if (!CanSort(category, manual))
         {
             return false;
         }
@@ -467,7 +472,8 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             }
         }
 
-        return !hasMergeCandidate;
+        // 手动整理在合并被游戏拒绝时继续排序，避免等待合并任务超时。
+        return manual || !hasMergeCandidate;
     }
 
     private bool FinishSort(string category, bool notify)
@@ -504,7 +510,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         left->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality) ==
         right->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality);
 
-    private static bool CanSort(string category, bool allowInDuty)
+    private static bool CanSort(string category, bool manual)
     {
         var services = DService.Instance();
         if (!GameState.IsLoggedIn ||
@@ -521,17 +527,17 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
 
         var isVisibleInventoryInteraction = category is "inventory" or "retainer" or "saddlebag" or "rightsaddlebag" &&
                                             IsCategoryVisible(category);
-        if (!isVisibleInventoryInteraction && services.Condition.IsOccupiedInEvent)
+        if (!manual && !isVisibleInventoryInteraction && services.Condition.IsOccupiedInEvent)
         {
             return false;
         }
 
-        if (!allowInDuty && !isVisibleInventoryInteraction && !services.Condition.IsIdle)
+        if (!manual && !isVisibleInventoryInteraction && !services.Condition.IsIdle)
         {
             return false;
         }
 
-        if (!IsInValidZone(allowInDuty))
+        if (!IsInValidZone(manual))
         {
             return false;
         }
@@ -633,11 +639,10 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         return true;
     }
 
-    private static bool IsInValidZone(bool allowInDuty) =>
+    private static bool IsInValidZone(bool manual) =>
         GameState.Map != 0 &&
         GameState.TerritoryType != 0 &&
-        !GameState.IsInPVPArea &&
-        (allowInDuty || GameState.ContentFinderCondition == 0);
+        (manual || !GameState.IsInPVPArea && GameState.ContentFinderCondition == 0);
 
     private static bool IsAddonVisible(string addonName)
     {

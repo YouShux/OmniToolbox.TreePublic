@@ -725,6 +725,7 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
     private readonly BetterGlamourItemIconNode itemIconNode;
     private readonly TextNode itemNameNode;
     private readonly TextInputNode itemSearchInputNode;
+    private readonly string itemSearchPlaceholder = OmniLoc.Get("Feature.BetterGlamourManagement.ItemSearch.Placeholder");
     private readonly BetterGlamourDyeButtonNode dyeNode;
     private readonly TextNode noDyeNode;
     private BetterGlamourEditorRow? row;
@@ -739,15 +740,9 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
         itemSearchInputNode = new()
         {
             ShowLimitText = false,
-            PlaceholderString = OmniLoc.Get("Feature.BetterGlamourManagement.ItemSearch.Placeholder"),
+            PlaceholderString = itemSearchPlaceholder,
             OnFocused = () => row?.OnSearchFocused?.Invoke(this),
-            OnInputReceived = value =>
-            {
-                if (!IsSettingNodeData)
-                {
-                    row?.OnSearchChanged?.Invoke(this, value.ExtractText());
-                }
-            },
+            OnInputReceived = OnItemSearchInput,
             OnUnfocused = () => row?.OnSearchClosed?.Invoke(),
             OnFocusLost = () => row?.OnSearchClosed?.Invoke(),
             OnEscapeEntered = () => row?.OnSearchClosed?.Invoke()
@@ -865,6 +860,29 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
     }
 
     internal void ClearItemSearchText() => itemSearchInputNode.String = string.Empty;
+
+    public override void Update()
+    {
+        base.Update();
+        var placeholder = itemSearchInputNode.String.IsEmpty &&
+                          itemSearchInputNode.CurrentTextNode.String.IsEmpty &&
+                          !itemSearchInputNode.IsFocused
+            ? itemSearchPlaceholder
+            : string.Empty;
+        if (itemSearchInputNode.PlaceholderString != placeholder)
+        {
+            itemSearchInputNode.PlaceholderString = placeholder;
+        }
+    }
+
+    private void OnItemSearchInput(ReadOnlySeString value)
+    {
+        itemSearchInputNode.PlaceholderString = string.Empty;
+        if (!IsSettingNodeData)
+        {
+            row?.OnSearchChanged?.Invoke(this, value.ExtractText());
+        }
+    }
 
     private string GetCurrentItemName()
     {
