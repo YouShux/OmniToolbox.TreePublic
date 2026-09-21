@@ -21,7 +21,7 @@ public sealed class MitigationMonitor : ModuleBase
         Description = OmniLoc.Get("MitigationMonitorDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Combat/MitigationMonitor-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/MitigationMonitor-1.png"
     };
 
     private readonly MitigationMonitorConfig config;

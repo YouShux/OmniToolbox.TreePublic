@@ -16,7 +16,7 @@ public sealed class GlamourName : ModuleBase
         Description = OmniLoc.Get("GlamourNameDescription"),
         Category = ModuleCategory.Item,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Item/GlamourName-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Item/GlamourName-1.png"
     };
 
     private readonly TooltipManager.ItemTooltipUpdateDelegate tooltipHandler;

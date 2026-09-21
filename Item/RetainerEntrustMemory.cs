@@ -26,7 +26,7 @@ public sealed unsafe class RetainerEntrustMemory(
         Description = OmniLoc.Get("RetainerEntrustMemoryDescription"),
         Category = ModuleCategory.Item,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Assets/main/previews/Item/RetainerEntrustMemory-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Item/RetainerEntrustMemory-1.png"
     };
 
     private const string ADDON_NAME = "RetainerItemTransferList";
