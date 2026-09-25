@@ -232,11 +232,18 @@ public sealed unsafe class AetheryteModelReplacement(
 
         try
         {
-            presetScanProgress ??= PresetScanProgress.Create();
+            if (presetScanProgress is null)
+            {
+                presetScanProgress = PresetScanProgress.Create();
+            }
+
             var deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency / 250;
+            var checkpointSaved = false;
             while (Stopwatch.GetTimestamp() < deadline && presetScanProgress.ProcessNext())
             {
-                SavePresetScanCheckpoint(presetScanProgress.BuildResult());
+                var scan = presetScanProgress.BuildResult();
+                SavePresetScanCheckpoint(scan);
+                checkpointSaved = true;
             }
 
             if (!presetScanProgress.IsComplete)
@@ -244,17 +251,14 @@ public sealed unsafe class AetheryteModelReplacement(
                 return;
             }
 
-            var scan = presetScanProgress.BuildResult();
+            var completedScan = presetScanProgress.BuildResult();
             presetScanProgress = null;
-            presets = scan.Presets;
-            presetScanCache = scan;
+            presets = completedScan.Presets;
+            presetScanCache = completedScan;
             presetScanCacheVersion = gameDataVersion;
-            if (gameDataVersion.Length > 0)
+            if (!checkpointSaved)
             {
-                config.PresetCacheSchemaVersion = PRESET_CACHE_SCHEMA_VERSION;
-                config.PresetCacheGameDataVersion = gameDataVersion;
-                config.CachedPresetScan = scan;
-                saveConfig();
+                SavePresetScanCheckpoint(completedScan);
             }
         }
         catch (Exception ex)
@@ -306,6 +310,8 @@ public sealed unsafe class AetheryteModelReplacement(
         }
 
         public bool IsComplete => territoryIndex >= rowsByTerritory.Count;
+
+        public int ScannedTerritories => territoryIndex;
 
         public static PresetScanProgress Create(PresetScanResult? cached = null)
         {
