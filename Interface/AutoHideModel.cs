@@ -9,11 +9,13 @@ using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.Group;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.LayoutEngine;
+using FFXIVClientStructs.FFXIV.Client.LayoutEngine.Group;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Info;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Data.Icons;
+using OmenTools.Interop.Game.Models;
 using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -51,6 +53,12 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private const VisibilityFlags INVISIBLE_FLAGS = (VisibilityFlags)256;
     private static readonly string[] AsylumVfxPaths = ["vfx/common/eff/abi_cnj022g.avfx"];
     private static readonly string[] SacredSoilVfxPaths = ["vfx/common/eff/abi_swl053g.avfx"];
+    private static readonly CompSig GetYardPlotSignature = new(
+        "40 53 48 83 EC 20 0F B7 D9 B9 ?? ?? ?? ?? 66 3B D9 75 ?? 48 8B 05");
+    private static readonly CompSig SetLightActiveSignature = new(
+        "40 53 48 83 EC 20 80 61 ?? ?? 0F B6 C2 C0 E0 04 0F B6 DA 08 41 ?? 48 8B 01 FF 90");
+    private static readonly CompSig SetVfxActiveSignature = new(
+        "80 61 ?? ?? 0F B6 C2 C0 E0 04 08 41 ?? 48 8B 41 ?? 48 85 C0 74 ?? 80 A0 ?? ?? ?? ?? FE 08 90");
     private readonly HashSet<nint> hiddenObjects = [];
     private readonly HashSet<uint> friendPlayers = [];
     private readonly HashSet<uint> partyPlayers = [];
@@ -58,15 +66,25 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private readonly HashSet<uint> beastmasterPlayers = [];
     private readonly List<Vector3> nearbyAvailableQuestNPCPositions = [];
     private readonly Dictionary<int, OutdoorPlotExteriorData> hiddenHouseOriginals = [];
+    private readonly Dictionary<int, (nint Address, uint ID, short FurnitureIndex, nint Layout)> hiddenYardObjects = [];
+    private readonly Dictionary<nint, (int ObjectIndex, uint InstanceKey, uint SubID)> hiddenYardEffects = [];
+    private (nint Address, uint Territory, sbyte Ward, byte Division) yardContext;
+    private GetYardPlotDelegate? getYardPlot;
     private nint housingLayoutAddress;
     private FeatureLifetime? runtimeLifetime;
     private Hook<ActionEffectHandler.Delegates.Receive>? actionEffectHook;
+    private Hook<SetYardEffectActiveDelegate>? setLightActiveHook;
+    private Hook<SetYardEffectActiveDelegate>? setVfxActiveHook;
     private long asylumBlockUntil;
     private long asylumAllowUntil;
     private long sacredSoilBlockUntil;
     private long sacredSoilAllowUntil;
     private bool asylumResourceBlocked;
     private bool sacredSoilResourceBlocked;
+
+    private delegate byte GetYardPlotDelegate(ushort furnitureIndex);
+
+    private delegate void SetYardEffectActiveDelegate(ILayoutInstance* instance, byte active);
 
     public override bool HasSettings => true;
 
@@ -213,6 +231,13 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             "housesLarge",
             config.HideLargeHouses,
             value => config.HideLargeHouses = value);
+        ImGui.SameLine(0f, OmniTheme.Scale(16f));
+        changed |= DrawCheckbox(
+            "Feature.AutoHideModel.YardObjects",
+            "yardObjects",
+            config.HideYardObjects,
+            value => config.HideYardObjects = value);
+        OmniControls.HelpTooltip(OmniLoc.Get("Feature.AutoHideModel.YardObjects.Help"));
         return changed;
     }
 
@@ -337,6 +362,21 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         var lifetime = new FeatureLifetime();
         try
         {
+            getYardPlot = GetYardPlotSignature.GetDelegate<GetYardPlotDelegate>();
+            setLightActiveHook = SetLightActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetLightActive);
+            lifetime.Add(() =>
+            {
+                setLightActiveHook?.Dispose();
+                setLightActiveHook = null;
+            });
+            setLightActiveHook.Enable();
+            setVfxActiveHook = SetVfxActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetVfxActive);
+            lifetime.Add(() =>
+            {
+                setVfxActiveHook?.Dispose();
+                setVfxActiveHook = null;
+            });
+            setVfxActiveHook.Enable();
             actionEffectHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
                 ActionEffectHandler.MemberFunctionPointers.Receive,
                 OnActionEffect);
@@ -388,11 +428,13 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         {
             ShowAll();
             RestoreHiddenHouses();
+            UpdateYardVisibility(true);
             ClearGroundEffectDecisions();
             return;
         }
 
         UpdateHouseVisibility();
+        UpdateYardVisibility();
         RefreshGroundEffectResourceBlacklist();
         try
         {
@@ -874,6 +916,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     {
         ShowAll();
         RestoreHiddenHouses();
+        UpdateYardVisibility(true);
         friendPlayers.Clear();
         partyPlayers.Clear();
         freeCompanyPlayers.Clear();
@@ -884,6 +927,148 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private void OnLogout(int _, int unusedReason) => Refresh();
 
     private void OnTerritoryChanged(uint _) => Refresh();
+
+    private void UpdateYardVisibility(bool restore = false)
+    {
+        hiddenYardEffects.Clear();
+        restore |= !config.HideYardObjects || !IsHousingTerritory() || ShouldSuspendByCondition();
+        if (restore && hiddenYardObjects.Count == 0)
+        {
+            return;
+        }
+
+        var manager = HousingManager.Instance();
+        if (manager == null || manager->OutdoorTerritory == null || !manager->IsOutside())
+        {
+            hiddenYardObjects.Clear();
+            yardContext = default;
+            return;
+        }
+
+        var outdoor = manager->OutdoorTerritory;
+        var ward = manager->GetCurrentWard();
+        var division = manager->GetCurrentDivision();
+        var context = ((nint)outdoor, DService.Instance().ClientState.TerritoryType, ward, division);
+        if (yardContext != context)
+        {
+            hiddenYardObjects.Clear();
+            yardContext = context;
+        }
+
+        restore |= ward < 0 || division is not (1 or 2) || getYardPlot is null;
+        var ownedPlots = restore ? 0UL : GetOwnedHousePlots(ward);
+        var objects = outdoor->FurnitureManager.ObjectManager.ObjectArray.Objects;
+        for (var index = 0; index < objects.Length; index++)
+        {
+            var gameObject = objects[index].Value;
+            if (gameObject == null || gameObject->ObjectKind != ClientObjectKind.HousingEventObject)
+            {
+                hiddenYardObjects.Remove(index);
+                continue;
+            }
+
+            var housingObject = (HousingObject*)gameObject;
+            var layout = gameObject->SharedGroupLayoutInstance;
+            if (layout == null)
+            {
+                hiddenYardObjects.Remove(index);
+                continue;
+            }
+
+            var identity = ((nint)gameObject, housingObject->HousingObjectId.Id,
+                housingObject->HousingFurnitureIndex, (nint)layout);
+            var tracked = hiddenYardObjects.TryGetValue(index, out var original) && original == identity;
+            if (!tracked)
+            {
+                hiddenYardObjects.Remove(index);
+            }
+
+            var shouldHide = false;
+            if (!restore && housingObject->HousingObjectId.Type == HousingObjectType.YardObject &&
+                housingObject->HousingFurnitureIndex >= 0 &&
+                housingObject->HousingFurnitureIndex < outdoor->FurnitureManager.FurnitureMemory.Length)
+            {
+                var plot = getYardPlot!((ushort)housingObject->HousingFurnitureIndex);
+                shouldHide = plot < 60 && (ownedPlots & (1UL << plot)) == 0;
+            }
+
+            if (shouldHide)
+            {
+                if (!tracked && !layout->IsActive)
+                {
+                    continue;
+                }
+
+                hiddenYardObjects[index] = identity;
+                TrackYardEffects(layout, index);
+                // 子模型可能在父场景关闭后重新激活，仍需传播隐藏状态。
+                layout->SetActive(false);
+            }
+            else if (tracked)
+            {
+                layout->SetActive(true);
+                hiddenYardObjects.Remove(index);
+            }
+        }
+    }
+
+    private void TrackYardEffects(SharedGroupLayoutInstance* group, int objectIndex)
+    {
+        foreach (var child in group->Instances.Instances)
+        {
+            var instance = child.Value == null ? null : child.Value->Instance;
+            if (instance == null)
+            {
+                continue;
+            }
+
+            if (instance->Id.Type is InstanceType.Light or InstanceType.Vfx)
+            {
+                hiddenYardEffects[(nint)instance] = (objectIndex, instance->Id.InstanceKey, instance->SubId);
+            }
+            else if (instance->Id.Type == InstanceType.SharedGroup)
+            {
+                TrackYardEffects((SharedGroupLayoutInstance*)instance, objectIndex);
+            }
+        }
+    }
+
+    private void OnSetLightActive(ILayoutInstance* instance, byte active) =>
+        setLightActiveHook!.Original(instance, FilterYardEffectActivation(instance, active));
+
+    private void OnSetVfxActive(ILayoutInstance* instance, byte active) =>
+        setVfxActiveHook!.Original(instance, FilterYardEffectActivation(instance, active));
+
+    private byte FilterYardEffectActivation(ILayoutInstance* instance, byte active)
+    {
+        if (active != 0 && instance != null && config.HideYardObjects &&
+            hiddenYardEffects.TryGetValue((nint)instance, out var effect) &&
+            effect.InstanceKey == instance->Id.InstanceKey && effect.SubID == instance->SubId &&
+            hiddenYardObjects.TryGetValue(effect.ObjectIndex, out var original))
+        {
+            var manager = HousingManager.Instance();
+            if (manager != null && manager->OutdoorTerritory != null &&
+                manager->CurrentTerritory == (HousingTerritory*)manager->OutdoorTerritory &&
+                yardContext == ((nint)manager->OutdoorTerritory,
+                    DService.Instance().ClientState.TerritoryType,
+                    manager->GetCurrentWard(), manager->GetCurrentDivision()) &&
+                !ShouldSuspendByCondition())
+            {
+                var gameObject = manager->OutdoorTerritory->FurnitureManager.ObjectManager.ObjectArray
+                    .Objects[effect.ObjectIndex].Value;
+                if (gameObject != null && (nint)gameObject == original.Address &&
+                    gameObject->ObjectKind == ClientObjectKind.HousingEventObject &&
+                    (nint)gameObject->SharedGroupLayoutInstance == original.Layout &&
+                    ((HousingObject*)gameObject)->HousingObjectId.Id == original.ID &&
+                    ((HousingObject*)gameObject)->HousingFurnitureIndex == original.FurnitureIndex)
+                {
+                    active = 0;
+                }
+            }
+        }
+
+        return active;
+    }
 
     private void UpdateHouseVisibility()
     {
@@ -1254,6 +1439,8 @@ public sealed class AutoHideModelConfig
     public bool HideMediumHouses { get; set; }
 
     public bool HideLargeHouses { get; set; }
+
+    public bool HideYardObjects { get; set; } = true;
 }
 
 [Serializable]
