@@ -1,9 +1,9 @@
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
@@ -39,8 +39,8 @@ public sealed unsafe class AetheryteModelReplacement(
     private static PresetScanResult? presetScanCache;
     private static string presetScanCacheVersion = string.Empty;
     private IReadOnlyList<AetherytePreset> presets = [];
-    private Task<PresetScanResult>? presetScanTask;
-    private DateTime nextPresetScanUTC;
+    private PresetScanProgress? presetScanProgress;
+    private bool presetScanFailed;
     private string gameDataVersion = string.Empty;
     private int lastLoggedPresetCount = -1;
     private Hook<ResourceManager.Delegates.GetResourceSync>? getResourceSyncHook;
@@ -71,6 +71,14 @@ public sealed unsafe class AetheryteModelReplacement(
         config.SourceSharedGroupPath = string.Empty;
         config.TargetSharedGroupPath = string.Empty;
         config.Rules = [];
+        config.PresetCacheSchemaVersion = 0;
+        config.PresetCacheGameDataVersion = string.Empty;
+        config.CachedPresetScan = null;
+        presetScanCache = null;
+        presetScanCacheVersion = string.Empty;
+        presets = [];
+        presetScanProgress = null;
+        presetScanFailed = false;
         saveConfig();
         DisableResourceRedirect();
         return true;
@@ -78,15 +86,30 @@ public sealed unsafe class AetheryteModelReplacement(
 
     protected override void OnEnable()
     {
-        EnsureRules();
+        if (EnsureRules())
+        {
+            saveConfig();
+        }
+
+        presets = [];
+        presetScanProgress = null;
+        presetScanFailed = false;
         gameDataVersion = GetGameDataVersion();
         if (gameDataVersion.Length > 0 &&
             config.PresetCacheSchemaVersion == PRESET_CACHE_SCHEMA_VERSION &&
             string.Equals(config.PresetCacheGameDataVersion, gameDataVersion, StringComparison.Ordinal) &&
-            config.CachedPresetScan is { Presets.Count: > 0 } cached)
+            config.CachedPresetScan is { } cached)
         {
-            presetScanCache = cached;
-            presetScanCacheVersion = gameDataVersion;
+            presets = cached.Presets;
+            if (cached.IsComplete)
+            {
+                presetScanCache = cached;
+                presetScanCacheVersion = gameDataVersion;
+            }
+            else if (cached.ScannedTerritories > 0)
+            {
+                presetScanProgress = PresetScanProgress.Create(cached);
+            }
         }
         else if (!string.Equals(presetScanCacheVersion, gameDataVersion, StringComparison.Ordinal) ||
                  gameDataVersion.Length == 0)
@@ -94,10 +117,7 @@ public sealed unsafe class AetheryteModelReplacement(
             presetScanCache = null;
         }
 
-        presets = presetScanCache?.Presets ?? [];
-        nextPresetScanUTC = presetScanTask is null
-            ? default
-            : DateTime.UtcNow.AddSeconds(30);
+        presets = presetScanCache?.Presets ?? presets;
         lastLoggedPresetCount = -1;
         var lifetime = new FeatureLifetime();
         try
@@ -144,6 +164,7 @@ public sealed unsafe class AetheryteModelReplacement(
         }
         finally
         {
+            presetScanProgress = null;
             DisableResourceRedirect();
         }
     }
@@ -163,6 +184,8 @@ public sealed unsafe class AetheryteModelReplacement(
         {
             return;
         }
+
+        ProcessPresetScan();
     }
 
     private void OnTerritoryChanged(uint _)
@@ -179,44 +202,10 @@ public sealed unsafe class AetheryteModelReplacement(
             return presets;
         }
 
-        var now = DateTime.UtcNow;
-        if (presetScanTask is null ||
-            (presets.Count == 0 && presetScanTask.IsCompleted && now >= nextPresetScanUTC))
-        {
-            nextPresetScanUTC = now.AddSeconds(30);
-            presetScanTask = Task.Run(BuildPresets);
-        }
-
-        if (presetScanTask.IsCompletedSuccessfully)
-        {
-            var scan = presetScanTask.Result;
-            presets = scan.Presets;
-            if (scan.Presets.Count > 0)
-            {
-                presetScanCache = scan;
-                presetScanCacheVersion = gameDataVersion;
-                if (gameDataVersion.Length > 0)
-                {
-                    config.PresetCacheSchemaVersion = PRESET_CACHE_SCHEMA_VERSION;
-                    config.PresetCacheGameDataVersion = gameDataVersion;
-                    config.CachedPresetScan = scan;
-                    saveConfig();
-                }
-            }
-
-        }
-        else if (presetScanTask.IsFaulted && lastLoggedPresetCount != -2)
-        {
-            lastLoggedPresetCount = -2;
-            DService.Instance().Log.Error(
-                presetScanTask.Exception?.GetBaseException(),
-                "[AetheryteModelReplacement] 水晶预设扫描失败。");
-        }
-
         return presets;
     }
 
-    internal bool IsPresetScanPending => presetScanCache is null && presetScanTask is { IsCompleted: false };
+    internal bool IsPresetScanPending => presetScanCache is null && !presetScanFailed;
 
     private static string GetGameDataVersion()
     {
@@ -234,30 +223,117 @@ public sealed unsafe class AetheryteModelReplacement(
                     .Select(static entry => $"{entry.Key}:{entry.Value.Version}")));
     }
 
-    private static PresetScanResult BuildPresets()
+    private void ProcessPresetScan()
     {
-        var rowsByTerritory = LuminaGetter.Get<LuminaAetheryte>()
-            .Where(static row => row.IsAetheryte && row.Territory.RowId != 0)
-            .GroupBy(static row => row.Territory.RowId)
-            .ToList();
-        var result = new List<AetherytePreset>();
-        var bgFiles = 0;
-        var eventFiles = 0;
-        var aetheryteInstances = 0;
-        var sharedGroupCount = 0;
-        var pathMatches = 0;
-        var boundMatches = 0;
-
-        foreach (var territoryRows in rowsByTerritory)
+        if (presetScanCache is not null || presetScanFailed)
         {
+            return;
+        }
+
+        try
+        {
+            presetScanProgress ??= PresetScanProgress.Create();
+            var deadline = Stopwatch.GetTimestamp() + Stopwatch.Frequency / 250;
+            while (Stopwatch.GetTimestamp() < deadline && presetScanProgress.ProcessNext())
+            {
+                SavePresetScanCheckpoint(presetScanProgress.BuildResult());
+            }
+
+            if (!presetScanProgress.IsComplete)
+            {
+                return;
+            }
+
+            var scan = presetScanProgress.BuildResult();
+            presetScanProgress = null;
+            presets = scan.Presets;
+            presetScanCache = scan;
+            presetScanCacheVersion = gameDataVersion;
+            if (gameDataVersion.Length > 0)
+            {
+                config.PresetCacheSchemaVersion = PRESET_CACHE_SCHEMA_VERSION;
+                config.PresetCacheGameDataVersion = gameDataVersion;
+                config.CachedPresetScan = scan;
+                saveConfig();
+            }
+        }
+        catch (Exception ex)
+        {
+            presetScanProgress = null;
+            presetScanFailed = true;
+            if (lastLoggedPresetCount != -2)
+            {
+                lastLoggedPresetCount = -2;
+                DService.Instance().Log.Error(ex, "[AetheryteModelReplacement] 水晶预设扫描失败。");
+            }
+        }
+    }
+
+    private void SavePresetScanCheckpoint(PresetScanResult scan)
+    {
+        presets = scan.Presets;
+        if (gameDataVersion.Length == 0)
+        {
+            return;
+        }
+
+        config.PresetCacheSchemaVersion = PRESET_CACHE_SCHEMA_VERSION;
+        config.PresetCacheGameDataVersion = gameDataVersion;
+        config.CachedPresetScan = scan;
+        saveConfig();
+    }
+
+    private sealed class PresetScanProgress
+    {
+        private readonly List<IGrouping<uint, LuminaAetheryte>> rowsByTerritory;
+        private readonly List<AetherytePreset> result = [];
+        private int territoryIndex;
+        private int bgFiles;
+        private int eventFiles;
+        private int aetheryteInstances;
+        private int sharedGroupCount;
+        private int pathMatches;
+        private int boundMatches;
+
+        private PresetScanProgress(
+            List<IGrouping<uint, LuminaAetheryte>> rowsByTerritory,
+            int territoryIndex,
+            IEnumerable<AetherytePreset> cachedPresets)
+        {
+            this.rowsByTerritory = rowsByTerritory;
+            this.territoryIndex = territoryIndex;
+            result.AddRange(cachedPresets);
+        }
+
+        public bool IsComplete => territoryIndex >= rowsByTerritory.Count;
+
+        public static PresetScanProgress Create(PresetScanResult? cached = null)
+        {
+            var rowsByTerritory = LuminaGetter.Get<LuminaAetheryte>()
+                .Where(static row => row.IsAetheryte && row.Territory.RowId != 0)
+                .GroupBy(static row => row.Territory.RowId)
+                .ToList();
+            return new(
+                rowsByTerritory,
+                cached?.ScannedTerritories ?? 0,
+                cached?.Presets ?? []);
+        }
+
+        public bool ProcessNext()
+        {
+            if (IsComplete)
+            {
+                return false;
+            }
+
+            var territoryRows = rowsByTerritory[territoryIndex++];
             if (!LuminaGetter.TryGetRow<LuminaTerritoryType>(territoryRows.Key, out var territory))
             {
-                continue;
+                return true;
             }
 
             var sharedGroupInstances = new Dictionary<uint, string>();
             var aetherytes = new Dictionary<uint, uint>();
-            // 地图布局会把 BG、计划层的共享组和以太之光实例合并到同一实例 ID 空间。
             foreach (var fileType in new[] { LGBFileType.BG, LGBFileType.PlanMap, LGBFileType.PlanEvent, LGBFileType.Planner })
             {
                 if (TryGetLgb(territory, fileType) is not { } layoutFile)
@@ -288,62 +364,53 @@ public sealed unsafe class AetheryteModelReplacement(
                             }
                         }
                         else if (instance.AssetType == LayerEntryType.Aetheryte &&
-                                 instance.Object is LayerCommon.AetheryteInstanceObject aetheryte)
+                                 instance.Object is LayerCommon.AetheryteInstanceObject aetheryte &&
+                                 aetherytes.TryAdd(aetheryte.ParentData.BaseId, aetheryte.BoundInstanceID))
                         {
-                            if (aetherytes.TryAdd(aetheryte.ParentData.BaseId, aetheryte.BoundInstanceID))
-                            {
-                                aetheryteInstances++;
-                            }
+                            aetheryteInstances++;
                         }
                     }
                 }
             }
 
             sharedGroupCount += sharedGroupInstances.Count;
-
             var territoryName = territory.PlaceName.ValueNullable?.Name.ToString() ?? $"Territory {territoryRows.Key}";
             foreach (var row in territoryRows)
             {
-                if (!aetherytes.TryGetValue(row.RowId, out var boundInstanceID))
-                {
-                    continue;
-                }
-
-                if (!sharedGroupInstances.TryGetValue(boundInstanceID, out var sharedGroupPath))
+                if (!aetherytes.TryGetValue(row.RowId, out var boundInstanceID) ||
+                    !sharedGroupInstances.TryGetValue(boundInstanceID, out var sharedGroupPath))
                 {
                     continue;
                 }
 
                 boundMatches++;
-
                 var name = row.PlaceName.ValueNullable?.Name.ToString();
                 if (string.IsNullOrWhiteSpace(name))
                 {
                     name = $"Aetheryte {row.RowId}";
                 }
 
-                result.Add(new(
-                    row.RowId,
-                    territoryRows.Key,
-                    name,
-                    territoryName,
-                    sharedGroupPath));
+                result.Add(new(row.RowId, territoryRows.Key, name, territoryName, sharedGroupPath));
             }
+
+            return true;
         }
 
-        return new(
-            result
-            .OrderBy(static preset => preset.TerritoryID)
-            .ThenBy(static preset => preset.RowID)
-            .ToArray(),
-            rowsByTerritory.Sum(static rows => rows.Count()),
-            rowsByTerritory.Count,
-            bgFiles,
-            eventFiles,
-            aetheryteInstances,
-            sharedGroupCount,
-            pathMatches,
-            boundMatches);
+        public PresetScanResult BuildResult() =>
+            new(
+                result
+                    .OrderBy(static preset => preset.TerritoryID)
+                    .ThenBy(static preset => preset.RowID)
+                    .ToArray(),
+                rowsByTerritory.Sum(static rows => rows.Count()),
+                rowsByTerritory.Count,
+                bgFiles,
+                eventFiles,
+                aetheryteInstances,
+                sharedGroupCount,
+                pathMatches,
+                boundMatches,
+                territoryIndex);
     }
 
     private static string NormalizeAssetPath(string path) =>
@@ -399,7 +466,10 @@ public sealed unsafe class AetheryteModelReplacement(
 
     private void UpdateResourceRedirect(bool force)
     {
-        EnsureRules();
+        if (EnsureRules())
+        {
+            saveConfig();
+        }
         var rules = config.Rules
             .Where(static rule => rule.Enabled &&
                                   IsSharedGroupPath(rule.SourceSharedGroupPath) &&
@@ -543,7 +613,12 @@ public sealed record PresetScanResult(
     int AetheryteInstances,
     int SharedGroups,
     int PathMatches,
-    int BoundMatches);
+    int BoundMatches,
+    int ScannedTerritories)
+{
+    [Newtonsoft.Json.JsonIgnore]
+    public bool IsComplete => ScannedTerritories >= Territories;
+}
 
 public sealed record AetherytePreset(
     uint RowID,
