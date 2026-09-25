@@ -272,7 +272,7 @@ internal static class MitigationMonitorPanel
         if (OmniControls.InputInt(
                 "##mitigationReplaySaveCount",
                 ref replaySaveCount,
-                OmniTheme.Scale(96f)))
+                OmniTheme.Scale(96f), groupThousands: true))
         {
             feature.SetReplaySaveCount(replaySaveCount);
         }

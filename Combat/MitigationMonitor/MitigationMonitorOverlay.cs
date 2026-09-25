@@ -189,7 +189,9 @@ internal sealed class MitigationMonitorOverlay
             if (!config.Locked && ImGui.IsItemActive() && ImGui.IsMouseDragging(ImGuiMouseButton.Left))
             {
                 collapsedIconDragged = true;
-                config.CollapsedPosition = ImGui.GetWindowPos() + ImGui.GetIO().MouseDelta;
+                var delta = ImGui.GetIO().MouseDelta;
+                config.CollapsedPosition = ImGui.GetWindowPos() + delta;
+                config.Position += delta;
                 ImGui.SetWindowPos(config.CollapsedPosition);
                 ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeAll);
             }
