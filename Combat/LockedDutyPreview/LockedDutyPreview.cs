@@ -104,6 +104,11 @@ public sealed unsafe class LockedDutyPreview(
 
     private void OnFrameworkUpdate(IFramework framework)
     {
+        if (DalamudServices.IsUnloading || runtimeLifetime is null || nativeUI is null)
+        {
+            return;
+        }
+
         if (!DService.Instance().ClientState.IsLoggedIn ||
             !TryGetContentsFinder(out _))
         {
@@ -126,11 +131,15 @@ public sealed unsafe class LockedDutyPreview(
 
     private void DrawOverlay()
     {
-        if (!DService.Instance().ClientState.IsLoggedIn ||
-            !TryGetContentsFinder(out AtkUnitBase* addon) ||
-            nativeUI is null)
+        if (DalamudServices.IsUnloading || runtimeLifetime is null || nativeUI is null)
         {
-            nativeUI?.Close();
+            return;
+        }
+
+        if (!DService.Instance().ClientState.IsLoggedIn ||
+            !TryGetContentsFinder(out AtkUnitBase* addon))
+        {
+            nativeUI.Close();
             return;
         }
 

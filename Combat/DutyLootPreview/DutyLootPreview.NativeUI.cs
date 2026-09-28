@@ -49,9 +49,9 @@ public sealed unsafe partial class DutyLootPreview
         {
             list = new()
             {
+                ItemSpacing = 2f,
                 Position = ContentStartPosition,
                 Size = ContentSize,
-                ItemSpacing = 2f,
                 OptionsList = [],
                 OnItemSelected = item =>
                 {
