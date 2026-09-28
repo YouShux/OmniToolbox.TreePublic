@@ -55,7 +55,9 @@ public sealed unsafe class AetheryteModelReplacement(
     {
         Title = OmniLoc.Get("AetheryteModelReplacementTitle"),
         Description = OmniLoc.Get("AetheryteModelReplacementDescription"),
-        Category = ModuleCategory.Interface
+        Category = ModuleCategory.Interface,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/AetheryteModelReplacement-1.png"
     };
 
     public override bool HasSettings => true;
