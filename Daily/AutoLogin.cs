@@ -9,6 +9,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Excel.Sheets;
 using OmenTools;
 using OmenTools.Extensions;
+using OmenTools.Info.Game.Data;
 using OmenTools.Info.Lumina;
 using OmenTools.Interop.Game.AddonEvent;
 using OmenTools.Interop.Game.AgentEvent;
@@ -31,6 +32,7 @@ public sealed unsafe class AutoLogin(
     System.Action saveConfig) : ModuleBase
 {
     private const int CHARACTER_SELECT_TIMEOUT_MS = 30_000;
+    private const int LOBBY_TRAVEL_SETTLE_DELAY_MS = 2_500;
 
     public override ModuleInfo Info { get; } = new()
     {
@@ -53,6 +55,7 @@ public sealed unsafe class AutoLogin(
     private AddonEventRegistry? addonEvents;
     private AutoLoginTarget? manualTarget;
     private bool suspendedUntilLogin;
+    private bool crossDataCenterTravelInProgress;
 
     public void SuspendUntilNextLogin()
     {
@@ -61,7 +64,17 @@ public sealed unsafe class AutoLogin(
         manualTarget = null;
     }
 
-    private void OnLogin() => suspendedUntilLogin = false;
+    public void BeginCrossDataCenterTravel()
+    {
+        crossDataCenterTravelInProgress = true;
+        SuspendUntilNextLogin();
+    }
+
+    private void OnLogin()
+    {
+        crossDataCenterTravelInProgress = false;
+        suspendedUntilLogin = false;
+    }
 
     public bool TryRelog(AutoLoginTarget target)
     {
@@ -287,6 +300,7 @@ public sealed unsafe class AutoLogin(
         tasks.TimeoutAction = () => manualTarget = null;
         DService.Instance().ClientState.Login += OnLogin;
         addonEvents = new(DalamudServices.AddonLifecycle);
+        addonEvents.Register(AddonEvent.PostSetup, "LobbyDKT", OnLobbyTravel);
         addonEvents.Register(AddonEvent.PostSetup, "_TitleMenu", OnTitleMenu);
         OnTitleMenu(AddonEvent.PostSetup, null);
     }
@@ -298,7 +312,7 @@ public sealed unsafe class AutoLogin(
         DService.Instance().ClientState.Login -= OnLogin;
         tasks.Abort();
         manualTarget = null;
-        suspendedUntilLogin = false;
+        crossDataCenterTravelInProgress = false;
     }
 
     protected override bool OnInterruptAutomation()
@@ -308,8 +322,7 @@ public sealed unsafe class AutoLogin(
             return false;
         }
 
-        tasks.Abort();
-        manualTarget = null;
+        SuspendUntilNextLogin();
         return true;
     }
 
@@ -318,11 +331,18 @@ public sealed unsafe class AutoLogin(
         tasks.Dispose();
     }
 
+    private void OnLobbyTravel(AddonEvent eventType, AddonArgs args) => SuspendUntilNextLogin();
+
     private void OnTitleMenu(AddonEvent eventType, AddonArgs? args)
     {
-        if (suspendedUntilLogin || GameState.IsLoggedIn ||
-            tasks.IsBusy ||
-            !config.Targets.Any(target => target.Enabled))
+        if (suspendedUntilLogin || crossDataCenterTravelInProgress)
+        {
+            return;
+        }
+
+        var lobbyTravelReady = IsLobbyTravelReady();
+        var hasTarget = config.Targets.Any(target => target.Enabled);
+        if (GameState.IsLoggedIn || tasks.IsBusy || lobbyTravelReady || !hasTarget)
         {
             return;
         }
@@ -331,6 +351,18 @@ public sealed unsafe class AutoLogin(
         tasks.Enqueue(
             () =>
             {
+                tasks.DelayNext(LOBBY_TRAVEL_SETTLE_DELAY_MS);
+                return true;
+            },
+            "Wait for lobby travel state");
+        tasks.Enqueue(
+            () =>
+            {
+                if (IsLobbyTravelReady())
+                {
+                    return true;
+                }
+
                 if (GameState.IsLoggedIn)
                 {
                     tasks.Abort();
@@ -352,6 +384,11 @@ public sealed unsafe class AutoLogin(
         tasks.Enqueue(
             () =>
             {
+                if (IsLobbyTravelReady())
+                {
+                    return true;
+                }
+
                 if (!AddonHelper.TryGetByName("_CharaSelectListMenu", out AtkUnitBase* addon) ||
                     !addon->IsAddonAndNodesReady())
                     return false;
@@ -363,6 +400,11 @@ public sealed unsafe class AutoLogin(
         tasks.Enqueue(
             () =>
             {
+                if (IsLobbyTravelReady())
+                {
+                    return true;
+                }
+
                 if (!TryGetLoginTarget(out var target))
                 {
                     return true;
@@ -387,17 +429,40 @@ public sealed unsafe class AutoLogin(
                     var worldID = entry.LoginFlags == CharaSelectCharacterEntryLoginFlags.DCTraveling
                         ? entry.CurrentWorldId
                         : entry.HomeWorldId;
-                    tasks.Enqueue(() => AgentLobbyEvent.SelectWorldByID(worldID), "Select target world");
                     tasks.Enqueue(
                         () =>
                         {
+                            if (IsLobbyTravelReady())
+                            {
+                                return true;
+                            }
+
+                            return AgentLobbyEvent.SelectWorldByID(worldID);
+                        },
+                        "Select target world");
+                    tasks.Enqueue(
+                        () =>
+                        {
+                            if (IsLobbyTravelReady())
+                            {
+                                return true;
+                            }
+
                             var currentAgent = AgentLobby.Instance();
                             return currentAgent != null && currentAgent->WorldId == worldID;
                         },
                         "Wait for target world",
                         timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
                     tasks.Enqueue(
-                        () => AgentLobbyEvent.SelectCharacter(character => character.ContentId == entry.ContentId),
+                        () =>
+                        {
+                            if (IsLobbyTravelReady())
+                            {
+                                return true;
+                            }
+
+                            return AgentLobbyEvent.SelectCharacter(character => character.ContentId == entry.ContentId);
+                        },
                         "Select target character",
                         timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
                     tasks.Enqueue(
@@ -419,6 +484,18 @@ public sealed unsafe class AutoLogin(
             },
             "Select target character",
             timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
+    }
+
+    private bool IsLobbyTravelReady()
+    {
+        if (suspendedUntilLogin)
+            return true;
+
+        if (!Addons.LobbyDKT->IsAddonAndNodesReady())
+            return false;
+
+        SuspendUntilNextLogin();
+        return true;
     }
 
     private bool TryAddTarget()
