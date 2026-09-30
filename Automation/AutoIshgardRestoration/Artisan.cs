@@ -123,21 +123,10 @@ public sealed partial class AutoIshgardRestoration
             return;
         }
 
-        try
+        if (getStopRequest?.InvokeFunc() != true)
         {
-            if (getStopRequest?.InvokeFunc() != true)
-            {
-                setStopRequest?.InvokeAction(true);
-            }
+            setStopRequest?.InvokeAction(true);
         }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Warning(ex, "AutoIshgardRestoration: failed to stop owned Artisan production.");
-            lastError = $"停止 Artisan 失败：{ex.Message}";
-        }
-        finally
-        {
-            artisanStartedByModule = false;
-        }
+        artisanStartedByModule = false;
     }
 }

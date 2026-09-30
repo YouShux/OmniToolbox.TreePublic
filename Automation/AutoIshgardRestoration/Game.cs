@@ -240,25 +240,7 @@ public sealed partial class AutoIshgardRestoration
 
     private static bool TrySendCommand(string command)
     {
-        try
-        {
-            return OmenTools.DService.Instance().Command.ProcessCommand(command);
-        }
-        catch (Exception ex)
-        {
-            // Command routing can be called by the alias before the game host has
-            // finished initializing. Do not let logging turn a failed dispatch into
-            // an unhandled exception in that window.
-            try
-            {
-                DalamudServices.PluginLog?.Warning(ex, "AutoIshgardRestoration: failed to send command.");
-            }
-            catch
-            {
-                // The return value is the only useful result before host startup.
-            }
-            return false;
-        }
+        return OmenTools.DService.Instance().Command.ProcessCommand(command);
     }
 
     private static string FormatPosition(Vector3 position) =>

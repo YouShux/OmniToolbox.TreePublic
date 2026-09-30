@@ -69,32 +69,33 @@ public sealed partial class AutoIshgardRestoration
 
     private string scripCatalogError = string.Empty;
 
+    private bool scripCatalogAttempted;
+
     private bool scripCatalogLoaded;
 
     private sealed record ScripProduct(uint ShopID, uint ItemID, string Name, int Price, int StackSize, bool Unique);
 
     private void EnsureScripCatalog()
     {
-        if (scripCatalogLoaded) return;
-        try
+        if (scripCatalogLoaded || scripCatalogAttempted) return;
+        scripCatalogAttempted = true;
+
+        var products = new List<ScripProduct>();
+        foreach (var id in ScripShopIDs)
         {
-            var products = new List<ScripProduct>();
-            foreach (var id in ScripShopIDs)
+            if (!LuminaGetter.TryGetRow<SpecialShop>(id, out var shop))
             {
-                if (!LuminaGetter.TryGetRow<SpecialShop>(id, out var shop))
-                    throw new InvalidOperationException("无法读取振兴票商店数据。");
-                products.AddRange(ReadScripProducts(shop, itemID => LuminaGetter.GetRow<Item>(itemID)));
+                scripCatalogError = "振兴票商品数据暂不可用，请重新打开模块后重试。";
+                return;
             }
 
-            scripProducts.AddRange(products.OrderBy(x => x.ShopID).ThenBy(x => x.Name));
-            scripCatalogLoaded = true;
-            scripCatalogError = string.Empty;
+            products.AddRange(ReadScripProducts(shop, itemID =>
+                LuminaGetter.TryGetRow<Item>(itemID, out var item) ? item : null));
         }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Warning(ex, "AutoIshgardRestoration: failed to load scrip products.");
-            scripCatalogError = "振兴票商品数据暂不可用，请重新打开模块后重试。";
-        }
+
+        scripProducts.AddRange(products.OrderBy(x => x.ShopID).ThenBy(x => x.Name));
+        scripCatalogLoaded = true;
+        scripCatalogError = string.Empty;
     }
 
     private static List<ScripProduct> ReadScripProducts(SpecialShop shop, Func<uint, Item?> getItem)

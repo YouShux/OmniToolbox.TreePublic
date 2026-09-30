@@ -109,16 +109,8 @@ public sealed partial class AutoIshgardRestoration
             38f + (Random.Shared.NextSingle() * 9f),
             -16f,
             162f + (Random.Shared.NextSingle() * 14f));
-        try
-        {
-            vnavmeshIPC.PathfindAndMoveTo(initialDestination, false);
-            vnavPathStartedByModule = true;
-        }
-        catch (Exception ex)
-        {
-            FailAutomation($"无法执行初始导航：{ex.Message}");
-            return;
-        }
+        vnavmeshIPC.PathfindAndMoveTo(initialDestination, false);
+        vnavPathStartedByModule = true;
         EnterPhase(AutomationPhase.MoveToInitialPoint);
         nextActionAt = DateTime.UtcNow.AddSeconds(5);
         status = $"正在前往随机生产点：{FormatPosition(initialDestination)}";
@@ -148,16 +140,8 @@ public sealed partial class AutoIshgardRestoration
 
         if (!vnavmeshIPC.GetIsPathfindRunning() && DateTime.UtcNow >= nextActionAt)
         {
-            try
-            {
-                vnavmeshIPC.PathfindAndMoveTo(initialDestination, false);
-                vnavPathStartedByModule = true;
-            }
-            catch (Exception ex)
-            {
-                FailAutomation($"无法再次执行初始导航：{ex.Message}");
-                return;
-            }
+            vnavmeshIPC.PathfindAndMoveTo(initialDestination, false);
+            vnavPathStartedByModule = true;
             nextActionAt = DateTime.UtcNow.AddSeconds(5);
         }
 
@@ -175,18 +159,7 @@ public sealed partial class AutoIshgardRestoration
             return;
         }
 
-        try
-        {
-            vnavmeshIPC.StopPathfind();
-        }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Warning(ex, "AutoIshgardRestoration: failed to stop owned navigation.");
-            lastError = $"停止导航失败：{ex.Message}";
-        }
-        finally
-        {
-            vnavPathStartedByModule = false;
-        }
+        vnavmeshIPC.StopPathfind();
+        vnavPathStartedByModule = false;
     }
 }

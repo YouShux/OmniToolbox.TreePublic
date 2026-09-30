@@ -69,6 +69,21 @@ public sealed partial class AutoIshgardRestoration
 
     private int purchasedGeneration = -1;
 
+    private Dictionary<AutomationPhase, Action<ScripProduct>> scripHandlers = [];
+
+    private void EnsureScripHandlers()
+    {
+        if (scripHandlers.Count != 0) return;
+        scripHandlers = new()
+        {
+            [AutomationPhase.PrepareScripPurchase] = DrivePrepareScripPurchase,
+            [AutomationPhase.OpenScripShop] = DriveOpenScripShop,
+            [AutomationPhase.BuyScripItem] = DriveBuyScripItem,
+            [AutomationPhase.VerifyScripPurchase] = DriveVerifyScripPurchase,
+            [AutomationPhase.CloseScripShop] = DriveCloseScripShop
+        };
+    }
+
     private ScripProduct? SelectedScripProduct() => scripProducts.FirstOrDefault(
         x => x.ShopID == config.ScripShopID && x.ItemID == config.ScripItemID);
 
@@ -261,6 +276,7 @@ public sealed partial class AutoIshgardRestoration
 
     private unsafe void DriveScripPurchase()
     {
+        EnsureScripHandlers();
         var services = OmenTools.DService.Instance();
         var product = pendingScripProduct;
         if (product is null || !services.ClientState.IsLoggedIn ||
@@ -279,85 +295,100 @@ public sealed partial class AutoIshgardRestoration
             return;
         }
         if (DateTime.UtcNow < nextActionAt) return;
-        switch (phase)
+        if (scripHandlers.TryGetValue(phase, out var handler))
         {
-            case AutomationPhase.PrepareScripPurchase:
-                CloseAddon("Request");
-                CloseAddon("HWDSupply");
-                if (IsOccupied() || GetAddon("HWDSupply") != null || GetAddon("Request") != null) return;
-                if (!IsPlayerMovable() || IsScripShopActive() || HasScripTransactionDialog()) return;
-                var player = services.ObjectTable.LocalPlayer;
-                if (player is null) return;
-                // Directly start the SpecialShop event without pathfinding or NPC interaction.
-                scripEventOwned = true;
-                var entityID = ((FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)player.Address)->EntityId;
-                new EventStartPackt(entityID, product.ShopID).Send();
-                EnterPhase(AutomationPhase.OpenScripShop);
-                nextActionAt = DateTime.UtcNow.AddMilliseconds(800);
-                status = "正在打开振兴票商店";
-                break;
-            case AutomationPhase.OpenScripShop:
-                if (!IsScripShopActive()) return;
-                EnterPhase(AutomationPhase.BuyScripItem);
-                nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
-                break;
-            case AutomationPhase.BuyScripItem:
-                if (HasScripTransactionDialog()) return;
-                var agent = AgentShop.Instance();
-                if (agent == null || !agent->IsAgentActive() || agent->ItemReceive == null) return;
-                scripSelectedIndex = -1;
-                for (var i = 0; i < agent->ItemReceiveSpan.Length; i++)
-                    if (agent->ItemReceiveSpan[i].ItemId == product.ItemID) { scripSelectedIndex = i; break; }
-                if (scripSelectedIndex < 0) return;
-                scripBatch = Math.Min(Math.Min(scripRemaining, GetScripPurchaseLimit(product)), Math.Min(99, product.StackSize));
-                if (scripBatch <= 0)
-                {
-                    FailAutomation("购买条件已变化，余额或背包空间不足，已停止。");
-                    return;
-                }
-                scripBalanceBefore = ReadSkybuildersScrips();
-                scripItemCountBefore = ReadInventory(product.ItemID).ItemCount;
-                scripQuantitySent = scripConfirmSent = false;
-                // Transition before dispatch: another plugin may confirm synchronously.
-                EnterPhase(AutomationPhase.VerifyScripPurchase);
-                AgentId.Shop.SendEvent(1, 0, scripSelectedIndex, scripBatch, 0);
-                status = $"正在购买：{product.Name} × {scripBatch}";
-                nextActionAt = DateTime.UtcNow.AddMilliseconds(400);
-                break;
-            case AutomationPhase.VerifyScripPurchase:
-                if (ScripPurchaseApplied(scripBalanceBefore, ReadSkybuildersScrips(), scripItemCountBefore,
-                        ReadInventory(product.ItemID).ItemCount, product.Price, scripBatch))
-                {
-                    scripPurchased += scripBatch;
-                    scripRemaining -= scripBatch;
-                    EnterPhase(scripRemaining > 0 ? AutomationPhase.BuyScripItem : AutomationPhase.CloseScripShop);
-                    nextActionAt = DateTime.UtcNow.AddMilliseconds(800);
-                    status = $"已购买：{product.Name} × {scripPurchased}";
-                    return;
-                }
-                ConfirmScripPurchase(product);
-                break;
-            case AutomationPhase.CloseScripShop:
-                EndScripEvent();
-                if (IsScripShopActive() || IsOccupied() || HasScripTransactionDialog() || GetAddon("ShopExchangeCurrency") != null) return;
-                pendingScripProduct = null;
-                scripEventOwned = false;
-                var recipe = FindRecipe(activeRecipeID);
-                if (recipe is null) { FailAutomation("生产配置已变化，请重新启动。"); return; }
-                if (scripVouchersBefore >= config.TicketThreshold)
-                {
-                    ticketsToPlay = scripVouchersBefore;
-                    EnterPhase(AutomationPhase.MoveToLottery);
-                    status = "购买完成，继续库啵好运道";
-                }
-                else if (ReadInventory(activeItemID).ItemCount > 0 || scripVouchersBefore < 0)
-                {
-                    EnterPhase(AutomationPhase.MoveToAppraiser);
-                    status = "购买完成，继续提交物品";
-                }
-                else BeginNextCraftingCycle("振兴票购买完成");
-                break;
+            handler(product);
         }
+    }
+
+    private unsafe void DrivePrepareScripPurchase(ScripProduct product)
+    {
+        CloseAddon("Request");
+        CloseAddon("HWDSupply");
+        if (IsOccupied() || GetAddon("HWDSupply") != null || GetAddon("Request") != null) return;
+        if (!IsPlayerMovable() || IsScripShopActive() || HasScripTransactionDialog()) return;
+        var player = OmenTools.DService.Instance().ObjectTable.LocalPlayer;
+        if (player is null) return;
+        scripEventOwned = true;
+        var entityID = ((FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject*)player.Address)->EntityId;
+        new EventStartPackt(entityID, product.ShopID).Send();
+        EnterPhase(AutomationPhase.OpenScripShop);
+        nextActionAt = DateTime.UtcNow.AddMilliseconds(800);
+        status = "正在打开振兴票商店";
+    }
+
+    private void DriveOpenScripShop(ScripProduct product)
+    {
+        if (!IsScripShopActive()) return;
+        EnterPhase(AutomationPhase.BuyScripItem);
+        nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
+    }
+
+    private unsafe void DriveBuyScripItem(ScripProduct product)
+    {
+        if (HasScripTransactionDialog()) return;
+        var agent = AgentShop.Instance();
+        if (agent == null || !agent->IsAgentActive() || agent->ItemReceive == null) return;
+        scripSelectedIndex = -1;
+        for (var i = 0; i < agent->ItemReceiveSpan.Length; i++)
+        {
+            if (agent->ItemReceiveSpan[i].ItemId == product.ItemID)
+            {
+                scripSelectedIndex = i;
+                break;
+            }
+        }
+        if (scripSelectedIndex < 0) return;
+        scripBatch = Math.Min(Math.Min(scripRemaining, GetScripPurchaseLimit(product)), Math.Min(99, product.StackSize));
+        if (scripBatch <= 0)
+        {
+            FailAutomation("购买条件已变化，余额或背包空间不足，已停止。");
+            return;
+        }
+        scripBalanceBefore = ReadSkybuildersScrips();
+        scripItemCountBefore = ReadInventory(product.ItemID).ItemCount;
+        scripQuantitySent = scripConfirmSent = false;
+        EnterPhase(AutomationPhase.VerifyScripPurchase);
+        AgentId.Shop.SendEvent(1, 0, scripSelectedIndex, scripBatch, 0);
+        status = $"正在购买：{product.Name} × {scripBatch}";
+        nextActionAt = DateTime.UtcNow.AddMilliseconds(400);
+    }
+
+    private void DriveVerifyScripPurchase(ScripProduct product)
+    {
+        if (ScripPurchaseApplied(scripBalanceBefore, ReadSkybuildersScrips(), scripItemCountBefore,
+                ReadInventory(product.ItemID).ItemCount, product.Price, scripBatch))
+        {
+            scripPurchased += scripBatch;
+            scripRemaining -= scripBatch;
+            EnterPhase(scripRemaining > 0 ? AutomationPhase.BuyScripItem : AutomationPhase.CloseScripShop);
+            nextActionAt = DateTime.UtcNow.AddMilliseconds(800);
+            status = $"已购买：{product.Name} × {scripPurchased}";
+            return;
+        }
+        ConfirmScripPurchase(product);
+    }
+
+    private unsafe void DriveCloseScripShop(ScripProduct product)
+    {
+        EndScripEvent();
+        if (IsScripShopActive() || IsOccupied() || HasScripTransactionDialog() || GetAddon("ShopExchangeCurrency") != null) return;
+        pendingScripProduct = null;
+        scripEventOwned = false;
+        var recipe = FindRecipe(activeRecipeID);
+        if (recipe is null) { FailAutomation("生产配置已变化，请重新启动。"); return; }
+        if (scripVouchersBefore >= config.TicketThreshold)
+        {
+            ticketsToPlay = scripVouchersBefore;
+            EnterPhase(AutomationPhase.MoveToLottery);
+            status = "购买完成，继续库啵好运道";
+        }
+        else if (ReadInventory(activeItemID).ItemCount > 0 || scripVouchersBefore < 0)
+        {
+            EnterPhase(AutomationPhase.MoveToAppraiser);
+            status = "购买完成，继续提交物品";
+        }
+        else BeginNextCraftingCycle("振兴票购买完成");
     }
 
     private static bool ScripPurchaseApplied(uint beforeBalance, uint nowBalance, int beforeItems, int nowItems, int price, int quantity) =>
@@ -403,12 +434,7 @@ public sealed partial class AutoIshgardRestoration
     {
         if (scripEventOwned)
         {
-            try { EndScripEvent(); }
-            catch (Exception ex)
-            {
-                // Log cleanup failures without retrying the purchase or hiding the original error.
-                DalamudServices.PluginLog.Warning(ex, "AutoIshgardRestoration: failed to close owned scrip shop event.");
-            }
+            EndScripEvent();
         }
         scripEventOwned = false;
         pendingScripProduct = null;

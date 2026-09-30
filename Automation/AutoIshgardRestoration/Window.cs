@@ -92,91 +92,87 @@ public sealed partial class AutoIshgardRestoration
             return;
         }
 
-        try
+        DrawWindowContents(ImGui.GetWindowPos(), ImGui.GetWindowSize());
+        ImGui.End();
+    }
+
+    private void DrawWindowContents(Vector2 windowPosition, Vector2 windowSize)
+    {
+        var framePosition = windowCollapsed
+            ? windowPosition + new Vector2(OmniTheme.CollapsedHeaderSafeInset(), OmniTheme.CollapsedHeaderTop())
+            : windowPosition + new Vector2(OmniTheme.ChromeFrameInset());
+        var frameSize = windowCollapsed
+            ? new Vector2(
+                MathF.Max(1f, windowSize.X - OmniTheme.CollapsedHeaderSafeInset() * 2f),
+                OmniTheme.TitleBarHeight())
+            : windowSize - new Vector2(OmniTheme.ChromeFrameInset() * 2f);
+        var chrome = OmniWindowChrome.Draw(
+            framePosition,
+            frameSize,
+            windowCollapsed,
+            "自动重建伊修加德",
+            "##collapseAutoIshgardRestoration",
+            "##closeAutoIshgardRestoration");
+        if (chrome.ToggleCollapse)
         {
-            var windowPosition = ImGui.GetWindowPos();
-            var windowSize = ImGui.GetWindowSize();
-            var framePosition = windowCollapsed
-                ? windowPosition + new Vector2(OmniTheme.CollapsedHeaderSafeInset(), OmniTheme.CollapsedHeaderTop())
-                : windowPosition + new Vector2(OmniTheme.ChromeFrameInset());
-            var frameSize = windowCollapsed
-                ? new Vector2(
-                    MathF.Max(1f, windowSize.X - OmniTheme.CollapsedHeaderSafeInset() * 2f),
-                    OmniTheme.TitleBarHeight())
-                : windowSize - new Vector2(OmniTheme.ChromeFrameInset() * 2f);
-            var chrome = OmniWindowChrome.Draw(
-                framePosition,
-                frameSize,
-                windowCollapsed,
-                "自动重建伊修加德",
-                "##collapseAutoIshgardRestoration",
-                "##closeAutoIshgardRestoration");
-            if (chrome.ToggleCollapse)
-            {
-                windowCollapsed = !windowCollapsed;
-                windowSizePending = true;
-            }
-
-            if (chrome.CloseClicked)
-            {
-                windowOpen = false;
-            }
-
-            if (!windowOpen || windowCollapsed || chrome.ToggleCollapse)
-            {
-                return;
-            }
-
-            var contentPosition = framePosition + new Vector2(
-                OmniTheme.WindowInset(),
-                OmniTheme.TitleBarHeight() + OmniTheme.WindowInset());
-            var contentSize = new Vector2(
-                MathF.Max(1f, frameSize.X - OmniTheme.WindowInset() * 2f),
-                MathF.Max(
-                    1f,
-                    frameSize.Y - OmniTheme.TitleBarHeight() - OmniTheme.WindowInset() * 2f));
-            ImGui.SetCursorScreenPos(contentPosition);
-            if (!windowExpanded)
-            {
-                DrawWindowActionRow("展开", contentSize.X, () => { windowExpanded = true; windowSizePending = true; });
-                if (!string.IsNullOrWhiteSpace(lastError))
-                {
-                    ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + contentSize.X);
-                    ImGui.TextUnformatted($"错误：{lastError}");
-                    ImGui.PopTextWrapPos();
-                }
-
-                return;
-            }
-
-            ImGui.PushStyleColor(ImGuiCol.ChildBg, Vector4.Zero);
-            ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
-            try
-            {
-                using var content = ImRaii.Child(
-                    "##autoIshgardWindowContent",
-                    contentSize,
-                    false,
-                    ImGuiWindowFlags.None);
-                if (!content)
-                {
-                    return;
-                }
-
-                if (DrawConfigurationContents())
-                {
-                    SaveConfiguration();
-                }
-            }
-            finally
-            {
-                ImGui.PopStyleVar();
-                ImGui.PopStyleColor();
-            }
+            windowCollapsed = !windowCollapsed;
+            windowSizePending = true;
         }
-        finally
+
+        if (chrome.CloseClicked)
         {
-            ImGui.End();
+            windowOpen = false;
+        }
+
+        if (!windowOpen || windowCollapsed || chrome.ToggleCollapse)
+        {
+            return;
+        }
+
+        var contentPosition = framePosition + new Vector2(
+            OmniTheme.WindowInset(),
+            OmniTheme.TitleBarHeight() + OmniTheme.WindowInset());
+        var contentSize = new Vector2(
+            MathF.Max(1f, frameSize.X - OmniTheme.WindowInset() * 2f),
+            MathF.Max(
+                1f,
+                frameSize.Y - OmniTheme.TitleBarHeight() - OmniTheme.WindowInset() * 2f));
+        ImGui.SetCursorScreenPos(contentPosition);
+        if (!windowExpanded)
+        {
+            DrawWindowActionRow("展开", contentSize.X, () => { windowExpanded = true; windowSizePending = true; });
+            if (!string.IsNullOrWhiteSpace(lastError))
+            {
+                ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + contentSize.X);
+                ImGui.TextUnformatted($"错误：{lastError}");
+                ImGui.PopTextWrapPos();
+            }
+
+            return;
+        }
+
+        ImGui.PushStyleColor(ImGuiCol.ChildBg, Vector4.Zero);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
+        DrawExpandedConfiguration(contentSize);
+        ImGui.PopStyleVar();
+        ImGui.PopStyleColor();
+    }
+
+    private void DrawExpandedConfiguration(Vector2 contentSize)
+    {
+        using var content = ImRaii.Child(
+            "##autoIshgardWindowContent",
+            contentSize,
+            false,
+            ImGuiWindowFlags.None);
+        if (!content)
+        {
+            return;
+        }
+
+        if (DrawConfigurationContents())
+        {
+            SaveConfiguration();
         }
     }
 

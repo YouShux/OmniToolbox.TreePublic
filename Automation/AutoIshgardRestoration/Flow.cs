@@ -92,40 +92,34 @@ public sealed partial class AutoIshgardRestoration
             return;
         }
 
-        try
+        if (artisanIsBusy?.InvokeFunc() == true)
         {
-            if (artisanIsBusy?.InvokeFunc() == true)
+            Fail("Artisan 正在执行其他任务。");
+            return;
+        }
+
+        running = true;
+        turnInGeneration = 0;
+        purchasedGeneration = -1;
+        activeRecipeID = recipe.Value.RecipeID;
+        activeItemID = recipe.Value.ItemID;
+        nextCheckAt = DateTime.UtcNow;
+
+        if (OmenTools.DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
+        {
+            if (!TrySendCommand(FIRMAMENT_TELEPORT_COMMAND))
             {
-                Fail("Artisan 正在执行其他任务。");
+                FailAutomation("无法执行传送指令 /omni bts 无名众人广场。");
                 return;
             }
 
-            running = true;
-            turnInGeneration = 0;
-            purchasedGeneration = -1;
-            activeRecipeID = recipe.Value.RecipeID;
-            activeItemID = recipe.Value.ItemID;
-            nextCheckAt = DateTime.UtcNow;
-
-            if (OmenTools.DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
-            {
-                if (!TrySendCommand(FIRMAMENT_TELEPORT_COMMAND))
-                {
-                    FailAutomation("无法执行传送指令 /omni bts 无名众人广场。");
-                    return;
-                }
-
-                EnterPhase(AutomationPhase.WaitForFirmament);
-                status = "正在前往无名众人广场，等待进入天穹街（区域 886）";
-                return;
-            }
-
-            StartCraftingCycle(recipe.Value, "开始");
+            EnterPhase(AutomationPhase.WaitForFirmament);
+            status = "正在前往无名众人广场，等待进入天穹街（区域 886）";
+            return;
         }
-        catch (Exception ex)
-        {
-            FailAutomation($"无法启动自动流程：{ex.Message}");
-        }
+
+        EnterPhase(AutomationPhase.WaitForPlayerMovable);
+        status = "已在天穹街，等待玩家连续可动 1 秒";
     }
 
     private void StopProduction(string reason)
@@ -160,12 +154,8 @@ public sealed partial class AutoIshgardRestoration
                 return;
             }
 
-            try
-            {
-                InitializeArtisan();
-                StartProduction();
-            }
-            catch (Exception ex) { FailAutomation($"无法启动自动流程：{ex.Message}"); }
+            InitializeArtisan();
+            StartProduction();
             return;
         }
         if (!running || DateTime.UtcNow < nextCheckAt)
@@ -174,144 +164,115 @@ public sealed partial class AutoIshgardRestoration
         }
 
         nextCheckAt = DateTime.UtcNow.AddMilliseconds(100);
-        try
+        UpdateVoucherCount(DateTime.UtcNow);
+        if (IsScripPurchasePhase())
         {
-            UpdateVoucherCount(DateTime.UtcNow);
-            if (IsScripPurchasePhase())
-            {
-                DriveScripPurchase();
-                return;
-            }
-
-            var activeRecipe = FindRecipe(activeRecipeID);
-            if (activeRecipe is null || activeRecipe.Value.ItemID != activeItemID)
-            {
-                StopProduction("运行数据无效，已停止");
-                return;
-            }
-
-            DriveAutomation(activeRecipe.Value);
+            DriveScripPurchase();
+            return;
         }
-        catch (Exception ex)
+
+        var activeRecipe = FindRecipe(activeRecipeID);
+        if (activeRecipe is null || activeRecipe.Value.ItemID != activeItemID)
         {
-            FailAutomation($"监控异常：{ex.Message}");
+            StopProduction("运行数据无效，已停止");
+            return;
         }
+
+        DriveAutomation(activeRecipe.Value);
+    }
+
+    private Dictionary<AutomationPhase, Action<RecipeOption>> automationHandlers = [];
+
+    private void EnsureAutomationHandlers()
+    {
+        if (automationHandlers.Count != 0) return;
+        automationHandlers = new()
+        {
+            [AutomationPhase.WaitForFirmament] = _ => DriveWaitForFirmament(),
+            [AutomationPhase.WaitForPlayerMovable] = _ => DriveWaitForPlayerMovable(),
+            [AutomationPhase.MoveToInitialPoint] = DriveMoveToInitialPoint,
+            [AutomationPhase.WaitArtisanStart] = DriveWaitArtisanStart,
+            [AutomationPhase.Crafting] = DriveCrafting,
+            [AutomationPhase.WaitArtisanStop] = _ => DriveWaitArtisanStop(),
+            [AutomationPhase.MoveToAppraiser] = _ => DriveStartNPCEvent(
+                [APPRAISER_NPC_ID_1, APPRAISER_NPC_ID_2], AutomationPhase.OpenAppraiser, "提交NPC"),
+            [AutomationPhase.OpenAppraiser] = _ => DriveOpenAppraiser(),
+            [AutomationPhase.SelectJob] = DriveSelectJob,
+            [AutomationPhase.SelectItem] = DriveSelectItem,
+            [AutomationPhase.FillRequest] = _ => DriveFillRequest(),
+            [AutomationPhase.WaitTurnIn] = DriveWaitTurnIn,
+            [AutomationPhase.WaitSupplyRefresh] = DriveWaitSupplyRefresh,
+            [AutomationPhase.MoveToLottery] = _ => DriveStartNPCEvent(
+                [LOTTERY_NPC_ID], AutomationPhase.OpenLottery, "库啵好运道NPC"),
+            [AutomationPhase.OpenLottery] = _ => DriveOpenLottery(),
+            [AutomationPhase.PlayLottery] = _ => DrivePlayLottery(),
+            [AutomationPhase.PostLottery] = DrivePostLottery,
+            [AutomationPhase.PrepareNextCycle] = DrivePrepareNextCycle
+        };
     }
 
     private void DriveAutomation(RecipeOption recipe)
     {
-        switch (phase)
+        EnsureAutomationHandlers();
+        if (automationHandlers.TryGetValue(phase, out var handler))
         {
-            case AutomationPhase.WaitForFirmament:
-                DriveWaitForFirmament();
-                break;
-            case AutomationPhase.WaitForPlayerMovable:
-                DriveWaitForPlayerMovable();
-                break;
-            case AutomationPhase.MoveToInitialPoint:
-                DriveMoveToInitialPoint(recipe);
-                break;
-            case AutomationPhase.WaitArtisanStart:
-            {
-                var snapshot = ReadInventory(activeItemID);
-                if (ShouldStop(snapshot, out var reason))
-                {
-                    RequestArtisanStop();
-                    EnterPhase(AutomationPhase.WaitArtisanStop);
-                    status = $"{reason}；等待 Artisan 停止";
-                }
-                else if (artisanIsBusy?.InvokeFunc() == true)
-                {
-                    EnterPhase(AutomationPhase.Crafting);
-                    status = $"Artisan 生产中：{recipe.ItemName}";
-                }
-                else if (PhaseTimedOut(TimeSpan.FromSeconds(15)))
-                {
-                    artisanStartedByModule = false;
-                    if (snapshot.ItemCount > craftCycleStartingItemCount)
-                    {
-                        BeginSubmission("Artisan 已完成本轮生产");
-                    }
-                    else
-                    {
-                        CompleteAutomation($"无法继续制作 {recipe.ItemName}，可能缺少材料或不满足制作条件");
-                    }
-                }
+            handler(recipe);
+        }
+    }
 
-                break;
-            }
-            case AutomationPhase.Crafting:
-            {
-                var snapshot = ReadInventory(activeItemID);
-                if (ShouldStop(snapshot, out var reason))
-                {
-                    RequestArtisanStop();
-                    EnterPhase(AutomationPhase.WaitArtisanStop);
-                    status = $"{reason}；等待 Artisan 停止";
-                }
-                else if (artisanIsBusy?.InvokeFunc() == false)
-                {
-                    artisanStartedByModule = false;
-                    if (snapshot.ItemCount > craftCycleStartingItemCount)
-                    {
-                        BeginSubmission("Artisan 已结束本轮生产");
-                    }
-                    else
-                    {
-                        CompleteAutomation($"无法继续制作 {recipe.ItemName}，可能缺少材料或不满足制作条件");
-                    }
-                }
+    private void DriveWaitArtisanStart(RecipeOption recipe)
+    {
+        var snapshot = ReadInventory(activeItemID);
+        if (ShouldStop(snapshot, out var reason))
+        {
+            RequestArtisanStop();
+            EnterPhase(AutomationPhase.WaitArtisanStop);
+            status = $"{reason}；等待 Artisan 停止";
+        }
+        else if (artisanIsBusy?.InvokeFunc() == true)
+        {
+            EnterPhase(AutomationPhase.Crafting);
+            status = $"Artisan 生产中：{recipe.ItemName}";
+        }
+        else if (PhaseTimedOut(TimeSpan.FromSeconds(15)))
+        {
+            artisanStartedByModule = false;
+            if (snapshot.ItemCount > craftCycleStartingItemCount)
+                BeginSubmission("Artisan 已完成本轮生产");
+            else
+                CompleteAutomation($"无法继续制作 {recipe.ItemName}，可能缺少材料或不满足制作条件");
+        }
+    }
 
-                break;
-            }
-            case AutomationPhase.WaitArtisanStop:
-                if (artisanIsBusy?.InvokeFunc() == false)
-                {
-                    artisanStartedByModule = false;
-                    BeginSubmission("Artisan 已停止");
-                }
-                else if (PhaseTimedOut(TimeSpan.FromSeconds(30)))
-                {
-                    FailAutomation("等待 Artisan 停止超时。");
-                }
-                break;
-            case AutomationPhase.MoveToAppraiser:
-                DriveStartNPCEvent([APPRAISER_NPC_ID_1, APPRAISER_NPC_ID_2],
-                    AutomationPhase.OpenAppraiser, "提交NPC");
-                break;
-            case AutomationPhase.OpenAppraiser:
-                DriveOpenAppraiser();
-                break;
-            case AutomationPhase.SelectJob:
-                DriveSelectJob(recipe);
-                break;
-            case AutomationPhase.SelectItem:
-                DriveSelectItem(recipe);
-                break;
-            case AutomationPhase.FillRequest:
-                DriveFillRequest();
-                break;
-            case AutomationPhase.WaitTurnIn:
-                DriveWaitTurnIn(recipe);
-                break;
-            case AutomationPhase.WaitSupplyRefresh:
-                DriveWaitSupplyRefresh(recipe);
-                break;
-            case AutomationPhase.MoveToLottery:
-                DriveStartNPCEvent([LOTTERY_NPC_ID], AutomationPhase.OpenLottery, "库啵好运道NPC");
-                break;
-            case AutomationPhase.OpenLottery:
-                DriveOpenLottery();
-                break;
-            case AutomationPhase.PlayLottery:
-                DrivePlayLottery();
-                break;
-            case AutomationPhase.PostLottery:
-                DrivePostLottery(recipe);
-                break;
-            case AutomationPhase.PrepareNextCycle:
-                DrivePrepareNextCycle(recipe);
-                break;
+    private void DriveCrafting(RecipeOption recipe)
+    {
+        var snapshot = ReadInventory(activeItemID);
+        if (ShouldStop(snapshot, out var reason))
+        {
+            RequestArtisanStop();
+            EnterPhase(AutomationPhase.WaitArtisanStop);
+            status = $"{reason}；等待 Artisan 停止";
+        }
+        else if (artisanIsBusy?.InvokeFunc() == false)
+        {
+            artisanStartedByModule = false;
+            if (snapshot.ItemCount > craftCycleStartingItemCount)
+                BeginSubmission("Artisan 已结束本轮生产");
+            else
+                CompleteAutomation($"无法继续制作 {recipe.ItemName}，可能缺少材料或不满足制作条件");
+        }
+    }
+
+    private void DriveWaitArtisanStop()
+    {
+        if (artisanIsBusy?.InvokeFunc() == false)
+        {
+            artisanStartedByModule = false;
+            BeginSubmission("Artisan 已停止");
+        }
+        else if (PhaseTimedOut(TimeSpan.FromSeconds(30)))
+        {
+            FailAutomation("等待 Artisan 停止超时。");
         }
     }
 

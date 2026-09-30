@@ -73,6 +73,8 @@ public sealed partial class AutoIshgardRestoration : ModuleBase
 
     public override bool HasSettings => true;
 
+    public AutoIshgardRestoration() : this(true) { }
+
     public AutoIshgardRestoration(AutoIshgardRestorationConfig config) : this(true)
     {
         this.config = config;
@@ -96,23 +98,11 @@ public sealed partial class AutoIshgardRestoration : ModuleBase
 
     private bool SaveConfiguration()
     {
-        try
-        {
-            // Module assemblies are loaded separately from Common, so use the
-            // callback that the host injects instead of keeping another config store.
-            var save = typeof(ModuleBase).GetProperty("SaveHostConfig",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                ?.GetValue(this) as System.Action;
-            if (save is null) throw new InvalidOperationException("宿主尚未提供配置保存接口。");
-            save();
-            return true;
-        }
-        catch (Exception ex)
-        {
-            lastError = "配置保存失败，请勿退出，并检查日志。";
-            DalamudServices.PluginLog.Warning(ex, "AutoIshgardRestoration: failed to save host configuration.");
-            return false;
-        }
+        var save = typeof(ModuleBase).GetProperty("SaveHostConfig",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+            ?.GetValue(this) as System.Action;
+        save?.Invoke();
+        return save is not null;
     }
 
     protected override void OnEnable()
@@ -158,35 +148,29 @@ public sealed partial class AutoIshgardRestoration : ModuleBase
     {
         UnregisterCommands();
         commandManager = manager;
-        try
+        Prepare(OPEN_COMMAND);
+        Prepare(TOGGLE_COMMAND);
+        Register(OPEN_COMMAND, "打开自动重建伊修加德窗口");
+        Register(TOGGLE_COMMAND, "控制重建伊修加德自动化流程");
+
+        void Prepare(string name)
         {
-            Register(OPEN_COMMAND, "打开自动重建伊修加德窗口");
-            Register(TOGGLE_COMMAND, "控制重建伊修加德自动化流程");
-        }
-        catch
-        {
-            UnregisterCommands();
-            throw;
+            if (!manager.SubCommands.TryGetValue(name, out var existing)) return;
+            var handler = existing.GetType().GetProperty("Handler")?.GetValue(existing) as Delegate;
+            var targetType = handler?.Target?.GetType();
+            if (targetType is not null &&
+                targetType.FullName == typeof(AutoIshgardRestoration).FullName &&
+                targetType.Assembly.GetName().Name == typeof(AutoIshgardRestoration).Assembly.GetName().Name)
+            {
+                manager.RemoveSubCommand(name);
+                return;
+            }
+
+            throw new InvalidOperationException($"无法注册 /omni {name}：该命令已被占用。");
         }
 
         void Register(string name, string description)
         {
-            // TreeHouse hot-reload can construct the replacement instance before
-            // the old instance has had a chance to unregister its handlers. Only
-            // reclaim a handler whose delegate still targets this module type;
-            // a command owned by another module remains a real conflict.
-            if (manager.SubCommands.TryGetValue(name, out var existing))
-            {
-                var handler = existing.GetType().GetProperty("Handler")?.GetValue(existing) as Delegate;
-                var targetType = handler?.Target?.GetType();
-                if (targetType is not null &&
-                    targetType.FullName == typeof(AutoIshgardRestoration).FullName &&
-                    targetType.Assembly.GetName().Name == typeof(AutoIshgardRestoration).Assembly.GetName().Name)
-                {
-                    manager.RemoveSubCommand(name);
-                }
-            }
-
             var info = new CommandInfo(OnRegisteredCommand) { HelpMessage = description };
             if (!manager.AddSubCommand(name, info))
             {
@@ -296,4 +280,28 @@ public sealed partial class AutoIshgardRestoration : ModuleBase
         SaveConfiguration();
         return true;
     }
+}
+
+public sealed class AutoIshgardRestorationConfig
+{
+    [JsonPropertyName("SelectedRecipeId")]
+    public uint SelectedRecipeID { get; set; }
+
+    public int StopMode { get; set; }
+
+    public int MinimumFreeSlots { get; set; } = 10;
+
+    public int TargetItemCount { get; set; } = 30;
+
+    public int TicketThreshold { get; set; } = 5;
+
+    public bool AutoBuyScrips { get; set; }
+
+    public int ScripThreshold { get; set; } = 9000;
+
+    public uint ScripShopID { get; set; }
+
+    public uint ScripItemID { get; set; }
+
+    public int ScripQuantity { get; set; } = 1;
 }
