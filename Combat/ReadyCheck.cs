@@ -713,23 +713,29 @@ internal static class ReadyCheckPanel
         var changed = DrawClearSettings(config);
         ImGui.Spacing();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ReadyCheck.IconSettings"));
-        using var table = ImRaii.Table(
+        var listWidth = MathF.Max(ImGui.CalcTextSize(OmniLoc.Get("Feature.ReadyCheck.PartyList")).X,
+            MathF.Max(ImGui.CalcTextSize(OmniLoc.Get("Feature.ReadyCheck.AllianceList")).X,
+                ImGui.CalcTextSize(OmniLoc.Get("Feature.ReadyCheck.CrossWorldAllianceList")).X));
+        var offsetWidth = OmniControls.MeasureInput("-100").X * 2f + ImGui.GetStyle().ItemInnerSpacing.X;
+        var scaleWidth = OmniControls.MeasureFloatInput(5f, "%.2f").X;
+        using var table = OmniControls.DataTable(
             "##readyCheckIconSettings",
-            3,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [OmniLoc.Get("Feature.ReadyCheck.List"), OmniLoc.Get("Feature.ReadyCheck.Offset"), OmniLoc.Get("Feature.ReadyCheck.Scale")],
+            [listWidth, offsetWidth, scaleWidth], [listWidth, offsetWidth, scaleWidth], out var detailLayout,
+            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
+            secondStretchColumn: 2, size: new Vector2(ImGui.GetContentRegionAvail().X, 0f), stretchColumn: 1);
         if (!table)
         {
             return changed;
         }
 
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.ReadyCheck.List"), ImGuiTableColumnFlags.WidthStretch, 0.8f);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.ReadyCheck.Offset"), ImGuiTableColumnFlags.WidthStretch, 1.5f);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.ReadyCheck.Scale"), ImGuiTableColumnFlags.WidthStretch, 0.8f);
-        OmniControls.BeginTableHeaderRow();
-        OmniControls.TableHeader(OmniLoc.Get("Feature.ReadyCheck.List"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.ReadyCheck.Offset"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.ReadyCheck.Scale"));
+        if (!detailLayout)
+        {
+            OmniControls.BeginTableHeaderRow();
+            OmniControls.TableHeader(OmniLoc.Get("Feature.ReadyCheck.List"));
+            OmniControls.TableHeader(OmniLoc.Get("Feature.ReadyCheck.Offset"));
+            OmniControls.TableHeader(OmniLoc.Get("Feature.ReadyCheck.Scale"));
+        }
         var partyOffset = config.PartyIconOffset;
         var partyScale = config.PartyIconScale;
         changed |= DrawIconSettings(
@@ -765,20 +771,23 @@ internal static class ReadyCheckPanel
     private static bool DrawClearSettings(ReadyCheckConfig config)
     {
         var changed = false;
-        using var table = ImRaii.Table(
+        var secondsInputWidth = ImGui.CalcTextSize("000").X + ImGui.GetStyle().FramePadding.X * 4f;
+        using var table = OmniControls.SettingsTable(
             "##readyCheckClearSettings",
-            4,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ReadyCheck.ClearOnTerritoryChanged")),
+                OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ReadyCheck.ClearOnCombat")),
+                OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ReadyCheck.ClearOnInstancedCombat")),
+                OmniControls.MeasureGroup([OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ReadyCheck.ClearAfterTime")),
+                    OmniControls.MeasureInput("900", secondsInputWidth),
+                    ImGui.CalcTextSize(OmniLoc.Get("Feature.ReadyCheck.Seconds"))],
+                    MathF.Max(ImGui.GetStyle().ItemSpacing.X, OmniTheme.Scale(10f)))],
+            ["##readyCheckClearTerritory", "##readyCheckClearCombat", "##readyCheckClearDutyCombat", "##readyCheckClearTime"],
+            weights: [1f, 1f, 1f, 1.25f], flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##readyCheckClearTerritory", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##readyCheckClearCombat", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##readyCheckClearDutyCombat", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##readyCheckClearTime", ImGuiTableColumnFlags.WidthStretch, 1.25f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         if (DrawCheckbox(
@@ -824,11 +833,11 @@ internal static class ReadyCheckPanel
             changed = true;
         }
 
-        ImGui.SameLine(0f, OmniTheme.Scale(10f));
+        OmniControls.SameLineOrWrap(OmniControls.MeasureInput("900", secondsInputWidth).X +
+            ImGui.CalcTextSize(OmniLoc.Get("Feature.ReadyCheck.Seconds")).X + ImGui.GetStyle().ItemSpacing.X, OmniTheme.Scale(10f));
         using (ImRaii.Disabled(!config.ClearAfterTime))
         {
-            ImGui.SetNextItemWidth(
-                ImGui.CalcTextSize("000").X + ImGui.GetStyle().FramePadding.X * 4f);
+            ImGui.SetNextItemWidth(secondsInputWidth);
             var seconds = Math.Clamp(config.ClearAfterSeconds, 30, 900);
             if (OmniControls.InputInt("##readyCheckClearAfterSeconds", ref seconds, 0, 0))
             {
@@ -863,8 +872,14 @@ internal static class ReadyCheckPanel
         var changed = false;
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        OmniControls.TableTextCentered(OmniLoc.Get(labelKey));
-        ImGui.TableNextColumn();
+        var detailLayout = ImGui.TableGetColumnCount() == 1;
+        var label = OmniLoc.Get(labelKey);
+        var inputHeight = OmniControls.MeasureInput(string.Empty).Y;
+        var rowContentHeight = MathF.Max(inputHeight,
+            ImGui.CalcTextSize(label, false, MathF.Max(1f, ImGui.GetContentRegionAvail().X)).Y);
+        OmniControls.TableTextCentered(label, rowContentHeight);
+        OmniControls.NextTableField(OmniLoc.Get("Feature.ReadyCheck.Offset"), detailLayout);
+        OmniControls.CenterTableItem(new Vector2(ImGui.GetContentRegionAvail().X, inputHeight), rowContentHeight);
         OmniControls.DragFloat2(
             $"##readyCheck{id}Offset",
             ref offset,
@@ -875,7 +890,8 @@ internal static class ReadyCheckPanel
             ImGui.GetContentRegionAvail().X);
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
-        ImGui.TableNextColumn();
+        OmniControls.NextTableField(OmniLoc.Get("Feature.ReadyCheck.Scale"), detailLayout);
+        OmniControls.CenterTableItem(new Vector2(ImGui.GetContentRegionAvail().X, inputHeight), rowContentHeight);
         OmniControls.DragFloat(
             $"##readyCheck{id}Scale",
             ref scale,

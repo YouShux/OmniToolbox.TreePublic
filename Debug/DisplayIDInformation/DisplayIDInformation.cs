@@ -1,6 +1,5 @@
 using Dalamud.Plugin.Services;
 using OmenTools;
-using OmenTools.ImGuiOm;
 using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -110,20 +109,19 @@ internal static class DisplayIDInformationPanel
     public static bool Draw(DisplayIDInformationConfig config, IconBrowser iconBrowser)
     {
         var changed = false;
-        using var table = ImRaii.Table(
+        using var table = OmniControls.SettingsTable(
             "##displayIdInformationSettings",
-            4,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.DisplayIdInformation.Item")),
+                OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.DisplayIdInformation.Weather")),
+                OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.DisplayIdInformation.Zone")),
+                OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.DisplayIdInformation.Icon"))],
+            ["##displayIdItem", "##displayIdWeather", "##displayIdZone", "##displayIdIcon"],
+            weights: [1f, 1f, 1f, 1.25f], flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##displayIdItem", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##displayIdWeather", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##displayIdZone", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##displayIdIcon", ImGuiTableColumnFlags.WidthStretch, 1.25f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         if (DrawCheckbox("Feature.DisplayIdInformation.Item", "item", config.DisplayItemID, out var displayItemId))
@@ -168,7 +166,8 @@ internal static class DisplayIDInformationPanel
             iconBrowser.Toggle();
         }
 
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DisplayIdInformation.IconBrowser.Help"));
+        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.IconBrowser.Help"));
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         changed |= DrawStatus(config);
@@ -198,7 +197,8 @@ internal static class DisplayIDInformationPanel
                 changed = true;
             }
 
-            ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DisplayIdInformation.StatusFlyText.Help"));
+            OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.StatusFlyText.Help"));
         }
 
         ImGui.Unindent(OmniTheme.Scale(26f));
@@ -237,14 +237,16 @@ internal static class DisplayIDInformationPanel
                 changed = true;
             }
 
-            ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DisplayIdInformation.ActionFlyText.Help"));
+            OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.ActionFlyText.Help"));
             if (DrawCheckbox("Feature.DisplayIdInformation.CastBar", "castBar", config.DisplayCastBarActionID, out var displayCastBar))
             {
                 config.DisplayCastBarActionID = displayCastBar;
                 changed = true;
             }
 
-            ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DisplayIdInformation.CastBar.Help"));
+            OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.CastBar.Help"));
         }
 
         ImGui.Unindent(OmniTheme.Scale(26f));
@@ -289,7 +291,8 @@ internal static class DisplayIDInformationPanel
                 changed = true;
             }
 
-            ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DisplayIdInformation.Others.Help"));
+            OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.Others.Help"));
         }
 
         ImGui.Unindent(OmniTheme.Scale(26f));

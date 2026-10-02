@@ -40,6 +40,16 @@ internal sealed class MitigationMonitorHotkey(
     private bool capturing;
     private bool hotkeyHeld;
 
+    public Vector2 ModifierSettingSize => OmniControls.MeasureGroup([
+        ImGui.CalcTextSize(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Modifier")),
+        OmniControls.MeasureCombo(GetModifierName(config.HideHotkeyModifier), OmniTheme.Scale(90f))]);
+
+    public Vector2 KeySettingSize => OmniControls.MeasureGroup([
+        ImGui.CalcTextSize(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Key")),
+        Vector2.Max(OmniControls.CompactButtonSize(capturing ? OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Capturing") : GetDisplayName(config.HideHotkey)),
+            new(OmniTheme.Scale(128f), OmniTheme.SmallButtonSize().Y)),
+        OmniControls.CompactButtonSize(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Clear"))]);
+
     public static bool IsBindable(int key) => key == 0 || BindableKeys.Contains(key);
 
     public void Register(FeatureLifetime lifetime)
@@ -57,7 +67,7 @@ internal sealed class MitigationMonitorHotkey(
         var changed = false;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Modifier"));
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCombo(GetModifierName(config.HideHotkeyModifier), OmniTheme.Scale(90f)).X);
         if (OmniControls.BeginCombo(
                 "##MitigationHideHotkeyModifier",
                 GetModifierName(config.HideHotkeyModifier),
@@ -83,16 +93,17 @@ internal sealed class MitigationMonitorHotkey(
         var changed = false;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Key"));
-        ImGui.SameLine();
+        var keyLabel = capturing ? OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Capturing") : GetDisplayName(config.HideHotkey);
+        OmniControls.SameLineOrWrap(MathF.Max(OmniTheme.Scale(128f), OmniControls.CompactButtonSize(keyLabel).X));
         if (OmniControls.SmallButton(
-                $"{(capturing ? OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Capturing") : GetDisplayName(config.HideHotkey))}##MitigationHideHotkey",
+                $"{keyLabel}##MitigationHideHotkey",
                 false,
                 new(OmniTheme.Scale(128f), OmniTheme.SmallButtonSize().Y)))
         {
             capturing = true;
         }
 
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Clear")).X);
         if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Clear")}##MitigationHideHotkeyClear", false))
         {
             capturing = false;

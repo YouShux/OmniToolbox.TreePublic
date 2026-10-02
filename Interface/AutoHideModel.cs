@@ -90,34 +90,59 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
     public override bool DrawSettings()
     {
-        var changed = DrawVisibilityTable(config, out var columnPositions);
-        changed |= DrawHouseSettings(config, columnPositions);
+        var changed = DrawVisibilityTable(config, out var columnPositions, out var yardColumnPosition);
+        changed |= DrawHouseSettings(config, columnPositions, yardColumnPosition);
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
-        ImGui.SetCursorPosX(
-            columnPositions.X - ImGui.CalcTextSize($"{OmniLoc.Get("Feature.AutoHideModel.Houses")}：").X * 0.5f);
+        using (var table = OmniControls.SettingsTable(
+                   "##autoHideModelOptions",
+                   [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.IncludeSelf")),
+                    OmniControls.MeasureGroup([OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.HideGroundHealingEffects")),
+                        OmniControls.HelpIconSize()]),
+                     OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.ReduceOnScreenPlayers")),
+                     OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.ShowTargetOfTarget"))],
+                    ["##includeSelf", "##groundEffects", "##reduceOnScreenPlayers", "##targetOfTarget"],
+                   columnsPerRow: 4, flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
+        {
+            if (table)
+            {
+                ImGui.TableNextRow();
+                ImGui.TableNextColumn();
+                changed |= DrawCheckbox(
+                    "Feature.AutoHideModel.IncludeSelf",
+                    "includeSelf",
+                    config.IncludeSelf,
+                    value => config.IncludeSelf = value);
+
+                ImGui.TableNextColumn();
+                changed |= DrawCheckbox(
+                    "Feature.AutoHideModel.HideGroundHealingEffects",
+                    "groundEffects",
+                    config.HideGroundHealingEffects,
+                    value => config.HideGroundHealingEffects = value);
+                OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.AutoHideModel.HideGroundHealingEffects.Help"));
+
+                ImGui.TableNextColumn();
+                changed |= DrawCheckbox(
+                    "Feature.AutoHideModel.ReduceOnScreenPlayers",
+                    "reduceOnScreenPlayers",
+                    config.ReduceOnScreenPlayers,
+                    value => config.ReduceOnScreenPlayers = value);
+
+                ImGui.TableNextColumn();
+                changed |= DrawCheckbox(
+                    "Feature.AutoHideModel.ShowTargetOfTarget",
+                    "targetOfTarget",
+                    config.ShowTargetOfTarget,
+                    value => config.ShowTargetOfTarget = value);
+            }
+        }
+
         changed |= DrawCheckbox(
-            "Feature.AutoHideModel.IncludeSelf",
-            "includeSelf",
-            config.IncludeSelf,
-            value => config.IncludeSelf = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(16f));
-        changed |= DrawCheckbox(
-            "Feature.AutoHideModel.HideGroundHealingEffects",
-            "groundEffects",
-            config.HideGroundHealingEffects,
-            value => config.HideGroundHealingEffects = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(16f));
-        changed |= DrawCheckbox(
-            "Feature.AutoHideModel.ShowTargetOfTarget",
-            "targetOfTarget",
-            config.ShowTargetOfTarget,
-            value => config.ShowTargetOfTarget = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(16f));
-        changed |= DrawCheckbox(
-            "Feature.AutoHideModel.ReduceOnScreenPlayers",
-            "reduceOnScreenPlayers",
-            config.ReduceOnScreenPlayers,
-            value => config.ReduceOnScreenPlayers = value);
+            "Feature.AutoHideModel.HideUnimportantNpcs",
+            "playersUnimportantNpcs",
+            config.HideUnimportantNpcs,
+            value => config.HideUnimportantNpcs = value);
         if (!changed)
         {
             return false;
@@ -127,12 +152,15 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         return true;
     }
 
-    private static bool DrawVisibilityTable(AutoHideModelConfig config, out Vector4 columnPositions)
+    private static bool DrawVisibilityTable(AutoHideModelConfig config, out Vector4 columnPositions, out float yardColumnPosition)
     {
         columnPositions = default;
+        yardColumnPosition = 0f;
+        var minimumWidth = MathF.Max(OmniTheme.Scale(82f), ImGui.GetFontSize() * 5f);
+        var detailLayout = ImGui.GetContentRegionAvail().X < (minimumWidth + ImGui.GetStyle().CellPadding.X * 2f) * 7f;
         using var table = ImRaii.Table(
             "##autoHideModelSettings",
-            8,
+            detailLayout ? 1 : 7,
             ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg,
             new Vector2(ImGui.GetContentRegionAvail().X, 0f));
         if (!table)
@@ -140,98 +168,98 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
             return false;
         }
 
-        ImGui.TableSetupColumn("##name", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(78f));
-        ImGui.TableSetupColumn("##hideAll", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
-        ImGui.TableSetupColumn("##combat", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
-        ImGui.TableSetupColumn("##party", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
-        ImGui.TableSetupColumn("##friend", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
-        ImGui.TableSetupColumn("##company", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
-        ImGui.TableSetupColumn("##dead", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
-        ImGui.TableSetupColumn("##npc", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(82f));
-        ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
-        DrawHeader(string.Empty);
-        DrawHeader(OmniLoc.Get("Feature.AutoHideModel.HideAll"));
-        DrawHeader(OmniLoc.Get("Feature.AutoHideModel.HideInCombat"));
-        DrawHeader(OmniLoc.Get("Feature.AutoHideModel.ShowParty"));
-        DrawHeader(OmniLoc.Get("Feature.AutoHideModel.ShowFriends"));
-        DrawHeader(OmniLoc.Get("Feature.AutoHideModel.ShowFreeCompany"));
-        DrawHeader(OmniLoc.Get("Feature.AutoHideModel.ShowDead"));
-        DrawHeader(OmniLoc.Get("Feature.AutoHideModel.HideUnimportantNpcs"));
-
-        for (var column = 0; column < 4; column++)
+        ImGui.TableSetupColumn("##name", detailLayout ? ImGuiTableColumnFlags.WidthStretch : ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(78f));
+        if (!detailLayout)
         {
-            ImGui.TableSetColumnIndex(column);
-            columnPositions[column] = ImGui.GetCursorPosX() +
-                                      MathF.Max(0f, (ImGui.GetContentRegionAvail().X -
-                                                    (column == 0 ? 0f : ImGui.GetFrameHeight())) * 0.5f);
+            ImGui.TableSetupColumn("##hideAll", ImGuiTableColumnFlags.WidthFixed, minimumWidth);
+            ImGui.TableSetupColumn("##combat", ImGuiTableColumnFlags.WidthFixed, minimumWidth);
+            ImGui.TableSetupColumn("##party", ImGuiTableColumnFlags.WidthFixed, minimumWidth);
+            ImGui.TableSetupColumn("##friend", ImGuiTableColumnFlags.WidthFixed, minimumWidth);
+            ImGui.TableSetupColumn("##company", ImGuiTableColumnFlags.WidthFixed, minimumWidth);
+            ImGui.TableSetupColumn("##dead", ImGuiTableColumnFlags.WidthFixed, minimumWidth);
+            ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
+            DrawHeader(string.Empty);
+            DrawHeader(OmniLoc.Get("Feature.AutoHideModel.HideAll"));
+            DrawHeader(OmniLoc.Get("Feature.AutoHideModel.HideInCombat"));
+            DrawHeader(OmniLoc.Get("Feature.AutoHideModel.ShowParty"));
+            DrawHeader(OmniLoc.Get("Feature.AutoHideModel.ShowFriends"));
+            DrawHeader(OmniLoc.Get("Feature.AutoHideModel.ShowFreeCompany"));
+            DrawHeader(OmniLoc.Get("Feature.AutoHideModel.ShowDead"));
+
+            for (var column = 0; column < 4; column++)
+            {
+                ImGui.TableSetColumnIndex(column);
+                columnPositions[column] = ImGui.GetCursorPosX() +
+                                          MathF.Max(0f, (ImGui.GetContentRegionAvail().X -
+                                                        (column == 0 ? 0f : ImGui.GetFrameHeight())) * 0.5f);
+            }
+            ImGui.TableSetColumnIndex(4);
+            yardColumnPosition = ImGui.GetCursorPosX() +
+                                 MathF.Max(0f, (ImGui.GetContentRegionAvail().X - ImGui.GetFrameHeight()) * 0.5f);
         }
 
         var changed = DrawUnitRow(
             "Feature.AutoHideModel.Players",
             "players",
             config.Players,
-            true,
-            config.HideUnimportantNpcs,
-            value => config.HideUnimportantNpcs = value);
+            true);
         changed |= DrawUnitRow(
             "Feature.AutoHideModel.Pets",
             "pets",
             config.Pets,
-            false,
-            false,
-            null);
+            false);
         changed |= DrawUnitRow(
             "Feature.AutoHideModel.Beasts",
             "beasts",
             config.Beasts,
-            false,
-            false,
-            null);
+            false);
         changed |= DrawUnitRow(
             "Feature.AutoHideModel.Chocobos",
             "chocobos",
             config.Chocobos,
-            false,
-            false,
-            null);
+            false);
         changed |= DrawUnitRow(
             "Feature.AutoHideModel.Minions",
             "minions",
             config.Minions,
-            false,
-            false,
-            null);
+            false);
         return changed;
     }
 
-    private static bool DrawHouseSettings(AutoHideModelConfig config, Vector4 columnPositions)
+    private static bool DrawHouseSettings(AutoHideModelConfig config, Vector4 columnPositions, float yardColumnPosition)
     {
         var label = $"{OmniLoc.Get("Feature.AutoHideModel.Houses")}：";
-        ImGui.SetCursorPosX(columnPositions.X - ImGui.CalcTextSize(label).X * 0.5f);
+        if (columnPositions != Vector4.Zero)
+            ImGui.SetCursorPosX(columnPositions.X - ImGui.CalcTextSize(label).X * 0.5f);
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(label);
-        ImGui.SameLine();
-        ImGui.SetCursorPosX(columnPositions.Y);
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.HouseSize.Small")).X);
+        if (columnPositions != Vector4.Zero)
+            ImGui.SetCursorPosX(columnPositions.Y);
         var changed = DrawCheckbox(
             "Feature.AutoHideModel.HouseSize.Small",
             "housesSmall",
             config.HideSmallHouses,
             value => config.HideSmallHouses = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(16f));
-        ImGui.SetCursorPosX(columnPositions.Z);
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.HouseSize.Medium")).X, OmniTheme.Scale(16f));
+        if (columnPositions != Vector4.Zero)
+            ImGui.SetCursorPosX(columnPositions.Z);
         changed |= DrawCheckbox(
             "Feature.AutoHideModel.HouseSize.Medium",
             "housesMedium",
             config.HideMediumHouses,
             value => config.HideMediumHouses = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(16f));
-        ImGui.SetCursorPosX(columnPositions.W);
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.HouseSize.Large")).X, OmniTheme.Scale(16f));
+        if (columnPositions != Vector4.Zero)
+            ImGui.SetCursorPosX(columnPositions.W);
         changed |= DrawCheckbox(
             "Feature.AutoHideModel.HouseSize.Large",
             "housesLarge",
             config.HideLargeHouses,
             value => config.HideLargeHouses = value);
-        ImGui.SameLine(0f, OmniTheme.Scale(16f));
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.YardObjects")).X, OmniTheme.Scale(16f));
+        if (yardColumnPosition > 0f)
+            ImGui.SetCursorPosX(yardColumnPosition);
         changed |= DrawCheckbox(
             "Feature.AutoHideModel.YardObjects",
             "yardObjects",
@@ -245,9 +273,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         string labelKey,
         string id,
         AutoHideUnitConfig config,
-        bool showDeadOption,
-        bool hideUnimportantNpcs,
-        Action<bool>? setHideUnimportantNpcs)
+        bool showDeadOption)
     {
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
@@ -258,42 +284,36 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         var changed = DrawCenteredCheckbox(
             $"{id}HideAll",
+            "HideAll",
             config.HideAll,
             value => config.HideAll = value);
         changed |= DrawCenteredCheckbox(
             $"{id}Combat",
+            "HideInCombat",
             config.HideInCombat,
             value => config.HideInCombat = value);
         changed |= DrawCenteredCheckbox(
             $"{id}Party",
+            "ShowParty",
             config.ShowParty,
             value => config.ShowParty = value);
         changed |= DrawCenteredCheckbox(
             $"{id}Friends",
+            "ShowFriends",
             config.ShowFriends,
             value => config.ShowFriends = value);
         changed |= DrawCenteredCheckbox(
             $"{id}Company",
+            "ShowFreeCompany",
             config.ShowFreeCompany,
             value => config.ShowFreeCompany = value);
         if (showDeadOption)
         {
             changed |= DrawCenteredCheckbox(
                 $"{id}Dead",
+                "ShowDead",
                 config.ShowDead,
                 value => config.ShowDead = value);
-        }
-        else
-        {
-            DrawDisabledCell();
-        }
-
-        if (setHideUnimportantNpcs is not null)
-        {
-            changed |= DrawCenteredCheckbox(
-                $"{id}UnimportantNpcs",
-                hideUnimportantNpcs,
-                setHideUnimportantNpcs);
         }
         else
         {
@@ -303,9 +323,15 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         return changed;
     }
 
-    private static bool DrawCenteredCheckbox(string id, bool value, Action<bool> setValue)
+    private static bool DrawCenteredCheckbox(string id, string labelKey, bool value, Action<bool> setValue)
     {
         ImGui.TableNextColumn();
+        if (ImGui.TableGetColumnCount() == 1)
+        {
+            using var wrap = ImRaii.TextWrapPos(0f);
+            ImGui.TextUnformatted(OmniLoc.Get($"Feature.AutoHideModel.{labelKey}"));
+            OmniControls.SameLineOrWrap(OmniTheme.CheckboxSize());
+        }
         ImGui.SetCursorPosX(
             ImGui.GetCursorPosX() +
             MathF.Max(0f, (ImGui.GetContentRegionAvail().X - ImGui.GetFrameHeight()) * 0.5f));
@@ -320,6 +346,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
     private static void DrawHeader(string text)
     {
+        using var wrap = ImRaii.TextWrapPos(0f);
         ImGui.TableNextColumn();
         if (text.Length == 0)
         {

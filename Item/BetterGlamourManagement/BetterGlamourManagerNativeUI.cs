@@ -7,6 +7,7 @@ using KamiToolKit.Nodes;
 using KamiToolKit.Premade.Node;
 using KamiToolKit.Premade.Node.Simple;
 using Lumina.Text.ReadOnly;
+using OmenTools.Extensions;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
@@ -471,17 +472,28 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
         PositionItemSearchResults();
     }
 
-    private void PositionItemSearchResults()
+    private unsafe void PositionItemSearchResults()
     {
         if (activeItemSearchRow is null || itemSearchResultsNode is null)
         {
             return;
         }
 
-        itemSearchResultsNode.ScreenX = activeItemSearchRow.ItemSearchInputScreenPosition.X;
-        itemSearchResultsNode.ScreenY = activeItemSearchRow.ItemSearchInputScreenPosition.Y +
-                                       activeItemSearchRow.ItemSearchInputSize.Y +
-                                       2f;
+        AtkUnitBase* addon = this;
+        var scale = addon->GetScale();
+        var position = activeItemSearchRow.ItemSearchInputScreenPosition;
+        var gap = 2f * scale;
+        var resultSize = ((AtkResNode*)itemSearchResultsNode)->GetSize();
+        var viewport = ImGui.GetMainViewport();
+        var screenStart = viewport.WorkPos - viewport.Pos;
+        var screenEnd = screenStart + viewport.WorkSize;
+        var y = position.Y + activeItemSearchRow.ItemSearchInputScreenSize.Y + gap;
+        if (y + resultSize.Y > screenEnd.Y - gap)
+            y = position.Y - resultSize.Y - gap;
+        var resultPosition = Vector2.Clamp(new(position.X, y), screenStart,
+            Vector2.Max(screenStart, screenEnd - resultSize));
+        itemSearchResultsNode.ScreenX = resultPosition.X;
+        itemSearchResultsNode.ScreenY = resultPosition.Y;
         if (itemSearchBackgroundNode is not null)
         {
             itemSearchBackgroundNode.Size = new(
@@ -819,9 +831,9 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
 
     internal float ItemSearchWidth => itemSearchInputNode.Width;
 
-    internal Vector2 ItemSearchInputSize => itemSearchInputNode.Size;
+    internal unsafe Vector2 ItemSearchInputScreenSize => ((AtkResNode*)itemSearchInputNode)->GetSize();
 
-    internal Vector2 ItemSearchInputScreenPosition => itemSearchInputNode.ScreenPosition;
+    internal unsafe Vector2 ItemSearchInputScreenPosition => ((AtkResNode*)itemSearchInputNode)->GetPosition();
 
     internal List<BetterGlamourItemSearchResult> Search(string query) => row?.Kind switch
     {
@@ -965,6 +977,7 @@ internal sealed class BetterGlamourItemSearchResultNode : ListItemNode<BetterGla
     {
         iconNode.IconID = itemData.IconID;
         nameNode.String = itemData.Name;
+        nameNode.TextTooltip = itemData.Name;
         OnSizeChanged();
     }
 }

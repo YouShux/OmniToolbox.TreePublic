@@ -184,28 +184,44 @@ internal static class DirectionalActionReleasePanel
     public static bool Draw(DirectionalActionReleaseConfig config, ReadOnlySpan<uint> actionIDs)
     {
         var changed = false;
-        var rowHeight = MathF.Max(ImGui.GetFrameHeightWithSpacing(), OmniTheme.Scale(34f));
+
         using var cellPadding = ImRaii.PushStyle(
             ImGuiStyleVar.CellPadding,
             new Vector2(ImGui.GetStyle().CellPadding.X, OmniTheme.Scale(3f)));
         using var framePadding = ImRaii.PushStyle(
             ImGuiStyleVar.FramePadding,
             new Vector2(ImGui.GetStyle().FramePadding.X, OmniTheme.Scale(3f)));
-        using var table = ImRaii.Table(
+        var iconSize = new Vector2(MathF.Max(
+            OmniTheme.Scale(24f),
+            ImGui.GetTextLineHeightWithSpacing() + OmniTheme.Scale(6f)));
+        var checkboxSize = OmniControls.MeasureCheckbox(string.Empty);
+        var rowHeight = MathF.Max(iconSize.Y, checkboxSize.Y);
+        var toggleWidth = MathF.Max(checkboxSize.X, ImGui.GetFontSize() * 3f);
+        using var table = OmniControls.DataTable(
             "##directionalActions",
-            4,
+            [OmniLoc.Get("Feature.DirectionalActionRelease.Camera"), OmniLoc.Get("Feature.DirectionalActionRelease.Mouse"),
+                OmniLoc.Get("Feature.DirectionalActionRelease.Reverse"), OmniLoc.Get("Feature.DirectionalActionRelease.Action")],
+            [toggleWidth, toggleWidth, toggleWidth, ImGui.GetFontSize() * 8f],
+            [toggleWidth, toggleWidth, toggleWidth, ImGui.GetFontSize() * 12f], out var detailLayout,
             ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY,
-            new Vector2(ImGui.GetContentRegionAvail().X, rowHeight * 6f + ImGui.GetStyle().ItemSpacing.Y));
+            new Vector2(ImGui.GetContentRegionAvail().X,
+                rowHeight * 6f + ImGui.GetStyle().ItemSpacing.Y), stretchColumn: 3);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.DirectionalActionRelease.Camera"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(54f));
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.DirectionalActionRelease.Mouse"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(54f));
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.DirectionalActionRelease.Action"), ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.DirectionalActionRelease.Reverse"), ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(54f));
-        OmniControls.ScrollableTableHeadersRow();
+        ImGui.TableSetupScrollFreeze(0, 1);
+        OmniControls.BeginTableHeaderRow(rowHeight);
+        OmniControls.TableHeader(OmniLoc.Get("Feature.DirectionalActionRelease.Camera"), rowHeight);
+        if (!detailLayout)
+        {
+            OmniControls.TableHeader(OmniLoc.Get("Feature.DirectionalActionRelease.Mouse"), rowHeight);
+            OmniControls.TableHeader(OmniLoc.Get("Feature.DirectionalActionRelease.Reverse"), rowHeight);
+            OmniControls.TableHeader(OmniLoc.Get("Feature.DirectionalActionRelease.Action"), rowHeight);
+        }
+
+        var actionNameWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X - iconSize.X - ImGui.GetStyle().ItemSpacing.X);
 
         foreach (var actionID in actionIDs)
         {
@@ -214,8 +230,10 @@ internal static class DirectionalActionReleasePanel
                 continue;
             }
 
-            ImGui.TableNextRow();
-            ImGui.TableNextColumn();
+            var rowContentHeight = MathF.Max(rowHeight, ImGui.CalcTextSize(action.Name.ToString(), false, actionNameWidth).Y);
+            ImGui.TableNextRow(ImGuiTableRowFlags.None, detailLayout ? 0f : rowContentHeight);
+            OmniControls.NextTableField(OmniLoc.Get("Feature.DirectionalActionRelease.Camera"), detailLayout);
+            OmniControls.CenterTableItem(checkboxSize, rowContentHeight);
             var camera = config.Actions[actionID] == DirectionalActionMode.Camera;
             if (OmniControls.Checkbox($"##directionalCamera{actionID}", ref camera))
             {
@@ -223,7 +241,8 @@ internal static class DirectionalActionReleasePanel
                 changed = true;
             }
 
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.DirectionalActionRelease.Mouse"), detailLayout);
+            OmniControls.CenterTableItem(checkboxSize, rowContentHeight);
             var mouse = config.Actions[actionID] == DirectionalActionMode.Mouse;
             if (OmniControls.Checkbox($"##directionalMouse{actionID}", ref mouse))
             {
@@ -231,10 +250,8 @@ internal static class DirectionalActionReleasePanel
                 changed = true;
             }
 
-            ImGui.TableNextColumn();
-            DrawAction(action);
-
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.DirectionalActionRelease.Reverse"), detailLayout);
+            OmniControls.CenterTableItem(checkboxSize, rowContentHeight);
             var reversed = config.ReversedActions.Contains(actionID);
             if (OmniControls.Checkbox($"##directionalReverse{actionID}", ref reversed))
             {
@@ -249,21 +266,22 @@ internal static class DirectionalActionReleasePanel
 
                 changed = true;
             }
+
+            OmniControls.NextTableField(OmniLoc.Get("Feature.DirectionalActionRelease.Action"), detailLayout);
+            DrawAction(action, iconSize, rowContentHeight);
         }
 
         return changed;
     }
 
-    private static void DrawAction(LuminaAction action)
+    private static void DrawAction(LuminaAction action, Vector2 iconSize, float rowContentHeight)
     {
-        var iconSize = new Vector2(MathF.Max(
-            OmniTheme.Scale(24f),
-            ImGui.GetTextLineHeightWithSpacing() + OmniTheme.Scale(6f)));
+        var rowTop = ImGui.GetCursorPosY();
+        OmniControls.CenterTableItem(new Vector2(ImGui.GetContentRegionAvail().X, iconSize.Y), rowContentHeight);
         FramedGameIcon.DrawAction(action, iconSize);
         ImGui.SameLine();
-
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(action.Name.ToString());
+        ImGui.SetCursorPosY(rowTop);
+        OmniControls.TableTextCentered(action.Name.ToString(), rowContentHeight, null, false);
     }
 }
 

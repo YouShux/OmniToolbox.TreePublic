@@ -5,6 +5,9 @@ using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
 using KamiToolKit.Premade.Node;
 using Lumina.Excel.Sheets;
+using OmenTools;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Helpers;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
@@ -52,6 +55,7 @@ internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
         CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
         RespectCloseAll = false;
         DisableClose = true;
+        EnableContextMenu = false;
         this.onTargetColorSelected = onTargetColorSelected;
         this.onPreview = onPreview;
         this.onClear = onClear;
@@ -59,6 +63,9 @@ internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
 
     protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
     {
+        var source = AddonHelper.GetByName("Buddy");
+        if (source != null && source->WindowNode != null)
+            addon->SetScale(source->WindowNode->GetScale().X / AtkUnitBase.GetGlobalUIScale(), true);
         currentLabelNode = new()
         {
             String = OmniLoc.Get("Feature.ChocoboColorPreview.CurrentColor"),

@@ -19,6 +19,7 @@ internal sealed class MitigationMonitorOverlay
     private readonly Action saveConfig;
     private Action? openSettingsAction;
     private float lastScale;
+    private Vector2 lastViewportSize;
     private bool restoreLayoutNextDraw;
     private bool geometryDirty;
     private bool collapsedIconDragged;
@@ -55,6 +56,9 @@ internal sealed class MitigationMonitorOverlay
         }
 
         var scaleChanged = MathF.Abs(lastScale - config.ScaleValue) > 0.001f;
+        var viewportSize = ImGui.GetMainViewport().WorkSize;
+        scaleChanged |= lastViewportSize != viewportSize;
+        lastViewportSize = viewportSize;
         var targetPosition = config.Position;
         var targetSize = config.Scale(config.Size);
         var animatingExpansion = false;
@@ -79,13 +83,15 @@ internal sealed class MitigationMonitorOverlay
             sizeCondition = ImGuiCond.Always;
         }
 
+        targetSize = OmniTheme.ClampWindowSize(targetSize);
+        targetPosition = OmniTheme.ClampWindowPosition(targetPosition, targetSize);
         ImGui.SetNextWindowPos(targetPosition, positionCondition);
         ImGui.SetNextWindowSize(
             targetSize,
             sizeCondition);
         ImGui.SetNextWindowSizeConstraints(
-            config.Scale(new Vector2(MinimumWidth, 160f)),
-            new Vector2(float.MaxValue));
+            OmniTheme.ClampWindowSize(config.Scale(new Vector2(MinimumWidth, 160f))),
+            viewportSize);
         restoreLayoutNextDraw = false;
         lastScale = config.ScaleValue;
 
@@ -218,7 +224,7 @@ internal sealed class MitigationMonitorOverlay
             DrawCenteredIcon(FontAwesomeIcon.ChevronCircleDown, min, size);
             if (ImGui.IsItemHovered())
             {
-                ImGui.SetTooltip(OmniLoc.Get("Feature.MitigationMonitor.Expand"));
+                OmniControls.HelpTooltip(OmniLoc.Get("Feature.MitigationMonitor.Expand"));
             }
         }
 
@@ -245,7 +251,7 @@ internal sealed class MitigationMonitorOverlay
         }
 
         var position = ImGui.GetWindowPos();
-        var size = config.Unscale(ImGui.GetWindowSize());
+        var size = config.Unscale(OmniTheme.PreserveWindowSize(ImGui.GetWindowSize(), config.Scale(config.Size)));
         if (Vector2.DistanceSquared(position, config.Position) > 0.25f)
         {
             config.Position = position;

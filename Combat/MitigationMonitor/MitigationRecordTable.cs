@@ -48,27 +48,36 @@ internal sealed class MitigationRecordTable
     {
         RefreshRecords(selectedHistoryKey);
         var available = ImGui.GetContentRegionAvail();
-        var width = MathF.Max(config.Scale(240f), available.X);
-        var height = MathF.Max(config.Scale(60f), available.Y);
-        var layout = CalculateLayout(width);
+        var width = MathF.Max(1f, available.X);
+        var height = MathF.Max(1f, available.Y);
+        var contentWidth = MathF.Max(1f, width - ImGui.GetStyle().ScrollbarSize);
+        var layout = CalculateLayout(contentWidth);
+        var detailLayout = contentWidth < config.Scale(250f) + GetHeaderControlsWidth() + config.Scale(40f);
         var headerMin = ImGui.GetCursorScreenPos();
-        DrawHeader(headerMin, width, layout, openHistory, collapse, toggleLock, openSettings);
+        var headerHeight = config.Scale(HEADER_HEIGHT);
+        if (detailLayout)
+        {
+            DrawTargetHeader(headerMin, width);
+            DrawHeaderControls(headerMin + new Vector2(0f, headerHeight), width, openHistory, collapse, toggleLock, openSettings);
+            headerHeight *= 2f;
+        }
+        else
+            DrawHeader(headerMin, width, layout, openHistory, collapse, toggleLock, openSettings);
         ImGui.SetCursorScreenPos(headerMin);
-        ImGui.Dummy(new Vector2(width, config.Scale(HEADER_HEIGHT)));
+        ImGui.Dummy(new Vector2(width, headerHeight));
 
-        var bodyHeight = MathF.Max(config.Scale(30f), height - config.Scale(HEADER_HEIGHT));
+        var bodyHeight = MathF.Max(1f, height - headerHeight);
         using (var child = ImRaii.Child(
                 "##MitigationRecordsBody",
                 new Vector2(width, bodyHeight),
-                false,
-                ImGuiWindowFlags.NoScrollbar))
+                false))
         {
             if (child)
             {
                 var bodyMin = ImGui.GetCursorScreenPos();
                 if (visibleRecords.Count == 0)
                 {
-                    DrawNoData(bodyMin, new Vector2(width, bodyHeight));
+                    DrawNoData(bodyMin, ImGui.GetContentRegionAvail());
                 }
                 else
                 {
@@ -76,18 +85,25 @@ internal sealed class MitigationRecordTable
                     {
                         var record = visibleRecords[index];
                         var rowMin = ImGui.GetCursorScreenPos();
-                        var rowHeight = renderer.CalculateRowHeight(record, layout.Status);
-                        if (ImGui.InvisibleButton($"##MitigationRecord{index}", new Vector2(width, rowHeight)))
+                        var bodyWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X);
+                        var rowHeight = detailLayout ? renderer.CalculateDetailHeight(record, bodyWidth)
+                            : renderer.CalculateRowHeight(record, layout.Status);
+                        if (ImGui.InvisibleButton($"##MitigationRecord{index}", new Vector2(bodyWidth, rowHeight)))
                         {
                             ImGui.SetClipboardText(MitigationRecordCopyText.Build(record));
                             OmniNotifier.Banner(OmniLoc.Get("Feature.MitigationMonitor.Copy.Success"));
                         }
 
+                        if (detailLayout)
+                        {
+                            renderer.DrawDetail(record, rowMin, bodyWidth, rowHeight);
+                            continue;
+                        }
                         renderer.Draw(
                             record,
                             index,
                             rowMin,
-                            width,
+                            bodyWidth,
                             rowHeight,
                             layout,
                             ImGui.IsItemHovered(),
@@ -353,7 +369,7 @@ internal sealed class MitigationRecordTable
 
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip(OmniLoc.Get(active
+            OmniControls.HelpTooltip(OmniLoc.Get(active
                 ? "Feature.MitigationMonitor.TargetFilter.Active"
                 : "Feature.MitigationMonitor.TargetFilter.Help"));
         }
@@ -419,7 +435,7 @@ internal sealed class MitigationRecordTable
 
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip(OmniLoc.Get(tooltipKey));
+            OmniControls.HelpTooltip(OmniLoc.Get(tooltipKey));
         }
     }
 
