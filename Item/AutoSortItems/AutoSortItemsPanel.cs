@@ -10,18 +10,17 @@ internal static class AutoSortItemsPanel
     {
         AutoSortItems.EnsureRules(config);
         var changed = false;
-        using (var optionsTable = ImRaii.Table(
+        using (var optionsTable = OmniControls.SettingsTable(
                    "##autoSortItemsOptions",
-                   4,
-                   ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+                   [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoSortItems.SortArmouryOnJobChange")),
+                    OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoSortItems.AutoMerge")),
+                    OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoSortItems.SendChat")),
+                    OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoSortItems.SendNotification"))],
+                   ["##sortArmouryOnJobChange", "##autoMerge", "##sendChat", "##sendNotification"],
+                   flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4))
         {
             if (optionsTable)
             {
-                ImGui.TableSetupColumn("##sortArmouryOnJobChange", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##autoMerge", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##sendChat", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##sendNotification", ImGuiTableColumnFlags.WidthStretch, 1f);
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
 
@@ -70,7 +69,12 @@ internal static class AutoSortItemsPanel
         var tabLabel = OmniLoc.Get("Feature.AutoSortItems.Tab");
         var tabWidth = OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + ImGui.CalcTextSize(tabLabel).X;
         var rules = config.Rules!;
-        var enableColumnWidth = OmniTheme.CheckboxSize() + ImGui.GetStyle().CellPadding.X * 2f;
+        var enableColumnWidth = OmniControls.MeasureCheckbox(string.Empty).X;
+        var categoryWidth = MeasureRuleOptions(AutoSortItems.Categories);
+        var conditionWidth = MeasureRuleOptions(AutoSortItems.Conditions);
+        var orderWidth = MeasureRuleOptions(AutoSortItems.Orders);
+        ReadOnlySpan<string> labels = ["##enabled", OmniLoc.Get("Feature.AutoSortItems.Column.Category"),
+            OmniLoc.Get("Feature.AutoSortItems.Column.Condition"), OmniLoc.Get("Feature.AutoSortItems.Column.Actions")];
         var visibleRowCount = Math.Min(
             6,
             rules.Count + rules
@@ -82,76 +86,74 @@ internal static class AutoSortItemsPanel
                           rowContentHeight * visibleRowCount +
                           ImGui.GetStyle().CellPadding.Y * (visibleRowCount + 1) * 2f +
                           ImGui.GetStyle().FrameBorderSize * 2f;
-        using var table = ImRaii.Table(
-            "##autoSortItemsRules",
-            4,
+        using (var table = OmniControls.DataTable(
+            "##autoSortItemsRules", labels,
+            [enableColumnWidth, categoryWidth, MathF.Max(conditionWidth, orderWidth), MathF.Max(deleteSize.X, tabWidth)],
+            [enableColumnWidth, categoryWidth, conditionWidth + ImGui.GetStyle().ItemSpacing.X + orderWidth,
+                MathF.Max(deleteSize.X, tabWidth)], out var detailLayout,
             ImGuiTableFlags.Borders |
             ImGuiTableFlags.RowBg |
             ImGuiTableFlags.ScrollY |
             ImGuiTableFlags.SizingStretchProp,
-            new Vector2(ImGui.GetContentRegionAvail().X, tableHeight));
-        if (table)
+            new Vector2(ImGui.GetContentRegionAvail().X, tableHeight), stretchColumn: 1))
         {
-            ImGui.TableSetupColumn("##enabled", ImGuiTableColumnFlags.WidthFixed, enableColumnWidth);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.AutoSortItems.Column.Category"),
-                ImGuiTableColumnFlags.WidthStretch,
-                1f);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.AutoSortItems.Column.Condition"),
-                ImGuiTableColumnFlags.WidthStretch,
-                1.6f);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.AutoSortItems.Column.Actions"),
-                ImGuiTableColumnFlags.WidthFixed,
-                MathF.Max(deleteSize.X, tabWidth) + ImGui.GetStyle().CellPadding.X * 2f);
-            ImGui.TableSetupScrollFreeze(0, 1);
-            OmniControls.BeginTableHeaderRow();
-            ImGui.TableNextColumn();
-            ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
-            var allEnabled = rules.Any(rule => rule.Category is not null) &&
-                             rules.Where(rule => rule.Category is not null).All(rule => rule.Enabled);
-            OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), OmniTheme.SmallButtonSize().Y);
-            if (OmniControls.Checkbox("##allEnabled", ref allEnabled))
+            if (table)
             {
-                SetAllCategoriesEnabled(config, allEnabled);
-                changed = true;
-            }
-            OmniControls.TableHeader(OmniLoc.Get("Feature.AutoSortItems.Column.Category"));
-            OmniControls.TableHeader(OmniLoc.Get("Feature.AutoSortItems.Column.Condition"));
-            OmniControls.TableHeader(OmniLoc.Get("Feature.AutoSortItems.Column.Actions"));
-
-            var removeIndex = -1;
-            var drawnRules = new HashSet<int>();
-            foreach (var category in rules
-                         .Where(rule => rule.Category is not null)
-                         .Select(rule => rule.Category!)
-                         .Distinct(StringComparer.Ordinal)
-                         .ToArray())
-            {
-                DrawCategoryHeader(config, category, rowContentHeight, ref changed);
-                for (var index = 0; index < rules.Count; index++)
+                ImGui.TableSetupScrollFreeze(0, 1);
+                OmniControls.BeginTableHeaderRow();
+                ImGui.TableNextColumn();
+                ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
+                var allEnabled = rules.Any(rule => rule.Category is not null) &&
+                                 rules.Where(rule => rule.Category is not null).All(rule => rule.Enabled);
+                if (!detailLayout)
+                    OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), OmniTheme.SmallButtonSize().Y);
+                if (OmniControls.Checkbox("##allEnabled", ref allEnabled))
                 {
-                    if (rules[index].Category == category)
+                    SetAllCategoriesEnabled(config, allEnabled);
+                    changed = true;
+                }
+                if (!detailLayout)
+                {
+                    OmniControls.TableHeader(labels[1]);
+                    OmniControls.TableHeader(labels[2]);
+                    OmniControls.TableHeader(labels[3]);
+                    ImGui.TableSetColumnIndex(2);
+                    if (ImGui.GetContentRegionAvail().X < conditionWidth + ImGui.GetStyle().ItemSpacing.X + orderWidth)
+                        rowContentHeight = rowContentHeight * 2f + ImGui.GetStyle().ItemSpacing.Y;
+                }
+
+                var removeIndex = -1;
+                var drawnRules = new HashSet<int>();
+                foreach (var category in rules
+                             .Where(rule => rule.Category is not null)
+                             .Select(rule => rule.Category!)
+                             .Distinct(StringComparer.Ordinal)
+                             .ToArray())
+                {
+                    DrawCategoryHeader(config, category, rowContentHeight, detailLayout, ref changed);
+                    for (var index = 0; index < rules.Count; index++)
                     {
-                        DrawRule(config, index, rowContentHeight, deleteSize, ref removeIndex, ref changed);
-                        drawnRules.Add(index);
+                        if (rules[index].Category == category)
+                        {
+                            DrawRule(config, index, rowContentHeight, deleteSize, detailLayout, ref removeIndex, ref changed);
+                            drawnRules.Add(index);
+                        }
                     }
                 }
-            }
 
-            for (var index = 0; index < rules.Count; index++)
-            {
-                if (!drawnRules.Contains(index))
+                for (var index = 0; index < rules.Count; index++)
                 {
-                    DrawRule(config, index, rowContentHeight, deleteSize, ref removeIndex, ref changed);
+                    if (!drawnRules.Contains(index))
+                    {
+                        DrawRule(config, index, rowContentHeight, deleteSize, detailLayout, ref removeIndex, ref changed);
+                    }
                 }
-            }
 
-            if (removeIndex >= 0)
-            {
-                rules.RemoveAt(removeIndex);
-                changed = true;
+                if (removeIndex >= 0)
+                {
+                    rules.RemoveAt(removeIndex);
+                    changed = true;
+                }
             }
         }
 
@@ -168,39 +170,46 @@ internal static class AutoSortItemsPanel
         AutoSortItemsConfig config,
         string category,
         float rowContentHeight,
+        bool detailLayout,
         ref bool changed)
     {
         using var id = ImRaii.PushId(category);
-        ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
+        ImGui.TableNextRow(ImGuiTableRowFlags.None, detailLayout ? 0f : rowContentHeight);
         ImGui.TableSetColumnIndex(0);
         ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
         var categoryLabel = GetRuleOptionLabel(category, AutoSortItems.Categories);
         var enabled = IsCategoryEnabled(config, category);
-        OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), rowContentHeight);
+        if (!detailLayout)
+            OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), rowContentHeight);
         if (OmniControls.Checkbox($"##{category}Enabled", ref enabled))
         {
             SetCategoryEnabled(config, category, enabled);
             changed = true;
         }
 
-        ImGui.TableSetColumnIndex(1);
+        if (detailLayout) OmniControls.SameLineOrWrap(ImGui.CalcTextSize(categoryLabel).X);
+        else ImGui.TableSetColumnIndex(1);
         ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
-        OmniControls.CenterTableItem(
+        if (!detailLayout) OmniControls.CenterTableItem(
             new Vector2(ImGui.CalcTextSize(categoryLabel).X, ImGui.GetFrameHeight()),
             rowContentHeight);
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(categoryLabel);
+        using (ImRaii.TextWrapPos(0f))
+            ImGui.TextUnformatted(categoryLabel);
 
-        ImGui.TableSetColumnIndex(2);
-        ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
-
-        ImGui.TableSetColumnIndex(3);
-        ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
+        if (!detailLayout)
+        {
+            ImGui.TableSetColumnIndex(2);
+            ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
+            ImGui.TableSetColumnIndex(3);
+            ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
+        }
         if (AutoSortItems.SupportsTab(category))
         {
             var tabLabel = OmniLoc.Get("Feature.AutoSortItems.Tab");
             var tab = GetCategoryHeader(config, category).Tab;
-            OmniControls.CenterTableItem(
+            if (detailLayout) OmniControls.SameLineOrWrap(OmniControls.MeasureCheckbox(tabLabel).X);
+            else OmniControls.CenterTableItem(
                 new Vector2(
                     OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + ImGui.CalcTextSize(tabLabel).X,
                     OmniTheme.CheckboxSize()),
@@ -218,26 +227,29 @@ internal static class AutoSortItemsPanel
         int index,
         float rowContentHeight,
         Vector2 deleteSize,
+        bool detailLayout,
         ref int removeIndex,
         ref bool changed)
     {
         var rule = config.Rules![index];
         using var id = ImRaii.PushId(index);
-        ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
-        ImGui.TableNextColumn();
-        ImGui.TableNextColumn();
+        ImGui.TableNextRow(ImGuiTableRowFlags.None, detailLayout ? 0f : rowContentHeight);
+        if (!detailLayout) ImGui.TableNextColumn();
+        OmniControls.NextTableField(OmniLoc.Get("Feature.AutoSortItems.Column.Category"), detailLayout);
         var categoryWidth = ImGui.GetContentRegionAvail().X;
-        OmniControls.CenterTableItem(new Vector2(categoryWidth, ImGui.GetFrameHeight()), rowContentHeight);
+        if (!detailLayout)
+            OmniControls.CenterTableItem(new Vector2(categoryWidth, ImGui.GetFrameHeight()), rowContentHeight);
         var rowChanged = DrawRuleCombo("category", rule.Category, AutoSortItems.Categories, categoryWidth, out var category);
 
-        ImGui.TableNextColumn();
+        OmniControls.NextTableField(OmniLoc.Get("Feature.AutoSortItems.Column.Condition"), detailLayout);
         var conditionSpacing = ImGui.GetStyle().ItemSpacing.X;
         var conditionWidth = MathF.Max(1f, (ImGui.GetContentRegionAvail().X - conditionSpacing) * 0.5f);
-        OmniControls.CenterTableItem(
+        if (!detailLayout) OmniControls.CenterTableItem(
             new Vector2(conditionWidth * 2f + conditionSpacing, ImGui.GetFrameHeight()),
             rowContentHeight);
         rowChanged |= DrawRuleCombo("condition", rule.Condition, AutoSortItems.Conditions, conditionWidth, out var condition);
-        ImGui.SameLine(0f, conditionSpacing);
+        var orderPreview = GetRuleOptionLabel(rule.Order, AutoSortItems.Orders);
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCombo(orderPreview, conditionWidth).X, conditionSpacing);
         rowChanged |= DrawRuleCombo("order", rule.Order, AutoSortItems.Orders, conditionWidth, out var order);
         if (rowChanged)
         {
@@ -253,8 +265,8 @@ internal static class AutoSortItemsPanel
             changed = true;
         }
 
-        ImGui.TableNextColumn();
-        OmniControls.CenterTableItem(deleteSize, rowContentHeight);
+        OmniControls.NextTableField(OmniLoc.Get("Feature.AutoSortItems.Column.Actions"), detailLayout);
+        if (!detailLayout) OmniControls.CenterTableItem(deleteSize, rowContentHeight);
         if (OmniControls.SmallButton(
                 $"{OmniLoc.Get("Feature.AutoSortItems.DeleteRule")}##delete",
                 false,
@@ -310,7 +322,7 @@ internal static class AutoSortItemsPanel
         config.CategoryHeaders.Add(new(category, tab));
     }
 
-    private static string GetRuleOptionLabel(string category, IReadOnlyList<AutoSortItems.RuleOption> options) =>
+    private static string GetRuleOptionLabel(string? category, IReadOnlyList<AutoSortItems.RuleOption> options) =>
         options.FirstOrDefault(option => option.Key == category) is { } option
             ? OmniLoc.Get(option.LocalizationKey)
             : OmniLoc.Get("Feature.AutoSortItems.Unset");
@@ -343,6 +355,14 @@ internal static class AutoSortItemsPanel
 
         ImGui.EndCombo();
         return changed;
+    }
+
+    private static float MeasureRuleOptions(IReadOnlyList<AutoSortItems.RuleOption> options)
+    {
+        var width = OmniControls.MeasureCombo(OmniLoc.Get("Feature.AutoSortItems.Unset")).X;
+        foreach (var option in options)
+            width = MathF.Max(width, OmniControls.MeasureCombo(OmniLoc.Get(option.LocalizationKey)).X);
+        return width;
     }
 
 }

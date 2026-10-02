@@ -96,7 +96,8 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
             changed = true;
         }
 
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.AntiCensorship.AutoHandle.Help"));
+        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.AntiCensorship.AutoHandle.Help"));
         ImGui.SameLine(0f, OmniTheme.ContentGap());
         var coloring = config.EnableColoring;
         if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))
@@ -121,7 +122,8 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
             changed = true;
         }
 
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.AntiCensorship.Coloring.Help"));
+        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.AntiCensorship.Coloring.Help"));
         if (!changed)
         {
             return false;

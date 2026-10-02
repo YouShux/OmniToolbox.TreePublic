@@ -47,19 +47,19 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
     public override bool DrawSettings()
     {
         var changed = false;
-        using var table = ImRaii.Table(
+        using var table = OmniControls.SettingsTable(
             "##chatHotbarLockOptions",
-            3,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ChatHotbarLock.ShowChatLock")) + new Vector2(OmniControls.HelpIconSize().X + ImGui.GetStyle().ItemSpacing.X, 0f),
+             OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ChatHotbarLock.HideLocks")),
+             OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.ChatHotbarLock.Modifier")),
+                 OmniControls.MeasureCombo(GetModifierName(config.ModifierKey), OmniTheme.Scale(140f)), OmniControls.HelpIconSize()], ImGui.GetStyle().ItemInnerSpacing.X)],
+            ["##chatHotbarLockShowChatLock", "##chatHotbarLockHideLocks", "##chatHotbarLockModifier"], weights: [1f, 1f, 2f],
+            flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##chatHotbarLockShowChatLock", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##chatHotbarLockHideLocks", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##chatHotbarLockModifier", ImGuiTableColumnFlags.WidthStretch, 2f);
         using var rowStyle = ImRaii.PushStyle(
             ImGuiStyleVar.FramePadding,
             new Vector2(
@@ -363,9 +363,9 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
 
     private void DisposeChatLockButtons()
     {
-        foreach (var button in chatLockButtons.Values)
+        foreach (var addonName in ChatAddonNames)
         {
-            button.Dispose();
+            DisposeChatLockButton(addonName);
         }
 
         chatLockButtons.Clear();
@@ -375,7 +375,10 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
     {
         if (chatLockButtons.Remove(addonName, out var button))
         {
-            button.Dispose();
+            AddonHelper.TryGetByName(addonName, out AtkUnitBase* addon);
+            NativeNodeDetach.DetachAndDestroyComponent(button);
+            // 同帧移除已销毁按钮的碰撞引用，不能等下一帧再重建。
+            NativeNodeDetach.UpdateNodeLists(addon);
         }
     }
 

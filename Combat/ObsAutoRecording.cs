@@ -63,10 +63,11 @@ public sealed class ObsAutoRecording : ModuleBase
             changed = true;
         }
 
-        ImGui.SameLine(0f, OmniTheme.Scale(14f));
+        OmniControls.SameLineOrWrap(inputWidth + ImGui.CalcTextSize(OmniLoc.Get("Feature.ObsAutoRecording.Endpoint")).X +
+            ImGui.GetStyle().ItemSpacing.X + OmniControls.HelpIconSize().X, OmniTheme.Scale(14f));
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ObsAutoRecording.Endpoint"));
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(inputWidth);
         ImGui.SetNextItemWidth(inputWidth);
         var endpoint = config.Endpoint;
         OmniControls.InputTextWithHint(
@@ -79,10 +80,11 @@ public sealed class ObsAutoRecording : ModuleBase
         ImGui.SameLine(0f, OmniTheme.Scale(6f));
         OmniControls.HelpIcon(OmniLoc.Get("Feature.ObsAutoRecording.EndpointHelp"));
 
-        ImGui.SameLine(0f, OmniTheme.Scale(14f));
+        OmniControls.SameLineOrWrap(inputWidth + ImGui.CalcTextSize(OmniLoc.Get("Feature.ObsAutoRecording.Password")).X +
+            ImGui.GetStyle().ItemSpacing.X + OmniControls.HelpIconSize().X, OmniTheme.Scale(14f));
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ObsAutoRecording.Password"));
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(inputWidth);
         ImGui.SetNextItemWidth(inputWidth);
         var password = config.Password;
         OmniControls.InputText(

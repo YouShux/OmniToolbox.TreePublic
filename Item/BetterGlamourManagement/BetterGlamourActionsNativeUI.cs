@@ -2,6 +2,8 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit;
 using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Helpers;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
@@ -34,6 +36,7 @@ internal sealed class BetterGlamourActionsNativeUI : NativeAddon
         ContentPadding = new(8f, 8f);
         RememberClosePosition = false;
         CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
+        EnableContextMenu = false;
         RespectCloseAll = false;
         DisableClose = true;
         this.onTryOnAll = onTryOnAll;
@@ -45,6 +48,8 @@ internal sealed class BetterGlamourActionsNativeUI : NativeAddon
 
     protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
     {
+        if (AddonHelper.TryGetByName("CharacterInspect", out AtkUnitBase* inspectAddon) && inspectAddon->WindowNode != null)
+            addon->SetScale(inspectAddon->WindowNode->GetScale().X / AtkUnitBase.GetGlobalUIScale(), true);
         tryOnAllButton = CreateButton("Feature.BetterGlamourManagement.TryOnAll", onTryOnAll);
         saveButton = CreateButton("Feature.BetterGlamourManagement.Save", onSave);
         exportButton = CreateButton("Feature.BetterGlamourManagement.Export", onExport);

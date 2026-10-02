@@ -495,9 +495,11 @@ internal static class AutoPartyInvitePanel
         var toggledTriggerEnabled = false;
         var addLabel = OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Add");
         var addButtonSize = OmniControls.CompactButtonSize(addLabel);
+        var inputWidth = MathF.Max(ImGui.GetFontSize() * 8f,
+            ImGui.GetContentRegionAvail().X - addButtonSize.X - ImGui.GetStyle().ItemSpacing.X);
         ImGui.SetNextItemWidth(MathF.Max(
             1f,
-            ImGui.GetContentRegionAvail().X - addButtonSize.X - ImGui.GetStyle().ItemSpacing.X -
+            MathF.Min(inputWidth, ImGui.GetContentRegionAvail().X) -
             OmniTheme.BorderThickness() -
             OmniTheme.Scale(MathF.Max(0f, OmniTheme.Tokens.ShadowOffset))));
         OmniControls.InputTextWithHint(
@@ -505,7 +507,7 @@ internal static class AutoPartyInvitePanel
             OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Hint"),
             ref CustomTriggerInput,
             128);
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(addButtonSize.X);
         if (OmniControls.SmallButton(
                 $"{addLabel}##autoPartyInviteTriggerAdd",
                 false,
@@ -515,34 +517,24 @@ internal static class AutoPartyInvitePanel
         }
 
         ImGui.Spacing();
-        using var table = ImRaii.Table(
+        var enabledWidth = OmniControls.MeasureCheckbox(string.Empty).X;
+        var deleteWidth = OmniControls.CompactButtonSize(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Delete")).X;
+        using var table = OmniControls.DataTable(
             "##autoPartyInviteTriggers",
-            4,
+            [OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Enabled"), OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Content"),
+                OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Type"), OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Action")],
+            [enabledWidth, ImGui.GetFontSize() * 6f, ImGui.GetFontSize() * 4f, deleteWidth],
+            [MathF.Max(enabledWidth, OmniTheme.Scale(56f)), OmniTheme.Scale(200f), OmniTheme.Scale(110f), MathF.Max(deleteWidth, OmniTheme.Scale(86f))],
+            out _,
             ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY,
             new Vector2(
                 ImGui.GetContentRegionAvail().X,
-                ImGui.GetFrameHeightWithSpacing() * 6.35f));
+                ImGui.GetFrameHeightWithSpacing() * 6.35f), stretchColumn: 1);
         if (!table)
         {
             return changed;
         }
 
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Enabled"),
-            ImGuiTableColumnFlags.WidthFixed,
-            OmniTheme.Scale(56f));
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Content"),
-            ImGuiTableColumnFlags.WidthStretch,
-            1.45f);
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Type"),
-            ImGuiTableColumnFlags.WidthStretch,
-            0.8f);
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Action"),
-            ImGuiTableColumnFlags.WidthFixed,
-            OmniTheme.Scale(86f));
         OmniControls.ScrollableTableHeadersRow();
 
         changed |= DrawTriggerState(
@@ -586,6 +578,8 @@ internal static class AutoPartyInvitePanel
         ref bool toggledTriggerEnabled)
     {
         var changed = false;
+        using var wrap = ImRaii.TextWrapPos(0f);
+        var detailLayout = ImGui.TableGetColumnCount() == 1;
         for (var digit = 0; digit < DigitRuns.Length; digit++)
         {
             if (config.EnabledDigits.Contains(digit) != enabledState)
@@ -595,7 +589,7 @@ internal static class AutoPartyInvitePanel
 
             ImGui.PushID($"autoPartyInviteDigit{digit}");
             ImGui.TableNextRow();
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Enabled"), detailLayout);
             var enabled = enabledState;
             if (OmniControls.Checkbox("##enabled", ref enabled))
             {
@@ -603,14 +597,14 @@ internal static class AutoPartyInvitePanel
                 changed = true;
             }
 
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Content"), detailLayout);
             ImGui.TextUnformatted(string.Format(
                 OmniLoc.Get("Feature.AutoPartyInvite.Trigger.DigitFormat"),
                 digit,
                 DigitRuns[digit]));
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Type"), detailLayout);
             ImGui.TextDisabled(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Type.Digit"));
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Action"), detailLayout);
             ImGui.TextDisabled(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Fixed"));
             ImGui.PopID();
         }
@@ -625,7 +619,7 @@ internal static class AutoPartyInvitePanel
 
             ImGui.PushID($"autoPartyInviteCustom{index}");
             ImGui.TableNextRow();
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Enabled"), detailLayout);
             var enabled = trigger.Enabled;
             if (OmniControls.Checkbox("##enabled", ref enabled))
             {
@@ -634,11 +628,11 @@ internal static class AutoPartyInvitePanel
                 changed = true;
             }
 
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Content"), detailLayout);
             ImGui.TextWrapped(trigger.Text);
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Type"), detailLayout);
             ImGui.TextDisabled(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Type.Exact"));
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Action"), detailLayout);
             if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.AutoPartyInvite.Trigger.Delete")}##delete", false))
             {
                 config.CustomTriggers.RemoveAt(index);
@@ -706,7 +700,10 @@ internal static class AutoPartyInvitePanel
         }
 
         ImGui.Spacing();
-        var columnCount = Math.Clamp((int)(ImGui.GetContentRegionAvail().X / OmniTheme.Scale(150f)), 1, 4);
+        var minimumWidth = 0f;
+        foreach (var option in AutoPartyInvite.ChannelOptions)
+            minimumWidth = MathF.Max(minimumWidth, OmniControls.MeasureCheckbox(GetChannelLabel(option)).X);
+        var columnCount = OmniControls.ColumnsThatFit(4, minimumWidth);
         using (var table = ImRaii.Table(
                    "##autoPartyInviteChannels",
                    columnCount,

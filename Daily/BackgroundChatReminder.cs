@@ -135,20 +135,17 @@ internal static class BackgroundChatReminderPanel
     public static bool Draw(BackgroundChatReminderConfig config)
     {
         var changed = false;
-        using var table = ImRaii.Table(
+        using var table = OmniControls.SettingsTable(
             "##backgroundChatReminderOptions",
-            4,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BackgroundChatReminder.Tell")),
+                OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BackgroundChatReminder.Party"))],
+            ["##backgroundChatReminderTell", "##backgroundChatReminderParty"],
+            flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##backgroundChatReminderTell", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##backgroundChatReminderParty", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##backgroundChatReminderReserved1", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##backgroundChatReminderReserved2", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var tell = config.EnableFlashOnTell;

@@ -35,6 +35,15 @@ public sealed unsafe class AetheryteModelReplacement(
     AetheryteModelReplacementConfig config,
     System.Action saveConfig) : ModuleBase
 {
+    public override ModuleInfo Info { get; } = new()
+    {
+        Title = OmniLoc.Get("AetheryteModelReplacementTitle"),
+        Description = OmniLoc.Get("AetheryteModelReplacementDescription"),
+        Category = ModuleCategory.Interface,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/AetheryteModelReplacement-1.png"
+    };
+
     private const int PRESET_CACHE_SCHEMA_VERSION = 1;
     private static PresetScanResult? presetScanCache;
     private static string presetScanCacheVersion = string.Empty;
@@ -50,15 +59,6 @@ public sealed unsafe class AetheryteModelReplacement(
     private string lastRedirectState = string.Empty;
     private uint currentTerritoryID;
     private FeatureLifetime? runtimeLifetime;
-
-    public override ModuleInfo Info { get; } = new()
-    {
-        Title = OmniLoc.Get("AetheryteModelReplacementTitle"),
-        Description = OmniLoc.Get("AetheryteModelReplacementDescription"),
-        Category = ModuleCategory.Interface,
-        PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/AetheryteModelReplacement-1.png"
-    };
 
     public override bool HasSettings => true;
 
@@ -573,15 +573,15 @@ public sealed unsafe class AetheryteModelReplacement(
 
     private static bool IsSharedGroupPath(string path)
     {
-        const string prefix = "bgcommon/world/aet/shared/for_bg/sgbg_w_aet_";
-        if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+        const string PREFIX = "bgcommon/world/aet/shared/for_bg/sgbg_w_aet_";
+        if (!path.StartsWith(PREFIX, StringComparison.OrdinalIgnoreCase) ||
             !path.EndsWith(".sgb", StringComparison.OrdinalIgnoreCase) ||
-            path.Length <= prefix.Length + 4)
+            path.Length <= PREFIX.Length + 4)
         {
             return false;
         }
 
-        foreach (var value in path.AsSpan(prefix.Length, 3))
+        foreach (var value in path.AsSpan(PREFIX.Length, 3))
         {
             if (value is < '0' or > '9')
             {
@@ -589,7 +589,7 @@ public sealed unsafe class AetheryteModelReplacement(
             }
         }
 
-        return path[prefix.Length + 3] == '_';
+        return path[PREFIX.Length + 3] == '_';
     }
 
     private static uint ComputeResourceHash(string path)
@@ -672,34 +672,23 @@ internal static class AetheryteModelReplacementPanel
         var tableHeight = rowContentHeight * (visibleRows + 1) +
                           ImGui.GetStyle().CellPadding.Y * (visibleRows + 2) * 2f +
                           ImGui.GetStyle().FrameBorderSize * 2f;
-        using (var table = ImRaii.Table(
+        using (var table = OmniControls.DataTable(
                    "##aetheryteModelReplacementSettings",
-                   4,
+                   [string.Empty, OmniLoc.Get("Feature.AetheryteModelReplacement.Source"),
+                       OmniLoc.Get("Feature.AetheryteModelReplacement.Target"), actionLabel],
+                   [OmniTheme.CheckboxSize(), ImGui.GetFontSize() * 12f, ImGui.GetFontSize() * 12f, actionWidth],
+                   [OmniTheme.CheckboxSize(), ImGui.GetFontSize() * 18f, ImGui.GetFontSize() * 18f, actionWidth], out var detailLayout,
                    ImGuiTableFlags.Borders |
                    ImGuiTableFlags.RowBg |
                    ImGuiTableFlags.ScrollY |
                    ImGuiTableFlags.SizingStretchProp,
-                   new Vector2(ImGui.GetContentRegionAvail().X, tableHeight)))
+                   new Vector2(ImGui.GetContentRegionAvail().X, tableHeight), stretchColumn: 1))
         {
             if (!table)
             {
                 return changed;
             }
 
-            var enabledColumnWidth = OmniTheme.CheckboxSize() + ImGui.GetStyle().CellPadding.X * 2f;
-            ImGui.TableSetupColumn("##aetheryteEnabled", ImGuiTableColumnFlags.WidthFixed, enabledColumnWidth);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.AetheryteModelReplacement.Source"),
-                ImGuiTableColumnFlags.WidthStretch,
-                1f);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.AetheryteModelReplacement.Target"),
-                ImGuiTableColumnFlags.WidthStretch,
-                1f);
-            ImGui.TableSetupColumn(
-                actionLabel,
-                ImGuiTableColumnFlags.WidthFixed,
-                actionWidth);
             ImGui.TableSetupScrollFreeze(0, 1);
             OmniControls.BeginTableHeaderRow(rowContentHeight);
             ImGui.TableNextColumn();
@@ -719,9 +708,12 @@ internal static class AetheryteModelReplacementPanel
                 }
             }
 
-            OmniControls.TableHeader(OmniLoc.Get("Feature.AetheryteModelReplacement.Source"), rowContentHeight);
-            OmniControls.TableHeader(OmniLoc.Get("Feature.AetheryteModelReplacement.Target"), rowContentHeight);
-            OmniControls.TableHeader(actionLabel, rowContentHeight);
+            if (!detailLayout)
+            {
+                OmniControls.TableHeader(OmniLoc.Get("Feature.AetheryteModelReplacement.Source"), rowContentHeight);
+                OmniControls.TableHeader(OmniLoc.Get("Feature.AetheryteModelReplacement.Target"), rowContentHeight);
+                OmniControls.TableHeader(actionLabel, rowContentHeight);
+            }
 
             var removeIndex = -1;
             for (var index = 0; index < rules.Count; index++)
@@ -738,7 +730,7 @@ internal static class AetheryteModelReplacementPanel
                     changed = true;
                 }
 
-                ImGui.TableNextColumn();
+                OmniControls.NextTableField(OmniLoc.Get("Feature.AetheryteModelReplacement.Source"), detailLayout);
                 var usedSources = rules
                     .Where((candidate, candidateIndex) => candidateIndex != index)
                     .Select(static candidate => (candidate.SourceTerritoryID, candidate.SourceAetheryteRowID))
@@ -765,7 +757,7 @@ internal static class AetheryteModelReplacementPanel
                     changed = true;
                 }
 
-                ImGui.TableNextColumn();
+                OmniControls.NextTableField(OmniLoc.Get("Feature.AetheryteModelReplacement.Target"), detailLayout);
                 var target = presets.FirstOrDefault(preset =>
                                   preset.SharedGroupPath.Equals(rule.TargetSharedGroupPath, StringComparison.OrdinalIgnoreCase)) ??
                              presets[0];
@@ -795,10 +787,7 @@ internal static class AetheryteModelReplacementPanel
             }
 
             ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
-            ImGui.TableNextColumn();
-            ImGui.TableNextColumn();
-            ImGui.TableNextColumn();
-            ImGui.TableNextColumn();
+            ImGui.TableSetColumnIndex(detailLayout ? 0 : 3);
             OmniControls.CenterTableItem(addSize, rowContentHeight);
             if (OmniControls.SmallButton($"{addLabel}##add", false, addSize))
             {

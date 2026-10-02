@@ -1329,20 +1329,18 @@ internal static class BetterUserMacroPanel
         using var itemSpacing = ImRaii.PushStyle(
             ImGuiStyleVar.ItemSpacing,
             new Vector2(Math.Clamp(style.ItemSpacing.X, 9f, 17f), style.ItemSpacing.Y));
-        using var table = ImRaii.Table(
+        using var table = OmniControls.SettingsTable(
             "##betterUserMacroSettings",
-            4,
-            ImGuiTableFlags.SizingStretchProp,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.Tooltips")),
+             OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.LineNumbers")),
+             OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.DragSwap")),
+             OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.CustomIcons"))],
+            ["##c0", "##c1", "##c2", "##c3"], weights: [1f, 1f, 1f, 1.25f], columnsPerRow: 4);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##c0", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##c1", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##c2", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##c3", ImGuiTableColumnFlags.WidthStretch, 1.25f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var tooltips = config.Tooltips;
@@ -1404,7 +1402,8 @@ internal static class BetterUserMacroPanel
         }
         else
         {
-            ImGuiOm.HelpMarker(OmniLoc.Get($"{labelKey}.Help"));
+            OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+            OmniControls.HelpIcon(OmniLoc.Get($"{labelKey}.Help"));
         }
 
         return changed;

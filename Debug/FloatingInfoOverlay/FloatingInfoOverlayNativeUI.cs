@@ -47,22 +47,15 @@ internal sealed class FloatingInfoOverlayNativeUI(
                 }
 
                 var currentPage = ResolveCurrentPage(pair.Key, group.Objects);
-                var bounds = DrawObjectInfoAt(
+                var clicked = DrawObjectInfoAt(
                     drawList,
                     group.Objects[currentPage],
                     group.AnchorPosition,
                     group.Objects.Count,
-                    currentPage);
-                if (!clickConsumed && bounds.LineRects.Count > 0)
-                {
-                    clickConsumed = DrawClickWindow(
-                        bounds.Minimum,
-                        bounds.Maximum,
-                        bounds.LineRects,
-                        group.Objects.Count,
-                        currentPage,
-                        pair.Key);
-                }
+                    currentPage,
+                    pair.Key,
+                    !clickConsumed);
+                clickConsumed |= clicked;
             }
         }
         catch (Exception ex)
@@ -98,7 +91,7 @@ internal sealed class FloatingInfoOverlayNativeUI(
         return currentPage;
     }
 
-    private bool DrawClickWindow(
+    private bool HandleClick(
         Vector2 minimum,
         Vector2 maximum,
         List<FloatingInfoLineRect> lineRects,
@@ -106,145 +99,168 @@ internal sealed class FloatingInfoOverlayNativeUI(
         int currentPage,
         uint groupID)
     {
-        ImGui.SetNextWindowPos(minimum, ImGuiCond.Always);
-        ImGui.SetNextWindowSize(maximum - minimum, ImGuiCond.Always);
-        const ImGuiWindowFlags FLAGS =
-            ImGuiWindowFlags.NoDecoration |
-            ImGuiWindowFlags.NoSavedSettings |
-            ImGuiWindowFlags.NoFocusOnAppearing |
-            ImGuiWindowFlags.NoNav |
-            ImGuiWindowFlags.NoBackground |
-            ImGuiWindowFlags.NoScrollbar |
-            ImGuiWindowFlags.NoScrollWithMouse;
-        using var padding = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, Vector2.Zero);
-        using var colors = ImRaii.PushColor(ImGuiCol.WindowBg, Vector4.Zero)
-            .Push(ImGuiCol.Border, Vector4.Zero);
-        var windowOpen = ImGui.Begin($"##OmniFloatingInfo_{groupID:X8}", FLAGS);
-        try
+        if (!ImGui.IsWindowHovered() || ImGui.IsAnyItemActive() || !ImGui.IsMouseClicked(ImGuiMouseButton.Left))
         {
-            if (!windowOpen || !ImGui.IsWindowHovered() || !ImGui.IsMouseClicked(ImGuiMouseButton.Left))
-            {
-                return false;
-            }
-
-            var mousePosition = ImGui.GetMousePos();
-            if (!HitTest(mousePosition, minimum, maximum))
-            {
-                return false;
-            }
-
-            for (var index = 0; index < lineRects.Count; index++)
-            {
-                var line = lineRects[index];
-                if (line.CopyValue.Length == 0 || !HitTest(mousePosition, line.Minimum, line.Maximum))
-                {
-                    continue;
-                }
-
-                ImGui.SetClipboardText(line.CopyValue);
-                return true;
-            }
-
-            if (objectCount > 1)
-            {
-                currentPages[groupID] = (currentPage + 1) % objectCount;
-            }
-
+            return false;
+        }
+        var mousePosition = ImGui.GetMousePos();
+        if (!HitTest(mousePosition, minimum, maximum))
+            return false;
+        foreach (var line in lineRects)
+        {
+            if (line.CopyValue.Length == 0 || !HitTest(mousePosition, line.Minimum, line.Maximum))
+                continue;
+            ImGui.SetClipboardText(line.CopyValue);
             return true;
         }
-        finally
+        if (objectCount > 1)
         {
-            ImGui.End();
+            currentPages[groupID] = (currentPage + 1) % objectCount;
+            ImGui.SetScrollY(0f);
         }
+        return true;
     }
 
-    private FloatingInfoBounds DrawObjectInfoAt(
+    private bool DrawObjectInfoAt(
         ImDrawListPtr drawList,
         FloatingInfoObject item,
         Vector2 position,
         int totalCount,
-        int currentIndex)
+        int currentIndex,
+        uint groupID,
+        bool allowClick)
     {
         var lines = BuildOverlayLines(item, totalCount, currentIndex);
         lineRectBuffer.Clear();
         if (lines.Count == 0)
         {
-            return new(Vector2.Zero, Vector2.Zero, lineRectBuffer);
+            return false;
         }
 
+        using var scaleScope = new OmniTheme.ScaleScope(ImGui.GetFontSize() / OmniTheme.REFERENCE_FONT_SIZE);
         var overlayScale = Math.Clamp(config.Scale, 0.3f, 3f) * 1.1f;
         var font = ImGui.GetFont();
-        var fontSize = font.FontSize * overlayScale;
-        var lineHeight = fontSize + OmniTheme.Scale(4f) * overlayScale;
+        var fontSize = ImGui.GetFontSize() * overlayScale;
+        var lineSpacing = OmniTheme.Scale(4f) * overlayScale;
         var padding = OmniTheme.Scale(new Vector2(8f, 6f)) * overlayScale;
         var contentWidth = OmniTheme.Scale(lines.Count > 8 ? 340f : 260f) * overlayScale;
+        foreach (var line in lines)
+            contentWidth = MathF.Max(contentWidth,
+                ImGui.CalcTextSizeA(font, fontSize, float.MaxValue, 0f, line.Text, out _).X);
         var showCastProgress = config.ShowCastInfo && item.IsCasting && item.TotalCastTime > 0f;
         var castProgressHeight = showCastProgress ? OmniTheme.Scale(6f) * overlayScale : 0f;
         var castProgressGap = showCastProgress ? OmniTheme.Scale(5f) * overlayScale : 0f;
-        var totalHeight = lines.Count * lineHeight + padding.Y * 2f + castProgressGap + castProgressHeight;
-        var minimum = position - padding;
-        var maximum = minimum + new Vector2(contentWidth + padding.X * 2f, totalHeight);
-        ClampToViewport(ref minimum, ref maximum, OmniTheme.Scale(4f) * overlayScale);
-
-        var opacity = Math.Clamp(config.Opacity, 0.1f, 1f);
-        drawList.AddRectFilled(
-            minimum,
-            maximum,
-            OmniTheme.Color(KnownColor.Black.ToVector4() with { W = opacity }));
-        drawList.AddRect(
-            minimum - Vector2.One * OmniTheme.Scale(1f) * overlayScale,
-            maximum + Vector2.One * OmniTheme.Scale(1f) * overlayScale,
-            OmniTheme.Color(KnownColor.DimGray.ToVector4() with { W = opacity * 0.26f }),
-            OmniTheme.Scale(4f) * overlayScale,
-            ImDrawFlags.None,
-            OmniTheme.Scale(2f) * overlayScale);
-        drawList.AddRect(
-            minimum,
-            maximum,
-            OmniTheme.Color(KnownColor.LightGray.ToVector4() with { W = opacity * 0.44f }),
-            OmniTheme.Scale(4f) * overlayScale,
-            ImDrawFlags.None,
-            OmniTheme.Scale(1.5f) * overlayScale);
-
-        var currentPosition = minimum + padding;
-        var mousePosition = ImGui.GetMousePos();
-        for (var index = 0; index < lines.Count; index++)
+        var margin = OmniTheme.Scale(4f) * overlayScale;
+        var viewportSize = Vector2.Max(Vector2.One, ImGui.GetMainViewport().WorkSize - new Vector2(margin * 2f));
+        contentWidth = MathF.Max(1f, MathF.Min(contentWidth, viewportSize.X - padding.X * 2f));
+        var totalHeight = MeasureHeight(contentWidth);
+        var scrollable = totalHeight > viewportSize.Y;
+        if (scrollable)
         {
-            var line = lines[index];
-            var lineMinimum = new Vector2(minimum.X, currentPosition.Y);
-            var lineMaximum = new Vector2(maximum.X, currentPosition.Y + lineHeight);
-            lineRectBuffer.Add(new(lineMinimum, lineMaximum, line.CopyValue));
-            if (line.CopyValue.Length > 0 && HitTest(mousePosition, lineMinimum, lineMaximum))
-            {
-                drawList.AddRectFilled(
-                    lineMinimum,
-                    lineMaximum,
-                    OmniTheme.Color(OmniTheme.Orange with { W = opacity * 0.16f }),
-                    OmniTheme.Scale(2f) * overlayScale);
-            }
-
-            drawList.AddText(
-                font,
-                fontSize,
-                currentPosition,
-                Color(line.Color, opacity),
-                line.Text);
-            currentPosition.Y += lineHeight;
+            contentWidth = MathF.Max(1f, contentWidth - ImGui.GetStyle().ScrollbarSize);
+            totalHeight = MeasureHeight(contentWidth);
         }
+        var minimum = position - padding;
+        var maximum = minimum + new Vector2(contentWidth + padding.X * 2f +
+            (scrollable ? ImGui.GetStyle().ScrollbarSize : 0f), MathF.Min(totalHeight, viewportSize.Y));
+        ClampToViewport(ref minimum, ref maximum, margin);
 
-        if (showCastProgress)
+        ImGui.SetNextWindowPos(minimum, ImGuiCond.Always);
+        ImGui.SetNextWindowSize(maximum - minimum, ImGuiCond.Always);
+        ImGui.SetNextWindowContentSize(new Vector2(0f, totalHeight));
+        var flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove |
+            ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoFocusOnAppearing |
+            ImGuiWindowFlags.NoNav | ImGuiWindowFlags.NoBackground;
+        if (!scrollable)
+            flags |= ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
+        using var windowPadding = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, Vector2.Zero);
+        using var colors = ImRaii.PushColor(ImGuiCol.WindowBg, Vector4.Zero).Push(ImGuiCol.Border, Vector4.Zero);
+        var windowOpen = ImGui.Begin($"##OmniFloatingInfo_{groupID:X8}", flags);
+        try
         {
-            DrawCastProgressBar(
-                drawList,
-                item,
+            if (!windowOpen)
+                return false;
+
+            var opacity = Math.Clamp(config.Opacity, 0.1f, 1f);
+            drawList.AddRectFilled(
                 minimum,
                 maximum,
-                padding,
-                castProgressHeight,
-                opacity);
+                OmniTheme.Color(KnownColor.Black.ToVector4() with { W = opacity }));
+            drawList.AddRect(
+                minimum - Vector2.One * OmniTheme.Scale(1f) * overlayScale,
+                maximum + Vector2.One * OmniTheme.Scale(1f) * overlayScale,
+                OmniTheme.Color(KnownColor.DimGray.ToVector4() with { W = opacity * 0.26f }),
+                OmniTheme.Scale(4f) * overlayScale,
+                ImDrawFlags.None,
+                OmniTheme.Scale(2f) * overlayScale);
+            drawList.AddRect(
+                minimum,
+                maximum,
+                OmniTheme.Color(KnownColor.LightGray.ToVector4() with { W = opacity * 0.44f }),
+                OmniTheme.Scale(4f) * overlayScale,
+                ImDrawFlags.None,
+                OmniTheme.Scale(1.5f) * overlayScale);
+
+            var clipMaximum = new Vector2(minimum.X + padding.X + contentWidth,
+                maximum.Y - padding.Y - castProgressGap - castProgressHeight);
+            drawList.PushClipRect(minimum, clipMaximum, true);
+            var currentPosition = minimum + padding - new Vector2(0f, ImGui.GetScrollY());
+            var mousePosition = ImGui.GetMousePos();
+            for (var index = 0; index < lines.Count; index++)
+            {
+                var line = lines[index];
+                var lineHeight = ImGui.CalcTextSizeA(font, fontSize, float.MaxValue, contentWidth, line.Text, out _).Y + lineSpacing;
+                var lineMinimum = new Vector2(minimum.X, MathF.Max(minimum.Y, currentPosition.Y));
+                var lineMaximum = new Vector2(clipMaximum.X, MathF.Min(clipMaximum.Y, currentPosition.Y + lineHeight));
+                if (lineMaximum.Y > lineMinimum.Y)
+                    lineRectBuffer.Add(new(lineMinimum, lineMaximum, line.CopyValue));
+                if (line.CopyValue.Length > 0 && HitTest(mousePosition, lineMinimum, lineMaximum))
+                {
+                    drawList.AddRectFilled(
+                        lineMinimum,
+                        lineMaximum,
+                        OmniTheme.Color(OmniTheme.Orange with { W = opacity * 0.16f }),
+                        OmniTheme.Scale(2f) * overlayScale);
+                }
+
+                drawList.AddText(
+                    font,
+                    fontSize,
+                    currentPosition,
+                    Color(line.Color, opacity),
+                    line.Text,
+                    contentWidth);
+                currentPosition.Y += lineHeight;
+            }
+            drawList.PopClipRect();
+
+            if (showCastProgress)
+            {
+                DrawCastProgressBar(
+                    drawList,
+                    item,
+                    minimum,
+                    maximum,
+                    padding,
+                    castProgressHeight,
+                    opacity);
+            }
+
+            return allowClick && HandleClick(minimum, new Vector2(clipMaximum.X, maximum.Y),
+                lineRectBuffer, totalCount, currentIndex, groupID);
+        }
+        finally
+        {
+            ImGui.End();
         }
 
-        return new(minimum, maximum, lineRectBuffer);
+        float MeasureHeight(float width)
+        {
+            var height = padding.Y * 2f + castProgressGap + castProgressHeight;
+            foreach (var line in lines)
+                height += ImGui.CalcTextSizeA(font, fontSize, float.MaxValue, width, line.Text, out _).Y + lineSpacing;
+            return height;
+        }
     }
 
     private List<FloatingInfoLine> BuildOverlayLines(
@@ -681,16 +697,11 @@ internal sealed class FloatingInfoOverlayNativeUI(
 
     private static void ClampToViewport(ref Vector2 minimum, ref Vector2 maximum, float margin)
     {
-        var displaySize = ImGui.GetIO().DisplaySize;
-        if (displaySize.X <= 0f || displaySize.Y <= 0f)
-        {
-            return;
-        }
-
+        var viewport = ImGui.GetMainViewport();
         var size = maximum - minimum;
-        minimum = new(
-            Math.Clamp(minimum.X, margin, Math.Max(margin, displaySize.X - size.X - margin)),
-            Math.Clamp(minimum.Y, margin, Math.Max(margin, displaySize.Y - size.Y - margin)));
+        minimum = Vector2.Clamp(minimum, viewport.WorkPos + new Vector2(margin),
+            Vector2.Max(viewport.WorkPos + new Vector2(margin),
+                viewport.WorkPos + viewport.WorkSize - size - new Vector2(margin)));
         maximum = minimum + size;
     }
 
@@ -712,11 +723,6 @@ internal sealed class FloatingInfoOverlayNativeUI(
     private static bool HitTest(in Vector2 point, in Vector2 minimum, in Vector2 maximum) =>
         point.X >= minimum.X && point.X <= maximum.X &&
         point.Y >= minimum.Y && point.Y <= maximum.Y;
-
-    private readonly record struct FloatingInfoBounds(
-        Vector2 Minimum,
-        Vector2 Maximum,
-        List<FloatingInfoLineRect> LineRects);
 
     private readonly record struct FloatingInfoLine(string Text, Vector4 Color, string CopyValue);
 

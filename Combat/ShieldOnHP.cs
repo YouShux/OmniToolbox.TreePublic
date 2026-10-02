@@ -48,13 +48,15 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
             config.ShowBar = showBar;
         }
 
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.ShieldOnHP.ShowBar.Help"));
-        ImGui.SameLine(0f, OmniTheme.ContentGap());
+        OmniControls.SameLineOrWrap(ImGui.GetTextLineHeight(), OmniTheme.Scale(4f));
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.ShieldOnHP.ShowBar.Help"));
+        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.ShieldOnHP.Color")).X +
+            ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.X, OmniTheme.ContentGap());
         using (ImRaii.Disabled(!config.ShowBar))
         {
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted(OmniLoc.Get("Feature.ShieldOnHP.Color"));
-            ImGui.SameLine();
+            OmniControls.SameLineOrWrap(ImGui.GetFrameHeight());
             var color = config.Color;
             if (OmniControls.ColorEdit("##shieldOnHPColor", ref color))
             {

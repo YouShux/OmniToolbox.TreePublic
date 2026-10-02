@@ -53,22 +53,29 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     public override bool DrawSettings()
     {
         var changed = false;
-        using (var table = ImRaii.Table("##raiseDispelMatrix", 8,
+        var matrixWidth = ImGui.GetFontSize() * 5f;
+        foreach (var key in DisplayColumns)
+            matrixWidth = MathF.Max(matrixWidth, ImGui.CalcTextSize(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}")).X);
+        var detailLayout = ImGui.GetContentRegionAvail().X < (matrixWidth + ImGui.GetStyle().CellPadding.X * 2f) * 8f;
+        using (var table = ImRaii.Table("##raiseDispelMatrix", detailLayout ? 1 : 8,
                    ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchSame,
                    new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
         {
             if (table)
             {
-                ImGui.TableSetupColumn("##kind", ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(78f));
-                foreach (var key in DisplayColumns)
+                ImGui.TableSetupColumn("##kind", detailLayout ? ImGuiTableColumnFlags.WidthStretch : ImGuiTableColumnFlags.WidthFixed, OmniTheme.Scale(78f));
+                if (!detailLayout)
                 {
-                    ImGui.TableSetupColumn(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}"));
-                }
-                ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
-                DrawMatrixLabel(string.Empty);
-                foreach (var key in DisplayColumns)
-                {
-                    DrawMatrixLabel(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}"));
+                    foreach (var key in DisplayColumns)
+                    {
+                        ImGui.TableSetupColumn(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}"));
+                    }
+                    ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
+                    DrawMatrixLabel(string.Empty);
+                    foreach (var key in DisplayColumns)
+                    {
+                        DrawMatrixLabel(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}"));
+                    }
                 }
                 changed |= DrawReminderRow("Raise", config.GetRaiseOptions());
                 changed |= DrawMatrixCheckbox("raiseList", config.ShowRaiseOnList, value => config.ShowRaiseOnList = value);
@@ -78,7 +85,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
 
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
-        using (var table = ImRaii.Table("##raiseDispelScales", 3, ImGuiTableFlags.SizingStretchSame,
+        using (var table = ImRaii.Table("##raiseDispelScales", OmniControls.ColumnsThatFit(3, ImGui.GetFontSize() * 16f), ImGuiTableFlags.SizingStretchSame,
                    new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
         {
             if (table)
@@ -87,7 +94,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding();
                 ImGui.TextUnformatted(OmniLoc.Get("Feature.RaiseDispelEnhancement.DisplayRange"));
-                ImGui.SameLine(0f, OmniTheme.Scale(8f));
+                OmniControls.SameLineOrWrap(OmniControls.MeasureCombo(OmniLoc.Get($"Feature.RaiseDispelEnhancement.DisplayRange.{config.DisplayRange}")).X, OmniTheme.Scale(8f));
                 var range = config.DisplayRange;
                 if (OmniControls.BeginCombo("##raiseDispelDisplayRange",
                         OmniLoc.Get($"Feature.RaiseDispelEnhancement.DisplayRange.{range}"),
@@ -121,8 +128,15 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                     value => config.WorldTextScale = value);
             }
         }
-        using (var table = ImRaii.Table("##raiseDispelColors", 4, ImGuiTableFlags.SizingStretchSame,
-                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+        ReadOnlySpan<string> colorLabels = [OmniLoc.Get("Feature.RaiseDispelEnhancement.RaiseListColor"),
+            OmniLoc.Get("Feature.RaiseDispelEnhancement.DispelListColor"),
+            OmniLoc.Get("Feature.RaiseDispelEnhancement.SelfRaiseWorldColor"),
+            OmniLoc.Get("Feature.RaiseDispelEnhancement.OtherRaiseWorldColor")];
+        var colorSize = new Vector2(ImGui.GetFrameHeight());
+        Span<Vector2> colorGroups = stackalloc Vector2[colorLabels.Length];
+        for (var index = 0; index < colorLabels.Length; index++)
+            colorGroups[index] = OmniControls.MeasureGroup([ImGui.CalcTextSize(colorLabels[index]), colorSize], OmniTheme.Scale(8f));
+        using (var table = OmniControls.SettingsTable("##raiseDispelColors", colorGroups, colorLabels, columnsPerRow: 4))
         {
             if (table)
             {
@@ -171,6 +185,21 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     private static bool DrawMatrixCheckbox(string id, bool value, Action<bool> setter)
     {
         ImGui.TableNextColumn();
+        if (ImGui.TableGetColumnCount() == 1)
+        {
+            var key = id switch
+            {
+                "ShowPartyFrame" => "Party",
+                "ShowAllianceFrame" => "Alliance",
+                "ShowCasterName" => "CasterName",
+                "ShowCastProgress" => "CastProgress",
+                "raiseList" or "dispelList" => "List",
+                _ => id
+            };
+            using var wrap = ImRaii.TextWrapPos(0f);
+            ImGui.TextUnformatted(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}"));
+            OmniControls.SameLineOrWrap(OmniTheme.CheckboxSize());
+        }
         ImGui.SetCursorPosX(ImGui.GetCursorPosX() +
             MathF.Max(0f, (ImGui.GetContentRegionAvail().X - OmniTheme.CheckboxSize()) * 0.5f));
         if (!OmniControls.Checkbox($"##{id}", ref value))
@@ -189,8 +218,9 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     {
         var color = ImGui.ColorConvertU32ToFloat4(current);
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get(labelKey));
-        ImGui.SameLine(0f, OmniTheme.Scale(8f));
+        using (ImRaii.TextWrapPos(0f))
+            ImGui.TextUnformatted(OmniLoc.Get(labelKey));
+        OmniControls.SameLineOrWrap(ImGui.GetFrameHeight(), OmniTheme.Scale(8f));
         if (!OmniControls.ColorEdit($"##raiseDispel{id}", ref color))
         {
             return false;
@@ -209,7 +239,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         var value = Math.Clamp(current <= 0f ? 1f : current, 0.3f, 3f);
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get(labelKey));
-        ImGui.SameLine(0f, OmniTheme.Scale(8f));
+        OmniControls.SameLineOrWrap(OmniControls.MeasureFloatInput(value, "%.2f").X, OmniTheme.Scale(8f));
         var changed = OmniControls.SliderFloat(
             $"##raiseDispel{id}",
             ref value,

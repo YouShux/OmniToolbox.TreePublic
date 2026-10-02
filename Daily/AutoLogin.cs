@@ -4,8 +4,8 @@ using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Interface.ImGuiSeStringRenderer;
 using Dalamud.Utility;
-using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
 using OmenTools;
 using OmenTools.Extensions;
@@ -31,9 +31,6 @@ public sealed unsafe class AutoLogin(
     AutoLoginConfig config,
     System.Action saveConfig) : ModuleBase
 {
-    private const int CHARACTER_SELECT_TIMEOUT_MS = 30_000;
-    private const int LOBBY_TRAVEL_SETTLE_DELAY_MS = 2_500;
-
     public override ModuleInfo Info { get; } = new()
     {
         Title = OmniLoc.Get("AutoLoginTitle"),
@@ -46,6 +43,9 @@ public sealed unsafe class AutoLogin(
                 "/omni 重新登陆 角色名@世界名")
         ]
     };
+
+    private const int CHARACTER_SELECT_TIMEOUT_MS = 30_000;
+    private const int LOBBY_TRAVEL_SETTLE_DELAY_MS = 2_500;
 
     private readonly TaskHelper tasks = new()
     {
@@ -107,7 +107,7 @@ public sealed unsafe class AutoLogin(
             },
             "Request logout");
         tasks.Enqueue(
-            () => !GameState.IsLoggedIn || AddonSelectYesnoEvent.ClickYes(LuminaWrapper.GetAddonText(116)),
+            () => !GameState.IsLoggedIn || AddonSelectYesnoEvent.ClickYes(),
             "Confirm logout",
             timeoutMS: 30_000);
         return true;
@@ -137,37 +137,31 @@ public sealed unsafe class AutoLogin(
             : 0f;
         var addTarget = false;
 
-        using (var table = ImRaii.Table(
+        var nameWidth = ImGui.GetFontSize() * 6f;
+        var worldWidth = ImGui.GetFontSize() * 6f;
+        foreach (var target in config.Targets)
+        {
+            nameWidth = MathF.Max(nameWidth, ImGui.CalcTextSize(target.CharacterName).X);
+            worldWidth = MathF.Max(worldWidth, ImGui.CalcTextSize(LuminaWrapper.GetWorldName(target.WorldID)).X + ImGui.GetTextLineHeight());
+        }
+        using (var table = OmniControls.DataTable(
                    "##AutoLoginTargets",
-                   4,
+                   ["##autoLoginEnabled", OmniLoc.Get("Feature.AutoLogin.Column.CharacterName"),
+                       OmniLoc.Get("Feature.AutoLogin.Column.World"), actionLabel],
+                   [OmniControls.MeasureCheckbox(string.Empty).X, nameWidth, worldWidth, actionWidth],
+                   [OmniControls.MeasureCheckbox(string.Empty).X, nameWidth, worldWidth, actionWidth], out var detailLayout,
                    ImGuiTableFlags.Borders |
                    ImGuiTableFlags.RowBg |
                    (scroll ? ImGuiTableFlags.ScrollY : ImGuiTableFlags.None) |
                    ImGuiTableFlags.NoSavedSettings |
                    ImGuiTableFlags.SizingStretchProp,
-                   new Vector2(ImGui.GetContentRegionAvail().X, tableHeight)))
+                   2, new Vector2(ImGui.GetContentRegionAvail().X, tableHeight), stretchColumn: 1))
         {
             if (!table)
             {
                 return false;
             }
 
-            ImGui.TableSetupColumn(
-                "##autoLoginEnabled",
-                ImGuiTableColumnFlags.WidthFixed,
-                OmniTheme.CheckboxSize() + ImGui.GetStyle().CellPadding.X * 2f);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.AutoLogin.Column.CharacterName"),
-                ImGuiTableColumnFlags.WidthStretch,
-                1f);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.AutoLogin.Column.World"),
-                ImGuiTableColumnFlags.WidthStretch,
-                1f);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.AutoLogin.Column.Actions"),
-                ImGuiTableColumnFlags.WidthFixed,
-                actionWidth);
             ImGui.TableSetupScrollFreeze(0, 1);
             OmniControls.BeginTableHeaderRow(rowContentHeight);
             ImGui.TableNextColumn();
@@ -187,9 +181,12 @@ public sealed unsafe class AutoLogin(
                 }
             }
 
-            OmniControls.TableHeader(OmniLoc.Get("Feature.AutoLogin.Column.CharacterName"), rowContentHeight);
-            OmniControls.TableHeader(OmniLoc.Get("Feature.AutoLogin.Column.World"), rowContentHeight);
-            OmniControls.TableHeader(actionLabel, rowContentHeight);
+            if (!detailLayout)
+            {
+                OmniControls.TableHeader(OmniLoc.Get("Feature.AutoLogin.Column.CharacterName"), rowContentHeight);
+                OmniControls.TableHeader(OmniLoc.Get("Feature.AutoLogin.Column.World"), rowContentHeight);
+                OmniControls.TableHeader(actionLabel, rowContentHeight);
+            }
 
             var removeIndex = -1;
             for (var index = 0; index < config.Targets.Count; index++)
@@ -207,17 +204,22 @@ public sealed unsafe class AutoLogin(
                     changed = true;
                 }
 
-                ImGui.TableNextColumn();
-                OmniControls.TableTextCentered(target.CharacterName, rowContentHeight);
+                OmniControls.NextTableField(OmniLoc.Get("Feature.AutoLogin.Column.CharacterName"), detailLayout);
+                if (detailLayout)
+                    OmniControls.TableTextWrappedCentered(target.CharacterName);
+                else
+                    OmniControls.TableTextCentered(target.CharacterName, rowContentHeight);
 
-                ImGui.TableNextColumn();
+                OmniControls.NextTableField(OmniLoc.Get("Feature.AutoLogin.Column.World"), detailLayout);
                 using (var rented = new RentedSeStringBuilder())
                 {
                     var icon = rented.Builder
                         .AppendIcon((uint)BitmapFontIcon.CrossWorld)
                         .ToReadOnlySeString();
                     var worldName = LuminaWrapper.GetWorldName(target.WorldID);
-                    var textSize = ImGui.CalcTextSize(worldName);
+                    var textWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X - ImGui.GetTextLineHeight());
+                    var textSize = ImGui.CalcTextSize(worldName, false, textWidth);
+                    var worldHeight = MathF.Max(rowContentHeight, textSize.Y);
                     var worldStyle = new SeStringDrawParams
                     {
                         TargetDrawList = default(ImDrawListPtr),
@@ -231,7 +233,7 @@ public sealed unsafe class AutoLogin(
                     var groupWidth = iconSize.X + textSize.X;
                     var groupLeft = worldPosition.X +
                                     MathF.Max(0f, (ImGui.GetContentRegionAvail().X - groupWidth) * 0.5f);
-                    var textTop = worldPosition.Y + (rowContentHeight - textSize.Y) * 0.5f;
+                    var textTop = worldPosition.Y + (worldHeight - textSize.Y) * 0.5f;
                     var textCenter = textSize.Y * 0.5f;
                     if (worldName.Length > 0)
                     {
@@ -246,13 +248,14 @@ public sealed unsafe class AutoLogin(
                         groupLeft, textTop + textCenter - iconSize.Y * 0.5f);
                     ImGuiHelpers.SeStringWrapped(icon, worldStyle);
                     ImGui.GetWindowDrawList().AddText(
+                        ImGui.GetFont(), ImGui.GetFontSize(),
                         new Vector2(groupLeft + iconSize.X, textTop),
                         ImGui.GetColorU32(ImGuiCol.Text),
-                        worldName);
-                    ImGui.Dummy(new Vector2(0f, rowContentHeight));
+                        worldName, textWidth);
+                    ImGui.Dummy(new Vector2(0f, worldHeight));
                 }
 
-                ImGui.TableNextColumn();
+                OmniControls.NextTableField(actionLabel, detailLayout);
                 OmniControls.CenterTableItem(deleteSize, rowContentHeight);
                 if (OmniControls.SmallButton($"{deleteLabel}##delete", false, deleteSize))
                 {
@@ -268,7 +271,7 @@ public sealed unsafe class AutoLogin(
             }
 
             ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
-            ImGui.TableSetColumnIndex(3);
+            ImGui.TableSetColumnIndex(detailLayout ? 0 : 3);
             OmniControls.CenterTableItem(addSize, rowContentHeight);
             addTarget = OmniControls.SmallButton($"{addLabel}##add", false, addSize);
         }

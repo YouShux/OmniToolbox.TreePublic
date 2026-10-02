@@ -8,8 +8,7 @@ using KamiToolKit.Classes;
 using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
 using KamiToolKit.Overlay.UiOverlay;
-using ContentFinderConditionSheet = Lumina.Excel.Sheets.ContentFinderCondition;
-using InstanceContentSheet = Lumina.Excel.Sheets.InstanceContent;
+
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
@@ -21,30 +20,13 @@ using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Items;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
+using ContentFinderConditionSheet = Lumina.Excel.Sheets.ContentFinderCondition;
+using InstanceContentSheet = Lumina.Excel.Sheets.InstanceContent;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class DutyLootPreview : ModuleBase
 {
-    private const uint DUTY_LOOT_ICON_ID = 65114;
-
-    private readonly Config config;
-    private readonly System.Action saveConfig;
-    private readonly ItemPreviewService itemPreviewService;
-    private readonly Func<bool> isQuestInformationEnabled;
-
-    public DutyLootPreview(
-        Config config,
-        System.Action saveConfig,
-        ItemPreviewService itemPreviewService,
-        Func<bool> isQuestInformationEnabled)
-    {
-        this.config = config;
-        this.saveConfig = saveConfig;
-        this.itemPreviewService = itemPreviewService;
-        this.isQuestInformationEnabled = isQuestInformationEnabled;
-    }
-
     public override ModuleInfo Info { get; } = new()
     {
         Title = OmniLoc.Get("DutyLootPreviewTitle"),
@@ -53,6 +35,22 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/DutyLootPreview-1.png"
     };
+
+    private const uint DUTY_LOOT_ICON_ID = 65114;
+
+    private readonly Config config;
+    private readonly System.Action saveConfig;
+    private readonly ItemPreviewService itemPreviewService;
+
+    public DutyLootPreview(
+        Config config,
+        System.Action saveConfig,
+        ItemPreviewService itemPreviewService)
+    {
+        this.config = config;
+        this.saveConfig = saveConfig;
+        this.itemPreviewService = itemPreviewService;
+    }
 
     private FeatureLifetime? runtimeLifetime;
     private LootWindow? window;
@@ -159,7 +157,7 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
 
     private static uint GetActiveDutyID()
     {
-        if (!DService.Instance().ClientState.IsLoggedIn)
+        if (!DService.Instance().ClientState.IsLoggedIn || GameState.IsInPVPArea)
         {
             return 0;
         }
@@ -214,7 +212,6 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
         private const float TODO_BUTTON_FALLBACK_X_OFFSET = 220f;
         private const float TODO_BUTTON_Y_OFFSET = -10f;
 
-        private readonly Func<bool> isQuestInformationEnabled;
         private readonly IconButtonNode todoButton;
         private readonly TextButtonNode finderButton;
         private readonly TextButtonNode raidFinderButton;
@@ -224,7 +221,6 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
 
         public DutyLootOverlayNode(DutyLootPreview module)
         {
-            isQuestInformationEnabled = module.isQuestInformationEnabled;
             todoButton = new()
             {
                 IconId = DUTY_LOOT_ICON_ID,
@@ -259,10 +255,11 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
 
         protected override void OnUpdate()
         {
-            var questInformationEnabled = isQuestInformationEnabled();
             var betweenAreas = DService.Instance().Condition.IsBetweenAreas;
             var screenReady = UIModule.IsScreenReady();
-            var hidden = !questInformationEnabled || betweenAreas || !screenReady;
+            var unitManager = RaptureAtkUnitManager.Instance();
+            var hidden = betweenAreas || !screenReady || GameState.IsInPVPArea ||
+                         (unitManager != null && unitManager->IsEditingHudLayout);
             IsVisible = !hidden;
             UpdateTodoButton(hidden);
             UpdateFinderButtons(hidden);
@@ -271,7 +268,9 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
         private void UpdateTodoButton(bool hidden)
         {
             if (hidden || !AddonHelper.TryGetByName<AddonToDoList>("_ToDoList", out var addon) ||
-                !((AtkUnitBase*)addon)->IsAddonAndNodesReady())
+                !((AtkUnitBase*)addon)->IsAddonAndNodesReady() ||
+                addon->RootNode == null || !addon->RootNode->IsVisible() ||
+                (((AtkUnitBase*)addon)->VisibilityFlags & 5) != 0)
             {
                 todoButton.IsVisible = false;
                 todoTooltip.IsVisible = false;

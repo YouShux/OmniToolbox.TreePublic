@@ -8,6 +8,7 @@ using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
@@ -40,29 +41,30 @@ public sealed unsafe class LargeCooldownCounter(LargeCooldownCounterConfig confi
     public override bool DrawSettings()
     {
         var changed = false;
-        using var table = ImRaii.Table(
+        var fontLabel = OmniLoc.Get("Feature.LargeCooldownCounter.Font");
+        var sizeLabel = OmniLoc.Get("Feature.LargeCooldownCounter.FontSizeAdjust");
+        var controlWidth = OmniControls.MeasureCombo(GetFontName(config.Font), OmniTheme.Scale(120f)).X;
+        var controlSize = new Vector2(controlWidth, ImGui.GetFrameHeight());
+        using var table = OmniControls.SettingsTable(
             "##largeCooldownCounterSettings",
-            4,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [OmniControls.MeasureGroup([ImGui.CalcTextSize(fontLabel), controlSize]),
+                OmniControls.MeasureGroup([ImGui.CalcTextSize(sizeLabel), Vector2.Max(controlSize, OmniControls.MeasureInput("-15"))])],
+            ["##largeCooldownCounterFont", "##largeCooldownCounterFontSize"],
+            flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##largeCooldownCounterFont", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##largeCooldownCounterFontSize", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##largeCooldownCounterUnused1", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##largeCooldownCounterUnused2", ImGuiTableColumnFlags.WidthStretch, 1.25f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.LargeCooldownCounter.Font"));
-        ImGui.SameLine();
+        ImGui.TextUnformatted(fontLabel);
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCombo(GetFontName(config.Font)).X);
         if (OmniControls.BeginCombo(
                 "##largeCooldownCounterFont",
                 GetFontName(config.Font),
-                MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
+                MathF.Min(controlWidth, MathF.Max(1f, ImGui.GetContentRegionAvail().X))))
         {
             foreach (var font in SupportedFonts)
             {
@@ -79,22 +81,19 @@ public sealed unsafe class LargeCooldownCounter(LargeCooldownCounterConfig confi
         ImGui.TableNextColumn();
         var fontSizeAdjust = config.FontSizeAdjust;
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.LargeCooldownCounter.FontSizeAdjust"));
-        ImGui.SameLine();
+        ImGui.TextUnformatted(sizeLabel);
+        OmniControls.SameLineOrWrap(OmniControls.MeasureInput("-15").X);
         if (OmniControls.SliderInt(
                 "##largeCooldownCounterFontSizeAdjust",
                 ref fontSizeAdjust,
                 -15,
                 30,
                 "%d",
-                MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
+                MathF.Min(controlWidth, MathF.Max(1f, ImGui.GetContentRegionAvail().X))))
         {
             config.FontSizeAdjust = fontSizeAdjust;
             changed = true;
         }
-
-        ImGui.TableNextColumn();
-        ImGui.TableNextColumn();
 
         return changed;
     }

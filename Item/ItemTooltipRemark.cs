@@ -4,6 +4,7 @@ using Dalamud.Game.Text;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Utility;
 using OmenTools;
+using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -120,6 +121,7 @@ public sealed class ItemTooltipRemark : ModuleBase
 
     public override bool DrawSettings()
     {
+        using var wrap = ImRaii.TextWrapPos(0f);
         var changed = DrawEditor();
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
         changed |= DrawRemarkList();
@@ -155,7 +157,7 @@ public sealed class ItemTooltipRemark : ModuleBase
         var changed = false;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.Color"));
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(ImGui.GetFrameHeight());
         var color = UIColorPicker.Resolve(config.ColorKey, config.UseCustomColor, config.Color);
         if (UIColorPicker.Draw(
                 "itemTooltipRemark",
@@ -168,23 +170,24 @@ public sealed class ItemTooltipRemark : ModuleBase
             changed = true;
         }
 
-        ImGui.SameLine(0f, OmniTheme.Scale(12f));
+        var inputWidth = OmniControls.MeasureInput(int.MaxValue.ToString(), OmniTheme.Scale(120f)).X;
+        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.ItemTooltipRemark.ItemId")).X +
+            inputWidth + ImGui.GetStyle().ItemSpacing.X, OmniTheme.Scale(12f));
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.ItemId"));
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
-        if (OmniControls.InputInt("##itemTooltipRemarkItemId", ref editingItemID) && editingItemID < 0)
+        OmniControls.SameLineOrWrap(inputWidth);
+        if (OmniControls.InputInt("##itemTooltipRemarkItemId", ref editingItemID, inputWidth) && editingItemID < 0)
         {
             editingItemID = 0;
         }
 
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(OmniLoc.Get("Feature.ItemTooltipRemark.Load")).X);
         if (OmniControls.SmallButton(OmniLoc.Get("Feature.ItemTooltipRemark.Load"), false))
         {
             LoadEditor(GetEditingItemID(), false);
         }
 
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(OmniLoc.Get("Feature.ItemTooltipRemark.Save")).X);
         if (OmniControls.SmallButton(OmniLoc.Get("Feature.ItemTooltipRemark.Save"), false))
         {
             changed |= SaveRemark(GetEditingItemID(), editingText, out editingText);
@@ -231,9 +234,13 @@ public sealed class ItemTooltipRemark : ModuleBase
         var deleteItemID = 0u;
 
         {
-            using var table = ImRaii.Table(
+            using var table = OmniControls.DataTable(
                 "##itemTooltipRemarkTable",
-                3,
+                [OmniLoc.Get("Common.Item"), OmniLoc.Get("Feature.ItemTooltipRemark.Remark"), OmniLoc.Get("Common.Action")],
+                [iconSize + OmniTheme.Scale(6f) + ImGui.GetFontSize() * 4f, ImGui.GetFontSize() * 4f,
+                    MathF.Max(editButtonSize.X, deleteButtonSize.X)],
+                [OmniTheme.Scale(220f), OmniTheme.Scale(330f), actionSize.X],
+                out var detailLayout,
                 ImGuiTableFlags.Borders |
                 ImGuiTableFlags.RowBg |
                 ImGuiTableFlags.ScrollY |
@@ -242,66 +249,84 @@ public sealed class ItemTooltipRemark : ModuleBase
                 new Vector2(
                     ImGui.GetContentRegionAvail().X,
                     OmniTheme.SmallButtonSize().Y + cellPadding +
-                    rowHeight * 5 + OmniTheme.BorderThickness() * 2f));
+                    rowHeight * 5 + OmniTheme.BorderThickness() * 2f), 1);
             if (!table)
             {
                 return false;
             }
 
-            ImGui.TableSetupColumn(OmniLoc.Get("Common.Item"), ImGuiTableColumnFlags.WidthStretch, 1.2f);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Feature.ItemTooltipRemark.Remark"),
-                ImGuiTableColumnFlags.WidthStretch,
-                1.8f);
-            ImGui.TableSetupColumn(
-                OmniLoc.Get("Common.Action"),
-                ImGuiTableColumnFlags.WidthFixed,
-                actionSize.X + ImGui.GetStyle().CellPadding.X * 2f);
-            ImGui.TableSetupScrollFreeze(0, 1);
-            OmniControls.BeginTableHeaderRow();
-            OmniControls.TableHeader(OmniLoc.Get("Common.Item"));
-            OmniControls.TableHeader(OmniLoc.Get("Feature.ItemTooltipRemark.Remark"));
-            OmniControls.TableHeader(OmniLoc.Get("Common.Action"));
-
-            var clipper = ImGui.ImGuiListClipper();
-            clipper.Begin(rows.Length, rowHeight);
-            while (clipper.Step())
+            if (!detailLayout)
             {
-                for (var index = clipper.DisplayStart; index < clipper.DisplayEnd; index++)
+                ImGui.TableSetupScrollFreeze(0, 1);
+                OmniControls.BeginTableHeaderRow();
+                OmniControls.TableHeader(OmniLoc.Get("Common.Item"));
+                OmniControls.TableHeader(OmniLoc.Get("Feature.ItemTooltipRemark.Remark"));
+                OmniControls.TableHeader(OmniLoc.Get("Common.Action"));
+                ImGui.TableSetColumnIndex(0);
+                var itemWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X);
+                ImGui.TableSetColumnIndex(1);
+                var remarkWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X);
+                ImGui.TableSetColumnIndex(2);
+                rowContentHeight = MathF.Max(rowContentHeight, OmniControls.WrappedGroupHeight(
+                    [editButtonSize, deleteButtonSize], ImGui.GetContentRegionAvail().X, actionGap));
+                foreach (var (itemID, remark) in rows)
                 {
-                    var (itemId, remark) = rows[index];
-                    ImGui.PushID(unchecked((int)itemId));
-                    ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
-
-                    ImGui.TableNextColumn();
-                    ItemSelectionTable.DrawItemCell(itemId, rowContentHeight, iconSize);
-
-                    ImGui.TableNextColumn();
-                    OmniControls.TableTextCentered(remark, rowContentHeight);
-                    if (ImGui.IsItemHovered())
-                    {
-                        ImGui.SetTooltip(remark);
-                    }
-
-                    ImGui.TableNextColumn();
-                    OmniControls.CenterTableItem(actionSize, rowContentHeight);
-                    if (OmniControls.SmallButton(editLabel, false, editButtonSize))
-                    {
-                        LoadEditor(itemId, false);
-                    }
-
-                    ImGui.SameLine(0f, actionGap);
-                    if (OmniControls.SmallButton(deleteLabel, false, deleteButtonSize))
-                    {
-                        deleteItemID = itemId;
-                    }
-
-                    ImGui.PopID();
+                    rowContentHeight = MathF.Max(rowContentHeight,
+                        ItemSelectionTable.MeasureItemCellHeight(LuminaWrapper.GetItemName(itemID), itemWidth, iconSize));
+                    rowContentHeight = MathF.Max(rowContentHeight, ImGui.CalcTextSize(remark, false, remarkWidth).Y);
                 }
+                rowHeight = rowContentHeight + cellPadding;
             }
 
-            clipper.End();
-            clipper.Destroy();
+            if (detailLayout)
+            {
+                for (var index = 0; index < rows.Length; index++)
+                    DrawRow(index);
+            }
+            else
+            {
+                var clipper = ImGui.ImGuiListClipper();
+                clipper.Begin(rows.Length, rowHeight);
+                while (clipper.Step())
+                {
+                    for (var index = clipper.DisplayStart; index < clipper.DisplayEnd; index++)
+                    {
+                        DrawRow(index);
+                    }
+                }
+
+                clipper.End();
+                clipper.Destroy();
+            }
+
+            void DrawRow(int index)
+            {
+                var (itemId, remark) = rows[index];
+                ImGui.PushID(unchecked((int)itemId));
+                ImGui.TableNextRow(ImGuiTableRowFlags.None, detailLayout ? 0f : rowContentHeight);
+
+                ImGui.TableNextColumn();
+                ItemSelectionTable.DrawItemCell(itemId, detailLayout ? 0f : rowContentHeight, iconSize, wrapName: true);
+
+                OmniControls.NextTableField(OmniLoc.Get("Feature.ItemTooltipRemark.Remark"), detailLayout);
+                OmniControls.TableTextCentered(remark, detailLayout ? 0f : rowContentHeight);
+                OmniControls.HelpTooltip(remark);
+
+                OmniControls.NextTableField(OmniLoc.Get("Common.Action"), detailLayout);
+                OmniControls.CenterTableItem(actionSize, detailLayout ? 0f : rowContentHeight);
+                if (OmniControls.SmallButton(editLabel, false, editButtonSize))
+                {
+                    LoadEditor(itemId, false);
+                }
+
+                OmniControls.SameLineOrWrap(deleteButtonSize.X, actionGap);
+                if (OmniControls.SmallButton(deleteLabel, false, deleteButtonSize))
+                {
+                    deleteItemID = itemId;
+                }
+
+                ImGui.PopID();
+            }
         }
 
         if (deleteItemID == 0)

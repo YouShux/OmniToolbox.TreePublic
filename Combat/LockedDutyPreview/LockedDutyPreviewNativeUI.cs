@@ -2,6 +2,9 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit;
 using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
+using OmenTools;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Helpers;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
@@ -53,6 +56,7 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
         CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
         RespectCloseAll = false;
         DisableClose = true;
+        EnableContextMenu = false;
         this.onViewChanged = onViewChanged;
         this.onExclude = onExclude;
         this.onRestore = onRestore;
@@ -62,6 +66,9 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
 
     protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
     {
+        var source = AddonHelper.GetByName("ContentsFinder");
+        if (source != null && source->WindowNode != null)
+            addon->SetScale(source->WindowNode->GetScale().X / AtkUnitBase.GetGlobalUIScale(), true);
         LockedDutyPreviewListItemNode.SetCallbacks(onExclude, onRestore, onWiki);
         summaryNode = new()
         {

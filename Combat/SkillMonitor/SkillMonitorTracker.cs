@@ -120,11 +120,17 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
 
             var memberIndex = hudMember.Index;
             seenMask |= (byte)(1 << memberIndex);
-            var classJobID = (uint)((GameCharacter*)hudMember.Object)->CharacterData.ClassJob;
+            var character = (GameCharacter*)hudMember.Object;
+            var classJobID = (uint)character->CharacterData.ClassJob;
+            var level = character->CharacterData.Level;
             if (members[memberIndex].EntityID != hudMember.EntityId || members[memberIndex].ClassJobID != classJobID)
             {
                 ResetMember(memberIndex);
-                members[memberIndex] = new(hudMember.EntityId, classJobID, true);
+                members[memberIndex] = new(hudMember.EntityId, classJobID, level, true);
+            }
+            else if (members[memberIndex].Level != level)
+            {
+                members[memberIndex] = members[memberIndex] with { Level = level };
             }
 
             ClearStatusActivity(memberIndex);
@@ -372,7 +378,7 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
     private readonly record struct ActionUse(uint CasterEntityID, uint ActionID, long Tick);
 }
 
-internal readonly record struct SkillMonitorMember(uint EntityID, uint ClassJobID, bool Visible);
+internal readonly record struct SkillMonitorMember(uint EntityID, uint ClassJobID, byte Level, bool Visible);
 
 internal struct SkillMonitorRuntimeState
 {

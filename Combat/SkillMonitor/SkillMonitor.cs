@@ -472,39 +472,38 @@ internal static class SkillMonitorPanel
         var changed = false;
         var deleteLabel = OmniLoc.Get("Feature.SkillMonitor.Custom.Delete");
         var deleteButtonSize = OmniControls.CompactButtonSize(deleteLabel);
-        using var table = ImRaii.Table(
+        var orderLabel = OmniLoc.Get("Feature.SkillMonitor.Column.Order");
+        var enabledLabel = OmniLoc.Get("Feature.SkillMonitor.Column.Enabled");
+        var actionLabel = OmniLoc.Get("Feature.SkillMonitor.Column.Action");
+        var operationLabel = OmniLoc.Get("Feature.SkillMonitor.Column.Operation");
+        var orderWidth = MathF.Max(OmniTheme.CheckboxSize(), ImGui.CalcTextSize(orderLabel).X);
+        var enabledWidth = MathF.Max(OmniTheme.CheckboxSize(), ImGui.CalcTextSize(enabledLabel).X);
+        var operationWidth = MathF.Max(deleteButtonSize.X, ImGui.CalcTextSize(operationLabel).X);
+        var actionWidth = OmniTheme.TableItemIconSize() + ImGui.GetFontSize() * 5f;
+        using var table = OmniControls.DataTable(
             $"##skillMonitorActions{scopeID}",
-            4,
-            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.NoSavedSettings);
+            [orderLabel, enabledLabel, actionLabel, operationLabel],
+            [orderWidth, enabledWidth, actionWidth, operationWidth],
+            [orderWidth, enabledWidth, actionWidth, operationWidth],
+            out var detailLayout,
+            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.NoSavedSettings, stretchColumn: 2);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.SkillMonitor.Column.Order"),
-            ImGuiTableColumnFlags.WidthFixed,
-            OmniTheme.CheckboxSize() + ImGui.GetStyle().CellPadding.X * 2f);
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.SkillMonitor.Column.Enabled"),
-            ImGuiTableColumnFlags.WidthFixed,
-            OmniTheme.CheckboxSize() + ImGui.GetStyle().CellPadding.X * 2f);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.SkillMonitor.Column.Action"), ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.SkillMonitor.Column.Operation"),
-            ImGuiTableColumnFlags.WidthFixed,
-            MathF.Max(
-                ImGui.CalcTextSize(OmniLoc.Get("Feature.SkillMonitor.Column.Operation")).X,
-                deleteButtonSize.X) + ImGui.GetStyle().CellPadding.X * 2f);
-        ImGui.TableSetupScrollFreeze(0, 1);
-        OmniControls.BeginTableHeaderRow();
-        OmniControls.TableHeader(OmniLoc.Get("Feature.SkillMonitor.Column.Order"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.SkillMonitor.Column.Enabled"));
-        ImGui.TableNextColumn();
-        ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.SkillMonitor.Column.Action"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.SkillMonitor.Column.Operation"));
+        if (!detailLayout)
+        {
+            ImGui.TableSetupScrollFreeze(0, 1);
+            OmniControls.BeginTableHeaderRow();
+            OmniControls.TableHeader(OmniLoc.Get("Feature.SkillMonitor.Column.Order"));
+            OmniControls.TableHeader(OmniLoc.Get("Feature.SkillMonitor.Column.Enabled"));
+            ImGui.TableNextColumn();
+            ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(OmniLoc.Get("Feature.SkillMonitor.Column.Action"));
+            OmniControls.TableHeader(OmniLoc.Get("Feature.SkillMonitor.Column.Operation"));
+        }
         for (var orderIndex = 0; orderIndex < order.Count; orderIndex++)
         {
             var definitionIndex = FindDefinition(definitions, order[orderIndex], scopeID, group);
@@ -516,8 +515,13 @@ internal static class SkillMonitorPanel
             var definition = definitions[definitionIndex];
             var iconSize = new Vector2(OmniTheme.TableItemIconSize());
             var rowContentHeight = MathF.Max(iconSize.Y, MathF.Max(OmniTheme.CheckboxSize(), ImGui.GetFrameHeight()));
-            ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight + ImGui.GetStyle().CellPadding.Y * 2f);
-            ImGui.TableNextColumn();
+            ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
+            ImGui.TableSetColumnIndex(detailLayout ? 0 : 2);
+            var nameWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X - iconSize.X - ImGui.GetStyle().ItemSpacing.X);
+            var nameSize = ImGui.CalcTextSize(definition.Name, false, nameWidth);
+            if (!detailLayout)
+                rowContentHeight = MathF.Max(rowContentHeight, nameSize.Y);
+            ImGui.TableSetColumnIndex(0);
             OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), rowContentHeight);
             if (DrawReorderHandle(scopeID, order, orderIndex, definition.Name))
             {
@@ -526,7 +530,7 @@ internal static class SkillMonitorPanel
                 break;
             }
 
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(enabledLabel, detailLayout);
             var enabled = !disabled.Contains(definition.ConfigID);
             OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), rowContentHeight);
             if (OmniControls.Checkbox($"##skillMonitorAction{scopeID}_{definition.ConfigID}", ref enabled))
@@ -544,23 +548,25 @@ internal static class SkillMonitorPanel
                 changed = true;
             }
 
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(actionLabel, detailLayout);
+            var actionHeight = MathF.Max(rowContentHeight, nameSize.Y);
             FramedGameIcon.Draw(
                 definition.IconID,
-                ImGui.GetCursorScreenPos() + new Vector2(0f, (rowContentHeight - iconSize.Y) * 0.5f),
+                ImGui.GetCursorScreenPos() + new Vector2(0f, (actionHeight - iconSize.Y) * 0.5f),
                 iconSize,
                 drawFrame: !definition.IsFood,
                 preserveAspectRatio: definition.IsFood);
-            ImGui.Dummy(new Vector2(iconSize.X, rowContentHeight));
+            ImGui.Dummy(new Vector2(iconSize.X, actionHeight));
             ImGui.SameLine();
             ImGui.GetWindowDrawList().AddText(
+                ImGui.GetFont(), ImGui.GetFontSize(),
                 ImGui.GetCursorScreenPos() +
-                new Vector2(0f, MathF.Max(0f, (rowContentHeight - ImGui.CalcTextSize(definition.Name).Y) * 0.5f)),
+                new Vector2(0f, MathF.Max(0f, (actionHeight - nameSize.Y) * 0.5f)),
                 ImGui.GetColorU32(ImGuiCol.Text),
-                definition.Name);
-            ImGui.Dummy(new Vector2(ImGui.GetContentRegionAvail().X, rowContentHeight));
+                definition.Name, nameWidth);
+            ImGui.Dummy(new Vector2(ImGui.GetContentRegionAvail().X, actionHeight));
 
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(operationLabel, detailLayout);
             if (!definition.IsCustom)
             {
                 continue;
@@ -673,20 +679,19 @@ internal static class SkillMonitorPanel
     private static bool DrawVisibilitySettings(SkillMonitorConfig config)
     {
         var changed = false;
-        using var table = ImRaii.Table(
+        using var table = OmniControls.SettingsTable(
             "##skillMonitorVisibilitySettings",
-            4,
-            ImGuiTableFlags.NoSavedSettings | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.SizingStretchSame,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [ImGui.CalcTextSize(OmniLoc.Get("Feature.SkillMonitor.ShowWhen")),
+                Vector2.Max(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.SkillMonitor.Active")), OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.SkillMonitor.WeaponSheathed"))),
+                Vector2.Max(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.SkillMonitor.OnCooldown")), OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.SkillMonitor.OutOfCombat"))),
+                OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.SkillMonitor.OffCooldown"))],
+            ["##skillMonitorShowLabel", "##skillMonitorShowActive", "##skillMonitorShowCooldown", "##skillMonitorShowReady"],
+            flags: ImGuiTableFlags.NoSavedSettings | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.SizingStretchSame);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##skillMonitorShowLabel", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##skillMonitorShowActive", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##skillMonitorShowCooldown", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##skillMonitorShowReady", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
@@ -741,29 +746,50 @@ internal static class SkillMonitorPanel
     private static bool DrawLayoutSettings(SkillMonitorConfig config, ref bool definitionsChanged)
     {
         var changed = false;
-        using var table = ImRaii.Table(
+        var iconScaleLabel = OmniLoc.Get("Feature.SkillMonitor.IconScale");
+        var iconSpacingLabel = OmniLoc.Get("Feature.SkillMonitor.IconSpacing");
+        var offsetLabel = OmniLoc.Get("Feature.SkillMonitor.Offset");
+        var iconsPerRowLabel = OmniLoc.Get("Feature.SkillMonitor.IconsPerRow");
+        var fontLabel = OmniLoc.Get("Feature.LargeCooldownCounter.Font");
+        var fontPreview = LargeCooldownCounter.GetFontName(config.Font);
+        var generalPositionLabel = OmniLoc.Get("Feature.SkillMonitor.GeneralPosition");
+        var generalPositionPreview = OmniLoc.Get(config.ShowGeneralSkillsFirst
+            ? "Feature.SkillMonitor.GeneralPosition.First" : "Feature.SkillMonitor.GeneralPosition.Last");
+        var alignmentLabel = OmniLoc.Get("Feature.SkillMonitor.Alignment");
+        var alignmentPreview = OmniLoc.Get(config.Alignment == SkillMonitorAlignment.Mirror
+            ? "Feature.SkillMonitor.Alignment.Mirror" : "Feature.SkillMonitor.Alignment.Right");
+        var iconScale = config.IconScale / SkillMonitorConfig.DefaultIconScale;
+        var iconSpacing = config.IconSpacing;
+        var offset = config.Offset - DefaultOffset;
+        var scaleSize = OmniControls.MeasureFloatInput(iconScale, "%.2f", OmniTheme.Scale(64f));
+        var spacingSize = OmniControls.MeasureFloatInput(iconSpacing, "%.1f", OmniTheme.Scale(64f));
+        var offsetSize = OmniControls.MeasureGroup(
+            [OmniControls.MeasureFloatInput(offset.X, "%.0f", OmniTheme.Scale(48f)),
+                OmniControls.MeasureFloatInput(offset.Y, "%.0f", OmniTheme.Scale(48f))], ImGui.GetStyle().ItemInnerSpacing.X);
+        var countSize = OmniControls.MeasureInput(config.IconsPerRow.ToString(), OmniTheme.Scale(64f));
+        using var table = OmniControls.SettingsTable(
             "##skillMonitorLayoutSettings",
-            4,
-            ImGuiTableFlags.NoSavedSettings | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.SizingStretchSame,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [OmniControls.MeasureGroup([ImGui.CalcTextSize(iconScaleLabel), scaleSize]),
+                OmniControls.MeasureGroup([ImGui.CalcTextSize(iconSpacingLabel), spacingSize]),
+                OmniControls.MeasureGroup([ImGui.CalcTextSize(offsetLabel), offsetSize]),
+                OmniControls.MeasureGroup([ImGui.CalcTextSize(iconsPerRowLabel), countSize]),
+                OmniControls.MeasureGroup([ImGui.CalcTextSize(fontLabel), OmniControls.MeasureCombo(fontPreview)]),
+                OmniControls.MeasureGroup([ImGui.CalcTextSize(generalPositionLabel), OmniControls.MeasureCombo(generalPositionPreview)]),
+                OmniControls.MeasureGroup([ImGui.CalcTextSize(alignmentLabel), OmniControls.MeasureCombo(alignmentPreview)])],
+            ["##skillMonitorScale", "##skillMonitorSpacing", "##skillMonitorOffset", "##skillMonitorGeneralPosition",
+                "##skillMonitorFontColumn", "##skillMonitorPositionColumn", "##skillMonitorAlignmentColumn"],
+            flags: ImGuiTableFlags.NoSavedSettings | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.SizingStretchSame,
+            columnsPerRow: 4);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##skillMonitorScale", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##skillMonitorSpacing", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##skillMonitorOffset", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##skillMonitorGeneralPosition", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        var iconScaleLabel = OmniLoc.Get("Feature.SkillMonitor.IconScale");
-        var iconScaleWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(iconScaleLabel).X -
-                             ImGui.GetStyle().ItemSpacing.X;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(iconScaleLabel);
-        ImGui.SameLine();
-        var iconScale = config.IconScale / SkillMonitorConfig.DefaultIconScale;
+        OmniControls.SameLineOrWrap(scaleSize.X);
         if (OmniControls.DragFloat(
                 "##skillMonitorIconScale",
                 ref iconScale,
@@ -771,7 +797,7 @@ internal static class SkillMonitorPanel
                 0.5f,
                 2f,
                 "%.2f",
-                iconScaleWidth,
+                MathF.Max(1f, ImGui.GetContentRegionAvail().X),
                 ImGuiSliderFlags.AlwaysClamp))
         {
             config.IconScale = iconScale * SkillMonitorConfig.DefaultIconScale;
@@ -779,13 +805,9 @@ internal static class SkillMonitorPanel
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         ImGui.TableNextColumn();
-        var iconSpacingLabel = OmniLoc.Get("Feature.SkillMonitor.IconSpacing");
-        var iconSpacingWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(iconSpacingLabel).X -
-                               ImGui.GetStyle().ItemSpacing.X;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(iconSpacingLabel);
-        ImGui.SameLine();
-        var iconSpacing = config.IconSpacing;
+        OmniControls.SameLineOrWrap(spacingSize.X);
         if (OmniControls.DragFloat(
                 "##skillMonitorIconSpacing",
                 ref iconSpacing,
@@ -793,7 +815,7 @@ internal static class SkillMonitorPanel
                 0f,
                 12f,
                 "%.1f",
-                iconSpacingWidth,
+                MathF.Max(1f, ImGui.GetContentRegionAvail().X),
                 ImGuiSliderFlags.AlwaysClamp))
         {
             config.IconSpacing = iconSpacing;
@@ -801,13 +823,9 @@ internal static class SkillMonitorPanel
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         ImGui.TableNextColumn();
-        var offsetLabel = OmniLoc.Get("Feature.SkillMonitor.Offset");
-        var offsetWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(offsetLabel).X -
-                          ImGui.GetStyle().ItemSpacing.X;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(offsetLabel);
-        ImGui.SameLine();
-        var offset = config.Offset - DefaultOffset;
+        OmniControls.SameLineOrWrap(offsetSize.X);
         if (OmniControls.DragFloat2(
                 "##skillMonitorOffset",
                 ref offset,
@@ -815,7 +833,7 @@ internal static class SkillMonitorPanel
                 -500f,
                 500f,
                 "%.0f",
-                offsetWidth))
+                MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
         {
             config.Offset = offset + DefaultOffset;
         }
@@ -823,8 +841,8 @@ internal static class SkillMonitorPanel
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.SkillMonitor.IconsPerRow"));
-        ImGui.SameLine();
+        ImGui.TextUnformatted(iconsPerRowLabel);
+        OmniControls.SameLineOrWrap(countSize.X);
         var iconsPerRow = config.IconsPerRow;
         if (OmniControls.SliderInt("##skillMonitorIconsPerRow", ref iconsPerRow, 0, 20, "%d",
                 MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
@@ -836,9 +854,9 @@ internal static class SkillMonitorPanel
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.LargeCooldownCounter.Font"));
-        ImGui.SameLine();
-        if (OmniControls.BeginCombo("##skillMonitorFont", LargeCooldownCounter.GetFontName(config.Font),
+        ImGui.TextUnformatted(fontLabel);
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCombo(fontPreview).X);
+        if (OmniControls.BeginCombo("##skillMonitorFont", fontPreview,
                 MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
         {
             foreach (var font in LargeCooldownCounter.SupportedFonts)
@@ -852,18 +870,13 @@ internal static class SkillMonitorPanel
             ImGui.EndCombo();
         }
         ImGui.TableNextColumn();
-        var generalPositionLabel = OmniLoc.Get("Feature.SkillMonitor.GeneralPosition");
-        var generalPositionWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(generalPositionLabel).X -
-                                   ImGui.GetStyle().ItemSpacing.X;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(generalPositionLabel);
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCombo(generalPositionPreview).X);
         if (OmniControls.BeginCombo(
                 "##skillMonitorGeneralPosition",
-                OmniLoc.Get(config.ShowGeneralSkillsFirst
-                    ? "Feature.SkillMonitor.GeneralPosition.First"
-                    : "Feature.SkillMonitor.GeneralPosition.Last"),
-                generalPositionWidth))
+                generalPositionPreview,
+                MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
         {
             if (ImGui.Selectable(
                     OmniLoc.Get("Feature.SkillMonitor.GeneralPosition.First"),
@@ -887,18 +900,13 @@ internal static class SkillMonitorPanel
         }
 
         ImGui.TableNextColumn();
-        var alignmentLabel = OmniLoc.Get("Feature.SkillMonitor.Alignment");
-        var alignmentWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(alignmentLabel).X -
-                             ImGui.GetStyle().ItemSpacing.X;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(alignmentLabel);
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCombo(alignmentPreview).X);
         if (OmniControls.BeginCombo(
                 "##skillMonitorAlignment",
-                OmniLoc.Get(config.Alignment == SkillMonitorAlignment.Mirror
-                    ? "Feature.SkillMonitor.Alignment.Mirror"
-                    : "Feature.SkillMonitor.Alignment.Right"),
-                alignmentWidth))
+                alignmentPreview,
+                MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
         {
             if (ImGui.Selectable(
                     OmniLoc.Get("Feature.SkillMonitor.Alignment.Right"),

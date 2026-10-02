@@ -74,20 +74,19 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
         var changed = false;
         var mapSettingsChanged = false;
         {
-            using var settingsTable = ImRaii.Table(
+            using var settingsTable = OmniControls.SettingsTable(
                 "##hideMinimapIconsSettings",
-                4,
-                ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-                new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+                [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HideMinimapIcons.HideOnMinimap")),
+                    OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HideMinimapIcons.HideOnAreaMap")),
+                    OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.HideMinimapIcons.IconScale")),
+                        OmniControls.MeasureFloatInput(config.IconScale, "%.1f", OmniTheme.Scale(64f))])],
+                ["##hideMinimapIconsMinimap", "##hideMinimapIconsAreaMap", "##hideMinimapIconsIconScale"],
+                flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
             if (!settingsTable)
             {
                 return false;
             }
 
-            ImGui.TableSetupColumn("##hideMinimapIconsMinimap", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##hideMinimapIconsAreaMap", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##hideMinimapIconsIconScale", ImGuiTableColumnFlags.WidthStretch, 1f);
-            ImGui.TableSetupColumn("##hideMinimapIconsUnused2", ImGuiTableColumnFlags.WidthStretch, 1f);
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             var hideOnMinimap = config.HideOnMinimap;
@@ -114,21 +113,16 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
             ImGui.TableNextColumn();
             var iconScaleLabel = OmniLoc.Get("Feature.HideMinimapIcons.IconScale");
             var iconScale = Math.Clamp(config.IconScale, 0f, 3f);
-            var iconScaleWidth = MathF.Max(
-                1f,
-                ImGui.GetContentRegionAvail().X -
-                ImGui.GetStyle().ItemSpacing.X -
-                ImGui.CalcTextSize(iconScaleLabel).X);
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted(iconScaleLabel);
-            ImGui.SameLine();
+            OmniControls.SameLineOrWrap(OmniControls.MeasureFloatInput(iconScale, "%.1f").X);
             if (OmniControls.SliderFloat(
                     "##hideMinimapIconsIconScale",
                     ref iconScale,
                     0f,
                     3f,
                     "%.1f",
-                    iconScaleWidth))
+                    MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
             {
                 config.IconScale = iconScale;
                 changed = true;
@@ -278,7 +272,7 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
 
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip(string.Format(OmniLoc.Get("Feature.HideMinimapIcons.IconTooltip"), iconID));
+            OmniControls.HelpTooltip(string.Format(OmniLoc.Get("Feature.HideMinimapIcons.IconTooltip"), iconID));
         }
 
         if (ImGui.IsItemClicked(ImGuiMouseButton.Left))

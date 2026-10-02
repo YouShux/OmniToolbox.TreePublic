@@ -218,7 +218,8 @@ internal static class DuplicateStatusPreventionPanel
         }
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
-        OmenTools.ImGuiOm.ImGuiOm.HelpMarker(OmniLoc.Get("Feature.DuplicateStatusPrevention.OverlapThreshold.Help"));
+        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.DuplicateStatusPrevention.OverlapThreshold.Help"));
         ImGui.SameLine();
         var chatNotify = config.ChatNotify;
         if (OmniControls.Checkbox(
@@ -263,21 +264,43 @@ internal static class DuplicateStatusPreventionPanel
         using var framePadding = ImRaii.PushStyle(
             ImGuiStyleVar.FramePadding,
             new Vector2(ImGui.GetStyle().FramePadding.X, OmniTheme.Scale(3f)));
-        using var table = ImRaii.Table(
+        var checkboxSize = OmniControls.MeasureCheckbox(string.Empty);
+        using var table = OmniControls.DataTable(
             "##duplicateStatusActions",
-            2,
-            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY,
+            [OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Action"), OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Status")],
+            [MathF.Max(ImGui.GetFontSize() * 10f, checkboxSize.X * 2f +
+                ImGui.CalcTextSize(OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Action")).X), ImGui.GetFontSize() * 6f],
+            [ImGui.GetFontSize() * 14f, ImGui.GetFontSize() * 10f], out var detailLayout,
+            ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingStretchSame,
             new Vector2(
                 ImGui.GetContentRegionAvail().X,
-                rowHeight * (visibleRows + 1) + ImGui.GetStyle().ItemSpacing.Y));
+                rowHeight * (visibleRows + 1) + ImGui.GetStyle().ItemSpacing.Y), stretchColumn: 0);
         if (!table)
         {
             return changed;
         }
 
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Action"), ImGuiTableColumnFlags.WidthStretch, 0.5f);
-        ImGui.TableSetupColumn(OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Status"), ImGuiTableColumnFlags.WidthStretch, 0.5f);
-        OmniControls.ScrollableTableHeadersRow();
+        ImGui.TableSetupScrollFreeze(0, 1);
+        var headerHeight = MathF.Max(checkboxSize.Y, ImGui.GetFrameHeight());
+        OmniControls.BeginTableHeaderRow(headerHeight);
+        OmniControls.TableHeader(OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Action"), headerHeight);
+        ImGui.SetCursorScreenPos(ImGui.GetItemRectMin());
+        OmniControls.CenterTableItem(new Vector2(ImGui.GetContentRegionAvail().X, checkboxSize.Y), headerHeight);
+        var allEnabled = config.EnabledActions.Count > 0 && enabledCount == config.EnabledActions.Count;
+        if (OmniControls.Checkbox("##duplicateStatusAllActions", ref allEnabled))
+        {
+            foreach (var action in DuplicateStatusPreventionRules.OrderedActions)
+            {
+                config.EnabledActions[action.Key] = allEnabled;
+            }
+
+            changed = true;
+        }
+
+        if (!detailLayout)
+        {
+            OmniControls.TableHeader(OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Status"), headerHeight);
+        }
 
         foreach (var action in DuplicateStatusPreventionRules.OrderedActions)
         {
@@ -298,7 +321,7 @@ internal static class DuplicateStatusPreventionPanel
             ImGui.SameLine();
             DrawAction(actionRow);
 
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Status"), detailLayout);
             var first = true;
             foreach (var status in action.Value.Statuses)
             {
@@ -326,7 +349,7 @@ internal static class DuplicateStatusPreventionPanel
         ImGui.SameLine();
 
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(action.Name.ToString());
+        ImGui.TextWrapped(action.Name.ToString());
     }
 
     private static void DrawStatus(DuplicateStatusRule status, ref bool first)
@@ -355,7 +378,7 @@ internal static class DuplicateStatusPreventionPanel
 
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip(string.Format(
+            OmniControls.HelpTooltip(string.Format(
                 OmniLoc.Get("Feature.DuplicateStatusPrevention.StatusTooltip"),
                 statusRow.Name,
                 OmniLoc.Get(status.DetectionTarget switch

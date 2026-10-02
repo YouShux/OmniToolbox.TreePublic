@@ -30,6 +30,21 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
     public float CalculateRowHeight(MitigationRecord record, float statusWidth) =>
         MathF.Max(config.Scale(40f), CalculateStatusHeight(record, statusWidth));
 
+    public float CalculateDetailHeight(MitigationRecord record, float width) =>
+        ImGui.CalcTextSize(MitigationRecordCopyText.Build(record), false, MathF.Max(1f, width - config.Scale(8f))).Y +
+        config.Scale(8f) + CalculateStatusHeight(record, width);
+
+    public void DrawDetail(MitigationRecord record, Vector2 position, float width, float height)
+    {
+        var text = MitigationRecordCopyText.Build(record);
+        var textWidth = MathF.Max(1f, width - config.Scale(8f));
+        var textHeight = ImGui.CalcTextSize(text, false, textWidth).Y;
+        ImGui.GetWindowDrawList().AddText(ImGui.GetFont(), ImGui.GetFontSize(), position + config.Scale(new Vector2(4f)),
+            ImGui.GetColorU32(ImGuiCol.Text), text, textWidth);
+        var statusTop = textHeight + config.Scale(8f);
+        DrawStatuses(record, position + new Vector2(0f, statusTop), width, height - statusTop, Vector2.Zero);
+    }
+
     public void Draw(
         MitigationRecord record,
         int index,
@@ -179,7 +194,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         if (!string.IsNullOrWhiteSpace(record.TargetName) &&
             ImGui.IsMouseHoveringRect(min, min + new Vector2(width, rowHeight)))
         {
-            ImGui.SetTooltip(record.TargetName);
+            OmniControls.HelpTooltip(record.TargetName);
         }
     }
 
@@ -337,7 +352,7 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                     seconds);
                 if (ImGui.IsMouseHoveringRect(iconMin, iconMax))
                 {
-                    ImGui.SetTooltip(BuildStatusTooltip(status));
+                    OmniControls.HelpTooltip(BuildStatusTooltip(status));
                 }
 
                 x += slotWidth + gap;

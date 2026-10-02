@@ -86,18 +86,17 @@ internal static class BetterCharacterPanelPanel
         using var itemSpacing = ImRaii.PushStyle(
             ImGuiStyleVar.ItemSpacing,
             new Vector2(Math.Clamp(style.ItemSpacing.X, 9f, 17f), style.ItemSpacing.Y));
-        using (var table = ImRaii.Table(
+        using (var table = OmniControls.SettingsTable(
                    "##betterCharacterPanelOptions",
-                   4,
-                   ImGuiTableFlags.SizingStretchProp,
-                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+                   [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats")) + new Vector2(OmniControls.HelpIconSize().X + style.ItemSpacing.X, 0f),
+                    OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ReverseCharacterPanel")),
+                    OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ShowGearSetReorderButtons")),
+                    Vector2.Max(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.AdjustEquipmentPositions")),
+                        OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.SoulstoneAboveOffhand")) + new Vector2(OmniTheme.Scale(26f), 0f))],
+                   ["##c0", "##c1", "##c2", "##c3"], weights: [1f, 1f, 1f, 1.25f], columnsPerRow: 4))
         {
             if (table)
             {
-                ImGui.TableSetupColumn("##c0", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##c1", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##c2", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##c3", ImGuiTableColumnFlags.WidthStretch, 1.25f);
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 if (DrawCheckbox(
@@ -109,7 +108,8 @@ internal static class BetterCharacterPanelPanel
                     config.ShowUsefulStats = showUsefulStats;
                     changed = true;
                 }
-                ImGuiOm.HelpMarker(OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats.Help"));
+                OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats.Help"));
 
                 ImGui.TableNextColumn();
                 if (DrawCheckbox(
