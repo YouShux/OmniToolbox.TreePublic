@@ -442,20 +442,20 @@ internal static class HouseExpirationReminderPanel
         HouseExpirationReminder feature)
     {
         var changed = false;
-        using var table = ImRaii.Table(
+        using var table = OmniControls.SettingsTable(
             "##houseExpirationNotificationSettings",
-            4,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HouseExpirationReminder.ChatNotify")),
+                OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HouseExpirationReminder.PopupNotify")),
+                OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.HouseExpirationReminder.WarnDays")),
+                    OmniControls.MeasureInput("45", step: 1)]),
+                OmniControls.CompactButtonSize(OmniLoc.Get("Feature.HouseExpirationReminder.Preview"))],
+            ["##chat", "##popup", "##threshold", "##preview"],
+            flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##chat", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##popup", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##threshold", ImGuiTableColumnFlags.WidthStretch, 1.5f);
-        ImGui.TableSetupColumn("##preview", ImGuiTableColumnFlags.WidthFixed, OmniTheme.SmallButtonSize().X);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var chatNotify = config.ChatNotify;
@@ -480,8 +480,9 @@ internal static class HouseExpirationReminderPanel
         ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.HouseExpirationReminder.WarnDays"));
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(OmniTheme.Scale(76f));
+        var inputWidth = OmniControls.MeasureInput("45", step: 1).X;
+        OmniControls.SameLineOrWrap(inputWidth);
+        ImGui.SetNextItemWidth(inputWidth);
         var warnDays = HouseExpirationReminder.NormalizeWarnDays(config.WarnDays);
         if (OmniControls.InputInt("##houseExpirationWarnDays", ref warnDays))
         {
@@ -510,18 +511,15 @@ internal static class HouseExpirationReminderPanel
     {
         var changed = false;
         var currentRecord = feature.GetCurrentCharacterRecord();
-        using var table = ImRaii.Table(
+        using var table = OmniControls.SettingsTable(
             "##houseExpirationRecords",
-            2,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [new(ImGui.GetFontSize() * 20f, ImGui.GetFrameHeight()), new(ImGui.GetFontSize() * 20f, ImGui.GetFrameHeight())],
+            ["##personal", "##freeCompany"], flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##personal", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##freeCompany", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var personalNotify = config.PersonalNotify;
@@ -559,6 +557,7 @@ internal static class HouseExpirationReminderPanel
         ref bool notify,
         HouseExpirationReminder feature)
     {
+        using var wrap = ImRaii.TextWrapPos(0f);
         var changed = OmniControls.Checkbox(OmniLoc.Get(notifyLabelKey), ref notify);
         if (changed && !notify)
         {
@@ -595,33 +594,21 @@ internal static class HouseExpirationReminderPanel
 
         var clearLabel = OmniLoc.Get("Feature.HouseExpirationReminder.Clear");
         var clearButtonSize = OmniControls.CompactButtonSize(clearLabel);
-        using var table = ImRaii.Table(
+        using var table = OmniControls.DataTable(
             "##houseExpirationCharacterRecords",
-            4,
+            [OmniLoc.Get("Feature.HouseExpirationReminder.Character"), OmniLoc.Get("Feature.HouseExpirationReminder.PersonalInfo"),
+                OmniLoc.Get("Feature.HouseExpirationReminder.FreeCompanyInfo"), clearLabel],
+            [ImGui.GetFontSize() * 8f, ImGui.GetFontSize() * 10f, ImGui.GetFontSize() * 10f, clearButtonSize.X],
+            [ImGui.GetFontSize() * 12f, ImGui.GetFontSize() * 14f, ImGui.GetFontSize() * 14f, clearButtonSize.X], out var detailLayout,
             ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchProp,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            new Vector2(ImGui.GetContentRegionAvail().X, 0f), stretchColumn: 1);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.HouseExpirationReminder.Character"),
-            ImGuiTableColumnFlags.WidthStretch,
-            1.2f);
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.HouseExpirationReminder.PersonalInfo"),
-            ImGuiTableColumnFlags.WidthStretch,
-            1.4f);
-        ImGui.TableSetupColumn(
-            OmniLoc.Get("Feature.HouseExpirationReminder.FreeCompanyInfo"),
-            ImGuiTableColumnFlags.WidthStretch,
-            1.4f);
-        ImGui.TableSetupColumn(
-            clearLabel,
-            ImGuiTableColumnFlags.WidthFixed,
-            clearButtonSize.X);
         ImGui.TableHeadersRow();
+        using var wrap = ImRaii.TextWrapPos(0f);
 
         for (var index = 0; index < config.CharacterRecords.Count; index++)
         {
@@ -629,9 +616,9 @@ internal static class HouseExpirationReminderPanel
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             ImGui.TextUnformatted(GetCharacterDisplayName(record));
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.HouseExpirationReminder.PersonalInfo"), detailLayout);
             ImGui.TextUnformatted(FormatHouseInfo(record.PersonalLastVisitUTC, feature));
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(OmniLoc.Get("Feature.HouseExpirationReminder.FreeCompanyInfo"), detailLayout);
             ImGui.TextUnformatted(FormatHouseInfo(record.FreeCompanyLastVisitUTC, feature));
             ImGui.TableNextColumn();
             if (!OmniControls.SmallButton(

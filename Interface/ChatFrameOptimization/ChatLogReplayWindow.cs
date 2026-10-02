@@ -26,6 +26,7 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
     private bool anonymousMode;
     private bool filterDirty = true;
     private float lastScale = float.NaN;
+    private Vector2 lastViewportSize;
     private bool isFocused;
     private bool isCollapsed;
     private bool restoreExpandedSize = true;
@@ -70,7 +71,13 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
             RebuildFilter();
         }
 
+        using var font = OmniFonts.GetUIFont().Push();
+        using var style = new ComicStyleScope();
         var scale = OmniTheme.ScaleValue;
+        var viewportSize = ImGui.GetMainViewport().WorkSize;
+        if (lastViewportSize != viewportSize)
+            restoreExpandedSize = true;
+        lastViewportSize = viewportSize;
         if (isCollapsed)
         {
             ImGui.SetNextWindowSize(
@@ -83,12 +90,12 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
         else
         {
             ImGui.SetNextWindowSizeConstraints(
-                OmniTheme.Scale(new Vector2(720f, 480f)),
-                ImGuiHelpers.MainViewport.Size);
+                OmniTheme.ClampWindowSize(OmniTheme.Scale(new Vector2(320f, 240f))),
+                viewportSize);
             ImGui.SetNextWindowSize(
-                expandedWindowSize == Vector2.Zero
+                OmniTheme.ClampWindowSize(expandedWindowSize == Vector2.Zero
                     ? OmniTheme.Scale(new Vector2(960f, 640f))
-                    : OmniTheme.Scale(expandedWindowSize),
+                    : OmniTheme.Scale(expandedWindowSize)),
                 restoreExpandedSize || MathF.Abs(lastScale - scale) > 0.001f
                     ? ImGuiCond.Always
                     : ImGuiCond.FirstUseEver);
@@ -120,9 +127,12 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
 
             var windowPosition = ImGui.GetWindowPos();
             var windowSize = ImGui.GetWindowSize();
+            ImGui.SetWindowPos(OmniTheme.ClampWindowPosition(windowPosition, windowSize));
+            windowPosition = ImGui.GetWindowPos();
             if (!isCollapsed)
             {
-                expandedWindowSize = OmniTheme.Unscale(windowSize);
+                expandedWindowSize = OmniTheme.Unscale(OmniTheme.PreserveWindowSize(windowSize,
+                    OmniTheme.Scale(expandedWindowSize == Vector2.Zero ? new Vector2(960f, 640f) : expandedWindowSize)));
             }
 
             var framePosition = isCollapsed
@@ -171,14 +181,16 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
                     frameSize.Y - OmniTheme.TitleBarHeight() - OmniTheme.WindowInset() * 2f));
             ImGui.SetCursorScreenPos(contentPosition);
             OmniControls.DrawPanelBackground(contentPosition, contentSize, OmniTheme.Tokens.Surface);
+            using var content = ImRaii.Child("##chatLogReplayContent", contentSize, false);
+            if (!content)
+                return;
             DrawToolbar();
             ImGui.Separator();
+            var stacked = ImGui.GetContentRegionAvail().X < OmniTheme.Scale(650f);
             using (var filePane = ImRaii.Child(
                        "##chatLogReplayFiles",
-                       new Vector2(Math.Clamp(
-                           250f * scale,
-                           210f,
-                           330f), 0f),
+                       stacked ? new Vector2(0f, ImGui.GetTextLineHeightWithSpacing() * 5f)
+                           : new Vector2(OmniTheme.Scale(250f), 0f),
                        true))
             {
                 if (filePane)
@@ -187,7 +199,8 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
                 }
             }
 
-            ImGui.SameLine();
+            if (!stacked)
+                ImGui.SameLine();
             using (var mainPane = ImRaii.Child("##chatLogReplayMain", Vector2.Zero, false))
             {
                 if (mainPane)
@@ -211,7 +224,8 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
             RequestRefresh();
         }
 
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(ImGui.GetFontSize() * 8f);
+        using var wrap = ImRaii.TextWrapPos(0f);
         ImGui.TextDisabled(string.Format(
             OmniLoc.Get("Feature.ChatLogReplay.Directory"),
             storage!.DirectoryPath));
@@ -230,14 +244,14 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
         foreach (var file in files)
         {
             ImGui.PushID(file.Path);
-            if (ImGui.Selectable(file.Name, string.Equals(selectedPath, file.Path, StringComparison.Ordinal)))
+            if (OmniControls.WrappedSelectable(file.Name, string.Equals(selectedPath, file.Path, StringComparison.Ordinal)))
             {
                 RequestRead(file.Path);
             }
 
             if (ImGui.IsItemHovered())
             {
-                ImGui.SetTooltip(string.Format(
+                OmniControls.HelpTooltip(string.Format(
                     CultureInfo.CurrentCulture,
                     OmniLoc.Get("Feature.ChatLogReplay.FileTooltip"),
                     file.Path,
@@ -245,7 +259,7 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
                     ChatLogReplayPresentation.FormatFileSize(file.Length)));
             }
 
-            ImGui.SameLine();
+            OmniControls.SameLineOrWrap(ImGui.CalcTextSize(ChatLogReplayPresentation.FormatFileSize(file.Length)).X);
             ImGui.TextDisabled(ChatLogReplayPresentation.FormatFileSize(file.Length));
             ImGui.PopID();
         }
@@ -253,7 +267,7 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
 
     private void DrawReplayControls()
     {
-        ImGui.SetNextItemWidth(MathF.Min(360f, ImGui.GetContentRegionAvail().X));
+        ImGui.SetNextItemWidth(MathF.Min(OmniTheme.Scale(360f), ImGui.GetContentRegionAvail().X));
         if (OmniControls.InputText(
                 $"{OmniLoc.Get("Feature.ChatLogReplay.Search")}##chatLogReplaySearch",
                 ref searchText,
@@ -262,15 +276,15 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
             filterDirty = true;
         }
 
-        ImGui.SameLine();
-        ImGui.Checkbox(
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ChatLogReplay.ShowTime")).X);
+        OmniControls.Checkbox(
             $"{OmniLoc.Get("Feature.ChatLogReplay.ShowTime")}##chatLogReplayShowTime",
             ref showTime);
-        ImGui.SameLine();
-        ImGui.Checkbox(
+        OmniControls.SameLineOrWrap(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ChatLogReplay.Anonymous")).X);
+        OmniControls.Checkbox(
             $"{OmniLoc.Get("Feature.ChatLogReplay.Anonymous")}##chatLogReplayAnonymous",
             ref anonymousMode);
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.MeasureInput(anonymousPrefix, OmniTheme.Scale(100f)).X);
         using (ImRaii.Disabled(!anonymousMode))
         {
             ImGui.SetNextItemWidth(ImGui.GetContentRegionAvail().X);
@@ -282,7 +296,7 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
 
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip(OmniLoc.Get("Feature.ChatLogReplay.Anonymous.Help"));
+            OmniControls.HelpTooltip(OmniLoc.Get("Feature.ChatLogReplay.Anonymous.Help"));
         }
 
         ImGui.TextDisabled(string.Format(
@@ -305,17 +319,21 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
             SetAllChannels(true);
         }
 
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.ChatLogReplay.Channel.SelectNone")).X + ImGui.GetStyle().FramePadding.X * 2f);
         if (ImGui.SmallButton(OmniLoc.Get("Feature.ChatLogReplay.Channel.SelectNone")))
         {
             SetAllChannels(false);
         }
 
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.ChatLogReplay.Channel.Filter")).X);
         ImGui.TextDisabled(OmniLoc.Get("Feature.ChatLogReplay.Channel.Filter"));
+        var minimumWidth = 0f;
+        foreach (var channel in orderedChannels)
+            minimumWidth = MathF.Max(minimumWidth, OmniControls.MeasureCheckbox(ChatLogReplayPresentation.GetChannelDisplayName(channel)).X);
+        var columns = OmniControls.ColumnsThatFit(5, minimumWidth);
         using var table = ImRaii.Table(
             "##chatLogReplayChannelFilters",
-            5,
+            columns,
             ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
             new Vector2(ImGui.GetContentRegionAvail().X, 0f));
         if (!table)
@@ -325,15 +343,15 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
 
         for (var index = 0; index < orderedChannels.Count; index++)
         {
-            if (index % 5 == 0)
+            if (index % columns == 0)
             {
                 ImGui.TableNextRow();
             }
 
-            ImGui.TableSetColumnIndex(index % 5);
+            ImGui.TableSetColumnIndex(index % columns);
             var channel = orderedChannels[index];
             var visible = channelVisibility[channel];
-            if (ImGui.Checkbox(
+            if (OmniControls.Checkbox(
                     $"{ChatLogReplayPresentation.GetChannelDisplayName(channel)}##chatLogReplayChannel{channel}",
                     ref visible))
             {
@@ -349,8 +367,7 @@ internal sealed class ChatLogReplayWindow : IEscapeClosableWindow
         using (var body = ImRaii.Child(
                    "##chatLogReplayBody",
                    Vector2.Zero,
-                   true,
-                   ImGuiWindowFlags.AlwaysVerticalScrollbar))
+                   true))
         {
             if (body)
             {

@@ -36,8 +36,9 @@ public sealed unsafe class BackgroundFPSLimit(BackgroundFPSLimitConfig config) :
     {
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.BackgroundFPSLimit.Target"));
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(OmniTheme.Scale(120f));
+        var inputWidth = OmniControls.MeasureInput(short.MaxValue.ToString(), OmniTheme.Scale(120f), step: 1).X;
+        OmniControls.SameLineOrWrap(inputWidth);
+        ImGui.SetNextItemWidth(inputWidth);
         var limit = Math.Clamp(config.Limit, 20, short.MaxValue);
         if (OmniControls.InputInt("##backgroundFPSLimit", ref limit))
         {
@@ -45,7 +46,8 @@ public sealed unsafe class BackgroundFPSLimit(BackgroundFPSLimitConfig config) :
         }
 
         var save = ImGui.IsItemDeactivatedAfterEdit();
-        ImGuiOm.HelpMarker(OmniLoc.Get("Feature.BackgroundFPSLimit.Help"));
+        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.BackgroundFPSLimit.Help"));
         return save;
     }
 

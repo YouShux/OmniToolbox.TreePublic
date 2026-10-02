@@ -133,6 +133,7 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
 
     public bool Draw()
     {
+        using var wrap = ImRaii.TextWrapPos(0f);
         var changed = false;
         ImGui.TextUnformatted($"{OmniLoc.Get("Feature.FloatingInfoOverlay.General")}：");
         changed |= DrawGeneralSettings();
@@ -153,11 +154,20 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
     private bool DrawGeneralSettings()
     {
         var changed = false;
-        using (var table = ImRaii.Table(
+        using (var table = OmniControls.SettingsTable(
                    "##floatingInfoGeneral",
-                   2,
-                   ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX,
-                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+                   [OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.Opacity")),
+                        OmniControls.MeasureFloatInput(config.Opacity, "%.2f", OmniTheme.Scale(64f))]),
+                       OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.Range")),
+                           OmniControls.MeasureFloatInput(config.Range, "%.0fm", OmniTheme.Scale(64f))]),
+                       OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.MaxObjects")),
+                           OmniControls.MeasureInput(config.MaxObjects.ToString(), OmniTheme.Scale(64f))]),
+                       OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.MergeDistance")),
+                           OmniControls.MeasureFloatInput(config.MergeDistance, "%.0fm", OmniTheme.Scale(64f)), OmniControls.HelpIconSize()]),
+                       OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.Scale")),
+                           OmniControls.MeasureFloatInput(config.Scale, "%.2f", OmniTheme.Scale(64f))])],
+                   ["##opacity", "##range", "##maxObjects", "##mergeDistance"],
+                   flags: ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4))
         {
             if (table)
             {
@@ -190,7 +200,6 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
                     changed = true;
                 }
 
-                ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 var maxObjects = config.MaxObjects;
                 if (DrawIntSlider(
@@ -212,13 +221,15 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
                         ref mergeDistance,
                         0f,
                         50f,
-                        "%.0fm"))
+                        "%.0fm",
+                        OmniControls.HelpIconSize().X + ImGui.GetStyle().ItemSpacing.X))
                 {
                     config.MergeDistance = mergeDistance;
                     changed = true;
                 }
 
-                ImGuiOm.HelpMarker(OmniLoc.Get("Feature.FloatingInfoOverlay.MergeDistance.Help"));
+                OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.FloatingInfoOverlay.MergeDistance.Help"));
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 var scale = config.Scale;
@@ -239,19 +250,17 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
         var addLabel = OmniLoc.Get("Feature.FloatingInfoOverlay.Add");
         var addButtonSize = OmniControls.CompactButtonSize(addLabel);
-        using (var table = ImRaii.Table(
+        using (var table = OmniControls.SettingsTable(
                    "##floatingInfoFilters",
-                   5,
-                   ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-                   new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+                   [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.FloatingInfoOverlay.OnlyCasting")),
+                       OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.FloatingInfoOverlay.EnableDataIdFilter")),
+                       OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.FloatingInfoOverlay.Whitelist")),
+                       OmniControls.MeasureGroup([OmniControls.MeasureInput("0xFFFFFFFF"), addButtonSize])],
+                   ["##onlyCasting", "##enableFilter", "##whitelist", "##filterInput"],
+                   flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4))
         {
             if (table)
             {
-                ImGui.TableSetupColumn("##onlyCasting", ImGuiTableColumnFlags.WidthStretch, 1.05f);
-                ImGui.TableSetupColumn("##enableFilter", ImGuiTableColumnFlags.WidthStretch, 1.2f);
-                ImGui.TableSetupColumn("##whitelist", ImGuiTableColumnFlags.WidthStretch, 1f);
-                ImGui.TableSetupColumn("##filterInput", ImGuiTableColumnFlags.WidthStretch, 1.4f);
-                ImGui.TableSetupColumn("##add", ImGuiTableColumnFlags.WidthFixed, addButtonSize.X);
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 changed |= DrawCheckbox(
@@ -276,13 +285,13 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
                 }
 
                 ImGui.TableNextColumn();
-                ImGui.SetNextItemWidth(-1f);
                 OmniControls.InputTextWithHint(
                     "##floatingInfoDataIdInput",
                     OmniLoc.Get("Feature.FloatingInfoOverlay.FilterInput"),
                     ref filterInput,
-                    32);
-                ImGui.TableNextColumn();
+                    32,
+                    MathF.Max(1f, ImGui.GetContentRegionAvail().X - addButtonSize.X - ImGui.GetStyle().ItemSpacing.X));
+                OmniControls.SameLineOrWrap(addButtonSize.X);
                 if (OmniControls.SmallButton(
                         $"{addLabel}##addDataId",
                         false,
@@ -301,7 +310,7 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         var changed = false;
         using var table = ImRaii.Table(
             "##floatingInfoObjectTypes",
-            4,
+            OmniControls.ColumnsThatFit(4, OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowNonEntityTargets")).X),
             ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX,
             new Vector2(ImGui.GetContentRegionAvail().X, 0f));
         if (!table)
@@ -361,7 +370,7 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         var changed = false;
         using (var table = ImRaii.Table(
                    "##floatingInfoDisplayOptions",
-                   4,
+                   OmniControls.ColumnsThatFit(4, OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowDataId")).X),
                    ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX,
                    new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
         {
@@ -430,7 +439,8 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
                     "marker",
                     config.ShowMarker,
                     value => config.ShowMarker = value);
-                ImGuiOm.HelpMarker(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowMarker.Help"));
+                OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowMarker.Help"));
                 ImGui.TableNextColumn();
                 changed |= DrawCheckbox(
                     "Feature.FloatingInfoOverlay.ShowCastInfo",
@@ -457,47 +467,48 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         var removeLabel = OmniLoc.Get("Feature.FloatingInfoOverlay.Remove");
         var removeButtonSize = OmniControls.CompactButtonSize(removeLabel);
         var rowHeight = removeButtonSize.Y + style.CellPadding.Y * 2f;
-        var scrollable = config.FilterDataIds.Count > 3;
         var tableHeight = MathF.Max(
                               OmniTheme.SmallButtonSize().Y,
                               ImGui.GetTextLineHeight() + style.CellPadding.Y * 2f) +
                           Math.Clamp(config.FilterDataIds.Count, 1, 3) *
                           rowHeight +
                           style.ItemSpacing.Y;
-        using var table = ImRaii.Table(
+        string[] labels = [OmniLoc.Get("Feature.FloatingInfoOverlay.ShowDataId"),
+            OmniLoc.Get("Feature.FloatingInfoOverlay.DecimalId"), OmniLoc.Get("Feature.FloatingInfoOverlay.Hex"),
+            OmniLoc.Get("Feature.FloatingInfoOverlay.Action")];
+        var numberWidth = ImGui.CalcTextSize(uint.MaxValue.ToString(CultureInfo.InvariantCulture)).X;
+        var hexWidth = ImGui.CalcTextSize("0xFFFFFFFF").X;
+        using var table = OmniControls.DataTable(
             "##floatingInfoDataIds",
-            4,
+            labels, [numberWidth, numberWidth, hexWidth, removeButtonSize.X],
+            [numberWidth, numberWidth, hexWidth, removeButtonSize.X], out var detailLayout,
             ImGuiTableFlags.SizingStretchSame |
             ImGuiTableFlags.Borders |
             ImGuiTableFlags.RowBg |
-            (scrollable ? ImGuiTableFlags.ScrollY : ImGuiTableFlags.None),
-            new Vector2(ImGui.GetContentRegionAvail().X, tableHeight));
+            ImGuiTableFlags.ScrollY,
+            new Vector2(ImGui.GetContentRegionAvail().X, tableHeight), stretchColumn: -1);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##dataId", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##decimalId", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##hexId", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn(
-            "##action",
-            ImGuiTableColumnFlags.WidthFixed,
-            removeButtonSize.X + style.CellPadding.X * 2f);
-        if (scrollable)
+        if (!detailLayout)
         {
             ImGui.TableSetupScrollFreeze(0, 1);
         }
 
         OmniControls.BeginTableHeaderRow();
         OmniControls.TableHeader(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowDataId"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.FloatingInfoOverlay.DecimalId"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.FloatingInfoOverlay.Hex"));
-        OmniControls.TableHeader(OmniLoc.Get("Feature.FloatingInfoOverlay.Action"));
+        if (!detailLayout)
+        {
+            OmniControls.TableHeader(labels[1]);
+            OmniControls.TableHeader(labels[2]);
+            OmniControls.TableHeader(labels[3]);
+        }
         if (config.FilterDataIds.Count == 0)
         {
             ImGui.TableNextRow(ImGuiTableRowFlags.None, rowHeight);
-            for (var column = 0; column < 4; column++)
+            for (var column = 0; column < (detailLayout ? 1 : 4); column++)
             {
                 ImGui.TableNextColumn();
                 OmniControls.TableTextCentered("-");
@@ -511,13 +522,13 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         {
             var dataID = config.FilterDataIds[index];
             ImGui.TableNextRow(ImGuiTableRowFlags.None, rowHeight);
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(labels[0], detailLayout);
             OmniControls.TableTextCentered(dataID.ToString(CultureInfo.InvariantCulture));
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(labels[1], detailLayout);
             OmniControls.TableTextCentered(dataID.ToString(CultureInfo.InvariantCulture));
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(labels[2], detailLayout);
             OmniControls.TableTextCentered($"0x{dataID:X8}");
-            ImGui.TableNextColumn();
+            OmniControls.NextTableField(labels[3], detailLayout);
             ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(
                 0f,
                 (ImGui.GetContentRegionAvail().X - removeButtonSize.X) * 0.5f));
@@ -560,17 +571,14 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         ref float value,
         float minimum,
         float maximum,
-        string format)
+        string format,
+        float trailingWidth = 0f)
     {
         var label = OmniLoc.Get(key);
-        var width = MathF.Max(
-            1f,
-            MathF.Min(
-                OmniTheme.Scale(260f),
-                ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(label).X - ImGui.GetStyle().ItemSpacing.X));
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(label);
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.MeasureFloatInput(value, format, OmniTheme.Scale(64f)).X);
+        var width = MathF.Max(1f, ImGui.GetContentRegionAvail().X - trailingWidth);
         var changed = OmniControls.SliderFloat(
             $"##floatingInfo{id}",
             ref value,
@@ -589,21 +597,16 @@ internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
         int maximum)
     {
         var label = OmniLoc.Get(key);
-        var width = MathF.Max(
-            1f,
-            MathF.Min(
-                OmniTheme.Scale(260f),
-                ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(label).X - ImGui.GetStyle().ItemSpacing.X));
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(label);
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.MeasureInput(value.ToString(), OmniTheme.Scale(64f)).X);
         var changed = OmniControls.SliderInt(
             $"##floatingInfo{id}",
             ref value,
             minimum,
             maximum,
             "%d",
-            width);
+            MathF.Max(1f, ImGui.GetContentRegionAvail().X));
         return changed;
     }
 

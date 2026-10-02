@@ -14,7 +14,8 @@ internal readonly record struct SkillMonitorDefinition(
     uint IconID,
     string Name,
     SkillMonitorGroup Group,
-    bool IsCustom = false)
+    bool IsCustom = false,
+    uint UnlockLevel = 0)
 {
     public uint ConfigID => ActionID == 0 ? 0x80000000u | StatusID : ActionID;
 
@@ -134,12 +135,14 @@ internal static class SkillMonitorDefinitions
         {
             var raw = Defaults[index];
             uint iconID;
+            var unlockLevel = 0u;
             string name;
             var cooldownMilliseconds = raw.CooldownSeconds * 1_000;
             if (raw.ActionID != 0 && LuminaGetter.TryGetRow<LuminaAction>(raw.ActionID, out var action))
             {
                 iconID = action.Icon;
                 name = action.Name.ToString();
+                unlockLevel = action.ClassJobLevel;
                 if (cooldownMilliseconds == 0)
                 {
                     cooldownMilliseconds = action.Recast100ms * 100;
@@ -164,7 +167,8 @@ internal static class SkillMonitorDefinitions
                 raw.ClassJobs,
                 iconID,
                 name,
-                raw.Group));
+                raw.Group,
+                UnlockLevel: unlockLevel));
         }
 
         if (customActions is not null)
@@ -222,7 +226,8 @@ internal static class SkillMonitorDefinitions
             action.Icon,
             action.Name.ToString(),
             GetGroup(classJobs),
-            true);
+            true,
+            action.ClassJobLevel);
         return true;
     }
 

@@ -83,7 +83,7 @@ internal sealed unsafe class SkillMonitorOverlay(
                     continue;
                 }
 
-                DrawMember(memberIndex, member.ClassJobID, partyList, drawList);
+                DrawMember(memberIndex, member.ClassJobID, member.Level, partyList, drawList);
             }
             drawList.PopClipRect();
         }
@@ -124,7 +124,12 @@ internal sealed unsafe class SkillMonitorOverlay(
         }
     }
 
-    private void DrawMember(int memberIndex, uint classJobID, AddonPartyList* partyList, ImDrawListPtr drawList)
+    private void DrawMember(
+        int memberIndex,
+        uint classJobID,
+        byte level,
+        AddonPartyList* partyList,
+        ImDrawListPtr drawList)
     {
         if (classJobID >= definitionIndexesByJob.Length)
         {
@@ -146,7 +151,9 @@ internal sealed unsafe class SkillMonitorOverlay(
         for (var index = 0; index < definitionIndexes.Length; index++)
         {
             var definitionIndex = definitionIndexes[mirrored ? index : definitionIndexes.Length - 1 - index];
-            if (ShouldShow(tracker.GetState(memberIndex, definitionIndex).DisplayState))
+            var definition = definitions[definitionIndex];
+            if (definition.UnlockLevel <= level &&
+                ShouldShow(tracker.GetState(memberIndex, definitionIndex).DisplayState))
             {
                 visibleDefinitions.Add(definitionIndex);
             }
@@ -166,8 +173,9 @@ internal sealed unsafe class SkillMonitorOverlay(
             SkillMonitorConfig.DefaultIconScale * 0.5f,
             SkillMonitorConfig.DefaultIconScale * 2f));
         var scale = config.IconScale / SkillMonitorConfig.DefaultIconScale;
-        var spacing = Math.Clamp(config.IconSpacing, 0f, 12f) * partyList->Scale * scale;
-        var anchorX = memberNode->AtkResNode.ScreenX + config.Offset.X * partyList->Scale;
+        var addonScale = partyList->AtkUnitBase.GetScale();
+        var spacing = Math.Clamp(config.IconSpacing, 0f, 12f) * addonScale * scale;
+        var anchorX = memberNode->AtkResNode.ScreenX + config.Offset.X * addonScale;
         var perRow = config.IconsPerRow == 0 ? visibleDefinitions.Count : Math.Clamp(config.IconsPerRow, 1, 20);
         for (var start = 0; start < visibleDefinitions.Count; start += perRow)
         {
@@ -178,7 +186,7 @@ internal sealed unsafe class SkillMonitorOverlay(
                 rowWidth += GetIconSize(definitions[visibleDefinitions[index]], iconSize).X;
             }
             var position = new Vector2(mirrored ? anchorX + spacing : anchorX - spacing - rowWidth,
-                iconNode->ScreenY + config.Offset.Y * partyList->Scale +
+                iconNode->ScreenY + config.Offset.Y * addonScale +
                 start / perRow * (iconSize.Y * 1.1f + spacing));
             for (var index = start; index < end; index++)
             {

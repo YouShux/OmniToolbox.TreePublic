@@ -182,8 +182,8 @@ internal static class MitigationMonitorPanel
         var changed = false;
         using var table = ImRaii.Table(
             "##mitigationMonitorSettings",
-            4,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.NoClip,
+            1,
+            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
             new Vector2(ImGui.GetContentRegionAvail().X, 0f));
         if (!table)
         {
@@ -191,9 +191,6 @@ internal static class MitigationMonitorPanel
         }
 
         ImGui.TableSetupColumn("##mitigationSettingsColumn1", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##mitigationSettingsColumn2", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##mitigationSettingsColumn3", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##mitigationSettingsColumn4", ImGuiTableColumnFlags.WidthStretch, 1f);
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var showDotDamage = config.ShowDotDamage;
@@ -203,82 +200,105 @@ internal static class MitigationMonitorPanel
             changed = true;
         }
 
-        ImGui.TableNextColumn();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.TargetDisplayMode"));
-        ImGui.SameLine();
-        changed |= DrawTargetMode(
-            config,
-            MitigationTargetDisplayMode.CharacterName,
-            "Feature.MitigationMonitor.TargetMode.CharacterName");
-        ImGui.SameLine();
-        changed |= DrawTargetMode(
-            config,
-            MitigationTargetDisplayMode.JobName,
-            "Feature.MitigationMonitor.TargetMode.JobName");
-        ImGui.SameLine();
-        changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIcon, 62028, "Feature.MitigationMonitor.TargetMode.JobIcon");
-        ImGui.SameLine();
-        changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIconV2, 62128, "Feature.MitigationMonitor.TargetMode.JobIconV2");
-        ImGui.SameLine();
-        changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIconV3, 62409, "Feature.MitigationMonitor.TargetMode.JobIconV3");
+        var targetLabel = OmniLoc.Get("Feature.MitigationMonitor.TargetDisplayMode");
+        var characterNameSize = OmniControls.CompactButtonSize(OmniLoc.Get("Feature.MitigationMonitor.TargetMode.CharacterName"));
+        var jobNameSize = OmniControls.CompactButtonSize(OmniLoc.Get("Feature.MitigationMonitor.TargetMode.JobName"));
+        var iconSize = new Vector2(MathF.Max(OmniTheme.SmallButtonSize().Y, ImGui.GetFrameHeight()));
+        var targetSize = OmniControls.MeasureGroup([ImGui.CalcTextSize(targetLabel), characterNameSize, jobNameSize,
+            iconSize, iconSize, iconSize]);
+        OmniControls.SameLineOrWrap(targetSize.X);
+        using (ImRaii.Group())
+        {
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(targetLabel);
+            OmniControls.SameLineOrWrap(characterNameSize.X);
+            changed |= DrawTargetMode(
+                config,
+                MitigationTargetDisplayMode.CharacterName,
+                "Feature.MitigationMonitor.TargetMode.CharacterName");
+            OmniControls.SameLineOrWrap(jobNameSize.X);
+            changed |= DrawTargetMode(
+                config,
+                MitigationTargetDisplayMode.JobName,
+                "Feature.MitigationMonitor.TargetMode.JobName");
+            OmniControls.SameLineOrWrap(iconSize.X);
+            changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIcon, 62028, "Feature.MitigationMonitor.TargetMode.JobIcon");
+            OmniControls.SameLineOrWrap(iconSize.X);
+            changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIconV2, 62128, "Feature.MitigationMonitor.TargetMode.JobIconV2");
+            OmniControls.SameLineOrWrap(iconSize.X);
+            changed |= DrawTargetIconMode(config, MitigationTargetDisplayMode.JobIconV3, 62409, "Feature.MitigationMonitor.TargetMode.JobIconV3");
+        }
 
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        var globalScale = config.GlobalScale;
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.GlobalScale"));
-        ImGui.SameLine();
-        if (OmniControls.SliderFloat(
-                "##mitigationGlobalScale",
-                ref globalScale,
-                0f,
-                3f,
-                "%.1fx",
-                OmniTheme.Scale(150f)))
+        var scaleSize = OmniControls.MeasureFloatInput(config.GlobalScale, "%.1fx", OmniTheme.Scale(150f));
+        using (ImRaii.Group())
         {
-            config.GlobalScale = globalScale;
+            var globalScale = config.GlobalScale;
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.GlobalScale"));
+            OmniControls.SameLineOrWrap(scaleSize.X);
+            if (OmniControls.SliderFloat(
+                    "##mitigationGlobalScale",
+                    ref globalScale,
+                    0f,
+                    3f,
+                    "%.1fx",
+                    scaleSize.X))
+            {
+                config.GlobalScale = globalScale;
+            }
+
+            changed |= ImGui.IsItemDeactivatedAfterEdit();
         }
 
-        changed |= ImGui.IsItemDeactivatedAfterEdit();
-        ImGui.TableNextColumn();
-        var opacity = config.Opacity * 100f;
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.Opacity"));
-        ImGui.SameLine();
-        if (OmniControls.SliderFloat(
-                "##mitigationOpacity",
-                ref opacity,
-                0f,
-                100f,
-                "%.0f%%",
-                OmniTheme.Scale(150f)))
+        var opacityLabel = OmniLoc.Get("Feature.MitigationMonitor.Opacity");
+        var opacitySize = OmniControls.MeasureFloatInput(config.Opacity * 100f, "%.0f%%", OmniTheme.Scale(150f));
+        OmniControls.SameLineOrWrap(OmniControls.MeasureGroup([ImGui.CalcTextSize(opacityLabel), opacitySize]).X);
+        using (ImRaii.Group())
         {
-            config.Opacity = opacity / 100f;
+            var opacity = config.Opacity * 100f;
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(opacityLabel);
+            OmniControls.SameLineOrWrap(opacitySize.X);
+            if (OmniControls.SliderFloat(
+                    "##mitigationOpacity",
+                    ref opacity,
+                    0f,
+                    100f,
+                    "%.0f%%",
+                    opacitySize.X))
+            {
+                config.Opacity = opacity / 100f;
+            }
+
+            changed |= ImGui.IsItemDeactivatedAfterEdit();
         }
 
-        changed |= ImGui.IsItemDeactivatedAfterEdit();
-        ImGui.TableNextColumn();
-        changed |= hotkey.DrawModifierSetting();
-        ImGui.TableNextColumn();
-        changed |= hotkey.DrawKeySetting();
+        OmniControls.SameLineOrWrap(hotkey.ModifierSettingSize.X);
+        using (ImRaii.Group())
+            changed |= hotkey.DrawModifierSetting();
+        OmniControls.SameLineOrWrap(hotkey.KeySettingSize.X);
+        using (ImRaii.Group())
+            changed |= hotkey.DrawKeySetting();
 
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
         var replaySaveCount = config.ReplaySaveCount;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.MitigationMonitor.ReplaySaveCount"));
-        ImGui.SameLine();
+        var replayWidth = OmniControls.MeasureInput("2,147,483,647", OmniTheme.Scale(96f)).X;
+        OmniControls.SameLineOrWrap(replayWidth);
         if (OmniControls.InputInt(
                 "##mitigationReplaySaveCount",
                 ref replaySaveCount,
-                OmniTheme.Scale(96f), groupThousands: true))
+                replayWidth, groupThousands: true))
         {
             feature.SetReplaySaveCount(replaySaveCount);
         }
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(OmniLoc.Get("Feature.MitigationMonitor.Clear")).X);
         if (OmniControls.SmallButton(OmniLoc.Get("Feature.MitigationMonitor.Clear"), false))
         {
             feature.ClearRecords();
@@ -320,7 +340,7 @@ internal static class MitigationMonitorPanel
 
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip(OmniLoc.Get(tooltipKey));
+            OmniControls.HelpTooltip(OmniLoc.Get(tooltipKey));
         }
 
         if (clicked)

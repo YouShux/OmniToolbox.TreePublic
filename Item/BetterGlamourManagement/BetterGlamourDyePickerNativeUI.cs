@@ -315,7 +315,7 @@ internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
         }
 
         AtkUnitBase* addon = this;
-        var scale = MathF.Max(0.01f, addon->Scale);
+        var scale = MathF.Max(0.01f, addon->GetScale());
         var anchorPosition = (tooltipAnchor.ScreenPosition - new Vector2(addon->X, addon->Y)) / scale;
         var maxX = MathF.Max(
             ContentStartPosition.X,

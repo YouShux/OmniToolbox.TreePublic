@@ -4,6 +4,7 @@ using Dalamud.Interface;
 using Dalamud.Interface.Textures;
 using Lumina.Text.ReadOnly;
 using OmniToolbox.Host;
+using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
@@ -41,8 +42,10 @@ internal sealed class ChatLogReplayRenderer
         using var color = ImRaii.PushColor(ImGuiCol.Text, ChatLogReplayPresentation.GetChannelColor(entry.ChannelName));
         if (showTime)
         {
-            ImGui.TextUnformatted($"[{entry.TimeText}] ");
-            ImGui.SameLine(0f, 0f);
+            using (ImRaii.TextWrapPos(0f))
+                ImGui.TextUnformatted($"[{entry.TimeText}] ");
+            OmniControls.SameLineOrWrap(ImGui.GetFontSize() * 4f +
+                (entry.SenderJobIconID == 0 ? 0f : MathF.Max(OmniTheme.Scale(18f), ImGui.GetTextLineHeight())), 0f);
         }
 
         DrawJobIcon(entry);
@@ -66,12 +69,8 @@ internal sealed class ChatLogReplayRenderer
         }
 
         ImGui.Image(texture.Handle, new(MathF.Max(OmniTheme.Scale(18f), ImGui.GetTextLineHeight())));
-        if (!string.IsNullOrWhiteSpace(entry.SenderJobName) && ImGui.IsItemHovered())
-        {
-            ImGui.SetTooltip(entry.SenderJobName);
-        }
-
-        ImGui.SameLine(0f, OmniTheme.Scale(3f));
+        OmniControls.HelpTooltip(entry.SenderJobName);
+        OmniControls.SameLineOrWrap(ImGui.GetFontSize() * 4f, OmniTheme.Scale(3f));
     }
 
     private bool TryDrawNativePayload(ChatLogReplayEntry entry, bool anonymousMode)

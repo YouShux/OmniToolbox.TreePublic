@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
@@ -22,12 +23,14 @@ internal sealed class MitigationHistoryMenu(
 
     public void Draw()
     {
+        ImGui.SetNextWindowSizeConstraints(Vector2.Zero, ImGui.GetMainViewport().WorkSize);
         if (!ImGui.BeginPopup(HISTORY_POPUP_ID))
         {
             return;
         }
 
         ImGui.SetWindowFontScale(config.EffectiveScale);
+        using var scale = new OmniTheme.ScaleScope(ImGui.GetFontSize() / OmniTheme.REFERENCE_FONT_SIZE);
         RefreshItems();
         if (ImGui.Selectable(
                 OmniLoc.Get("Feature.MitigationMonitor.History.Realtime"),
@@ -36,7 +39,7 @@ internal sealed class MitigationHistoryMenu(
             ActiveHistoryKey = null;
         }
 
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(OmniLoc.Get("Feature.MitigationMonitor.History.Import")).X);
         if (ImGui.SmallButton(OmniLoc.Get("Feature.MitigationMonitor.History.Import")))
         {
             importFiles = replayStore.GetImportableFiles();
@@ -52,7 +55,10 @@ internal sealed class MitigationHistoryMenu(
         {
             using var child = ImRaii.Child(
                 "##MitigationHistoryItems",
-                new(0f, ImGui.GetTextLineHeightWithSpacing() * 12 * 2f),
+                new(0f, MathF.Max(1f, MathF.Min(
+                    ImGui.GetMainViewport().WorkSize.Y - ImGui.GetCursorPosY() -
+                    ImGui.GetStyle().WindowPadding.Y - ImGui.GetStyle().WindowBorderSize * 2f,
+                    ImGui.GetTextLineHeightWithSpacing() * 12 * 2f))),
                 false);
             if (child)
             {
@@ -106,17 +112,18 @@ internal sealed class MitigationHistoryMenu(
 
     private void DrawItems()
     {
-        using var table = ImRaii.Table(
+        var exportWidth = OmniControls.CompactButtonSize(OmniLoc.Get("Feature.MitigationMonitor.History.Export")).X;
+        using var table = OmniControls.DataTable(
             "##MitigationHistoryTable",
-            2,
-            ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX);
+            [string.Empty, string.Empty],
+            [ImGui.GetFontSize() * 12f, exportWidth],
+            [ImGui.GetFontSize() * 20f, exportWidth], out _,
+            ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.NoPadOuterX, stretchColumn: 0);
         if (!table)
         {
             return;
         }
 
-        ImGui.TableSetupColumn("##history", ImGuiTableColumnFlags.WidthStretch);
-        ImGui.TableSetupColumn("##export", ImGuiTableColumnFlags.WidthFixed);
         foreach (var item in items)
         {
             ImGui.TableNextRow();
@@ -130,7 +137,7 @@ internal sealed class MitigationHistoryMenu(
                 item.ElapsedLabel,
                 zone,
                 item.StartUTC.ToLocalTime());
-            if (ImGui.Selectable($"{label}##{item.Key}", item.Key == ActiveHistoryKey))
+            if (OmniControls.WrappedSelectable($"{label}##{item.Key}", item.Key == ActiveHistoryKey))
             {
                 ActiveHistoryKey = item.Key;
             }
@@ -145,22 +152,25 @@ internal sealed class MitigationHistoryMenu(
 
     private void DrawImportPopup()
     {
+        ImGui.SetNextWindowSizeConstraints(Vector2.Zero, ImGui.GetMainViewport().WorkSize);
         if (!ImGui.BeginPopup(IMPORT_POPUP_ID))
         {
             return;
         }
 
         ImGui.SetWindowFontScale(config.EffectiveScale);
+        using var scale = new OmniTheme.ScaleScope(ImGui.GetFontSize() / OmniTheme.REFERENCE_FONT_SIZE);
         if (importFiles.Length == 0)
         {
             ImGui.TextDisabled(OmniLoc.Get("Feature.MitigationMonitor.History.NoImportFiles"));
+            using var wrap = ImRaii.TextWrapPos(0f);
             ImGui.TextDisabled(replayStore.ExportDirectory);
         }
         else
         {
             foreach (var file in importFiles)
             {
-                if (ImGui.Selectable($"{Path.GetFileName(file)}##{file}") && replayStore.Import(file) is { } imported)
+                if (OmniControls.WrappedSelectable($"{Path.GetFileName(file)}##{file}") && replayStore.Import(file) is { } imported)
                 {
                     ActiveHistoryKey = combatLog.AddImported(imported);
                     historyVersion = -1;
@@ -169,7 +179,7 @@ internal sealed class MitigationHistoryMenu(
 
                 if (ImGui.IsItemHovered())
                 {
-                    ImGui.SetTooltip(file);
+                    OmniControls.HelpTooltip(file);
                 }
             }
         }

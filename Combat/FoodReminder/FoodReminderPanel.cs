@@ -78,7 +78,11 @@ internal static class FoodReminderPanel
 
         ImGui.SameLine(0f, OmniTheme.Scale(4f));
         OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.TargetNameMode.Help"));
-        ImGui.SameLine(0f, OmniTheme.Scale(22f));
+        OmniControls.SameLineOrWrap(OmniControls.MeasureGroup(
+            [ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Threshold")), OmniControls.MeasureInput("7200", OmniTheme.Scale(110f)),
+                ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Seconds")), OmniControls.HelpIconSize()]).X, OmniTheme.Scale(22f));
+        using (ImRaii.Group())
+        {
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Threshold"));
         ImGui.SameLine();
@@ -91,11 +95,12 @@ internal static class FoodReminderPanel
 
         changed |= ImGui.IsItemDeactivatedAfterEdit();
 
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Seconds")).X);
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Seconds"));
         ImGui.SameLine(0f, OmniTheme.Scale(4f));
         OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.Threshold.Help"));
+        }
         return changed;
     }
 
@@ -104,7 +109,7 @@ internal static class FoodReminderPanel
         ImGui.Spacing();
         ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.PartyMessage"));
         var message = config.PartyMessage ?? OmniLoc.Get("Feature.FoodReminder.DefaultPartyMessage");
-        var inputSize = new Vector2(MathF.Max(OmniTheme.Scale(240f), ImGui.GetContentRegionAvail().X), OmniTheme.Scale(72f));
+        var inputSize = new Vector2(MathF.Max(1f, ImGui.GetContentRegionAvail().X), MathF.Max(OmniTheme.Scale(72f), ImGui.GetTextLineHeight() * 3f));
         if (OmniControls.InputTextMultiline(
                 "##foodReminderPartyMessage",
                 ref message,

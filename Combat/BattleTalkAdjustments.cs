@@ -43,28 +43,27 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
     {
         var changed = false;
         var settingsChanged = false;
-        using var table = ImRaii.Table(
+        var scaleLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Scale");
+        var offsetLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Offset");
+        var scaleSize = OmniControls.MeasureFloatInput(config.Scale, "%.2fx");
+        var offsetSize = OmniControls.MeasureGroup([OmniControls.MeasureInput("-1500"), OmniControls.MeasureInput("-1500")]);
+        var groupWidth = MathF.Max(ImGui.CalcTextSize(scaleLabel).X + scaleSize.X,
+            ImGui.CalcTextSize(offsetLabel).X + offsetSize.X) + ImGui.GetStyle().ItemSpacing.X;
+        using var table = OmniControls.SettingsTable(
             "##battleTalkAdjustmentsSettings",
-            4,
-            ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX,
-            new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            [new(groupWidth, scaleSize.Y), new(groupWidth, offsetSize.Y)],
+            ["##battleTalkAdjustmentsScaleColumn", "##battleTalkAdjustmentsOffsetColumn"],
+            flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 2);
         if (!table)
         {
             return false;
         }
 
-        ImGui.TableSetupColumn("##battleTalkAdjustmentsScaleColumn", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##battleTalkAdjustmentsOffsetColumn", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##battleTalkAdjustmentsEmptyColumn1", ImGuiTableColumnFlags.WidthStretch, 1f);
-        ImGui.TableSetupColumn("##battleTalkAdjustmentsEmptyColumn2", ImGuiTableColumnFlags.WidthStretch, 1f);
-
         ImGui.TableNextRow(ImGuiTableRowFlags.None, ImGui.GetFrameHeight());
         ImGui.TableNextColumn();
-        var scaleLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Scale");
-        var scaleWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(scaleLabel).X - ImGui.GetStyle().ItemSpacing.X;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(scaleLabel);
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(scaleSize.X);
         var scale = config.Scale;
         if (OmniControls.DragFloat(
                 "##battleTalkAdjustmentsScale",
@@ -73,7 +72,7 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
                 0.01f,
                 3f,
                 "%.2fx",
-                MathF.Max(1f, scaleWidth),
+                MathF.Max(1f, ImGui.GetContentRegionAvail().X),
                 ImGuiSliderFlags.AlwaysClamp))
         {
             config.Scale = scale;
@@ -83,11 +82,9 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         changed |= ImGui.IsItemDeactivatedAfterEdit();
 
         ImGui.TableNextColumn();
-        var offsetLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Offset");
-        var offsetWidth = ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(offsetLabel).X - ImGui.GetStyle().ItemSpacing.X;
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(offsetLabel);
-        ImGui.SameLine();
+        OmniControls.SameLineOrWrap(offsetSize.X);
         var offset = new Vector2(config.OffsetX, config.OffsetY);
         if (OmniControls.DragFloat2(
                 "##battleTalkAdjustmentsOffset",
@@ -96,7 +93,7 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
                 -1500f,
                 1500f,
                 "%.0f",
-                MathF.Max(1f, offsetWidth)))
+                MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
         {
             config.OffsetX = (int)MathF.Round(offset.X);
             config.OffsetY = (int)MathF.Round(offset.Y);
