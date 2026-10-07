@@ -25,9 +25,6 @@ internal sealed unsafe class DisplayIDInformationCombat : IDisposable
     private static readonly CompSig ActionEffectSig = new(
         "40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 45 70 4C 8B BD");
 
-    private const uint SELF_CAST_NODE_ID = 32620;
-    private const uint TARGET_CAST_NODE_ID = 32621;
-
     private readonly DisplayIDInformationConfig config;
     private readonly AddonEventRegistry addonEvents;
     private readonly FeatureLifetime lifetime = new();
@@ -503,8 +500,16 @@ internal sealed unsafe class DisplayIDInformationCombat : IDisposable
             : GetCurrentTarget();
         if (battleChara is not { IsCasting: true } ||
             battleChara.CastActionID == 0 ||
-            !TryGetActionName(battleChara.CastActionID, out var actionName) ||
-            !TryFindTextNode(addon, actionName, out var nameNode))
+            !TryGetActionName(battleChara.CastActionID, out var actionName))
+        {
+            ToggleNode(addon, nodeID, false);
+            return;
+        }
+
+        var nameNode = args.AddonName is "_CastBar" or "_TargetInfoCastBar"
+            ? addon->GetTextNodeById(CAST_ACTION_NAME_NODE_ID)
+            : TryFindTextNode(addon, actionName, out var matchedNode) ? matchedNode : null;
+        if (nameNode == null || !nameNode->AtkResNode.IsVisible())
         {
             ToggleNode(addon, nodeID, false);
             return;
@@ -910,4 +915,14 @@ internal sealed unsafe class DisplayIDInformationCombat : IDisposable
     }
 
     private readonly record struct IdName(uint ID, string Name);
+
+    #region 常量
+
+    private const uint CAST_ACTION_NAME_NODE_ID = 4;
+
+    private const uint SELF_CAST_NODE_ID = 32620;
+
+    private const uint TARGET_CAST_NODE_ID = 32621;
+
+    #endregion
 }

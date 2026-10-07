@@ -10,9 +10,6 @@ internal sealed class MitigationHistoryMenu(
     MitigationCombatLog combatLog,
     MitigationReplayStore replayStore)
 {
-    private const string HISTORY_POPUP_ID = "##MitigationHistoryPopup";
-    private const string IMPORT_POPUP_ID = "##MitigationImportPopup";
-
     private readonly List<MitigationCombatHistory> items = new(40);
     private string[] importFiles = [];
     private long historyVersion = -1;
@@ -186,4 +183,12 @@ internal sealed class MitigationHistoryMenu(
 
         ImGui.EndPopup();
     }
+
+    #region 常量
+
+    private const string HISTORY_POPUP_ID = "##MitigationHistoryPopup";
+
+    private const string IMPORT_POPUP_ID = "##MitigationImportPopup";
+
+    #endregion
 }

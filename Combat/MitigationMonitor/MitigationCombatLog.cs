@@ -65,7 +65,10 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
         lock (syncRoot)
         {
             combatStartUTC ??= record.TimestampUTC;
-            record = record with { Elapsed = record.TimestampUTC - combatStartUTC.Value };
+            record = record with
+            {
+                Elapsed = record.TimestampUTC - combatStartUTC.Value
+            };
             AddRecordNoLock(record);
             if (!record.Missed && !record.Invulnerable)
             {
@@ -241,7 +244,10 @@ internal sealed class MitigationCombatLog(int replaySaveCount)
         lock (syncRoot)
         {
             var key = CreateUniqueHistoryKeyNoLock(item.Key);
-            history.Insert(0, item with { Key = key });
+            history.Insert(0, item with
+            {
+                Key = key
+            });
             historyVersion++;
             TrimHistoryNoLock();
             return key;

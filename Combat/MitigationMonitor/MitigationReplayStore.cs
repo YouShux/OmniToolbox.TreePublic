@@ -11,13 +11,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationReplayStore
 {
-    private const int EXPORT_VERSION = 1;
-    private const int MAX_REPLAY_RECORDS = 100_000;
-    private const int MAX_STATUSES_PER_RECORD = 64;
-    private const int MAX_TEXT_LENGTH = 4096;
-    private const string EXPORT_DIRECTORY_NAME = "MitigationExports";
-    private const string EXPORT_EXTENSION = ".omni-mitigation.json";
-
     private static readonly JsonSerializerOptions JSONOptions = new()
     {
         WriteIndented = true,
@@ -52,7 +45,6 @@ internal sealed class MitigationReplayStore
             {
                 return history;
             }
-
         }
         catch
         {
@@ -316,48 +308,97 @@ internal sealed class MitigationReplayStore
     private sealed class ReplayDto
     {
         public int Version { get; set; } = EXPORT_VERSION;
+
         public DateTime ExportedUTC { get; set; }
+
         public string ZoneName { get; set; } = string.Empty;
+
         public DateTime StartUTC { get; set; }
+
         public DateTime EndUTC { get; set; }
+
         public string ElapsedLabel { get; set; } = string.Empty;
+
         public List<RecordDto?> Records { get; set; } = [];
     }
 
     private sealed class RecordDto
     {
         public MitigationRecordKind Kind { get; set; }
+
         public DateTime TimestampUTC { get; set; }
+
         public TimeSpan Elapsed { get; set; }
+
         public string ActionName { get; set; } = string.Empty;
+
         public string SourceName { get; set; } = string.Empty;
+
         public string TargetName { get; set; } = string.Empty;
+
         public string TargetShortName { get; set; } = string.Empty;
+
         public string TargetJobName { get; set; } = string.Empty;
+
         public uint TargetJobRowID { get; set; }
+
         public DamageSourceKind SourceKind { get; set; }
+
         public uint Damage { get; set; }
+
         public DamageKind DamageKind { get; set; }
+
         public bool Blocked { get; set; }
+
         public bool Parried { get; set; }
+
         public bool Missed { get; set; }
+
         public bool Invulnerable { get; set; }
+
         public float MitigationPercent { get; set; }
+
         public List<ActiveMitigationDto?> Statuses { get; set; } = [];
+
         public uint ShieldValue { get; set; }
+
         public uint CurrentHp { get; set; }
     }
 
     private sealed class ActiveMitigationDto
     {
         public uint StatusID { get; set; }
+
         public string Name { get; set; } = string.Empty;
+
         public uint IconID { get; set; }
+
         public float RemainingSeconds { get; set; }
+
         public int Value { get; set; }
+
         public int StackCount { get; set; }
+
         public MitigationStatusCategory Category { get; set; }
+
         public bool Useful { get; set; }
+
         public bool AffectsPercent { get; set; }
     }
+
+    #region 常量
+
+    private const int EXPORT_VERSION = 1;
+
+    private const int MAX_REPLAY_RECORDS = 100_000;
+
+    private const int MAX_STATUSES_PER_RECORD = 64;
+
+    private const int MAX_TEXT_LENGTH = 4096;
+
+    private const string EXPORT_DIRECTORY_NAME = "MitigationExports";
+
+    private const string EXPORT_EXTENSION = ".omni-mitigation.json";
+
+    #endregion
 }

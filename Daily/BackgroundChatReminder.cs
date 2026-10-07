@@ -22,8 +22,7 @@ public sealed class BackgroundChatReminder : ModuleBase
         Category = ModuleCategory.Daily
     };
 
-    private const uint FLASH_ALL = 3;
-    private const uint FLASH_TIMER_NO_FOREGROUND = 12;
+    public override bool HasSettings => true;
 
     private readonly BackgroundChatReminderConfig config;
     private bool subscribed;
@@ -33,7 +32,9 @@ public sealed class BackgroundChatReminder : ModuleBase
         this.config = config;
     }
 
-    public override bool HasSettings => true;
+    protected override void OnEnable() => UpdateSubscription();
+
+    protected override void OnDisable() => DisableSubscription();
 
     public override bool DrawSettings()
     {
@@ -45,10 +46,6 @@ public sealed class BackgroundChatReminder : ModuleBase
 
         return changed;
     }
-
-    protected override void OnEnable() => UpdateSubscription();
-
-    protected override void OnDisable() => DisableSubscription();
 
     private void UpdateSubscription()
     {
@@ -128,6 +125,14 @@ public sealed class BackgroundChatReminder : ModuleBase
         public uint Count;
         public uint Timeout;
     }
+
+    #region 常量
+
+    private const uint FLASH_ALL = 3;
+
+    private const uint FLASH_TIMER_NO_FOREGROUND = 12;
+
+    #endregion
 }
 
 internal static class BackgroundChatReminderPanel

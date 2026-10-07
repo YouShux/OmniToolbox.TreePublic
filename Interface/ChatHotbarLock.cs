@@ -6,6 +6,7 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Classes;
+using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
 using OmenTools;
 using OmenTools.Interop.Game.Helpers;
@@ -30,6 +31,8 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
         Category = ModuleCategory.Interface
     };
 
+    public override bool HasSettings => true;
+
     private static readonly string[] ChatAddonNames =
         ["ChatLog", "ChatLogPanel_0", "ChatLogPanel_1", "ChatLogPanel_2", "ChatLogPanel_3"];
     private static readonly Vector2 ButtonSize = new(20f, 24f);
@@ -42,7 +45,94 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
     private bool locksVisible;
     private bool showChatLock;
 
-    public override bool HasSettings => true;
+    private bool ShouldShowLocks
+    {
+        get
+        {
+            if (!config.HideLocks)
+            {
+                return true;
+            }
+
+            var keyState = DService.Instance().KeyState;
+            return config.ModifierKey switch
+            {
+                1 => keyState[VirtualKey.MENU] || keyState[(VirtualKey)0xA4] || keyState[(VirtualKey)0xA5],
+                2 => keyState[VirtualKey.CONTROL] || keyState[(VirtualKey)0xA2] || keyState[(VirtualKey)0xA3],
+                _ => keyState[VirtualKey.SHIFT] || keyState[(VirtualKey)0xA0] || keyState[(VirtualKey)0xA1],
+            };
+        }
+    }
+
+    protected override void OnEnable()
+    {
+        var lifetime = new FeatureLifetime();
+        try
+        {
+            // 按注册顺序逆序释放：框架、插件事件、按钮、Hook，最后恢复原生显示。
+            lifetime.Add(() => SetHotbarLockVisible(true));
+            moveDeltaHook = DService.Instance().Hook.HookFromAddress<AtkUnitBase.Delegates.MoveDelta>(
+                AtkUnitBase.Addresses.MoveDelta.Value,
+                OnMoveDelta);
+            lifetime.Add(moveDeltaHook.Dispose);
+            moveDeltaHook.Enable();
+            lifetime.Add(DisposeChatLockButtons);
+
+            var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
+            lifetime.Add(addonEvents.Dispose);
+            foreach (var addonName in ChatAddonNames)
+            {
+                addonEvents.Register(AddonEvent.PostSetup, addonName, OnChatAddon);
+                addonEvents.Register(AddonEvent.PostRefresh, addonName, OnChatAddon);
+                addonEvents.Register(AddonEvent.PostRequestedUpdate, addonName, OnChatAddon);
+                addonEvents.Register(AddonEvent.PostDraw, addonName, OnChatAddon);
+                addonEvents.Register(AddonEvent.PreFinalize, addonName, OnChatAddon);
+            }
+
+            addonEvents.Register(AddonEvent.PostSetup, "_ActionBar", OnActionBarAddon);
+            addonEvents.Register(AddonEvent.PostRequestedUpdate, "_ActionBar", OnActionBarAddon);
+            addonEvents.Register(AddonEvent.PostDraw, "_ActionBar", OnActionBarAddon);
+
+            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 16))
+            {
+                throw new InvalidOperationException("Chat/hotbar lock update registration failed.");
+            }
+
+            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+            runtimeLifetime = lifetime;
+            locksVisible = ShouldShowLocks;
+            showChatLock = config.ShowChatLock;
+            RefreshChatAddons(locksVisible);
+            SetHotbarLockVisible(locksVisible);
+        }
+        catch
+        {
+            try
+            {
+                lifetime.Dispose();
+            }
+            finally
+            {
+                runtimeLifetime = null;
+                moveDeltaHook = null;
+            }
+
+            throw;
+        }
+    }
+
+    protected override void OnDisable()
+    {
+        try
+        {
+            runtimeLifetime?.Dispose();
+        }
+        finally
+        {
+            runtimeLifetime = null;
+            moveDeltaHook = null;
+        }
+    }
 
     public override bool DrawSettings()
     {
@@ -147,76 +237,6 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
         _ => "Feature.ChatHotbarLock.Modifier.Shift"
     });
 
-    protected override void OnEnable()
-    {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            // 按注册顺序逆序释放：框架、插件事件、按钮、Hook，最后恢复原生显示。
-            lifetime.Add(() => SetHotbarLockVisible(true));
-            moveDeltaHook = DService.Instance().Hook.HookFromAddress<AtkUnitBase.Delegates.MoveDelta>(
-                AtkUnitBase.Addresses.MoveDelta.Value,
-                OnMoveDelta);
-            lifetime.Add(moveDeltaHook.Dispose);
-            moveDeltaHook.Enable();
-            lifetime.Add(DisposeChatLockButtons);
-
-            var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
-            lifetime.Add(addonEvents.Dispose);
-            foreach (var addonName in ChatAddonNames)
-            {
-                addonEvents.Register(AddonEvent.PostSetup, addonName, OnChatAddon);
-                addonEvents.Register(AddonEvent.PostRefresh, addonName, OnChatAddon);
-                addonEvents.Register(AddonEvent.PostRequestedUpdate, addonName, OnChatAddon);
-                addonEvents.Register(AddonEvent.PostDraw, addonName, OnChatAddon);
-                addonEvents.Register(AddonEvent.PreFinalize, addonName, OnChatAddon);
-            }
-
-            addonEvents.Register(AddonEvent.PostSetup, "_ActionBar", OnActionBarAddon);
-            addonEvents.Register(AddonEvent.PostRequestedUpdate, "_ActionBar", OnActionBarAddon);
-            addonEvents.Register(AddonEvent.PostDraw, "_ActionBar", OnActionBarAddon);
-
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 16))
-            {
-                throw new InvalidOperationException("Chat/hotbar lock update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            runtimeLifetime = lifetime;
-            locksVisible = ShouldShowLocks;
-            showChatLock = config.ShowChatLock;
-            RefreshChatAddons(locksVisible);
-            SetHotbarLockVisible(locksVisible);
-        }
-        catch
-        {
-            try
-            {
-                lifetime.Dispose();
-            }
-            finally
-            {
-                runtimeLifetime = null;
-                moveDeltaHook = null;
-            }
-
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        try
-        {
-            runtimeLifetime?.Dispose();
-        }
-        finally
-        {
-            runtimeLifetime = null;
-            moveDeltaHook = null;
-        }
-    }
-
     private void OnFrameworkUpdate(IFramework _)
     {
         var showLocks = ShouldShowLocks;
@@ -256,7 +276,7 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
     {
         foreach (var addonName in ChatAddonNames)
         {
-            if (!AddonHelper.TryGetByName(addonName, out AtkUnitBase* addon))
+            if (!AddonHelper.TryGetByName(addonName, out var addon))
             {
                 DisposeChatLockButton(addonName);
                 continue;
@@ -375,7 +395,7 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
     {
         if (chatLockButtons.Remove(addonName, out var button))
         {
-            AddonHelper.TryGetByName(addonName, out AtkUnitBase* addon);
+            AddonHelper.TryGetByName(addonName, out var addon);
             NativeNodeDetach.DetachAndDestroyComponent(button);
             // 同帧移除已销毁按钮的碰撞引用，不能等下一帧再重建。
             NativeNodeDetach.UpdateNodeLists(addon);
@@ -397,28 +417,9 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
         return moveDeltaHook!.Original(addon, xDelta, yDelta);
     }
 
-    private bool ShouldShowLocks
-    {
-        get
-        {
-            if (!config.HideLocks)
-            {
-                return true;
-            }
-
-            var keyState = DService.Instance().KeyState;
-            return config.ModifierKey switch
-            {
-                1 => keyState[VirtualKey.MENU] || keyState[(VirtualKey)0xA4] || keyState[(VirtualKey)0xA5],
-                2 => keyState[VirtualKey.CONTROL] || keyState[(VirtualKey)0xA2] || keyState[(VirtualKey)0xA3],
-                _ => keyState[VirtualKey.SHIFT] || keyState[(VirtualKey)0xA0] || keyState[(VirtualKey)0xA1],
-            };
-        }
-    }
-
     private static void SetHotbarLockVisible(bool visible)
     {
-        if (AddonHelper.TryGetByName("_ActionBar", out AtkUnitBase* addon))
+        if (AddonHelper.TryGetByName("_ActionBar", out var addon))
         {
             SetHotbarLockVisible(visible, addon);
         }
@@ -444,7 +445,10 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
 public sealed class ChatHotbarLockConfig
 {
     public bool ShowChatLock { get; set; } = true;
+
     public bool ChatLocked { get; set; }
+
     public bool HideLocks { get; set; }
+
     public int ModifierKey { get; set; }
 }

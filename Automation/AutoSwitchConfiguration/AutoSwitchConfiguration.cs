@@ -24,6 +24,8 @@ public sealed partial class AutoSwitchConfiguration : ModuleBase
         Category = ModuleCategory.Automation
     };
 
+    public override bool HasSettings => true;
+
     private readonly Config config;
     private readonly System.Action saveConfig;
     private readonly IAutoSwitchConfigurationSource source;
@@ -39,8 +41,6 @@ public sealed partial class AutoSwitchConfiguration : ModuleBase
         if (config.MigrateLegacy())
             saveConfig();
     }
-
-    public override bool HasSettings => true;
 
     protected override void OnEnable()
     {
@@ -183,7 +183,10 @@ public sealed partial class AutoSwitchConfiguration : ModuleBase
                         collectionTask = source.SetPluginCollectionEnabledAsync(
                             step.CollectionID, step.Type == ActionKind.EnableCollection, token);
                         // 已取消的流程不再轮询，仍须观察提供方稍后返回的异常。
-                        _ = collectionTask.ContinueWith(static task => { _ = task.Exception; },
+                        _ = collectionTask.ContinueWith(static task =>
+{
+    _ = task.Exception;
+},
                             CancellationToken.None,
                             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                             TaskScheduler.Default);

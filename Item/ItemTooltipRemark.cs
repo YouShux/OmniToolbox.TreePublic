@@ -24,6 +24,8 @@ public sealed class ItemTooltipRemark : ModuleBase
         Category = ModuleCategory.Item
     };
 
+    public override bool HasSettings => true;
+
     private readonly ItemTooltipRemarkConfig config;
     private readonly TooltipManager.ItemTooltipUpdateDelegate tooltipHandler;
     private KeyValuePair<uint, string>[] orderedRemarks = [];
@@ -38,94 +40,6 @@ public sealed class ItemTooltipRemark : ModuleBase
     {
         this.config = config;
         tooltipHandler = OnItemTooltip;
-    }
-
-    public override bool HasSettings => true;
-
-    public void OpenEditor(uint itemID) => LoadEditor(itemID, true);
-
-    private void LoadEditor(uint itemID, bool requestOpen)
-    {
-        itemID = NormalizeItemID(itemID);
-        if (itemID == 0)
-        {
-            if (!requestOpen)
-            {
-                editingText = string.Empty;
-                focusTextInput = true;
-            }
-
-            return;
-        }
-
-        editingItemID = (int)Math.Min(itemID, int.MaxValue);
-        editingText = config.Remarks.TryGetValue(itemID, out var remark) ? remark : string.Empty;
-        focusTextInput = true;
-        editorRequested |= requestOpen;
-    }
-
-    public bool ConsumeEditorRequest()
-    {
-        if (!editorRequested)
-        {
-            return false;
-        }
-
-        editorRequested = false;
-        return true;
-    }
-
-    public bool TryGetRemark(uint itemID, out string remark)
-    {
-        itemID = NormalizeItemID(itemID);
-        if (itemID != 0 &&
-            config.Remarks.TryGetValue(itemID, out var value) &&
-            !string.IsNullOrWhiteSpace(value))
-        {
-            remark = value;
-            return true;
-        }
-
-        remark = string.Empty;
-        return false;
-    }
-
-    private void OnMenuOpened(IMenuOpenedArgs args)
-    {
-        var itemID = args.Target is MenuTargetInventory target && target.TargetItem.HasValue
-            ? NormalizeItemID(target.TargetItem.Value.ItemId)
-            : 0;
-        if (itemID == 0)
-        {
-            itemID = NormalizeItemID(DService.Instance().GameGUI.HoveredItem);
-        }
-
-        if (itemID == 0)
-        {
-            return;
-        }
-
-        args.AddMenuItem(new MenuItem
-        {
-            Name = new SeStringBuilder()
-                .AddUiForeground(10)
-                .Append(((char)SeIconChar.BoxedLetterT).ToString())
-                .AddUiForegroundOff()
-                .Append($" {OmniLoc.Get("Feature.ItemTooltipRemark.Menu")}")
-                .Build(),
-            OnClicked = _ => OpenEditor(itemID),
-            PrefixChar = 'O',
-            PrefixColor = 10
-        });
-    }
-
-    public override bool DrawSettings()
-    {
-        using var wrap = ImRaii.TextWrapPos(0f);
-        var changed = DrawEditor();
-        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
-        changed |= DrawRemarkList();
-        return changed;
     }
 
     protected override void OnEnable()
@@ -150,6 +64,15 @@ public sealed class ItemTooltipRemark : ModuleBase
             manager.TriggerItemDetailUpdate();
             tooltipManager = null;
         }
+    }
+
+    public override bool DrawSettings()
+    {
+        using var wrap = ImRaii.TextWrapPos(0f);
+        var changed = DrawEditor();
+        ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
+        changed |= DrawRemarkList();
+        return changed;
     }
 
     private bool DrawEditor()
@@ -340,6 +263,83 @@ public sealed class ItemTooltipRemark : ModuleBase
         }
 
         return SaveRemark(deleteItemID, string.Empty, out _);
+    }
+
+    public void OpenEditor(uint itemID) => LoadEditor(itemID, true);
+
+    private void LoadEditor(uint itemID, bool requestOpen)
+    {
+        itemID = NormalizeItemID(itemID);
+        if (itemID == 0)
+        {
+            if (!requestOpen)
+            {
+                editingText = string.Empty;
+                focusTextInput = true;
+            }
+
+            return;
+        }
+
+        editingItemID = (int)Math.Min(itemID, int.MaxValue);
+        editingText = config.Remarks.TryGetValue(itemID, out var remark) ? remark : string.Empty;
+        focusTextInput = true;
+        editorRequested |= requestOpen;
+    }
+
+    public bool ConsumeEditorRequest()
+    {
+        if (!editorRequested)
+        {
+            return false;
+        }
+
+        editorRequested = false;
+        return true;
+    }
+
+    public bool TryGetRemark(uint itemID, out string remark)
+    {
+        itemID = NormalizeItemID(itemID);
+        if (itemID != 0 &&
+            config.Remarks.TryGetValue(itemID, out var value) &&
+            !string.IsNullOrWhiteSpace(value))
+        {
+            remark = value;
+            return true;
+        }
+
+        remark = string.Empty;
+        return false;
+    }
+
+    private void OnMenuOpened(IMenuOpenedArgs args)
+    {
+        var itemID = args.Target is MenuTargetInventory target && target.TargetItem.HasValue
+            ? NormalizeItemID(target.TargetItem.Value.ItemId)
+            : 0;
+        if (itemID == 0)
+        {
+            itemID = NormalizeItemID(DService.Instance().GameGUI.HoveredItem);
+        }
+
+        if (itemID == 0)
+        {
+            return;
+        }
+
+        args.AddMenuItem(new MenuItem
+        {
+            Name = new SeStringBuilder()
+                .AddUiForeground(10)
+                .Append(((char)SeIconChar.BoxedLetterT).ToString())
+                .AddUiForegroundOff()
+                .Append($" {OmniLoc.Get("Feature.ItemTooltipRemark.Menu")}")
+                .Build(),
+            OnClicked = _ => OpenEditor(itemID),
+            PrefixChar = 'O',
+            PrefixColor = 10
+        });
     }
 
     private void OnItemTooltip(

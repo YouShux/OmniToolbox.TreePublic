@@ -11,7 +11,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationRecordTable
 {
-    private const float HEADER_HEIGHT = 28f;
     private static readonly float[] ColumnMinimumWidths = [44f, 70f, 60f, 42f, 34f];
 
     private readonly MitigationMonitorConfig config;
@@ -272,7 +271,10 @@ internal sealed class MitigationRecordTable
         ImGui.GetWindowDrawList().AddRectFilled(
             min,
             min + new Vector2(width, height),
-            OmniTheme.Color(KnownColor.White.ToVector4() with { W = 0.035f }));
+            OmniTheme.Color(KnownColor.White.ToVector4() with
+            {
+                W = 0.035f
+            }));
 
         var x = min.X;
         DrawHeaderText("Feature.MitigationMonitor.Column.Time", x, layout.Time, min.Y);
@@ -348,7 +350,10 @@ internal sealed class MitigationRecordTable
             ImGui.GetWindowDrawList().AddRectFilled(
                 min + config.Scale(new Vector2(2f, 3f)),
                 min + new Vector2(width, config.Scale(HEADER_HEIGHT)) - config.Scale(new Vector2(2f, 3f)),
-                OmniTheme.Color((active ? KnownColor.SteelBlue : KnownColor.White).ToVector4() with { W = active ? 0.18f : 0.08f }),
+                OmniTheme.Color((active ? KnownColor.SteelBlue : KnownColor.White).ToVector4() with
+                {
+                    W = active ? 0.18f : 0.08f
+                }),
                 config.Scale(3f));
         }
 
@@ -359,7 +364,10 @@ internal sealed class MitigationRecordTable
             display);
         ImGui.GetWindowDrawList().AddText(
             new Vector2(startX + textSize.X + config.Scale(4f), min.Y + MathF.Max(config.Scale(1f), (config.Scale(HEADER_HEIGHT) - caretSize.Y) * 0.5f)),
-            OmniTheme.Color(KnownColor.White.ToVector4() with { W = ImGui.IsItemHovered() || active ? 1f : 0.72f }),
+            OmniTheme.Color(KnownColor.White.ToVector4() with
+            {
+                W = ImGui.IsItemHovered() || active ? 1f : 0.72f
+            }),
             caret);
 
         if (ImGui.IsItemClicked())
@@ -524,8 +532,14 @@ internal sealed class MitigationRecordTable
     private void DrawNoData(Vector2 bodyMin, Vector2 bodySize)
     {
         var center = bodyMin + bodySize * 0.5f;
-        var color = OmniTheme.Color(KnownColor.Gainsboro.ToVector4() with { W = 0.72f });
-        var shadow = OmniTheme.Color(KnownColor.Black.ToVector4() with { W = 0.42f });
+        var color = OmniTheme.Color(KnownColor.Gainsboro.ToVector4() with
+        {
+            W = 0.72f
+        });
+        var shadow = OmniTheme.Color(KnownColor.Black.ToVector4() with
+        {
+            W = 0.42f
+        });
         var iconSize = config.Scale(new Vector2(32f, 24f));
         var iconMin = new Vector2(
             MathF.Floor(center.X - iconSize.X * 0.5f),
@@ -595,6 +609,12 @@ internal sealed class MitigationRecordTable
     }
 
     private readonly record struct TargetFilterOption(string Name, string ShortName, string JobName);
+
+    #region 常量
+
+    private const float HEADER_HEIGHT = 28f;
+
+    #endregion
 }
 
 internal readonly record struct MitigationTableLayout(

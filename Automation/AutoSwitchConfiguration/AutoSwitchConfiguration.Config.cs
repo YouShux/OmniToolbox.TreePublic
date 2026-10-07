@@ -39,7 +39,10 @@ public sealed partial class AutoSwitchConfiguration
             {
                 foreach (var command in legacyCommands.Split(['\r', '\n'],
                              StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                    Actions.Add(new() { Command = command });
+                    Actions.Add(new()
+                    {
+                        Command = command
+                    });
             }
             legacyCommands = legacyFavoriteGroup = null;
             return changed;

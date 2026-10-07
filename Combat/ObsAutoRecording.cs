@@ -32,7 +32,7 @@ public sealed class ObsAutoRecording : ModuleBase
         Category = ModuleCategory.Combat
     };
 
-    private const string DEFAULT_ENDPOINT = "ws://127.0.0.1:4455";
+    public override bool HasSettings => true;
 
     private readonly ObsAutoRecordingConfig config;
     private RecordingSession? session;
@@ -47,7 +47,35 @@ public sealed class ObsAutoRecording : ModuleBase
         }
     }
 
-    public override bool HasSettings => true;
+    protected override void OnEnable()
+    {
+        session = new();
+        countdownActive = false;
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
+        {
+            session = null;
+            throw new InvalidOperationException("OBS auto-recording update registration failed.");
+        }
+
+        DService.Instance().DutyState.DutyWiped += OnDutyWiped;
+    }
+
+    protected override void OnDisable()
+    {
+        FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
+        DService.Instance().DutyState.DutyWiped -= OnDutyWiped;
+        countdownActive = false;
+
+        var current = session;
+        session = null;
+        if (current is null)
+        {
+            return;
+        }
+
+        current.Closing = true;
+        _ = CleanupSessionAsync(current);
+    }
 
     public override bool DrawSettings()
     {
@@ -97,36 +125,6 @@ public sealed class ObsAutoRecording : ModuleBase
         ImGui.SameLine(0f, OmniTheme.Scale(6f));
         OmniControls.HelpIcon(OmniLoc.Get("Feature.ObsAutoRecording.PasswordHelp"));
         return changed;
-    }
-
-    protected override void OnEnable()
-    {
-        session = new();
-        countdownActive = false;
-        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
-        {
-            session = null;
-            throw new InvalidOperationException("OBS auto-recording update registration failed.");
-        }
-
-        DService.Instance().DutyState.DutyWiped += OnDutyWiped;
-    }
-
-    protected override void OnDisable()
-    {
-        FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
-        DService.Instance().DutyState.DutyWiped -= OnDutyWiped;
-        countdownActive = false;
-
-        var current = session;
-        session = null;
-        if (current is null)
-        {
-            return;
-        }
-
-        current.Closing = true;
-        _ = CleanupSessionAsync(current);
     }
 
     private unsafe void OnFrameworkUpdate(IFramework framework)
@@ -629,6 +627,12 @@ public sealed class ObsAutoRecording : ModuleBase
             }
         }
     }
+
+    #region 常量
+
+    private const string DEFAULT_ENDPOINT = "ws://127.0.0.1:4455";
+
+    #endregion
 }
 
 [Serializable]

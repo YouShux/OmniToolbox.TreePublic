@@ -12,11 +12,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 {
-    private const uint PHYSICAL_DAMAGE_ICON_ID = 60011;
-    private const uint MAGICAL_DAMAGE_ICON_ID = 60012;
-    private const uint SPECIAL_DAMAGE_ICON_ID = 60013;
-    private const float STATUS_ICON_TEXT_GAP = -6f;
-
     private static readonly uint[] JobIconV3ByRowID =
     [
         0, 62301, 62302, 62303, 62304, 62305, 62306, 62307, 62310, 62311, 62312,
@@ -56,8 +51,14 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
         bool pressed)
     {
         var rowColor = record.Kind == MitigationRecordKind.Wipe
-            ? KnownColor.DarkGoldenrod.ToVector4() with { W = 0.30f }
-            : KnownColor.White.ToVector4() with { W = index % 2 == 0 ? 0.035f : 0.075f };
+            ? KnownColor.DarkGoldenrod.ToVector4() with
+            {
+                W = 0.30f
+            }
+            : KnownColor.White.ToVector4() with
+            {
+                W = index % 2 == 0 ? 0.035f : 0.075f
+            };
         if (hovered)
         {
             rowColor.W += 0.07f;
@@ -65,7 +66,10 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 
         if (pressed)
         {
-            rowColor = KnownColor.SteelBlue.ToVector4() with { W = 0.24f };
+            rowColor = KnownColor.SteelBlue.ToVector4() with
+            {
+                W = 0.24f
+            };
         }
 
         ImGui.GetWindowDrawList().AddRectFilled(
@@ -335,7 +339,10 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
                     ImGui.GetWindowDrawList().AddRectFilled(
                         iconMin,
                         iconMax,
-                        OmniTheme.Color(KnownColor.Black.ToVector4() with { W = 0.56f }),
+                        OmniTheme.Color(KnownColor.Black.ToVector4() with
+                        {
+                            W = 0.56f
+                        }),
                         config.Scale(2f));
                 }
 
@@ -447,4 +454,16 @@ internal sealed class MitigationRecordRenderer(MitigationMonitorConfig config)
 
         return ELLIPSIS;
     }
+
+    #region 常量
+
+    private const uint PHYSICAL_DAMAGE_ICON_ID = 60011;
+
+    private const uint MAGICAL_DAMAGE_ICON_ID = 60012;
+
+    private const uint SPECIAL_DAMAGE_ICON_ID = 60013;
+
+    private const float STATUS_ICON_TEXT_GAP = -6f;
+
+    #endregion
 }

@@ -25,6 +25,8 @@ public sealed unsafe class DirectionalActionRelease : ModuleBase
         RequiresPrivateProvider = true
     };
 
+    public override bool HasSettings => true;
+
     private static readonly uint[] DefaultActionIDs =
     [
         94, 29494, 24401, 29550, 24402, 34684, 39210, 16010, 29430, 7418, 37008, 7385, 41506,
@@ -42,7 +44,26 @@ public sealed unsafe class DirectionalActionRelease : ModuleBase
 
     internal static ReadOnlySpan<uint> ActionIDs => DefaultActionIDs;
 
-    public override bool HasSettings => true;
+    protected override void OnEnable()
+    {
+        var manager = UseActionManager.Instance();
+        if (!manager.RegPreUseAction(OnPreUseAction))
+        {
+            throw new InvalidOperationException("Directional action registration failed.");
+        }
+
+        if (!manager.RegPreUseActionLocation(OnPreUseActionLocation))
+        {
+            manager.Unreg(OnPreUseAction);
+            throw new InvalidOperationException("Directional location action registration failed.");
+        }
+    }
+
+    protected override void OnDisable()
+    {
+        UseActionManager.Instance().Unreg(OnPreUseAction);
+        UseActionManager.Instance().Unreg(OnPreUseActionLocation);
+    }
 
     public override bool DrawSettings() => DirectionalActionReleasePanel.Draw(config, ActionIDs);
 
@@ -64,27 +85,6 @@ public sealed unsafe class DirectionalActionRelease : ModuleBase
         }
 
         config.ReversedActions.RemoveWhere(actionID => Array.IndexOf(DefaultActionIDs, actionID) < 0);
-    }
-
-    protected override void OnEnable()
-    {
-        var manager = UseActionManager.Instance();
-        if (!manager.RegPreUseAction(OnPreUseAction))
-        {
-            throw new InvalidOperationException("Directional action registration failed.");
-        }
-
-        if (!manager.RegPreUseActionLocation(OnPreUseActionLocation))
-        {
-            manager.Unreg(OnPreUseAction);
-            throw new InvalidOperationException("Directional location action registration failed.");
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        UseActionManager.Instance().Unreg(OnPreUseAction);
-        UseActionManager.Instance().Unreg(OnPreUseActionLocation);
     }
 
     private void OnPreUseAction(
@@ -289,6 +289,7 @@ internal static class DirectionalActionReleasePanel
 public sealed class DirectionalActionReleaseConfig
 {
     public Dictionary<uint, DirectionalActionMode> Actions { get; set; } = [];
+
     public HashSet<uint> ReversedActions { get; set; } = [];
 }
 

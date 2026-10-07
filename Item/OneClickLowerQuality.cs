@@ -34,6 +34,8 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
         RequiresPrivateProvider = true
     };
 
+    public override bool HasSettings => true;
+
     private static readonly InventoryType[] InventoryContainers =
     [
         InventoryType.Inventory1,
@@ -82,10 +84,6 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
     private bool checkboxSent;
     private bool confirmationClosed;
 
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings() => OneClickLowerQualityPanel.Draw(config);
-
     protected override void OnEnable()
     {
         taskHelper = new()
@@ -125,6 +123,8 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
         awaitingWindow = false;
         return true;
     }
+
+    public override bool DrawSettings() => OneClickLowerQualityPanel.Draw(config);
 
     private void OnMenuOpened(IMenuOpenedArgs args)
     {

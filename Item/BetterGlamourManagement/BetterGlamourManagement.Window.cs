@@ -68,7 +68,10 @@ public sealed unsafe partial class BetterGlamourManagement
             return item;
         }
 
-        item = new() { Slot = slot };
+        item = new()
+        {
+            Slot = slot
+        };
         preset.Items.Add(item);
         return item;
     }

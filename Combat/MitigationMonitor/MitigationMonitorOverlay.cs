@@ -11,8 +11,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed class MitigationMonitorOverlay
 {
-    internal const float MinimumWidth = 420f;
-
     private readonly MitigationMonitorConfig config;
     private readonly MitigationHistoryMenu historyMenu;
     private readonly MitigationRecordTable recordTable;
@@ -109,7 +107,10 @@ internal sealed class MitigationMonitorOverlay
         using var colors = ImRaii.PushColor(
                 ImGuiCol.WindowBg,
                 new Vector4(0.045f, 0.047f, 0.052f, config.Opacity))
-            .Push(ImGuiCol.Border, KnownColor.LightSlateGray.ToVector4() with { W = 0.42f });
+            .Push(ImGuiCol.Border, KnownColor.LightSlateGray.ToVector4() with
+            {
+                W = 0.42f
+            });
 
         if (ImGui.Begin($"{OmniLoc.Get("Feature.MitigationMonitor.Title")}###OmniMitigationMonitor", flags))
         {
@@ -184,7 +185,10 @@ internal sealed class MitigationMonitorOverlay
         using var colors = ImRaii.PushColor(
                 ImGuiCol.WindowBg,
                 new Vector4(0.045f, 0.047f, 0.052f, config.Opacity))
-            .Push(ImGuiCol.Border, KnownColor.LightSlateGray.ToVector4() with { W = 0.42f });
+            .Push(ImGuiCol.Border, KnownColor.LightSlateGray.ToVector4() with
+            {
+                W = 0.42f
+            });
 
         if (ImGui.Begin("###OmniMitigationMonitorCollapsed", flags))
         {
@@ -272,4 +276,10 @@ internal sealed class MitigationMonitorOverlay
             saveConfig();
         }
     }
+
+    #region 常量
+
+    internal const float MinimumWidth = 420f;
+
+    #endregion
 }

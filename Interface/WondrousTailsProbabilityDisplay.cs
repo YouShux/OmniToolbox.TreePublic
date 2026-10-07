@@ -26,8 +26,6 @@ public sealed unsafe class WondrousTailsProbabilityDisplay : ModuleBase
         SupportUrls = ["https://github.com/xiaozhunuonuode"]
     };
 
-    private const string ADDON_NAME = "WeeklyBingo";
-    private const uint INSTRUCTION_TEXT_NODE_ID = 34;
     private static readonly AddonEvent[] Events =
     [
         AddonEvent.PostSetup, AddonEvent.PreFinalize, AddonEvent.PostRefresh,
@@ -330,6 +328,14 @@ public sealed unsafe class WondrousTailsProbabilityDisplay : ModuleBase
             text.CopyTo(OriginalText);
         }
     }
+
+    #region 常量
+
+    private const string ADDON_NAME = "WeeklyBingo";
+
+    private const uint INSTRUCTION_TEXT_NODE_ID = 34;
+
+    #endregion
 }
 
 internal readonly record struct WondrousTailsDisplayState(
@@ -411,6 +417,7 @@ internal sealed class WondrousTailsProbabilityCalculator
     }
 
     private static bool MaskHasBit(int mask, int r, int c) => (mask & (1 << ((4 * r) + c))) != 0;
+
     private static bool MaskHasRow(int mask, int r)
     {
         var rowMask = 0x000F << (4 * r);
@@ -424,16 +431,12 @@ internal sealed class WondrousTailsProbabilityCalculator
     }
 
     private static bool MaskHasDiag1(int mask) => (mask & 0x8421) == 0x8421;
+
     private static bool MaskHasDiag2(int mask) => (mask & 0x1248) == 0x1248;
 }
 
 internal static class WondrousTailsInstructionText
 {
-    private const string PROBABILITY_PREFIX = "连线概率：";
-    private const string AVERAGE_PREFIX = "重排平均：";
-    private const ushort ABOVE_AVERAGE_COLOR = 45;
-    private const ushort BELOW_AVERAGE_COLOR = 17;
-
     internal static bool HasProbabilityLines(string text) =>
         text.Contains(PROBABILITY_PREFIX, StringComparison.Ordinal) ||
         text.Contains(AVERAGE_PREFIX, StringComparison.Ordinal);
@@ -540,4 +543,16 @@ internal static class WondrousTailsInstructionText
     internal static SeString Build(string baseText, SeString probabilityLine, string averageLine, bool separate = true) =>
         new SeStringBuilder().Append(baseText).Append(separate ? "\r\r" : "\r")
             .Append(probabilityLine).Append("\r").Append(averageLine).Build();
+
+    #region 常量
+
+    private const string PROBABILITY_PREFIX = "连线概率：";
+
+    private const string AVERAGE_PREFIX = "重排平均：";
+
+    private const ushort ABOVE_AVERAGE_COLOR = 45;
+
+    private const ushort BELOW_AVERAGE_COLOR = 17;
+
+    #endregion
 }

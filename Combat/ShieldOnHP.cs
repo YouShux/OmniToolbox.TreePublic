@@ -29,45 +29,9 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
         Category = ModuleCategory.Combat
     };
 
-    private const string PARAMETER_WIDGET_ADDON_NAME = "_ParameterWidget";
-    private const uint SHIELD_BAR_NODE_ID = 32680;
-    private const uint OVER_SHIELD_BAR_NODE_ID = 32681;
-    private const float BAR_BODY_WIDTH = 148f;
-    private FeatureLifetime? runtimeLifetime;
-
     public override bool HasSettings => true;
 
-    public override bool DrawSettings()
-    {
-        var showBar = config.ShowBar;
-        var shouldSave = OmniControls.Checkbox(
-            $"{OmniLoc.Get("Feature.ShieldOnHP.ShowBar")}##shieldOnHPShowBar",
-            ref showBar);
-        if (shouldSave)
-        {
-            config.ShowBar = showBar;
-        }
-
-        OmniControls.SameLineOrWrap(ImGui.GetTextLineHeight(), OmniTheme.Scale(4f));
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.ShieldOnHP.ShowBar.Help"));
-        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.ShieldOnHP.Color")).X +
-            ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.X, OmniTheme.ContentGap());
-        using (ImRaii.Disabled(!config.ShowBar))
-        {
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted(OmniLoc.Get("Feature.ShieldOnHP.Color"));
-            OmniControls.SameLineOrWrap(ImGui.GetFrameHeight());
-            var color = config.Color;
-            if (OmniControls.ColorEdit("##shieldOnHPColor", ref color))
-            {
-                config.Color = color;
-            }
-
-            shouldSave |= ImGui.IsItemDeactivatedAfterEdit();
-        }
-
-        return shouldSave;
-    }
+    private FeatureLifetime? runtimeLifetime;
 
     protected override void OnEnable()
     {
@@ -111,6 +75,59 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
         {
             RemoveNodes(AddonHelper.GetByName(PARAMETER_WIDGET_ADDON_NAME));
         }
+    }
+
+    public override bool DrawSettings()
+    {
+        var showBar = config.ShowBar;
+        var shouldSave = OmniControls.Checkbox(
+            $"{OmniLoc.Get("Feature.ShieldOnHP.ShowBar")}##shieldOnHPShowBar",
+            ref showBar);
+        if (shouldSave)
+        {
+            config.ShowBar = showBar;
+        }
+
+        OmniControls.SameLineOrWrap(ImGui.GetTextLineHeight(), OmniTheme.Scale(4f));
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.ShieldOnHP.ShowBar.Help"));
+        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.ShieldOnHP.Color")).X +
+            ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.X, OmniTheme.ContentGap());
+        using (ImRaii.Disabled(!config.ShowBar))
+        {
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(OmniLoc.Get("Feature.ShieldOnHP.Color"));
+            OmniControls.SameLineOrWrap(ImGui.GetFrameHeight());
+            var color = config.Color;
+            if (OmniControls.ColorEdit("##shieldOnHPColor", ref color))
+            {
+                config.Color = color;
+            }
+
+            shouldSave |= ImGui.IsItemDeactivatedAfterEdit();
+        }
+
+        return shouldSave;
+    }
+
+    private static void DrawShieldValue()
+    {
+        if (!TryGetShieldMetrics(out var metrics) ||
+            !TryGetHpBarComponent(out var hpBar, out _) ||
+            metrics.ShieldAmount == 0)
+        {
+            return;
+        }
+
+        var scale = hpBar->AtkResNode.GetScale();
+        using var font = FontManager.Instance().MiedingerMidFont140.Push();
+        var text = metrics.ShieldAmount.ToString();
+        var textSize = ImGui.CalcTextSize(text);
+        var position = new Vector2(
+            hpBar->AtkResNode.ScreenX + 64f * scale.X,
+            hpBar->AtkResNode.ScreenY - textSize.Y + 5f * scale.Y);
+        var drawList = ImGui.GetBackgroundDrawList();
+        drawList.AddText(position + Vector2.One, 0x9D00A2FF, text);
+        drawList.AddText(position, 0xFFFFFFFF, text);
     }
 
     private static void OnParameterWidgetFinalize(AddonEvent _, AddonArgs args) =>
@@ -165,34 +182,13 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
         ApplyBarColor(shieldBar, overShieldBar, config.Color);
     }
 
-    private static void DrawShieldValue()
-    {
-        if (!TryGetShieldMetrics(out var metrics) ||
-            !TryGetHpBarComponent(out var hpBar, out _) ||
-            metrics.ShieldAmount == 0)
-        {
-            return;
-        }
-
-        var scale = hpBar->AtkResNode.GetScale();
-        using var font = FontManager.Instance().MiedingerMidFont140.Push();
-        var text = metrics.ShieldAmount.ToString();
-        var textSize = ImGui.CalcTextSize(text);
-        var position = new Vector2(
-            hpBar->AtkResNode.ScreenX + 64f * scale.X,
-            hpBar->AtkResNode.ScreenY - textSize.Y + 5f * scale.Y);
-        var drawList = ImGui.GetBackgroundDrawList();
-        drawList.AddText(position + Vector2.One, 0x9D00A2FF, text);
-        drawList.AddText(position, 0xFFFFFFFF, text);
-    }
-
     private static bool TryGetHpBarComponent(
         out AtkComponentNode* hpBar,
         out AtkNineGridNode* hpNineGrid)
     {
         hpBar = null;
         hpNineGrid = null;
-        if (!AddonHelper.TryGetByName(PARAMETER_WIDGET_ADDON_NAME, out AtkUnitBase* parameterWidget) ||
+        if (!AddonHelper.TryGetByName(PARAMETER_WIDGET_ADDON_NAME, out var parameterWidget) ||
             parameterWidget->UldManager.LoadedState != AtkLoadState.Loaded ||
             !parameterWidget->IsVisible)
         {
@@ -464,11 +460,24 @@ public sealed unsafe class ShieldOnHP(ShieldOnHPConfig config) : ModuleBase
 
         public uint ShieldAmount { get; } = shieldAmount;
     }
+
+    #region 常量
+
+    private const string PARAMETER_WIDGET_ADDON_NAME = "_ParameterWidget";
+
+    private const uint SHIELD_BAR_NODE_ID = 32680;
+
+    private const uint OVER_SHIELD_BAR_NODE_ID = 32681;
+
+    private const float BAR_BODY_WIDTH = 148f;
+
+    #endregion
 }
 
 [Serializable]
 public sealed class ShieldOnHPConfig
 {
     public bool ShowBar { get; set; } = true;
+
     public Vector3 Color { get; set; } = new(1f, 1f, 0f);
 }

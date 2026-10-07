@@ -185,18 +185,27 @@ internal sealed class FloatingInfoOverlayNativeUI(
             drawList.AddRectFilled(
                 minimum,
                 maximum,
-                OmniTheme.Color(KnownColor.Black.ToVector4() with { W = opacity }));
+                OmniTheme.Color(KnownColor.Black.ToVector4() with
+                {
+                    W = opacity
+                }));
             drawList.AddRect(
                 minimum - Vector2.One * OmniTheme.Scale(1f) * overlayScale,
                 maximum + Vector2.One * OmniTheme.Scale(1f) * overlayScale,
-                OmniTheme.Color(KnownColor.DimGray.ToVector4() with { W = opacity * 0.26f }),
+                OmniTheme.Color(KnownColor.DimGray.ToVector4() with
+                {
+                    W = opacity * 0.26f
+                }),
                 OmniTheme.Scale(4f) * overlayScale,
                 ImDrawFlags.None,
                 OmniTheme.Scale(2f) * overlayScale);
             drawList.AddRect(
                 minimum,
                 maximum,
-                OmniTheme.Color(KnownColor.LightGray.ToVector4() with { W = opacity * 0.44f }),
+                OmniTheme.Color(KnownColor.LightGray.ToVector4() with
+                {
+                    W = opacity * 0.44f
+                }),
                 OmniTheme.Scale(4f) * overlayScale,
                 ImDrawFlags.None,
                 OmniTheme.Scale(1.5f) * overlayScale);
@@ -219,7 +228,10 @@ internal sealed class FloatingInfoOverlayNativeUI(
                     drawList.AddRectFilled(
                         lineMinimum,
                         lineMaximum,
-                        OmniTheme.Color(OmniTheme.Orange with { W = opacity * 0.16f }),
+                        OmniTheme.Color(OmniTheme.Orange with
+                        {
+                            W = opacity * 0.16f
+                        }),
                         OmniTheme.Scale(2f) * overlayScale);
                 }
 
@@ -572,19 +584,28 @@ internal sealed class FloatingInfoOverlayNativeUI(
         drawList.AddRectFilled(
             barMinimum,
             barMaximum,
-            OmniTheme.Color(KnownColor.Black.ToVector4() with { W = opacity * 0.86f }),
+            OmniTheme.Color(KnownColor.Black.ToVector4() with
+            {
+                W = opacity * 0.86f
+            }),
             OmniTheme.Scale(3f));
         if (fillMaximum.X > barMinimum.X)
         {
             drawList.AddRectFilled(
                 barMinimum,
                 fillMaximum,
-                OmniTheme.Color(OmniTheme.Orange with { W = opacity }),
+                OmniTheme.Color(OmniTheme.Orange with
+                {
+                    W = opacity
+                }),
                 OmniTheme.Scale(3f));
             drawList.AddRectFilled(
                 barMinimum,
                 new Vector2(fillMaximum.X, barMinimum.Y + height * 0.36f),
-                OmniTheme.Color(KnownColor.Gold.ToVector4() with { W = opacity * 0.44f }),
+                OmniTheme.Color(KnownColor.Gold.ToVector4() with
+                {
+                    W = opacity * 0.44f
+                }),
                 OmniTheme.Scale(3f));
             DrawCastProgressShimmer(drawList, barMinimum, fillMaximum, height, opacity);
         }
@@ -592,7 +613,10 @@ internal sealed class FloatingInfoOverlayNativeUI(
         drawList.AddRect(
             barMinimum,
             barMaximum,
-            OmniTheme.Color(KnownColor.Goldenrod.ToVector4() with { W = opacity * 0.62f }),
+            OmniTheme.Color(KnownColor.Goldenrod.ToVector4() with
+            {
+                W = opacity * 0.62f
+            }),
             OmniTheme.Scale(3f));
     }
 
@@ -621,9 +645,15 @@ internal sealed class FloatingInfoOverlayNativeUI(
             return;
         }
 
-        var transparent = OmniTheme.Color(KnownColor.Gold.ToVector4() with { W = 0f });
+        var transparent = OmniTheme.Color(KnownColor.Gold.ToVector4() with
+        {
+            W = 0f
+        });
         var highlight = OmniTheme.Color(
-            KnownColor.LightGoldenrodYellow.ToVector4() with { W = opacity * 0.68f });
+            KnownColor.LightGoldenrodYellow.ToVector4() with
+            {
+                W = opacity * 0.68f
+            });
         var shimmerHeight = Math.Max(OmniTheme.Scale(1f), height * 0.5f);
         var shimmerMinimumY = barMinimum.Y + (height - shimmerHeight) * 0.5f;
         var shimmerMaximumY = shimmerMinimumY + shimmerHeight;

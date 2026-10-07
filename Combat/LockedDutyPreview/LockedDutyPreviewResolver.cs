@@ -19,11 +19,6 @@ internal readonly record struct LockedDutyPreviewDefinition(
 
 internal sealed unsafe class LockedDutyPreviewResolver
 {
-    private const uint BEGINNER_TRAINING_INSTANCE_CONTENT_TYPE = 8;
-    private const uint PVP_CONTENT_TYPE = 6;
-    private const uint GOLD_SAUCER_CONTENT_TYPE = 19;
-    private const ushort INTERNAL_DUTY_SORT_KEY = 9997;
-
     private readonly List<LockedDutyPreviewDefinition> definitions = [];
     private readonly List<LockedDutyPreviewDuty> duties = [];
 
@@ -104,4 +99,16 @@ internal sealed unsafe class LockedDutyPreviewResolver
         definitions.Sort(static (left, right) =>
             string.Compare(left.Name, right.Name, StringComparison.CurrentCulture));
     }
+
+    #region 常量
+
+    private const uint BEGINNER_TRAINING_INSTANCE_CONTENT_TYPE = 8;
+
+    private const uint PVP_CONTENT_TYPE = 6;
+
+    private const uint GOLD_SAUCER_CONTENT_TYPE = 19;
+
+    private const ushort INTERNAL_DUTY_SORT_KEY = 9997;
+
+    #endregion
 }

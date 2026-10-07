@@ -23,10 +23,7 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
         Category = ModuleCategory.Interface
     };
 
-    private const string NAVI_MAP_ADDON_NAME = "_NaviMap";
-    private const string AREA_MAP_ADDON_NAME = "AreaMap";
-    private const string TELEPORT_TOWN_ADDON_NAME = "TelepotTown";
-    private const int MAX_VISIBLE_ROWS = 6;
+    public override bool HasSettings => true;
 
     private static readonly uint[] KnownIconIDs =
     [
@@ -67,7 +64,44 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
         RefreshDisplayIconIDs();
     }
 
-    public override bool HasSettings => true;
+    protected override void OnEnable()
+    {
+        runtimeLifetime = new();
+        DalamudServices.AddonLifecycle.RegisterListener(
+            AddonEvent.PostUpdate,
+            NAVI_MAP_ADDON_NAME,
+            OnNaviMapUpdate);
+        DalamudServices.AddonLifecycle.RegisterListener(
+            AddonEvent.PostUpdate,
+            AREA_MAP_ADDON_NAME,
+            OnAreaMapUpdate);
+        DalamudServices.AddonLifecycle.RegisterListener(
+            AddonEvent.PostUpdate,
+            TELEPORT_TOWN_ADDON_NAME,
+            OnTeleportTownUpdate);
+        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostUpdate,
+            NAVI_MAP_ADDON_NAME,
+            OnNaviMapUpdate));
+        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostUpdate,
+            AREA_MAP_ADDON_NAME,
+            OnAreaMapUpdate));
+        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostUpdate,
+            TELEPORT_TOWN_ADDON_NAME,
+            OnTeleportTownUpdate));
+        ApplyCurrentMaps(false);
+    }
+
+    protected override void OnDisable()
+    {
+        runtimeLifetime?.Dispose();
+        runtimeLifetime = null;
+        ApplyCurrentMaps(true);
+        hiddenNodes.Clear();
+        originalIconScales.Clear();
+    }
 
     public override bool DrawSettings()
     {
@@ -201,45 +235,6 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
         }
 
         return changed;
-    }
-
-    protected override void OnEnable()
-    {
-        runtimeLifetime = new();
-        DalamudServices.AddonLifecycle.RegisterListener(
-            AddonEvent.PostUpdate,
-            NAVI_MAP_ADDON_NAME,
-            OnNaviMapUpdate);
-        DalamudServices.AddonLifecycle.RegisterListener(
-            AddonEvent.PostUpdate,
-            AREA_MAP_ADDON_NAME,
-            OnAreaMapUpdate);
-        DalamudServices.AddonLifecycle.RegisterListener(
-            AddonEvent.PostUpdate,
-            TELEPORT_TOWN_ADDON_NAME,
-            OnTeleportTownUpdate);
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PostUpdate,
-            NAVI_MAP_ADDON_NAME,
-            OnNaviMapUpdate));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PostUpdate,
-            AREA_MAP_ADDON_NAME,
-            OnAreaMapUpdate));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PostUpdate,
-            TELEPORT_TOWN_ADDON_NAME,
-            OnTeleportTownUpdate));
-        ApplyCurrentMaps(false);
-    }
-
-    protected override void OnDisable()
-    {
-        runtimeLifetime?.Dispose();
-        runtimeLifetime = null;
-        ApplyCurrentMaps(true);
-        hiddenNodes.Clear();
-        originalIconScales.Clear();
     }
 
     private bool DrawIconOption(
@@ -487,6 +482,18 @@ public sealed unsafe class HideMinimapIcons : ModuleBase
             }
         }
     }
+
+    #region 常量
+
+    private const string NAVI_MAP_ADDON_NAME = "_NaviMap";
+
+    private const string AREA_MAP_ADDON_NAME = "AreaMap";
+
+    private const string TELEPORT_TOWN_ADDON_NAME = "TelepotTown";
+
+    private const int MAX_VISIBLE_ROWS = 6;
+
+    #endregion
 }
 
 [Serializable]

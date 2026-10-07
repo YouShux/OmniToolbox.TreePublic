@@ -35,9 +35,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         Category = ModuleCategory.Interface
     };
 
-    private const uint MACRO_PAGE_COUNT = 2;
-    private const uint MACRO_SLOTS_PER_PAGE = 100;
-    private const int MACRO_LINE_COUNT = 15;
+    public override bool HasSettings => true;
+
     private static readonly Vector2 MacroInputSizeOffset = new(20f, 150f);
 
     private readonly List<TextNode> lineNumberNodes = new(MACRO_LINE_COUNT);
@@ -54,39 +53,6 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
     private uint pendingSourceIcon;
     private uint pendingTargetIcon;
     private int pendingRefreshFrames;
-
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings() => BetterUserMacroPanel.Draw(config);
-
-    public bool TrySetSelectedMacroIcon(uint iconID)
-    {
-        if (!IsEnabled || !config.CustomIcons || iconID == 0)
-        {
-            return false;
-        }
-
-        var shellModule = RaptureShellModule.Instance();
-        if (shellModule is not null && shellModule->MacroLocked)
-        {
-            return false;
-        }
-
-        if (!TryGetSelectedMacroContext(out var agent, out var addon, out var set, out var index))
-        {
-            return false;
-        }
-
-        var macroModule = RaptureMacroModule.Instance();
-        var macro = macroModule is null ? null : macroModule->GetMacro(set, index);
-        if (macroModule is null || macro is null)
-        {
-            return false;
-        }
-
-        ApplyMacroIcon(agent, addon, macroModule, macro, set, index, iconID);
-        return true;
-    }
 
     protected override void OnEnable()
     {
@@ -148,6 +114,37 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             tooltipHook = null;
             macroDropHook = null;
         }
+    }
+
+    public override bool DrawSettings() => BetterUserMacroPanel.Draw(config);
+
+    public bool TrySetSelectedMacroIcon(uint iconID)
+    {
+        if (!IsEnabled || !config.CustomIcons || iconID == 0)
+        {
+            return false;
+        }
+
+        var shellModule = RaptureShellModule.Instance();
+        if (shellModule is not null && shellModule->MacroLocked)
+        {
+            return false;
+        }
+
+        if (!TryGetSelectedMacroContext(out var agent, out var addon, out var set, out var index))
+        {
+            return false;
+        }
+
+        var macroModule = RaptureMacroModule.Instance();
+        var macro = macroModule is null ? null : macroModule->GetMacro(set, index);
+        if (macroModule is null || macro is null)
+        {
+            return false;
+        }
+
+        ApplyMacroIcon(agent, addon, macroModule, macro, set, index, iconID);
+        return true;
     }
 
     private void OnFrameworkUpdate(IFramework _)
@@ -452,10 +449,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         macroDropAddonAddress = 0;
     }
 
-    private static void RestoreMacroDropTarget(MacroDropTarget target)
-    {
-        target.Component->AcceptedType = target.OriginalAcceptedType;
-    }
+    private static void RestoreMacroDropTarget(MacroDropTarget target) => target.Component->AcceptedType = target.OriginalAcceptedType;
 
     private void OnMacroDrop(
         AtkDragDropManager* manager,
@@ -1300,6 +1294,16 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             }
         }
     }
+
+    #region 常量
+
+    private const uint MACRO_PAGE_COUNT = 2;
+
+    private const uint MACRO_SLOTS_PER_PAGE = 100;
+
+    private const int MACRO_LINE_COUNT = 15;
+
+    #endregion
 }
 
 [Serializable]
@@ -1316,9 +1320,6 @@ public sealed class BetterUserMacroConfig
 
 internal static class BetterUserMacroPanel
 {
-    private const string PREVIEW_IMAGE_BASE_URL =
-        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/BetterUserMacro-";
-
     public static bool Draw(BetterUserMacroConfig config)
     {
         var changed = false;
@@ -1408,4 +1409,11 @@ internal static class BetterUserMacroPanel
 
         return changed;
     }
+
+    #region 常量
+
+    private const string PREVIEW_IMAGE_BASE_URL =
+        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/BetterUserMacro-";
+
+    #endregion
 }

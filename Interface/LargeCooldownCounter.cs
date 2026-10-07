@@ -21,6 +21,8 @@ public sealed unsafe class LargeCooldownCounter(LargeCooldownCounterConfig confi
         Category = ModuleCategory.Interface
     };
 
+    public override bool HasSettings => true;
+
     internal static readonly FontType[] SupportedFonts =
     [
         FontType.Axis,
@@ -36,7 +38,39 @@ public sealed unsafe class LargeCooldownCounter(LargeCooldownCounterConfig confi
     private FeatureLifetime? runtimeLifetime;
     private Hook<AddonActionBarBase.Delegates.UpdateHotbarSlot>? updateHotbarSlotHook;
 
-    public override bool HasSettings => true;
+    protected override void OnEnable()
+    {
+        var lifetime = new FeatureLifetime();
+        try
+        {
+            updateHotbarSlotHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.UpdateHotbarSlot>(
+                AddonActionBarBase.MemberFunctionPointers.UpdateHotbarSlot,
+                OnUpdateHotbarSlot);
+            lifetime.Add(updateHotbarSlotHook.Dispose);
+            updateHotbarSlotHook.Enable();
+            runtimeLifetime = lifetime;
+        }
+        catch
+        {
+            updateHotbarSlotHook = null;
+            lifetime.Dispose();
+            throw;
+        }
+    }
+
+    protected override void OnDisable()
+    {
+        var lifetime = runtimeLifetime;
+        runtimeLifetime = null;
+        try
+        {
+            lifetime?.Dispose();
+        }
+        finally
+        {
+            updateHotbarSlotHook = null;
+        }
+    }
 
     public override bool DrawSettings()
     {
@@ -96,40 +130,6 @@ public sealed unsafe class LargeCooldownCounter(LargeCooldownCounterConfig confi
         }
 
         return changed;
-    }
-
-    protected override void OnEnable()
-    {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            updateHotbarSlotHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.UpdateHotbarSlot>(
-                AddonActionBarBase.MemberFunctionPointers.UpdateHotbarSlot,
-                OnUpdateHotbarSlot);
-            lifetime.Add(updateHotbarSlotHook.Dispose);
-            updateHotbarSlotHook.Enable();
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            updateHotbarSlotHook = null;
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
-        {
-            updateHotbarSlotHook = null;
-        }
     }
 
     private void OnUpdateHotbarSlot(

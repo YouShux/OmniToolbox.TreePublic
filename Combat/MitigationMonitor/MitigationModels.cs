@@ -66,7 +66,7 @@ internal readonly record struct MitigationDefinition(uint StatusID, int Physical
 
 internal readonly record struct ActionDisplayInfo(string Name);
 
-internal readonly record struct StatusDisplayInfo(string Name, string Description, uint IconID);
+internal readonly record struct StatusDisplayInfo(string Name, uint IconID);
 
 internal readonly record struct DamageActionDisplay(string Name, DamageSourceKind SourceKind);
 

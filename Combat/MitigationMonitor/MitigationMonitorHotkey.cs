@@ -12,21 +12,6 @@ internal sealed class MitigationMonitorHotkey(
     MitigationMonitorConfig config,
     Action saveConfig)
 {
-    private const int ESCAPE_KEY = 0x1B;
-    private const int CONTROL_KEY = 0x11;
-    private const int SHIFT_KEY = 0x10;
-    private const int ALT_KEY = 0x12;
-    private const int LEFT_SHIFT_KEY = 0xA0;
-    private const int RIGHT_SHIFT_KEY = 0xA1;
-    private const int LEFT_CONTROL_KEY = 0xA2;
-    private const int RIGHT_CONTROL_KEY = 0xA3;
-    private const int LEFT_ALT_KEY = 0xA4;
-    private const int RIGHT_ALT_KEY = 0xA5;
-    private const int NUMPAD0_KEY = 0x60;
-    private const int NUMPAD9_KEY = 0x69;
-    private const int F1_KEY = 0x70;
-    private const int F24_KEY = 0x87;
-
     private static readonly MitigationHotkeyModifier[] Modifiers =
     [
         MitigationHotkeyModifier.None,
@@ -318,4 +303,36 @@ internal sealed class MitigationMonitorHotkey(
 
         return keys;
     }
+
+    #region 常量
+
+    private const int ESCAPE_KEY = 0x1B;
+
+    private const int CONTROL_KEY = 0x11;
+
+    private const int SHIFT_KEY = 0x10;
+
+    private const int ALT_KEY = 0x12;
+
+    private const int LEFT_SHIFT_KEY = 0xA0;
+
+    private const int RIGHT_SHIFT_KEY = 0xA1;
+
+    private const int LEFT_CONTROL_KEY = 0xA2;
+
+    private const int RIGHT_CONTROL_KEY = 0xA3;
+
+    private const int LEFT_ALT_KEY = 0xA4;
+
+    private const int RIGHT_ALT_KEY = 0xA5;
+
+    private const int NUMPAD0_KEY = 0x60;
+
+    private const int NUMPAD9_KEY = 0x69;
+
+    private const int F1_KEY = 0x70;
+
+    private const int F24_KEY = 0x87;
+
+    #endregion
 }

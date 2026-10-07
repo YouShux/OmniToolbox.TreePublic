@@ -83,23 +83,23 @@ internal static class FoodReminderPanel
                 ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Seconds")), OmniControls.HelpIconSize()]).X, OmniTheme.Scale(22f));
         using (ImRaii.Group())
         {
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Threshold"));
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(OmniTheme.Scale(110f));
-        var threshold = config.ThresholdSeconds;
-        if (OmniControls.InputInt("##foodReminderThreshold", ref threshold, 0, 0))
-        {
-            config.ThresholdSeconds = Math.Clamp(threshold, 0, 7200);
-        }
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Threshold"));
+            ImGui.SameLine();
+            ImGui.SetNextItemWidth(OmniTheme.Scale(110f));
+            var threshold = config.ThresholdSeconds;
+            if (OmniControls.InputInt("##foodReminderThreshold", ref threshold, 0, 0))
+            {
+                config.ThresholdSeconds = Math.Clamp(threshold, 0, 7200);
+            }
 
-        changed |= ImGui.IsItemDeactivatedAfterEdit();
+            changed |= ImGui.IsItemDeactivatedAfterEdit();
 
-        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Seconds")).X);
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Seconds"));
-        ImGui.SameLine(0f, OmniTheme.Scale(4f));
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.Threshold.Help"));
+            OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Seconds")).X);
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Seconds"));
+            ImGui.SameLine(0f, OmniTheme.Scale(4f));
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.Threshold.Help"));
         }
         return changed;
     }

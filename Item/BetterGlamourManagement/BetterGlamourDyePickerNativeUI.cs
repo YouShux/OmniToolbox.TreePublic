@@ -1,20 +1,17 @@
 using System.Drawing;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit;
+using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
+using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
-using KamiToolKit.Premade.Node;
-using KamiToolKit.Premade.Node.Simple;
+using KamiToolKit.Nodes.Simplified;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
 internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
 {
-    private const int ALL_CATEGORY = 7;
-    private const int SWATCHES_PER_ROW = 8;
-
     private static readonly Vector4[] CategoryColors =
     [
         new(0.96f, 0.96f, 0.96f, 1f),
@@ -79,7 +76,10 @@ internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
 
     protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
     {
-        tabBarNode = new() { Height = 28f };
+        tabBarNode = new()
+        {
+            Height = 28f
+        };
         tabBarNode.AddTab(OmniLoc.Get("Feature.BetterGlamourManagement.Column.Stain0"), () => SelectStain(0));
         tabBarNode.AddTab(OmniLoc.Get("Feature.BetterGlamourManagement.Column.Stain1"), () => SelectStain(1));
         tabBarNode.AttachNode(this);
@@ -119,6 +119,8 @@ internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
         listNode = new()
         {
             ItemSpacing = 4f,
+            ShowNoResultsPlaceholder = false,
+            AutoResetScroll = false,
             OptionsList = rows
         };
         listNode.AttachNode(this);
@@ -352,11 +354,19 @@ internal sealed class BetterGlamourDyePickerNativeUI : NativeAddon
             _ => 6
         };
     }
+
+    #region 常量
+
+    private const int ALL_CATEGORY = 7;
+
+    private const int SWATCHES_PER_ROW = 8;
+
+    #endregion
 }
 
 internal class BetterGlamourDyeColorNode : SimpleComponentNode
 {
-    private readonly BackgroundImageNode colorNode;
+    private readonly ColorImageNode colorNode;
     private readonly TextNode noDyeLineNode;
     private readonly SimpleClippingMaskNode clipNode;
     private readonly SimpleImageNode highlightNode;

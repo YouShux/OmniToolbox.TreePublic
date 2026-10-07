@@ -7,12 +7,13 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit;
+using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
 using KamiToolKit.Controllers;
+using KamiToolKit.Enums;
 using KamiToolKit.Extensions;
 using KamiToolKit.Nodes;
-using KamiToolKit.Premade.Node.Simple;
+using KamiToolKit.Nodes.Simplified;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
@@ -25,13 +26,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
 {
-    private const string CHARACTER_STATUS_ADDON_NAME = "CharacterStatus";
-    private const string CHARACTER_ADDON_NAME = "Character";
-    private const string CHARACTER_INSPECT_ADDON_NAME = "CharacterInspect";
-    private const string GEAR_SET_LIST_ADDON_NAME = "GearSetList";
-    private const ushort GEAR_SET_REORDER_EXTRA_WIDTH = 56;
-    private const float GEAR_SET_REORDER_BUTTON_SIZE = 32f;
-
     private readonly BetterCharacterPanelConfig config;
     private readonly AddonEventRegistry addonEvents;
     private readonly FeatureLifetime lifetime = new();
@@ -86,7 +80,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
     public void RefreshSettings()
     {
         if (config.ShowUsefulStats
-            && AddonHelper.TryGetByName(CHARACTER_STATUS_ADDON_NAME, out AtkUnitBase* characterStatus)
+            && AddonHelper.TryGetByName(CHARACTER_STATUS_ADDON_NAME, out var characterStatus)
             && characterStatus->IsAddonAndNodesReady())
         {
             statusUI.Setup(characterStatus);
@@ -117,7 +111,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
             ApplyOpenEquipmentLayouts();
         }
 
-        if (AddonHelper.TryGetByName(GEAR_SET_LIST_ADDON_NAME, out AtkUnitBase* gearSetList)
+        if (AddonHelper.TryGetByName(GEAR_SET_LIST_ADDON_NAME, out var gearSetList)
             && gearSetList->IsAddonAndNodesReady())
         {
             if (config.ShowGearSetReorderButtons)
@@ -159,7 +153,7 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
 
     private void BootstrapOpenAddons()
     {
-        if (AddonHelper.TryGetByName(CHARACTER_STATUS_ADDON_NAME, out AtkUnitBase* characterStatus)
+        if (AddonHelper.TryGetByName(CHARACTER_STATUS_ADDON_NAME, out var characterStatus)
             && characterStatus->IsAddonAndNodesReady())
         {
             statusUI.Setup(characterStatus);
@@ -173,13 +167,13 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
             UpdateReverseCharacterPanel(character);
         }
 
-        if (AddonHelper.TryGetByName(CHARACTER_INSPECT_ADDON_NAME, out AtkUnitBase* inspect)
+        if (AddonHelper.TryGetByName(CHARACTER_INSPECT_ADDON_NAME, out var inspect)
             && inspect->IsAddonAndNodesReady())
         {
             ApplyInspectEquipmentPositions(inspect);
         }
 
-        if (AddonHelper.TryGetByName(GEAR_SET_LIST_ADDON_NAME, out AtkUnitBase* gearSetList)
+        if (AddonHelper.TryGetByName(GEAR_SET_LIST_ADDON_NAME, out var gearSetList)
             && gearSetList->IsAddonAndNodesReady())
         {
             SetupGearSetList(gearSetList);
@@ -346,13 +340,13 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
 
     private void ApplyOpenEquipmentLayouts()
     {
-        if (AddonHelper.TryGetByName(CHARACTER_ADDON_NAME, out AtkUnitBase* character)
+        if (AddonHelper.TryGetByName(CHARACTER_ADDON_NAME, out var character)
             && character->IsAddonAndNodesReady())
         {
             ApplyCharacterEquipmentPositions(character);
         }
 
-        if (AddonHelper.TryGetByName(CHARACTER_INSPECT_ADDON_NAME, out AtkUnitBase* inspect)
+        if (AddonHelper.TryGetByName(CHARACTER_INSPECT_ADDON_NAME, out var inspect)
             && inspect->IsAddonAndNodesReady())
         {
             ApplyInspectEquipmentPositions(inspect);
@@ -678,14 +672,14 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
             };
             upButton = new()
             {
-                Icon = ButtonIcon.UpArrow,
+                Icon = CircleButtonIcon.UpArrow,
                 Size = new(GEAR_SET_REORDER_BUTTON_SIZE, GEAR_SET_REORDER_BUTTON_SIZE),
                 OnClick = MoveUp,
                 IsEnabled = false
             };
             downButton = new()
             {
-                Icon = ButtonIcon.ArrowDown,
+                Icon = CircleButtonIcon.ArrowDown,
                 Size = new(GEAR_SET_REORDER_BUTTON_SIZE, GEAR_SET_REORDER_BUTTON_SIZE),
                 Position = new(28f, 0f),
                 OnClick = MoveDown,
@@ -766,4 +760,20 @@ internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
         float CountTextX,
         nint ListNode,
         ushort ListWidth);
+
+    #region 常量
+
+    private const string CHARACTER_STATUS_ADDON_NAME = "CharacterStatus";
+
+    private const string CHARACTER_ADDON_NAME = "Character";
+
+    private const string CHARACTER_INSPECT_ADDON_NAME = "CharacterInspect";
+
+    private const string GEAR_SET_LIST_ADDON_NAME = "GearSetList";
+
+    private const ushort GEAR_SET_REORDER_EXTRA_WIDTH = 56;
+
+    private const float GEAR_SET_REORDER_BUTTON_SIZE = 32f;
+
+    #endregion
 }

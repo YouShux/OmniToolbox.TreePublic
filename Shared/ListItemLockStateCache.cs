@@ -4,8 +4,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class ListItemLockStateCache
 {
-    private const byte LOCKED_ALPHA = 0x90;
-    internal const int MaxDepth = 8;
     private readonly Dictionary<nint, NodeFlags> nodeFlags = [];
     private readonly Dictionary<nint, NodeAlpha> nodeAlphas = [];
 
@@ -133,4 +131,12 @@ internal sealed unsafe class ListItemLockStateCache
     }
 
     private readonly record struct NodeAlpha(byte Node, byte Text, byte Edge, bool IsText);
+
+    #region 常量
+
+    private const byte LOCKED_ALPHA = 0x90;
+
+    internal const int MaxDepth = 8;
+
+    #endregion
 }

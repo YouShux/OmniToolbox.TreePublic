@@ -328,7 +328,8 @@ public sealed partial class AutoSwitchConfiguration
             if (step.Type == ActionKind.SendCommand)
             {
                 foreach (var character in step.Command)
-                    if (character == '\n') commandLines++;
+                    if (character == '\n')
+                        commandLines++;
             }
             var commandHeight = MathF.Max(controlHeight,
                 ImGui.GetTextLineHeightWithSpacing() * Math.Min(3, commandLines) + ImGui.GetStyle().FramePadding.Y * 2f);
@@ -420,7 +421,10 @@ public sealed partial class AutoSwitchConfiguration
         }
         if (OmniControls.SmallButton(addLabel, false))
         {
-            rule.Actions.Add(new() { Type = ActionKind.EnableCollection });
+            rule.Actions.Add(new()
+            {
+                Type = ActionKind.EnableCollection
+            });
             SaveChanges();
         }
     }

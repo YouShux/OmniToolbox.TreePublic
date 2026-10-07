@@ -4,12 +4,6 @@ namespace OmniToolbox.TreePublic;
 
 internal static class BetterUserMacroParser
 {
-    private static readonly byte[] SimplifiedIconCommand =
-        [0xE5, 0xAE, 0x8F, 0xE5, 0x9B, 0xBE, 0xE6, 0xA0, 0x87];
-
-    private static readonly byte[] TraditionalIconCommand =
-        [0xE5, 0xAE, 0x8F, 0xE5, 0x9C, 0x96, 0xE6, 0xA8, 0x99];
-
     public static bool TryFindCustomIcon(ReadOnlySpan<byte> text, out uint iconID)
     {
         iconID = 0;
@@ -43,8 +37,8 @@ internal static class BetterUserMacroParser
         }
 
         line = Trim(line);
-        if (!ConsumeCommand(ref line, SimplifiedIconCommand) &&
-            !ConsumeCommand(ref line, TraditionalIconCommand))
+        if (!ConsumeCommand(ref line, "宏图标"u8) &&
+            !ConsumeCommand(ref line, "宏圖標"u8))
         {
             return false;
         }

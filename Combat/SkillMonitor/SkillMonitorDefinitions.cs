@@ -40,13 +40,6 @@ public enum SkillMonitorGroup
 
 internal static class SkillMonitorDefinitions
 {
-    private const ulong TANKS = (1UL << 19) | (1UL << 21) | (1UL << 32) | (1UL << 37);
-    private const ulong HEALERS = (1UL << 24) | (1UL << 28) | (1UL << 33) | (1UL << 40);
-    private const ulong MELEE = (1UL << 20) | (1UL << 22) | (1UL << 30) | (1UL << 34) | (1UL << 39) | (1UL << 41);
-    private const ulong RANGED = (1UL << 23) | (1UL << 31) | (1UL << 38);
-    private const ulong CASTERS = (1UL << 25) | (1UL << 27) | (1UL << 35) | (1UL << 42);
-    private const ulong ALL_COMBAT = TANKS | HEALERS | MELEE | RANGED | CASTERS | (1UL << 36) | (1UL << 43);
-
     internal static readonly (SkillMonitorGroup Group, uint[] JobIDs)[] JobGroups =
     [
         (SkillMonitorGroup.Tank, [19, 21, 32, 37]),
@@ -251,4 +244,20 @@ internal static class SkillMonitorDefinitions
         int ActiveSeconds,
         ulong ClassJobs,
         SkillMonitorGroup Group);
+
+    #region 常量
+
+    private const ulong TANKS = (1UL << 19) | (1UL << 21) | (1UL << 32) | (1UL << 37);
+
+    private const ulong HEALERS = (1UL << 24) | (1UL << 28) | (1UL << 33) | (1UL << 40);
+
+    private const ulong MELEE = (1UL << 20) | (1UL << 22) | (1UL << 30) | (1UL << 34) | (1UL << 39) | (1UL << 41);
+
+    private const ulong RANGED = (1UL << 23) | (1UL << 31) | (1UL << 38);
+
+    private const ulong CASTERS = (1UL << 25) | (1UL << 27) | (1UL << 35) | (1UL << 42);
+
+    private const ulong ALL_COMBAT = TANKS | HEALERS | MELEE | RANGED | CASTERS | (1UL << 36) | (1UL << 43);
+
+    #endregion
 }

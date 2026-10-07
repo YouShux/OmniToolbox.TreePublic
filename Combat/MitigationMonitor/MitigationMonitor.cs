@@ -24,6 +24,8 @@ public sealed class MitigationMonitor : ModuleBase
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/MitigationMonitor-1.png"
     };
 
+    public override bool HasSettings => true;
+
     private readonly MitigationMonitorConfig config;
     private readonly MitigationCombatLog combatLog;
     private readonly MitigationRecorder recorder;
@@ -39,50 +41,6 @@ public sealed class MitigationMonitor : ModuleBase
         recorder = new(combatLog);
         hotkey = new(config, saveConfig);
         overlay = new(config, combatLog, new(), saveConfig);
-    }
-
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings() => MitigationMonitorPanel.Draw(this, config, hotkey);
-
-    public override bool ResetSettings()
-    {
-        var defaults = new MitigationMonitorConfig();
-        config.Visible = defaults.Visible;
-        config.Locked = defaults.Locked;
-        config.Collapsed = defaults.Collapsed;
-        config.Position = defaults.Position;
-        config.CollapsedPosition = defaults.CollapsedPosition;
-        config.Size = defaults.Size;
-        config.ReplaySaveCount = defaults.ReplaySaveCount;
-        config.GlobalScale = defaults.GlobalScale;
-        config.Opacity = defaults.Opacity;
-        config.ShowDotDamage = defaults.ShowDotDamage;
-        config.HideHotkey = defaults.HideHotkey;
-        config.HideHotkeyModifier = defaults.HideHotkeyModifier;
-        config.TargetDisplayMode = defaults.TargetDisplayMode;
-        config.TimeColumnWidth = defaults.TimeColumnWidth;
-        config.ActionColumnWidth = defaults.ActionColumnWidth;
-        config.TargetColumnWidth = defaults.TargetColumnWidth;
-        config.DamageColumnWidth = defaults.DamageColumnWidth;
-        config.MitigationColumnWidth = defaults.MitigationColumnWidth;
-        NormalizeConfig();
-        overlay.RequestLayoutRestore();
-        return true;
-    }
-
-    public void SetOpenSettingsAction(Action action) => overlay.SetOpenSettingsAction(action);
-
-    internal void ClearRecords()
-    {
-        combatLog.ClearAll();
-        overlay.ClearSelection();
-    }
-
-    internal void SetReplaySaveCount(int value)
-    {
-        config.ReplaySaveCount = Math.Clamp(value, 1, 300);
-        combatLog.SetReplaySaveCount(config.ReplaySaveCount);
     }
 
     protected override void OnEnable()
@@ -132,6 +90,48 @@ public sealed class MitigationMonitor : ModuleBase
             combatLog.ClearAll();
             overlay.ResetRuntime();
         }
+    }
+
+    public override bool DrawSettings() => MitigationMonitorPanel.Draw(this, config, hotkey);
+
+    public override bool ResetSettings()
+    {
+        var defaults = new MitigationMonitorConfig();
+        config.Visible = defaults.Visible;
+        config.Locked = defaults.Locked;
+        config.Collapsed = defaults.Collapsed;
+        config.Position = defaults.Position;
+        config.CollapsedPosition = defaults.CollapsedPosition;
+        config.Size = defaults.Size;
+        config.ReplaySaveCount = defaults.ReplaySaveCount;
+        config.GlobalScale = defaults.GlobalScale;
+        config.Opacity = defaults.Opacity;
+        config.ShowDotDamage = defaults.ShowDotDamage;
+        config.HideHotkey = defaults.HideHotkey;
+        config.HideHotkeyModifier = defaults.HideHotkeyModifier;
+        config.TargetDisplayMode = defaults.TargetDisplayMode;
+        config.TimeColumnWidth = defaults.TimeColumnWidth;
+        config.ActionColumnWidth = defaults.ActionColumnWidth;
+        config.TargetColumnWidth = defaults.TargetColumnWidth;
+        config.DamageColumnWidth = defaults.DamageColumnWidth;
+        config.MitigationColumnWidth = defaults.MitigationColumnWidth;
+        NormalizeConfig();
+        overlay.RequestLayoutRestore();
+        return true;
+    }
+
+    public void SetOpenSettingsAction(Action action) => overlay.SetOpenSettingsAction(action);
+
+    internal void ClearRecords()
+    {
+        combatLog.ClearAll();
+        overlay.ClearSelection();
+    }
+
+    internal void SetReplaySaveCount(int value)
+    {
+        config.ReplaySaveCount = Math.Clamp(value, 1, 300);
+        combatLog.SetReplaySaveCount(config.ReplaySaveCount);
     }
 
     private void NormalizeConfig()
@@ -356,22 +356,39 @@ internal static class MitigationMonitorPanel
 public sealed class MitigationMonitorConfig
 {
     public bool Visible { get; set; } = true;
+
     public bool Locked { get; set; }
+
     public bool Collapsed { get; set; }
+
     public Vector2 Position { get; set; } = new(520f, 320f);
+
     public Vector2 CollapsedPosition { get; set; }
+
     public Vector2 Size { get; set; } = new(540f, 270f);
+
     public int ReplaySaveCount { get; set; } = 20;
+
     public float GlobalScale { get; set; } = 1f;
+
     public float Opacity { get; set; } = 0.7f;
+
     public bool ShowDotDamage { get; set; } = true;
+
     public int HideHotkey { get; set; }
+
     public MitigationHotkeyModifier HideHotkeyModifier { get; set; }
+
     public MitigationTargetDisplayMode TargetDisplayMode { get; set; } = MitigationTargetDisplayMode.JobIcon;
+
     public float TimeColumnWidth { get; set; } = 54f;
+
     public float ActionColumnWidth { get; set; } = 80f;
+
     public float TargetColumnWidth { get; set; } = 64f;
+
     public float DamageColumnWidth { get; set; } = 88f;
+
     public float MitigationColumnWidth { get; set; } = 64f;
 
     internal float EffectiveScale => MathF.Max(0.01f, GlobalScale);

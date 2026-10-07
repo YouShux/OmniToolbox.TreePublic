@@ -43,8 +43,7 @@ public sealed unsafe class AutoLogin(
         ]
     };
 
-    private const int CHARACTER_SELECT_TIMEOUT_MS = 30_000;
-    private const int LOBBY_TRAVEL_SETTLE_DELAY_MS = 2_500;
+    public override bool HasSettings => true;
 
     private readonly TaskHelper tasks = new()
     {
@@ -60,69 +59,48 @@ public sealed unsafe class AutoLogin(
     private bool suspendedUntilLogin;
     private bool crossDataCenterTravelInProgress;
 
-    public void SuspendUntilNextLogin()
+    protected override void OnEnable()
     {
-        suspendedUntilLogin = true;
-        tasks.Abort();
-        manualTarget = null;
+        if (GameState.IsLoggedIn)
+            suspendedUntilLogin = false;
+
+        tasks.TimeoutAction = SuspendUntilNextLogin;
+        tasks.ExceptionAction = SuspendUntilNextLogin;
+        DService.Instance().ClientState.Login += OnLogin;
+        addonEvents = new(DalamudServices.AddonLifecycle);
+        addonEvents.Register(AddonEvent.PostSetup, "LobbyDKT", OnLobbyTravel);
+        addonEvents.Register(AddonEvent.PostSetup, "_TitleMenu", OnTitleMenu);
+        if (AddonHelper.TryGetByName("_TitleMenu", out var titleMenu) &&
+            titleMenu->IsAddonAndNodesReady())
+            OnTitleMenu(AddonEvent.PostSetup, null);
     }
 
-    public void BeginCrossDataCenterTravel()
+    protected override void OnDisable()
     {
-        crossDataCenterTravelInProgress = true;
-        SuspendUntilNextLogin();
-    }
-
-    private void OnLogin()
-    {
+        addonEvents?.Dispose();
+        addonEvents = null;
+        DService.Instance().ClientState.Login -= OnLogin;
         tasks.Abort();
         manualTarget = null;
         crossDataCenterTravelInProgress = false;
-        suspendedUntilLogin = false;
     }
 
-    public bool TryRelog(AutoLoginTarget target)
+    protected override bool OnInterruptAutomation()
     {
-        if (!IsEnabled ||
-            suspendedUntilLogin ||
-            !GameState.IsLoggedIn ||
-            GameState.ContentFinderCondition != 0 ||
-            tasks.IsBusy ||
-            !config.Targets.Any(candidate =>
-                candidate.WorldID == target.WorldID &&
-                candidate.CharacterName.Equals(target.CharacterName, StringComparison.Ordinal)))
+        if (!tasks.IsBusy)
         {
             return false;
         }
 
-        var current = DService.Instance().ObjectTable.LocalPlayer;
-        if (current is not null &&
-            current.Name.ToString().Equals(target.CharacterName, StringComparison.Ordinal) &&
-            DService.Instance().PlayerState.CurrentWorld.RowId == target.WorldID)
-        {
-            return false;
-        }
-
-        manualTarget = target;
-        tasks.Abort();
-        tasks.Enqueue(
-            () =>
-            {
-                if (!GameState.IsLoggedIn)
-                    return true;
-
-                ChatManager.Instance().SendMessage("/logout");
-                return true;
-            },
-            "Request logout");
-        tasks.Enqueue(
-            () => !GameState.IsLoggedIn || AddonSelectYesnoEvent.ClickYes(),
-            "Confirm logout",
-            timeoutMS: 30_000);
+        SuspendUntilNextLogin();
         return true;
     }
 
-    public override bool HasSettings => true;
+    protected override void OnDispose()
+    {
+        tasks.Dispose();
+        selectDataCenterAndLogin.Dispose();
+    }
 
     public override bool DrawSettings()
     {
@@ -228,7 +206,6 @@ public sealed unsafe class AutoLogin(
                 {
                     removeIndex = index;
                 }
-
             }
 
             if (removeIndex >= 0)
@@ -251,6 +228,68 @@ public sealed unsafe class AutoLogin(
         return changed;
     }
 
+    public void SuspendUntilNextLogin()
+    {
+        suspendedUntilLogin = true;
+        tasks.Abort();
+        manualTarget = null;
+    }
+
+    public void BeginCrossDataCenterTravel()
+    {
+        crossDataCenterTravelInProgress = true;
+        SuspendUntilNextLogin();
+    }
+
+    private void OnLogin()
+    {
+        tasks.Abort();
+        manualTarget = null;
+        crossDataCenterTravelInProgress = false;
+        suspendedUntilLogin = false;
+    }
+
+    public bool TryRelog(AutoLoginTarget target)
+    {
+        if (!IsEnabled ||
+            suspendedUntilLogin ||
+            !GameState.IsLoggedIn ||
+            GameState.ContentFinderCondition != 0 ||
+            tasks.IsBusy ||
+            !config.Targets.Any(candidate =>
+                candidate.WorldID == target.WorldID &&
+                candidate.CharacterName.Equals(target.CharacterName, StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        var current = DService.Instance().ObjectTable.LocalPlayer;
+        if (current is not null &&
+            current.Name.ToString().Equals(target.CharacterName, StringComparison.Ordinal) &&
+            DService.Instance().PlayerState.CurrentWorld.RowId == target.WorldID)
+        {
+            return false;
+        }
+
+        manualTarget = target;
+        tasks.Abort();
+        tasks.Enqueue(
+            () =>
+            {
+                if (!GameState.IsLoggedIn)
+                    return true;
+
+                ChatManager.Instance().SendMessage("/logout");
+                return true;
+            },
+            "Request logout");
+        tasks.Enqueue(
+            () => !GameState.IsLoggedIn || AddonSelectYesnoEvent.ClickYes(),
+            "Confirm logout",
+            timeoutMS: 30_000);
+        return true;
+    }
+
     public override bool TryHandleCommand(string command, string arguments)
     {
         if (!TryParseTarget(arguments, out var target))
@@ -262,53 +301,7 @@ public sealed unsafe class AutoLogin(
         return true;
     }
 
-    protected override void OnEnable()
-    {
-        if (GameState.IsLoggedIn)
-            suspendedUntilLogin = false;
-
-        tasks.TimeoutAction = SuspendUntilNextLogin;
-        tasks.ExceptionAction = SuspendUntilNextLogin;
-        DService.Instance().ClientState.Login += OnLogin;
-        addonEvents = new(DalamudServices.AddonLifecycle);
-        addonEvents.Register(AddonEvent.PostSetup, "LobbyDKT", OnLobbyTravel);
-        addonEvents.Register(AddonEvent.PostSetup, "_TitleMenu", OnTitleMenu);
-        if (AddonHelper.TryGetByName("_TitleMenu", out AtkUnitBase* titleMenu) &&
-            titleMenu->IsAddonAndNodesReady())
-            OnTitleMenu(AddonEvent.PostSetup, null);
-    }
-
-    protected override void OnDisable()
-    {
-        addonEvents?.Dispose();
-        addonEvents = null;
-        DService.Instance().ClientState.Login -= OnLogin;
-        tasks.Abort();
-        manualTarget = null;
-        crossDataCenterTravelInProgress = false;
-    }
-
-    protected override bool OnInterruptAutomation()
-    {
-        if (!tasks.IsBusy)
-        {
-            return false;
-        }
-
-        SuspendUntilNextLogin();
-        return true;
-    }
-
-    protected override void OnDispose()
-    {
-        tasks.Dispose();
-        selectDataCenterAndLogin.Dispose();
-    }
-
-    private void OnLobbyTravel(AddonEvent eventType, AddonArgs args)
-    {
-        SuspendUntilNextLogin();
-    }
+    private void OnLobbyTravel(AddonEvent eventType, AddonArgs args) => SuspendUntilNextLogin();
 
     private void OnTitleMenu(AddonEvent eventType, AddonArgs? args)
     {
@@ -372,20 +365,20 @@ public sealed unsafe class AutoLogin(
                     }
                 }
 
-                if (AddonHelper.TryGetByName("_CharaSelectListMenu", out AtkUnitBase* characterSelect) &&
+                if (AddonHelper.TryGetByName("_CharaSelectListMenu", out var characterSelect) &&
                     characterSelect->IsAddonAndNodesReady())
                 {
                     AgentLobbyEvent.CloseCharacterSelect();
                     return false;
                 }
 
-                if (AddonHelper.TryGetByName("TitleDCWorldMap", out AtkUnitBase* dataCenterSelect) &&
+                if (AddonHelper.TryGetByName("TitleDCWorldMap", out var dataCenterSelect) &&
                     dataCenterSelect->IsAddonAndNodesReady())
                 {
                     return true;
                 }
 
-                if (!AddonHelper.TryGetByName("_TitleMenu", out AtkUnitBase* titleMenu) ||
+                if (!AddonHelper.TryGetByName("_TitleMenu", out var titleMenu) ||
                     !titleMenu->IsAddonAndNodesReady())
                 {
                     return false;
@@ -441,7 +434,7 @@ public sealed unsafe class AutoLogin(
                 if (target is null || IsLobbyTravelReady() || GameState.IsCN)
                     return true;
 
-                if (!AddonHelper.TryGetByName("TitleDCWorldMap", out AtkUnitBase* dataCenterSelect) ||
+                if (!AddonHelper.TryGetByName("TitleDCWorldMap", out var dataCenterSelect) ||
                     !dataCenterSelect->IsAddonAndNodesReady())
                     return false;
 
@@ -471,17 +464,17 @@ public sealed unsafe class AutoLogin(
 
                 var agent = AgentLobby.Instance();
                 if (agent == null ||
-                    (AddonHelper.TryGetByName("TitleDCWorldMap", out AtkUnitBase* dataCenterSelect) &&
+                    (AddonHelper.TryGetByName("TitleDCWorldMap", out var dataCenterSelect) &&
                      dataCenterSelect->IsAddonAndNodesReady()) ||
-                    (AddonHelper.TryGetByName("TitleConnect", out AtkUnitBase* connecting) &&
+                    (AddonHelper.TryGetByName("TitleConnect", out var connecting) &&
                      connecting->IsAddonAndNodesReady()))
                     return false;
 
-                if (AddonHelper.TryGetByName("_CharaSelectListMenu", out AtkUnitBase* characterSelect) &&
+                if (AddonHelper.TryGetByName("_CharaSelectListMenu", out var characterSelect) &&
                     characterSelect->IsAddonAndNodesReady())
                     return true;
 
-                if (!AddonHelper.TryGetByName("_TitleMenu", out AtkUnitBase* titleMenu) ||
+                if (!AddonHelper.TryGetByName("_TitleMenu", out var titleMenu) ||
                     !titleMenu->IsAddonAndNodesReady())
                     return false;
 
@@ -497,13 +490,13 @@ public sealed unsafe class AutoLogin(
                     return true;
                 }
 
-                if (!AddonHelper.TryGetByName("_CharaSelectListMenu", out AtkUnitBase* addon) ||
+                if (!AddonHelper.TryGetByName("_CharaSelectListMenu", out var addon) ||
                     !addon->IsAddonAndNodesReady())
                     return false;
 
                 var agent = AgentLobby.Instance();
                 if (agent == null ||
-                    (AddonHelper.TryGetByName("TitleConnect", out AtkUnitBase* connecting) &&
+                    (AddonHelper.TryGetByName("TitleConnect", out var connecting) &&
                      connecting->IsAddonAndNodesReady()))
                     return false;
 
@@ -672,6 +665,14 @@ public sealed unsafe class AutoLogin(
         return true;
     }
 
+
+    #region 常量
+
+    private const int CHARACTER_SELECT_TIMEOUT_MS = 30_000;
+
+    private const int LOBBY_TRAVEL_SETTLE_DELAY_MS = 2_500;
+
+    #endregion
 }
 
 public sealed class AutoLoginConfig

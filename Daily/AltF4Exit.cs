@@ -20,8 +20,6 @@ public sealed unsafe class AltF4Exit : ModuleBase
         Category = ModuleCategory.Daily
     };
 
-    private const int WM_CLOSE = 0x10;
-
     protected override void OnEnable()
     {
         if (!FrameworkManager.Instance().Reg(OnUpdate))
@@ -43,4 +41,10 @@ public sealed unsafe class AltF4Exit : ModuleBase
 
     [DllImport("user32.dll")]
     private static extern int SendMessage(nint window, int message, int wParam, int lParam);
+
+    #region 常量
+
+    private const int WM_CLOSE = 0x10;
+
+    #endregion
 }

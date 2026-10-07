@@ -16,8 +16,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] definitions)
 {
-    private const uint INVALID_ENTITY_ID = 0xE0000000;
-
     private readonly ConcurrentQueue<ActionUse> pendingActions = new();
     private readonly Dictionary<uint, int> actionIndexes = CreateActionIndexes(definitions);
     private readonly Dictionary<uint, int> statusIndexes = CreateStatusIndexes(definitions);
@@ -130,7 +128,10 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
             }
             else if (members[memberIndex].Level != level)
             {
-                members[memberIndex] = members[memberIndex] with { Level = level };
+                members[memberIndex] = members[memberIndex] with
+                {
+                    Level = level
+                };
             }
 
             ClearStatusActivity(memberIndex);
@@ -368,14 +369,17 @@ internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] defini
         return result;
     }
 
-    private static string FormatDuration(int seconds)
-    {
-        return seconds >= 60
+    private static string FormatDuration(int seconds) => seconds >= 60
             ? string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.SkillMonitor.Duration.Minutes"), seconds / 60)
             : string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.SkillMonitor.Duration.Seconds"), seconds);
-    }
 
     private readonly record struct ActionUse(uint CasterEntityID, uint ActionID, long Tick);
+
+    #region 常量
+
+    private const uint INVALID_ENTITY_ID = 0xE0000000;
+
+    #endregion
 }
 
 internal readonly record struct SkillMonitorMember(uint EntityID, uint ClassJobID, byte Level, bool Visible);

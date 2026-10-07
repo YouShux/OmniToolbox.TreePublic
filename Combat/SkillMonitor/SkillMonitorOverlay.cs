@@ -265,7 +265,10 @@ internal sealed unsafe class SkillMonitorOverlay(
 
     private static void DrawOutlinedText(ImDrawListPtr drawList, string text, Vector2 position, uint color, float fontSize)
     {
-        var outline = OmniTheme.Color(KnownColor.Black.ToVector4() with { W = 0.95f });
+        var outline = OmniTheme.Color(KnownColor.Black.ToVector4() with
+        {
+            W = 0.95f
+        });
         var edge = fontSize / 20f;
         var font = ImGui.GetFont();
         drawList.AddText(font, fontSize, position + new Vector2(-edge, 0f), outline, text);
@@ -312,7 +315,10 @@ internal sealed unsafe class SkillMonitorOverlay(
 
         drawList.PathLineTo(startPoint);
         drawList.PathLineTo(center);
-        drawList.PathFillConvex(OmniTheme.Color(KnownColor.Black.ToVector4() with { W = 0.68f }));
+        drawList.PathFillConvex(OmniTheme.Color(KnownColor.Black.ToVector4() with
+        {
+            W = 0.68f
+        }));
     }
 
     private static (Vector2 Point, int Edge) RayHitRectEdge(

@@ -29,6 +29,8 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
         Category = ModuleCategory.Interface
     };
 
+    public override bool HasSettings => true;
+
     private static readonly CompSig GetFilteredUtf8StringSig = new(
         "48 89 74 24 ?? 57 48 83 EC ?? 48 83 79 ?? ?? 48 8B FA 48 8B F1 0F 84 ?? ?? ?? ?? 48 89 5C 24");
     private static readonly CompSig VulgarInstanceOffsetSig = new(
@@ -68,70 +70,6 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
         int eventParam,
         AtkEvent* atkEvent,
         AtkEventData* atkEventData);
-
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings()
-    {
-        var changed = false;
-        var autoHandle = config.EnableAutoHandle;
-        if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.AutoHandle")}##antiCensorshipAutoHandle", ref autoHandle))
-        {
-            config.EnableAutoHandle = autoHandle;
-            changed = true;
-        }
-
-        ImGui.SameLine();
-        ImGui.SetNextItemWidth(OmniTheme.Scale(60f));
-        var separator = config.Separator.ToString();
-        if (OmniControls.InputText(
-                $"{OmniLoc.Get("Feature.AntiCensorship.Separator")}##antiCensorshipSeparator",
-                ref separator,
-                8))
-        {
-            separator = separator.Trim();
-            config.Separator = string.IsNullOrWhiteSpace(separator) || separator == "*"
-                ? '.'
-                : separator[0];
-            changed = true;
-        }
-
-        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.AntiCensorship.AutoHandle.Help"));
-        ImGui.SameLine(0f, OmniTheme.ContentGap());
-        var coloring = config.EnableColoring;
-        if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))
-        {
-            config.EnableColoring = coloring;
-            changed = true;
-        }
-
-        ImGui.SameLine();
-        var color = UIColorPicker.Resolve(
-            config.HighlightColor,
-            config.UseCustomHighlightColor,
-            config.HighlightColorValue,
-            KnownColor.Red.ToVector4());
-        if (UIColorPicker.Draw(
-                "antiCensorship",
-                ref color,
-                ImGuiColorEditFlags.DisplayRgb))
-        {
-            config.HighlightColorValue = color;
-            config.UseCustomHighlightColor = true;
-            changed = true;
-        }
-
-        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.AntiCensorship.Coloring.Help"));
-        if (!changed)
-        {
-            return false;
-        }
-
-        processor?.Clear();
-        return true;
-    }
 
     protected override void OnEnable()
     {
@@ -194,6 +132,68 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
         {
             ClearRuntimeReferences();
         }
+    }
+
+    public override bool DrawSettings()
+    {
+        var changed = false;
+        var autoHandle = config.EnableAutoHandle;
+        if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.AutoHandle")}##antiCensorshipAutoHandle", ref autoHandle))
+        {
+            config.EnableAutoHandle = autoHandle;
+            changed = true;
+        }
+
+        ImGui.SameLine();
+        ImGui.SetNextItemWidth(OmniTheme.Scale(60f));
+        var separator = config.Separator.ToString();
+        if (OmniControls.InputText(
+                $"{OmniLoc.Get("Feature.AntiCensorship.Separator")}##antiCensorshipSeparator",
+                ref separator,
+                8))
+        {
+            separator = separator.Trim();
+            config.Separator = string.IsNullOrWhiteSpace(separator) || separator == "*"
+                ? '.'
+                : separator[0];
+            changed = true;
+        }
+
+        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.AntiCensorship.AutoHandle.Help"));
+        ImGui.SameLine(0f, OmniTheme.ContentGap());
+        var coloring = config.EnableColoring;
+        if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))
+        {
+            config.EnableColoring = coloring;
+            changed = true;
+        }
+
+        ImGui.SameLine();
+        var color = UIColorPicker.Resolve(
+            config.HighlightColor,
+            config.UseCustomHighlightColor,
+            config.HighlightColorValue,
+            KnownColor.Red.ToVector4());
+        if (UIColorPicker.Draw(
+                "antiCensorship",
+                ref color,
+                ImGuiColorEditFlags.DisplayRgb))
+        {
+            config.HighlightColorValue = color;
+            config.UseCustomHighlightColor = true;
+            changed = true;
+        }
+
+        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.AntiCensorship.Coloring.Help"));
+        if (!changed)
+        {
+            return false;
+        }
+
+        processor?.Clear();
+        return true;
     }
 
     private static Hook<T> EnableHook<T>(CompSig signature, T detour, FeatureLifetime lifetime) where T : Delegate
@@ -374,9 +374,14 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
 public sealed class AntiCensorshipConfig
 {
     public bool EnableColoring { get; set; }
+
     public bool EnableAutoHandle { get; set; } = true;
+
     public int HighlightColor { get; set; } = 17;
+
     public bool UseCustomHighlightColor { get; set; }
+
     public Vector3 HighlightColorValue { get; set; } = new(1f, 0f, 0f);
+
     public char Separator { get; set; } = '.';
 }

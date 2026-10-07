@@ -1,20 +1,21 @@
+using System.Linq;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit;
+using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
 using KamiToolKit.Enums;
+using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
-using KamiToolKit.Premade.Node;
 using Lumina.Excel.Sheets;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
+using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
 internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
 {
-    private const float ROW_HEIGHT = 24f;
     private static readonly float FeedListHeight = ChocoboFeedOrderListItemNode.ItemHeight * 6f;
 
     private readonly System.Action<byte> onTargetColorSelected;
@@ -27,11 +28,11 @@ internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
     private string targetColorName = string.Empty;
     private Vector4 targetColor;
     private TextNode? currentLabelNode;
-    private BackgroundImageNode? currentColorNode;
+    private ColorImageNode? currentColorNode;
     private TextNode? currentColorNameNode;
     private TextNode? targetLabelNode;
-    private BackgroundImageNode? targetColorNode;
-    private LuminaDropDownNode<Stain>? targetColorDropDown;
+    private ColorImageNode? targetColorNode;
+    private DropDownNode<Stain>? targetColorDropDown;
     private TextButtonNode? previewButton;
     private TextButtonNode? clearButton;
     private TextNode? fruitRequirementsLabelNode;
@@ -95,8 +96,8 @@ internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
 
         targetColorDropDown = new()
         {
-            LabelFunction = stain => stain.Name.ExtractText(),
-            FilterFunction = stain => stain.RowId is > 0 and <= 85,
+            GetLabelFunction = stain => stain.Name.ExtractText(),
+            Options = LuminaGetter.Get<Stain>().Where(stain => stain.RowId is > 0 and <= 85).ToList(),
             MaxListOptions = 8,
             OnOptionSelected = stain => onTargetColorSelected((byte)stain.RowId)
         };
@@ -126,6 +127,8 @@ internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
         fruitRequirementsListNode = new()
         {
             ItemSpacing = 0f,
+            ShowNoResultsPlaceholder = false,
+            AutoResetScroll = false,
             OptionsList = fruitRequirements
         };
         fruitRequirementsListNode.AttachNode(this);
@@ -147,6 +150,8 @@ internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
         feedOrderListNode = new()
         {
             ItemSpacing = 0f,
+            ShowNoResultsPlaceholder = false,
+            AutoResetScroll = false,
             OptionsList = feedOrder
         };
         feedOrderListNode.AttachNode(this);
@@ -155,10 +160,7 @@ internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
         ApplyData();
     }
 
-    protected override unsafe void OnUpdate(AtkUnitBase* addon)
-    {
-        feedOrderListNode?.Update();
-    }
+    protected override unsafe void OnUpdate(AtkUnitBase* addon) => feedOrderListNode?.Update();
 
     protected override unsafe void OnFinalize(AtkUnitBase* addon)
     {
@@ -331,6 +333,12 @@ internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
                 MathF.Min(FeedListHeight, MathF.Max(ChocoboFeedOrderListItemNode.ItemHeight, ContentSize.Y - (feedOrderY + ROW_HEIGHT - contentY))));
         }
     }
+
+    #region 常量
+
+    private const float ROW_HEIGHT = 24f;
+
+    #endregion
 }
 
 internal sealed class ChocoboFruitRequirementListItemNode : ListItemNode<ChocoboFruitRequirement>, IListItemNode

@@ -187,10 +187,13 @@ internal static class AutoSortItemsPanel
             changed = true;
         }
 
-        if (detailLayout) OmniControls.SameLineOrWrap(ImGui.CalcTextSize(categoryLabel).X);
-        else ImGui.TableSetColumnIndex(1);
+        if (detailLayout)
+            OmniControls.SameLineOrWrap(ImGui.CalcTextSize(categoryLabel).X);
+        else
+            ImGui.TableSetColumnIndex(1);
         ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
-        if (!detailLayout) OmniControls.CenterTableItem(
+        if (!detailLayout)
+            OmniControls.CenterTableItem(
             new Vector2(ImGui.CalcTextSize(categoryLabel).X, ImGui.GetFrameHeight()),
             rowContentHeight);
         ImGui.AlignTextToFramePadding();
@@ -208,8 +211,10 @@ internal static class AutoSortItemsPanel
         {
             var tabLabel = OmniLoc.Get("Feature.AutoSortItems.Tab");
             var tab = GetCategoryHeader(config, category).Tab;
-            if (detailLayout) OmniControls.SameLineOrWrap(OmniControls.MeasureCheckbox(tabLabel).X);
-            else OmniControls.CenterTableItem(
+            if (detailLayout)
+                OmniControls.SameLineOrWrap(OmniControls.MeasureCheckbox(tabLabel).X);
+            else
+                OmniControls.CenterTableItem(
                 new Vector2(
                     OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + ImGui.CalcTextSize(tabLabel).X,
                     OmniTheme.CheckboxSize()),
@@ -234,7 +239,8 @@ internal static class AutoSortItemsPanel
         var rule = config.Rules![index];
         using var id = ImRaii.PushId(index);
         ImGui.TableNextRow(ImGuiTableRowFlags.None, detailLayout ? 0f : rowContentHeight);
-        if (!detailLayout) ImGui.TableNextColumn();
+        if (!detailLayout)
+            ImGui.TableNextColumn();
         OmniControls.NextTableField(OmniLoc.Get("Feature.AutoSortItems.Column.Category"), detailLayout);
         var categoryWidth = ImGui.GetContentRegionAvail().X;
         if (!detailLayout)
@@ -244,7 +250,8 @@ internal static class AutoSortItemsPanel
         OmniControls.NextTableField(OmniLoc.Get("Feature.AutoSortItems.Column.Condition"), detailLayout);
         var conditionSpacing = ImGui.GetStyle().ItemSpacing.X;
         var conditionWidth = MathF.Max(1f, (ImGui.GetContentRegionAvail().X - conditionSpacing) * 0.5f);
-        if (!detailLayout) OmniControls.CenterTableItem(
+        if (!detailLayout)
+            OmniControls.CenterTableItem(
             new Vector2(conditionWidth * 2f + conditionSpacing, ImGui.GetFrameHeight()),
             rowContentHeight);
         rowChanged |= DrawRuleCombo("condition", rule.Condition, AutoSortItems.Conditions, conditionWidth, out var condition);
@@ -266,7 +273,8 @@ internal static class AutoSortItemsPanel
         }
 
         OmniControls.NextTableField(OmniLoc.Get("Feature.AutoSortItems.Column.Actions"), detailLayout);
-        if (!detailLayout) OmniControls.CenterTableItem(deleteSize, rowContentHeight);
+        if (!detailLayout)
+            OmniControls.CenterTableItem(deleteSize, rowContentHeight);
         if (OmniControls.SmallButton(
                 $"{OmniLoc.Get("Feature.AutoSortItems.DeleteRule")}##delete",
                 false,
@@ -292,7 +300,10 @@ internal static class AutoSortItemsPanel
         {
             if (string.Equals(config.Rules[index].Category, category, StringComparison.Ordinal))
             {
-                config.Rules[index] = config.Rules[index] with { Enabled = enabled };
+                config.Rules[index] = config.Rules[index] with
+                {
+                    Enabled = enabled
+                };
             }
         }
     }
@@ -303,7 +314,10 @@ internal static class AutoSortItemsPanel
         {
             if (config.Rules[index].Category is not null)
             {
-                config.Rules[index] = config.Rules[index] with { Enabled = enabled };
+                config.Rules[index] = config.Rules[index] with
+                {
+                    Enabled = enabled
+                };
             }
         }
     }

@@ -28,6 +28,8 @@ public sealed unsafe class DuplicateStatusPrevention : ModuleBase
         Category = ModuleCategory.Combat
     };
 
+    public override bool HasSettings => true;
+
     private readonly DuplicateStatusPreventionConfig config;
     private long lastNotificationTick;
 
@@ -37,7 +39,16 @@ public sealed unsafe class DuplicateStatusPrevention : ModuleBase
         NormalizeConfig(config);
     }
 
-    public override bool HasSettings => true;
+    protected override void OnEnable()
+    {
+        lastNotificationTick = 0;
+        if (!UseActionManager.Instance().RegPreUseAction(OnPreUseAction))
+        {
+            throw new InvalidOperationException("Duplicate status prevention registration failed.");
+        }
+    }
+
+    protected override void OnDisable() => UseActionManager.Instance().Unreg(OnPreUseAction);
 
     public override bool DrawSettings() => DuplicateStatusPreventionPanel.Draw(config);
 
@@ -57,17 +68,6 @@ public sealed unsafe class DuplicateStatusPrevention : ModuleBase
             }
         }
     }
-
-    protected override void OnEnable()
-    {
-        lastNotificationTick = 0;
-        if (!UseActionManager.Instance().RegPreUseAction(OnPreUseAction))
-        {
-            throw new InvalidOperationException("Duplicate status prevention registration failed.");
-        }
-    }
-
-    protected override void OnDisable() => UseActionManager.Instance().Unreg(OnPreUseAction);
 
     private void OnPreUseAction(
         ref bool isPrevented,
@@ -493,7 +493,10 @@ internal static class DuplicateStatusPreventionRules
 public sealed class DuplicateStatusPreventionConfig
 {
     public float OverlapThreshold { get; set; } = 5f;
+
     public bool ChatNotify { get; set; } = true;
+
     public bool PopupNotify { get; set; }
+
     public Dictionary<uint, bool> EnabledActions { get; set; } = [];
 }

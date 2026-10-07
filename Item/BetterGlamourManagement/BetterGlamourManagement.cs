@@ -42,10 +42,6 @@ public sealed unsafe partial class BetterGlamourManagement(
         ]
     };
 
-    private const string CHARACTER_INSPECT_ADDON_NAME = "CharacterInspect";
-    private const float SCREEN_PADDING = 8f;
-    internal const int MaxPresetCount = 100;
-
     private static readonly int[] InspectSlots = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12];
 
     private BetterGlamourActionsNativeUI? actionsNativeUI;
@@ -62,7 +58,10 @@ public sealed unsafe partial class BetterGlamourManagement(
     {
         try
         {
-            taskHelper = new() { TimeoutMS = 10_000 };
+            taskHelper = new()
+            {
+                TimeoutMS = 10_000
+            };
             actionsNativeUI = new(TryOnInspect, SaveInspect, ExportInspect, OpenManager, ClearTryOn);
             managerNativeUI = new(
                 SelectPreset,
@@ -97,6 +96,50 @@ public sealed unsafe partial class BetterGlamourManagement(
         boundTryOnPreset = null;
         selectedPresetIndex = -1;
         lastGearsetIndex = int.MinValue;
+    }
+
+    private void Draw() => DrawInspectActions();
+
+    private void DrawInspectActions()
+    {
+        if (!TryGetReadyAddon(CHARACTER_INSPECT_ADDON_NAME, out var inspectAddon) || actionsNativeUI is null)
+        {
+            actionsNativeUI?.Close();
+            return;
+        }
+
+        if (!actionsNativeUI.IsOpen)
+        {
+            actionsNativeUI.Open();
+        }
+
+        AtkUnitBase* actionAddon = actionsNativeUI;
+        var stage = AtkStage.Instance();
+        if (actionAddon == null || actionAddon->WindowNode == null || stage == null)
+        {
+            return;
+        }
+
+        var inspectState = inspectAddon->WindowNode->GetNodeState();
+        var inspectScale = inspectAddon->WindowNode->GetScale().X;
+        if (MathF.Abs(actionAddon->WindowNode->GetScale().X - inspectScale) > 0.001f)
+        {
+            actionAddon->SetScale(inspectScale / AtkUnitBase.GetGlobalUIScale(), true);
+        }
+        var actionState = actionAddon->WindowNode->GetNodeState();
+        var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
+        var x = inspectState.TopLeft.X + inspectState.Width + 2f;
+        if (x + actionState.Width > display.X - SCREEN_PADDING)
+        {
+            x = MathF.Max(SCREEN_PADDING, inspectState.TopLeft.X - actionState.Width - 2f);
+        }
+
+        actionsNativeUI.SetWindowPosition(new(
+            Math.Clamp(x, SCREEN_PADDING, MathF.Max(SCREEN_PADDING, display.X - actionState.Width - SCREEN_PADDING)),
+            Math.Clamp(
+                inspectState.TopLeft.Y,
+                SCREEN_PADDING,
+                MathF.Max(SCREEN_PADDING, display.Y - actionState.Height - SCREEN_PADDING))));
     }
 
     private void OnFrameworkUpdate(IFramework framework)
@@ -149,53 +192,6 @@ public sealed unsafe partial class BetterGlamourManagement(
         }
 
         TryApplyActiveTryOn();
-    }
-
-    private void Draw()
-    {
-        DrawInspectActions();
-    }
-
-    private void DrawInspectActions()
-    {
-        if (!TryGetReadyAddon(CHARACTER_INSPECT_ADDON_NAME, out var inspectAddon) || actionsNativeUI is null)
-        {
-            actionsNativeUI?.Close();
-            return;
-        }
-
-        if (!actionsNativeUI.IsOpen)
-        {
-            actionsNativeUI.Open();
-        }
-
-        AtkUnitBase* actionAddon = actionsNativeUI;
-        var stage = AtkStage.Instance();
-        if (actionAddon == null || actionAddon->WindowNode == null || stage == null)
-        {
-            return;
-        }
-
-        var inspectState = inspectAddon->WindowNode->GetNodeState();
-        var inspectScale = inspectAddon->WindowNode->GetScale().X;
-        if (MathF.Abs(actionAddon->WindowNode->GetScale().X - inspectScale) > 0.001f)
-        {
-            actionAddon->SetScale(inspectScale / AtkUnitBase.GetGlobalUIScale(), true);
-        }
-        var actionState = actionAddon->WindowNode->GetNodeState();
-        var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
-        var x = inspectState.TopLeft.X + inspectState.Width + 2f;
-        if (x + actionState.Width > display.X - SCREEN_PADDING)
-        {
-            x = MathF.Max(SCREEN_PADDING, inspectState.TopLeft.X - actionState.Width - 2f);
-        }
-
-        actionsNativeUI.SetWindowPosition(new(
-            Math.Clamp(x, SCREEN_PADDING, MathF.Max(SCREEN_PADDING, display.X - actionState.Width - SCREEN_PADDING)),
-            Math.Clamp(
-                inspectState.TopLeft.Y,
-                SCREEN_PADDING,
-                MathF.Max(SCREEN_PADDING, display.Y - actionState.Height - SCREEN_PADDING))));
     }
 
     private static bool TryGetReadyAddon(string name, out AtkUnitBase* addon)
@@ -495,6 +491,16 @@ public sealed unsafe partial class BetterGlamourManagement(
         ui.Close();
         ui.Dispose();
     }
+
+    #region 常量
+
+    private const string CHARACTER_INSPECT_ADDON_NAME = "CharacterInspect";
+
+    private const float SCREEN_PADDING = 8f;
+
+    internal const int MaxPresetCount = 100;
+
+    #endregion
 }
 
 [Serializable]

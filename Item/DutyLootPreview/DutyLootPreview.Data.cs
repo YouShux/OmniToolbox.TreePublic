@@ -162,7 +162,9 @@ public sealed unsafe partial class DutyLootPreview
     private sealed record LootItem(DutyLootPreview Owner, Item Row, string Name, string Sources, bool IsUnlockable)
     {
         public bool IsEquipment => Row.EquipSlotCategory.RowId != 0;
+
         public bool IsFavorite => Owner.config.FavoriteItems.Contains(Row.RowId);
+
         public bool IsUnlocked => IsUnlockable && DalamudServices.UnlockState.IsItemUnlocked(Row);
     }
 }

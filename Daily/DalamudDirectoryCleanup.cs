@@ -181,16 +181,13 @@ public sealed class DalamudDirectoryCleanup : ModuleBase
         }
     }
 
-    private void NotifyResult(string resultKey, string partialResultKey, int deleted, int failed)
-    {
-        OmniNotifier.Popup(
+    private void NotifyResult(string resultKey, string partialResultKey, int deleted, int failed) => OmniNotifier.Popup(
             Info.Title,
             string.Format(
                 OmniLoc.Get(failed == 0 ? resultKey : partialResultKey),
                 deleted,
                 failed),
             failed == 0 ? NotificationType.Success : NotificationType.Warning);
-    }
 
     private void NotifyDirectoryMissing() => OmniNotifier.Popup(
         Info.Title,

@@ -3,12 +3,11 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit;
+using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
 using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
-using KamiToolKit.Overlay.UiOverlay;
-
+using KamiToolKit.UiOverlay;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
@@ -35,8 +34,6 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/DutyLootPreview-1.png"
     };
-
-    private const uint DUTY_LOOT_ICON_ID = 65114;
 
     private readonly Config config;
     private readonly System.Action saveConfig;
@@ -213,10 +210,6 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
     // 这些窗口刷新重建时会按自有结构遍历子节点，外来节点会让原生 RequestedUpdate 崩溃。
     private sealed class DutyLootTodoOverlayNode : OverlayNode
     {
-        private const float TODO_BUTTON_GAP = 6f;
-        private const float TODO_BUTTON_FALLBACK_X_OFFSET = 220f;
-        private const float TODO_BUTTON_Y_OFFSET = -10f;
-
         private readonly IconButtonNode todoButton;
         private readonly TextNineGridNode todoTooltip;
 
@@ -318,6 +311,16 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
 
             return result;
         }
+
+        #region 常量
+
+        private const float TODO_BUTTON_GAP = 6f;
+
+        private const float TODO_BUTTON_FALLBACK_X_OFFSET = 220f;
+
+        private const float TODO_BUTTON_Y_OFFSET = -10f;
+
+        #endregion
     }
 
     private sealed class DutyLootOverlayNode : OverlayNode
@@ -471,4 +474,10 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
     {
         public HashSet<uint> FavoriteItems = [];
     }
+
+    #region 常量
+
+    private const uint DUTY_LOOT_ICON_ID = 65114;
+
+    #endregion
 }

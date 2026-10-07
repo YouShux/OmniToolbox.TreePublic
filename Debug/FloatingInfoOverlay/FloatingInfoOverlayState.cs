@@ -18,7 +18,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class FloatingInfoOverlayState : IDisposable
 {
-    private const int MAX_STATUS_COUNT = 8;
     private readonly FloatingInfoOverlayConfig config;
     private readonly NonEntityTargetVisibility targetVisibility;
     private readonly List<FloatingInfoObject> objects = [];
@@ -620,6 +619,12 @@ internal sealed unsafe class FloatingInfoOverlayState : IDisposable
         Vector2 ScreenPosition,
         float Distance,
         nint Address);
+
+    #region 常量
+
+    private const int MAX_STATUS_COUNT = 8;
+
+    #endregion
 }
 
 internal sealed class FloatingInfoGroup(Vector2 anchorPosition, FloatingInfoObject item)

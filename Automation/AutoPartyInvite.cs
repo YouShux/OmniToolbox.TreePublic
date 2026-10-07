@@ -31,6 +31,8 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
         RequiresPrivateProvider = true
     };
 
+    public override bool HasSettings => true;
+
     internal static readonly AutoPartyInviteChannel[] ChannelOptions =
     [
         new(XivChatType.Say, "Feature.AutoPartyInvite.Channel.Say"),
@@ -93,9 +95,13 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
         }
     }
 
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings() => AutoPartyInvitePanel.Draw(config);
+    private delegate void AddMsgSourceEntryDelegate(
+        RaptureLogModule* logModule,
+        ulong contentID,
+        ulong accountID,
+        int messageIndex,
+        ushort worldID,
+        ushort chatType);
 
     protected override void OnEnable()
     {
@@ -147,6 +153,8 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
         pendingInvites.Clear();
         return true;
     }
+
+    public override bool DrawSettings() => AutoPartyInvitePanel.Draw(config);
 
     private void OnAddMsgSourceEntry(
         RaptureLogModule* logModule,
@@ -344,14 +352,6 @@ public sealed unsafe class AutoPartyInvite : ModuleBase
                groupManager->MainGroup.IsEntityIdPartyLeader(services.PlayerState.EntityId);
     }
 
-    private delegate void AddMsgSourceEntryDelegate(
-        RaptureLogModule* logModule,
-        ulong contentID,
-        ulong accountID,
-        int messageIndex,
-        ushort worldID,
-        ushort chatType);
-
     private readonly record struct PendingInvite(
         ulong ContentID,
         string PlayerName,
@@ -366,12 +366,19 @@ internal readonly record struct AutoPartyInviteChannel(XivChatType Type, string 
 public sealed class AutoPartyInviteConfig
 {
     public bool UseWhitelist { get; set; } = true;
+
     public bool ChannelsInitialized { get; set; }
+
     public HashSet<ushort> EnabledChannels { get; set; } = [];
+
     public HashSet<int> EnabledDigits { get; set; } = [1];
+
     public List<AutoPartyInviteTrigger> CustomTriggers { get; set; } = [];
+
     public HashSet<uint> BlacklistTerritoryIds { get; set; } = [];
+
     public HashSet<uint> WhitelistTerritoryIds { get; set; } = [];
+
     public HashSet<uint> AllowedTerritoryIds { get; set; } = [];
 }
 
@@ -379,6 +386,7 @@ public sealed class AutoPartyInviteConfig
 public sealed class AutoPartyInviteTrigger
 {
     public string Text { get; set; } = string.Empty;
+
     public bool Enabled { get; set; } = true;
 }
 

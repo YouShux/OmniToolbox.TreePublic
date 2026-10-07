@@ -89,16 +89,6 @@ internal readonly record struct BetterCharacterPanelStats(
 
 internal static unsafe class BetterCharacterPanelState
 {
-    private const nint CHARACTER_PANEL_EQUIPMENT_DATA_OFFSET = 0x2490;
-    private const int PHYSICAL_DAMAGE_INDEX = 20;
-    private const int MAGIC_DAMAGE_INDEX = 21;
-    private const int HIGH_QUALITY_DAMAGE_BONUS_INDEX = 33;
-    private const int EQUIPMENT_LEVEL_INDEX = 39;
-    private const ushort TOOLTIP_TITLE_COLOR = 8;
-    private const ushort TOOLTIP_HIGHLIGHT_COLOR = 33;
-    private const ushort TOOLTIP_GOOD_COLOR = 43;
-    private const ushort TOOLTIP_WASTE_COLOR = 31;
-
     private enum Attribute
     {
         Piety = 6,
@@ -671,11 +661,30 @@ internal static unsafe class BetterCharacterPanelState
         rented.Builder.Append(OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.Tier.Suffix"));
     }
 
-    private static void AppendColored(RentedSeStringBuilder rented, string text, ushort color)
-    {
-        rented.Builder.PushColorType(color).Append(text).PopColorType();
-    }
+    private static void AppendColored(RentedSeStringBuilder rented, string text, ushort color) => rented.Builder.PushColorType(color).Append(text).PopColorType();
 
     private static string Format(string key, params object[] values) =>
         string.Format(CultureInfo.CurrentCulture, OmniLoc.Get(key), values);
+
+    #region 常量
+
+    private const nint CHARACTER_PANEL_EQUIPMENT_DATA_OFFSET = 0x2490;
+
+    private const int PHYSICAL_DAMAGE_INDEX = 20;
+
+    private const int MAGIC_DAMAGE_INDEX = 21;
+
+    private const int HIGH_QUALITY_DAMAGE_BONUS_INDEX = 33;
+
+    private const int EQUIPMENT_LEVEL_INDEX = 39;
+
+    private const ushort TOOLTIP_TITLE_COLOR = 8;
+
+    private const ushort TOOLTIP_HIGHLIGHT_COLOR = 33;
+
+    private const ushort TOOLTIP_GOOD_COLOR = 43;
+
+    private const ushort TOOLTIP_WASTE_COLOR = 31;
+
+    #endregion
 }

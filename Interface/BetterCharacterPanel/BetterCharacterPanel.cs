@@ -19,20 +19,9 @@ public sealed class BetterCharacterPanel(BetterCharacterPanelConfig config) : Mo
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/BetterCharacterPanel-1.png"
     };
 
-    private BetterCharacterPanelNativeUI? nativeUI;
-
     public override bool HasSettings => true;
 
-    public override bool DrawSettings()
-    {
-        if (!BetterCharacterPanelPanel.Draw(config))
-        {
-            return false;
-        }
-
-        nativeUI?.RefreshSettings();
-        return true;
-    }
+    private BetterCharacterPanelNativeUI? nativeUI;
 
     protected override void OnEnable()
     {
@@ -57,6 +46,17 @@ public sealed class BetterCharacterPanel(BetterCharacterPanelConfig config) : Mo
         {
             nativeUI = null;
         }
+    }
+
+    public override bool DrawSettings()
+    {
+        if (!BetterCharacterPanelPanel.Draw(config))
+        {
+            return false;
+        }
+
+        nativeUI?.RefreshSettings();
+        return true;
     }
 }
 

@@ -1,5 +1,5 @@
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit;
+using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
 using KamiToolKit.Nodes;
 using OmenTools.Extensions;
@@ -48,7 +48,7 @@ internal sealed class BetterGlamourActionsNativeUI : NativeAddon
 
     protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
     {
-        if (AddonHelper.TryGetByName("CharacterInspect", out AtkUnitBase* inspectAddon) && inspectAddon->WindowNode != null)
+        if (AddonHelper.TryGetByName("CharacterInspect", out var inspectAddon) && inspectAddon->WindowNode != null)
             addon->SetScale(inspectAddon->WindowNode->GetScale().X / AtkUnitBase.GetGlobalUIScale(), true);
         tryOnAllButton = CreateButton("Feature.BetterGlamourManagement.TryOnAll", onTryOnAll);
         saveButton = CreateButton("Feature.BetterGlamourManagement.Save", onSave);

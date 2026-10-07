@@ -33,11 +33,7 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         Category = ModuleCategory.Daily
     };
 
-    private const uint FRIEND_LIST_MAIN_COMMAND_ID = 13;
-    private const uint REMOVE_FRIEND_MENU_TEXT_ID = 65;
-    private const uint REMOVE_FRIEND_CONFIRM_TEXT_ID = 129;
-    private const uint UNAVAILABLE_CHARACTER_TEXT_ID = 964;
-    private const string CONFIRM_POPUP_ID = "##BatchFriendRemovalConfirm";
+    public override bool HasSettings => true;
 
     private readonly HashSet<ulong> selectedContentIDs = [];
     private volatile FriendSnapshot snapshot = new(0, [], 0);
@@ -58,12 +54,13 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
     private int nativeRowIndex;
     private string currentStep = string.Empty;
 
-    public override bool HasSettings => true;
-
     protected override void OnEnable()
     {
         lastSettingsFrame = -1;
-        tasks = new() { RetryIntervalMS = 100, TimeoutMS = 30_000 };
+        tasks = new()
+        {
+            RetryIntervalMS = 100, TimeoutMS = 30_000
+        };
         DService.Instance().ClientState.Logout += OnLogout;
     }
 
@@ -730,22 +727,19 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         return false;
     }
 
-    private void OnTaskFailed(int version, string step, bool timedOut)
-    {
-        _ = DalamudServices.Framework.RunOnFrameworkThread(() =>
-        {
-            if (version != Volatile.Read(ref operationVersion))
-                return;
+    private void OnTaskFailed(int version, string step, bool timedOut) => _ = DalamudServices.Framework.RunOnFrameworkThread(() =>
+                                                                               {
+                                                                                   if (version != Volatile.Read(ref operationVersion))
+                                                                                       return;
 
-            DalamudServices.PluginLog.Warning(
-                "[BatchFriendRemoval] 步骤失败：Step={Step}，TimedOut={TimedOut}，批次 {Version}。",
-                step, timedOut, version);
-            StopOperation(!timedOut
-                ? "OperationFailed"
-                : step == "PrepareFriendList" ? "NativeWindowRequired"
-                : currentFriend is null ? "LoadFailed" : "RemoveFailed");
-        });
-    }
+                                                                                   DalamudServices.PluginLog.Warning(
+                                                                                       "[BatchFriendRemoval] 步骤失败：Step={Step}，TimedOut={TimedOut}，批次 {Version}。",
+                                                                                       step, timedOut, version);
+                                                                                   StopOperation(!timedOut
+                                                                                       ? "OperationFailed"
+                                                                                       : step == "PrepareFriendList" ? "NativeWindowRequired"
+                                                                                       : currentFriend is null ? "LoadFailed" : "RemoveFailed");
+                                                                               });
 
     private void StopOperation(string reason)
     {
@@ -796,9 +790,24 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         public bool IsUnresolved => string.IsNullOrWhiteSpace(Name);
 
         public string DisplayName => IsUnresolved ? OmniLoc.Get("Feature.BatchFriendRemoval.Unresolved") : Name;
+
         public string DisplayWorldName => string.IsNullOrWhiteSpace(WorldName)
             ? OmniLoc.Get("Feature.BatchFriendRemoval.Unresolved") : WorldName;
     }
 
     private sealed record FriendSnapshot(ulong OwnerContentID, FriendEntry[] Friends, int Version);
+
+    #region 常量
+
+    private const uint FRIEND_LIST_MAIN_COMMAND_ID = 13;
+
+    private const uint REMOVE_FRIEND_MENU_TEXT_ID = 65;
+
+    private const uint REMOVE_FRIEND_CONFIRM_TEXT_ID = 129;
+
+    private const uint UNAVAILABLE_CHARACTER_TEXT_ID = 964;
+
+    private const string CONFIRM_POPUP_ID = "##BatchFriendRemovalConfirm";
+
+    #endregion
 }

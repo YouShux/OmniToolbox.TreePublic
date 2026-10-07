@@ -23,7 +23,7 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         Category = ModuleCategory.Combat
     };
 
-    private const string ADDON_NAME = "_BattleTalk";
+    public override bool HasSettings => true;
 
     private readonly BattleTalkAdjustmentsConfig config;
     private readonly Stopwatch previewTimer = new();
@@ -37,7 +37,27 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         config.Scale = Math.Clamp(config.Scale <= 0f ? 1f : config.Scale, 0.01f, 3f);
     }
 
-    public override bool HasSettings => true;
+    protected override void OnEnable()
+    {
+        runtimeLifetime = new();
+        DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, ADDON_NAME, OnPreDraw);
+        DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PostUpdate, ADDON_NAME, OnPostUpdate);
+        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PreDraw,
+            ADDON_NAME,
+            OnPreDraw));
+        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostUpdate,
+            ADDON_NAME,
+            OnPostUpdate));
+    }
+
+    protected override void OnDisable()
+    {
+        runtimeLifetime?.Dispose();
+        runtimeLifetime = null;
+        Restore(Addons.BattleTalk);
+    }
 
     public override bool DrawSettings()
     {
@@ -119,28 +139,6 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         return changed;
     }
 
-    protected override void OnEnable()
-    {
-        runtimeLifetime = new();
-        DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreDraw, ADDON_NAME, OnPreDraw);
-        DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PostUpdate, ADDON_NAME, OnPostUpdate);
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PreDraw,
-            ADDON_NAME,
-            OnPreDraw));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PostUpdate,
-            ADDON_NAME,
-            OnPostUpdate));
-    }
-
-    protected override void OnDisable()
-    {
-        runtimeLifetime?.Dispose();
-        runtimeLifetime = null;
-        Restore(Addons.BattleTalk);
-    }
-
     private void OnPreDraw(AddonEvent type, AddonArgs args)
     {
         var addon = (AtkUnitBase*)args.Addon.Address;
@@ -174,6 +172,12 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         addon->RootNode->SetScale(scale.X, scale.Y);
         hasNativeScale = false;
     }
+
+    #region 常量
+
+    private const string ADDON_NAME = "_BattleTalk";
+
+    #endregion
 }
 
 [Serializable]

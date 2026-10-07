@@ -26,6 +26,8 @@ public sealed class SkillMonitor : ModuleBase
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/SkillMonitor-1.png"
     };
 
+    public override bool HasSettings => true;
+
     private readonly SkillMonitorConfig config;
     private SkillMonitorDefinition[] definitions;
     private SkillMonitorTracker tracker;
@@ -40,43 +42,6 @@ public sealed class SkillMonitor : ModuleBase
         NormalizeJobActions();
         tracker = new(definitions);
         overlay = new(config, definitions, tracker, CreateDefinitionIndexesByJob());
-    }
-
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings()
-    {
-        var changed = SkillMonitorPanel.Draw(config, definitions, out var definitionsChanged);
-        if (definitionsChanged)
-        {
-            RebuildRuntime();
-        }
-
-        return changed;
-    }
-
-    public override bool ResetSettings()
-    {
-        var defaults = new SkillMonitorConfig();
-        config.Offset = defaults.Offset;
-        config.IconScale = defaults.IconScale;
-        config.IconSpacing = defaults.IconSpacing;
-        config.IconsPerRow = defaults.IconsPerRow;
-        config.Font = defaults.Font;
-        config.Alignment = defaults.Alignment;
-        config.ShowActive = defaults.ShowActive;
-        config.ShowOnCooldown = defaults.ShowOnCooldown;
-        config.ShowOffCooldown = defaults.ShowOffCooldown;
-        config.HideOutOfCombat = defaults.HideOutOfCombat;
-        config.HideWeaponSheathed = defaults.HideWeaponSheathed;
-        config.ShowGeneralSkillsFirst = defaults.ShowGeneralSkillsFirst;
-        config.CustomActions = [];
-        config.EnabledActions = [];
-        config.JobActionOrder = [];
-        config.JobDisabledActions = defaults.JobDisabledActions;
-        NormalizeConfig();
-        RebuildRuntime();
-        return true;
     }
 
     protected override void OnEnable()
@@ -121,6 +86,41 @@ public sealed class SkillMonitor : ModuleBase
         {
             tracker.Clear();
         }
+    }
+
+    public override bool DrawSettings()
+    {
+        var changed = SkillMonitorPanel.Draw(config, definitions, out var definitionsChanged);
+        if (definitionsChanged)
+        {
+            RebuildRuntime();
+        }
+
+        return changed;
+    }
+
+    public override bool ResetSettings()
+    {
+        var defaults = new SkillMonitorConfig();
+        config.Offset = defaults.Offset;
+        config.IconScale = defaults.IconScale;
+        config.IconSpacing = defaults.IconSpacing;
+        config.IconsPerRow = defaults.IconsPerRow;
+        config.Font = defaults.Font;
+        config.Alignment = defaults.Alignment;
+        config.ShowActive = defaults.ShowActive;
+        config.ShowOnCooldown = defaults.ShowOnCooldown;
+        config.ShowOffCooldown = defaults.ShowOffCooldown;
+        config.HideOutOfCombat = defaults.HideOutOfCombat;
+        config.HideWeaponSheathed = defaults.HideWeaponSheathed;
+        config.ShowGeneralSkillsFirst = defaults.ShowGeneralSkillsFirst;
+        config.CustomActions = [];
+        config.EnabledActions = [];
+        config.JobActionOrder = [];
+        config.JobDisabledActions = defaults.JobDisabledActions;
+        NormalizeConfig();
+        RebuildRuntime();
+        return true;
     }
 
     private void NormalizeConfig()
@@ -316,7 +316,6 @@ public sealed class SkillMonitor : ModuleBase
 
 internal static class SkillMonitorPanel
 {
-    private const string REORDER_PAYLOAD = "SkillMonitorReorder";
     private static readonly Vector2 DefaultOffset = new(17f, 0f);
     private static readonly int[] CustomActionInputs = new int[4];
     private static readonly string[] CustomActionErrors = new string[4];
@@ -327,6 +326,9 @@ internal static class SkillMonitorPanel
         SkillMonitorGroup.Healer,
         SkillMonitorGroup.Dps
     ];
+
+    private static uint DraggedScopeID = uint.MaxValue;
+    private static int DraggedOrderIndex = -1;
 
     public static bool Draw(
         SkillMonitorConfig config,
@@ -933,30 +935,47 @@ internal static class SkillMonitorPanel
     private static bool DrawCheckbox(string name, ref bool value) =>
         OmniControls.Checkbox($"{OmniLoc.Get($"Feature.SkillMonitor.{name}")}##skillMonitor{name}", ref value);
 
-    private static uint DraggedScopeID = uint.MaxValue;
-    private static int DraggedOrderIndex = -1;
+
+    #region 常量
+
+    private const string REORDER_PAYLOAD = "SkillMonitorReorder";
+
+    #endregion
 }
 
 [Serializable]
 public sealed class SkillMonitorConfig
 {
-    internal const float DefaultIconScale = 0.9f;
-
     public Vector2 Offset { get; set; } = new(17f, 0f);
+
     public float IconScale { get; set; } = DefaultIconScale;
+
     public float IconSpacing { get; set; } = 3f;
+
     public int IconsPerRow { get; set; } = 12;
+
     public FontType Font { get; set; } = FontType.TrumpGothic;
+
     public SkillMonitorAlignment Alignment { get; set; }
+
     public bool ShowActive { get; set; } = true;
+
     public bool ShowOnCooldown { get; set; } = true;
+
     public bool ShowOffCooldown { get; set; } = true;
+
     public bool HideOutOfCombat { get; set; }
+
     public bool HideWeaponSheathed { get; set; } = true;
+
     public bool ShowGeneralSkillsFirst { get; set; } = true;
+
     public List<SkillMonitorCustomActionConfig> CustomActions { get; set; } = [];
+
     public Dictionary<uint, bool> EnabledActions { get; set; } = [];
+
     public Dictionary<uint, List<uint>> JobActionOrder { get; set; } = [];
+
     public Dictionary<uint, List<uint>> JobDisabledActions { get; set; } = new()
     {
         [0] = [3],
@@ -965,6 +984,12 @@ public sealed class SkillMonitorConfig
         [32] = [7531, 7548],
         [37] = [7531, 7548]
     };
+
+    #region 常量
+
+    internal const float DefaultIconScale = 0.9f;
+
+    #endregion
 }
 
 public enum SkillMonitorAlignment

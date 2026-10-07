@@ -29,8 +29,6 @@ public sealed unsafe class RetainerEntrustMemory(
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Item/RetainerEntrustMemory-1.png"
     };
 
-    private const string ADDON_NAME = "RetainerItemTransferList";
-
     private readonly Dictionary<uint, bool> itemStates = [];
     private AddonEventRegistry? addonEvents;
     private Dictionary<string, uint>? itemIDsByName;
@@ -210,6 +208,12 @@ public sealed unsafe class RetainerEntrustMemory(
 
     internal static bool SetExcluded(HashSet<uint> excludedItemIDs, uint itemID, bool enabled) =>
         enabled ? excludedItemIDs.Remove(itemID) : excludedItemIDs.Add(itemID);
+
+    #region 常量
+
+    private const string ADDON_NAME = "RetainerItemTransferList";
+
+    #endregion
 }
 
 [Serializable]

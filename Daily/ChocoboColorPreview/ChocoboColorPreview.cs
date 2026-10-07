@@ -34,8 +34,6 @@ public sealed unsafe class ChocoboColorPreview(
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Daily/ChocoboColorPreview-1.png"
     };
 
-    private const string BUDDY_ADDON_NAME = "Buddy";
-    private const int COLOR_STEP = 5;
     private static readonly Vector3 DefaultChocoboColor = new(219f, 180f, 87f);
     private static readonly ChocoboFruit[] Fruits =
     [
@@ -495,6 +493,14 @@ public sealed unsafe class ChocoboColorPreview(
         float Error,
         int Count,
         int[] Deltas);
+
+    #region 常量
+
+    private const string BUDDY_ADDON_NAME = "Buddy";
+
+    private const int COLOR_STEP = 5;
+
+    #endregion
 }
 
 internal readonly record struct ChocoboFruitRequirement(string Name, uint IconID, int Count);
@@ -505,5 +511,6 @@ internal readonly record struct ChocoboFeedOrder(int Index, string Name, uint Ic
 public sealed class ChocoboColorPreviewConfig
 {
     public byte TargetStainID { get; set; }
+
     public byte PreviewStainID { get; set; }
 }

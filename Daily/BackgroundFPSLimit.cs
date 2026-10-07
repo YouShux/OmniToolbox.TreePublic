@@ -23,33 +23,10 @@ public sealed unsafe class BackgroundFPSLimit(BackgroundFPSLimitConfig config) :
         Category = ModuleCategory.Daily
     };
 
-    private const uint CREATE_WAITABLE_TIMER_HIGH_RESOLUTION = 0x00000002;
-    private const uint TIMER_MODIFY_STATE = 0x00000002;
-    private const uint SYNCHRONIZE = 0x00100000;
+    public override bool HasSettings => true;
 
     private readonly Stopwatch frameTimer = new();
     private SafeWaitHandle? frameWaitHandle;
-
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings()
-    {
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.BackgroundFPSLimit.Target"));
-        var inputWidth = OmniControls.MeasureInput(short.MaxValue.ToString(), OmniTheme.Scale(120f), step: 1).X;
-        OmniControls.SameLineOrWrap(inputWidth);
-        ImGui.SetNextItemWidth(inputWidth);
-        var limit = Math.Clamp(config.Limit, 20, short.MaxValue);
-        if (OmniControls.InputInt("##backgroundFPSLimit", ref limit))
-        {
-            config.Limit = Math.Clamp(limit, 20, short.MaxValue);
-        }
-
-        var save = ImGui.IsItemDeactivatedAfterEdit();
-        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.BackgroundFPSLimit.Help"));
-        return save;
-    }
 
     protected override void OnEnable()
     {
@@ -86,6 +63,25 @@ public sealed unsafe class BackgroundFPSLimit(BackgroundFPSLimitConfig config) :
         frameWaitHandle?.Dispose();
         frameWaitHandle = null;
         frameTimer.Reset();
+    }
+
+    public override bool DrawSettings()
+    {
+        ImGui.AlignTextToFramePadding();
+        ImGui.TextUnformatted(OmniLoc.Get("Feature.BackgroundFPSLimit.Target"));
+        var inputWidth = OmniControls.MeasureInput(short.MaxValue.ToString(), OmniTheme.Scale(120f), step: 1).X;
+        OmniControls.SameLineOrWrap(inputWidth);
+        ImGui.SetNextItemWidth(inputWidth);
+        var limit = Math.Clamp(config.Limit, 20, short.MaxValue);
+        if (OmniControls.InputInt("##backgroundFPSLimit", ref limit))
+        {
+            config.Limit = Math.Clamp(limit, 20, short.MaxValue);
+        }
+
+        var save = ImGui.IsItemDeactivatedAfterEdit();
+        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.BackgroundFPSLimit.Help"));
+        return save;
     }
 
     private void OnUpdate(IFramework _)
@@ -150,6 +146,16 @@ public sealed unsafe class BackgroundFPSLimit(BackgroundFPSLimitConfig config) :
 
     [DllImport("user32.dll")]
     private static extern nint GetForegroundWindow();
+
+    #region 常量
+
+    private const uint CREATE_WAITABLE_TIMER_HIGH_RESOLUTION = 0x00000002;
+
+    private const uint TIMER_MODIFY_STATE = 0x00000002;
+
+    private const uint SYNCHRONIZE = 0x00100000;
+
+    #endregion
 }
 
 [Serializable]

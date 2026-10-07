@@ -44,7 +44,8 @@ public sealed unsafe class AetheryteModelReplacement(
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/AetheryteModelReplacement-1.png"
     };
 
-    private const int PRESET_CACHE_SCHEMA_VERSION = 1;
+    public override bool HasSettings => true;
+
     private static PresetScanResult? presetScanCache;
     private static string presetScanCacheVersion = string.Empty;
     private IReadOnlyList<AetherytePreset> presets = [];
@@ -60,31 +61,7 @@ public sealed unsafe class AetheryteModelReplacement(
     private uint currentTerritoryID;
     private FeatureLifetime? runtimeLifetime;
 
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings() => AetheryteModelReplacementPanel.Draw(this, config);
-
-    public override bool ResetSettings()
-    {
-        config.OutdoorModelPath = string.Empty;
-        config.OutdoorModelCategory = ResourceCategory.Bg;
-        config.OutdoorSharedGroupPath = string.Empty;
-        config.OutdoorSharedGroupCategory = ResourceCategory.BgCommon;
-        config.SourceSharedGroupPath = string.Empty;
-        config.TargetSharedGroupPath = string.Empty;
-        config.Rules = [];
-        config.PresetCacheSchemaVersion = 0;
-        config.PresetCacheGameDataVersion = string.Empty;
-        config.CachedPresetScan = null;
-        presetScanCache = null;
-        presetScanCacheVersion = string.Empty;
-        presets = [];
-        presetScanProgress = null;
-        presetScanFailed = false;
-        saveConfig();
-        DisableResourceRedirect();
-        return true;
-    }
+    internal bool IsPresetScanPending => presetScanCache is null && !presetScanFailed;
 
     protected override void OnEnable()
     {
@@ -171,6 +148,30 @@ public sealed unsafe class AetheryteModelReplacement(
         }
     }
 
+    public override bool DrawSettings() => AetheryteModelReplacementPanel.Draw(this, config);
+
+    public override bool ResetSettings()
+    {
+        config.OutdoorModelPath = string.Empty;
+        config.OutdoorModelCategory = ResourceCategory.Bg;
+        config.OutdoorSharedGroupPath = string.Empty;
+        config.OutdoorSharedGroupCategory = ResourceCategory.BgCommon;
+        config.SourceSharedGroupPath = string.Empty;
+        config.TargetSharedGroupPath = string.Empty;
+        config.Rules = [];
+        config.PresetCacheSchemaVersion = 0;
+        config.PresetCacheGameDataVersion = string.Empty;
+        config.CachedPresetScan = null;
+        presetScanCache = null;
+        presetScanCacheVersion = string.Empty;
+        presets = [];
+        presetScanProgress = null;
+        presetScanFailed = false;
+        saveConfig();
+        DisableResourceRedirect();
+        return true;
+    }
+
     private void OnFrameworkUpdate(IFramework _)
     {
         var services = DService.Instance();
@@ -206,8 +207,6 @@ public sealed unsafe class AetheryteModelReplacement(
 
         return presets;
     }
-
-    internal bool IsPresetScanPending => presetScanCache is null && !presetScanFailed;
 
     private static string GetGameDataVersion()
     {
@@ -515,10 +514,7 @@ public sealed unsafe class AetheryteModelReplacement(
         CStringPointer path,
         void* unknown,
         void* unkDebugPtr,
-        uint unkDebugInt)
-    {
-        return GetResource(true, manager, category, type, hash, path, unknown, false, unkDebugPtr, unkDebugInt);
-    }
+        uint unkDebugInt) => GetResource(true, manager, category, type, hash, path, unknown, false, unkDebugPtr, unkDebugInt);
 
     private ResourceHandle* GetResourceAsyncDetour(
         ResourceManager* manager,
@@ -529,10 +525,7 @@ public sealed unsafe class AetheryteModelReplacement(
         void* unknown,
         bool isUnknown,
         void* unkDebugPtr,
-        uint unkDebugInt)
-    {
-        return GetResource(false, manager, category, type, hash, path, unknown, isUnknown, unkDebugPtr, unkDebugInt);
-    }
+        uint unkDebugInt) => GetResource(false, manager, category, type, hash, path, unknown, isUnknown, unkDebugPtr, unkDebugInt);
 
     private ResourceHandle* GetResource(
         bool synchronous,
@@ -610,6 +603,12 @@ public sealed unsafe class AetheryteModelReplacement(
 
     private readonly record struct RedirectKey(uint TerritoryID, string SourcePath);
 
+
+    #region 常量
+
+    private const int PRESET_CACHE_SCHEMA_VERSION = 1;
+
+    #endregion
 }
 
 public sealed record PresetScanResult(

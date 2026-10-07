@@ -5,10 +5,6 @@ internal sealed class DisplayIDInformationCache
     private readonly List<ActionEntry> actions = [];
     private readonly List<StatusEntry> statuses = [];
 
-    public int ActionCount => actions.Count;
-
-    public int StatusCount => statuses.Count;
-
     public void RememberAction(uint actionID, uint value, long timestamp)
     {
         if (actionID == 0 || value == 0)

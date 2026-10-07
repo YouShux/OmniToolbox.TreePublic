@@ -39,18 +39,8 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         Category = ModuleCategory.Interface
     };
 
-    private const int OBJECT_SCAN_START = 1;
-    private const int OBJECT_SCAN_END = 200;
-    private const int UNIMPORTANT_NPC_SCAN_START = 489;
-    private const int UNIMPORTANT_NPC_SCAN_END = 630;
-    private const float AVAILABLE_QUEST_NPC_DISTANCE_SQUARED = 225f;
-    private const float QUEST_NPC_NEARBY_MODEL_DISTANCE_SQUARED = 25f;
-    private const uint INVALID_ENTITY_ID = 0xE0000000;
-    private const uint EARTHLY_STAR_NAME_ID = 6565;
-    private const byte BEASTMASTER_CLASS_JOB_ID = 43;
-    private const uint ASYLUM_ACTION_ID = 3569;
-    private const uint SACRED_SOIL_ACTION_ID = 188;
-    private const VisibilityFlags INVISIBLE_FLAGS = (VisibilityFlags)256;
+    public override bool HasSettings => true;
+
     private static readonly string[] AsylumVfxPaths = ["vfx/common/eff/abi_cnj022g.avfx"];
     private static readonly string[] SacredSoilVfxPaths = ["vfx/common/eff/abi_swl053g.avfx"];
     private static readonly CompSig GetYardPlotSignature = new(
@@ -86,7 +76,69 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
     private delegate void SetYardEffectActiveDelegate(ILayoutInstance* instance, byte active);
 
-    public override bool HasSettings => true;
+    protected override void OnEnable()
+    {
+        var lifetime = new FeatureLifetime();
+        try
+        {
+            getYardPlot = GetYardPlotSignature.GetDelegate<GetYardPlotDelegate>();
+            setLightActiveHook = SetLightActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetLightActive);
+            lifetime.Add(() =>
+            {
+                setLightActiveHook?.Dispose();
+                setLightActiveHook = null;
+            });
+            setLightActiveHook.Enable();
+            setVfxActiveHook = SetVfxActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetVfxActive);
+            lifetime.Add(() =>
+            {
+                setVfxActiveHook?.Dispose();
+                setVfxActiveHook = null;
+            });
+            setVfxActiveHook.Enable();
+            actionEffectHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
+                ActionEffectHandler.MemberFunctionPointers.Receive,
+                OnActionEffect);
+            lifetime.Add(() =>
+            {
+                actionEffectHook?.Dispose();
+                actionEffectHook = null;
+            });
+            actionEffectHook.Enable();
+            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
+            {
+                throw new InvalidOperationException("Auto hide model update registration failed.");
+            }
+
+            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+            var clientState = DService.Instance().ClientState;
+            clientState.Logout += OnLogout;
+            lifetime.Add(() => clientState.Logout -= OnLogout);
+            clientState.TerritoryChanged += OnTerritoryChanged;
+            lifetime.Add(() => clientState.TerritoryChanged -= OnTerritoryChanged);
+            runtimeLifetime = lifetime;
+        }
+        catch
+        {
+            runtimeLifetime = null;
+            lifetime.Dispose();
+            throw;
+        }
+    }
+
+    protected override void OnDisable()
+    {
+        var lifetime = runtimeLifetime;
+        runtimeLifetime = null;
+        try
+        {
+            lifetime?.Dispose();
+        }
+        finally
+        {
+            Refresh();
+        }
+    }
 
     public override bool DrawSettings()
     {
@@ -382,70 +434,6 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
 
         setValue(value);
         return true;
-    }
-
-    protected override void OnEnable()
-    {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            getYardPlot = GetYardPlotSignature.GetDelegate<GetYardPlotDelegate>();
-            setLightActiveHook = SetLightActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetLightActive);
-            lifetime.Add(() =>
-            {
-                setLightActiveHook?.Dispose();
-                setLightActiveHook = null;
-            });
-            setLightActiveHook.Enable();
-            setVfxActiveHook = SetVfxActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetVfxActive);
-            lifetime.Add(() =>
-            {
-                setVfxActiveHook?.Dispose();
-                setVfxActiveHook = null;
-            });
-            setVfxActiveHook.Enable();
-            actionEffectHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
-                ActionEffectHandler.MemberFunctionPointers.Receive,
-                OnActionEffect);
-            lifetime.Add(() =>
-            {
-                actionEffectHook?.Dispose();
-                actionEffectHook = null;
-            });
-            actionEffectHook.Enable();
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
-            {
-                throw new InvalidOperationException("Auto hide model update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            var clientState = DService.Instance().ClientState;
-            clientState.Logout += OnLogout;
-            lifetime.Add(() => clientState.Logout -= OnLogout);
-            clientState.TerritoryChanged += OnTerritoryChanged;
-            lifetime.Add(() => clientState.TerritoryChanged -= OnTerritoryChanged);
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            runtimeLifetime = null;
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
-        {
-            Refresh();
-        }
     }
 
     private void OnFrameworkUpdate(IFramework _)
@@ -1406,6 +1394,34 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         Asylum,
         SacredSoil
     }
+
+    #region 常量
+
+    private const int OBJECT_SCAN_START = 1;
+
+    private const int OBJECT_SCAN_END = 200;
+
+    private const int UNIMPORTANT_NPC_SCAN_START = 489;
+
+    private const int UNIMPORTANT_NPC_SCAN_END = 630;
+
+    private const float AVAILABLE_QUEST_NPC_DISTANCE_SQUARED = 225f;
+
+    private const float QUEST_NPC_NEARBY_MODEL_DISTANCE_SQUARED = 25f;
+
+    private const uint INVALID_ENTITY_ID = 0xE0000000;
+
+    private const uint EARTHLY_STAR_NAME_ID = 6565;
+
+    private const byte BEASTMASTER_CLASS_JOB_ID = 43;
+
+    private const uint ASYLUM_ACTION_ID = 3569;
+
+    private const uint SACRED_SOIL_ACTION_ID = 188;
+
+    private const VisibilityFlags INVISIBLE_FLAGS = (VisibilityFlags)256;
+
+    #endregion
 }
 
 [Serializable]

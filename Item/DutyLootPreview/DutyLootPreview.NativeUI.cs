@@ -3,11 +3,11 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit;
+using KamiToolKit.BaseTypes;
 using KamiToolKit.ContextMenu;
+using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
-using KamiToolKit.Premade.Node;
-using KamiToolKit.Premade.Node.Simple;
+using KamiToolKit.Nodes.Simplified;
 using OmenTools;
 using OmenTools.Extensions;
 using OmniToolbox.Host;
@@ -52,6 +52,8 @@ public sealed unsafe partial class DutyLootPreview
                 ItemSpacing = 2f,
                 Position = ContentStartPosition,
                 Size = ContentSize,
+                ShowNoResultsPlaceholder = false,
+                AutoResetScroll = false,
                 OptionsList = [],
                 OnItemSelected = item =>
                 {
@@ -153,7 +155,7 @@ public sealed unsafe partial class DutyLootPreview
                 IsVisible = false
             };
             checkmark.AttachNode(this);
-            CollisionNode.AddEvent(AtkEventType.MouseClick, OnMouseClick);
+            AddEvent(AtkEventType.MouseClick, OnMouseClick);
         }
 
         protected override void OnSizeChanged()
@@ -175,35 +177,9 @@ public sealed unsafe partial class DutyLootPreview
         {
             icon.SetIcon(item.Row.Icon);
             name.String = item.Name;
-            CollisionNode.ItemTooltip = item.Row.RowId;
+            ItemTooltip = item.Row.RowId;
             favorite.IsVisible = item.IsFavorite;
             checkmark.IsVisible = item.IsUnlocked;
-        }
-
-        private sealed class LootIconNode : SimpleComponentNode
-        {
-            private readonly IconNode iconNode = new();
-
-            public LootIconNode()
-            {
-                DisableCollisionNode = true;
-                iconNode.CollisionNode.NodeFlags = 0;
-                iconNode.AttachNode(this);
-            }
-
-            public void SetIcon(uint iconID) => iconNode.IconId = iconID;
-
-            protected override void OnSizeChanged()
-            {
-                base.OnSizeChanged();
-
-                var scale = MathF.Max(0.01f, MathF.Min(Width, Height) / 48f);
-                iconNode.Size = new(48f, 48f);
-                iconNode.Scale = new(scale, scale);
-                iconNode.Position = new(
-                    (Width - 48f * scale) / 2f,
-                    (Height - 48f * scale) / 2f);
-            }
         }
 
         public override void Update()
@@ -282,6 +258,31 @@ public sealed unsafe partial class DutyLootPreview
 
             base.Dispose(disposing, isNativeDestructor);
         }
-    }
 
+        private sealed class LootIconNode : SimpleComponentNode
+        {
+            private readonly IconNode iconNode = new();
+
+            public LootIconNode()
+            {
+                CollisionNode.NodeFlags = 0;
+                iconNode.CollisionNode.NodeFlags = 0;
+                iconNode.AttachNode(this);
+            }
+
+            public void SetIcon(uint iconID) => iconNode.IconId = iconID;
+
+            protected override void OnSizeChanged()
+            {
+                base.OnSizeChanged();
+
+                var scale = MathF.Max(0.01f, MathF.Min(Width, Height) / 48f);
+                iconNode.Size = new(48f, 48f);
+                iconNode.Scale = new(scale, scale);
+                iconNode.Position = new(
+                    (Width - 48f * scale) / 2f,
+                    (Height - 48f * scale) / 2f);
+            }
+        }
+    }
 }

@@ -34,7 +34,7 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/ReadyCheck-1.png"
     };
 
-    private const uint INVALID_ENTITY_ID = 0xE0000000;
+    public override bool HasSettings => true;
 
     private readonly List<ReadyCheckMember> members = new(48);
     private readonly HashSet<uint> instancedTerritories = [];
@@ -47,10 +47,6 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
     private bool readyCheckActive;
     private bool overlayVisible;
     private long clearAfterTick;
-
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings() => ReadyCheckPanel.Draw(config);
 
     protected override void OnEnable()
     {
@@ -120,6 +116,269 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
             initiateHook = null;
             endHook = null;
             ClearState();
+        }
+    }
+
+    public override bool DrawSettings() => ReadyCheckPanel.Draw(config);
+
+    private void DrawOverlay()
+    {
+        if (!overlayVisible || members.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var infoProxy = InfoProxyCrossRealm.Instance();
+            var groupManager = GroupManager.Instance();
+            var agentHud = AgentHUD.Instance();
+            if (infoProxy == null || groupManager == null || agentHud == null)
+            {
+                return;
+            }
+
+            var readyCheckTextureHandle = readyCheckTexture?.GetWrapOrDefault()?.Handle ?? default;
+            var notPresentTextureHandle = notPresentTexture?.GetWrapOrDefault()?.Handle ?? default;
+            if (readyCheckTextureHandle == nint.Zero && notPresentTextureHandle == nint.Zero)
+            {
+                return;
+            }
+
+            var drawList = ImGui.GetForegroundDrawList();
+            var partyList = AddonHelper.GetByName<AddonPartyList>("_PartyList");
+            var alliance1List = AddonHelper.GetByName<AddonAllianceListX>("_AllianceList1");
+            var alliance2List = AddonHelper.GetByName<AddonAllianceListX>("_AllianceList2");
+            var crossWorldAllianceList = AddonHelper.GetByName<AddonAlliance48>("Alliance48");
+            foreach (var member in members)
+            {
+                if (!TryGetHudPosition(
+                        member.ContentID,
+                        member.EntityID,
+                        infoProxy,
+                        groupManager,
+                        agentHud,
+                        out var position))
+                {
+                    continue;
+                }
+
+                if (position.GroupNumber == 0)
+                {
+                    DrawOnPartyList(
+                        position.MemberIndex,
+                        member.Status,
+                        partyList,
+                        drawList,
+                        readyCheckTextureHandle,
+                        notPresentTextureHandle);
+                }
+                else if (position.CrossWorld)
+                {
+                    DrawOnCrossWorldAllianceList(
+                        position.GroupNumber,
+                        position.MemberIndex,
+                        member.Status,
+                        crossWorldAllianceList,
+                        drawList,
+                        readyCheckTextureHandle,
+                        notPresentTextureHandle);
+                }
+                else if (position.GroupNumber is 1 or 2)
+                {
+                    DrawOnAllianceList(
+                        position.MemberIndex,
+                        member.Status,
+                        position.GroupNumber == 1 ? alliance1List : alliance2List,
+                        drawList,
+                        readyCheckTextureHandle,
+                        notPresentTextureHandle);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            DalamudServices.PluginLog.Warning(ex, "Ready-check overlay drawing failed.");
+        }
+    }
+
+    private void DrawOnPartyList(
+        int index,
+        ReadyCheckStatus status,
+        AddonPartyList* partyList,
+        ImDrawListPtr drawList,
+        ImTextureID readyCheckTextureHandle,
+        ImTextureID notPresentTextureHandle)
+    {
+        if (index is < 0 or > 7 || partyList == null || !IsActuallyVisible(&partyList->AtkUnitBase))
+        {
+            return;
+        }
+
+        var partyMember = partyList->PartyMembers[index];
+        if (partyMember.PartyMemberComponent == null ||
+            partyMember.PartyMemberComponent->OwnerNode == null ||
+            partyMember.ClassJobIcon == null ||
+            partyList->PartyListAtkResNode == null)
+        {
+            return;
+        }
+
+        var memberNode = partyMember.PartyMemberComponent->OwnerNode;
+        var iconNode = partyMember.ClassJobIcon;
+        var iconSize = new Vector2(iconNode->Width / 1.5f, iconNode->Height / 1.5f)
+                       * Math.Clamp(config.PartyIconScale, 0.3f, 5f)
+                       * partyList->Scale;
+        var iconPosition = new Vector2(
+            partyList->X + memberNode->AtkResNode.X * partyList->Scale +
+            iconNode->X * partyList->Scale + iconNode->Width * partyList->Scale / 2f,
+            partyList->Y + partyList->PartyListAtkResNode->Y +
+            memberNode->AtkResNode.Y * partyList->Scale +
+            iconNode->Y * partyList->Scale + iconNode->Height * partyList->Scale / 2f);
+        DrawReadyCheckIcon(
+            drawList,
+            status,
+            iconPosition + (new Vector2(-7f, -5f) + config.PartyIconOffset) * partyList->Scale,
+            iconSize,
+            readyCheckTextureHandle,
+            notPresentTextureHandle);
+    }
+
+    private void DrawOnAllianceList(
+        int index,
+        ReadyCheckStatus status,
+        AddonAllianceListX* allianceList,
+        ImDrawListPtr drawList,
+        ImTextureID readyCheckTextureHandle,
+        ImTextureID notPresentTextureHandle)
+    {
+        if (index is < 0 or > 7 || allianceList == null || !IsActuallyVisible(&allianceList->AtkUnitBase))
+        {
+            return;
+        }
+
+        var allianceMember = allianceList->AllianceMembers[index];
+        if (allianceMember.ComponentBase == null ||
+            allianceMember.ComponentBase->OwnerNode == null ||
+            allianceMember.ClassJobImageNode == null)
+        {
+            return;
+        }
+
+        var memberNode = allianceMember.ComponentBase->OwnerNode;
+        var iconNode = allianceMember.ClassJobImageNode;
+        var iconSize = new Vector2(iconNode->Width / 3f, iconNode->Height / 3f)
+                       * Math.Clamp(config.AllianceIconScale, 0.3f, 5f)
+                       * allianceList->Scale;
+        var iconPosition = new Vector2(
+            allianceList->X + memberNode->AtkResNode.X * allianceList->Scale +
+            iconNode->X * allianceList->Scale + iconNode->Width * allianceList->Scale / 2f,
+            allianceList->Y + memberNode->AtkResNode.Y * allianceList->Scale +
+            iconNode->Y * allianceList->Scale + iconNode->Height * allianceList->Scale / 2f);
+        DrawReadyCheckIcon(
+            drawList,
+            status,
+            iconPosition + config.AllianceIconOffset * allianceList->Scale,
+            iconSize,
+            readyCheckTextureHandle,
+            notPresentTextureHandle);
+    }
+
+    private void DrawOnCrossWorldAllianceList(
+        int allianceIndex,
+        int memberIndex,
+        ReadyCheckStatus status,
+        AddonAlliance48* allianceList,
+        ImDrawListPtr drawList,
+        ImTextureID readyCheckTextureHandle,
+        ImTextureID notPresentTextureHandle)
+    {
+        if (allianceIndex is < 1 or > 5 ||
+            memberIndex is < 0 or > 7 ||
+            allianceList == null ||
+            !IsActuallyVisible(&allianceList->AtkUnitBase))
+        {
+            return;
+        }
+
+        var alliance = allianceList->Alliances[allianceIndex - 1];
+        if (alliance.ComponentBase == null || alliance.ComponentBase->OwnerNode == null)
+        {
+            return;
+        }
+
+        var member = alliance.Members[memberIndex];
+        if (member.AtkComponentBase == null ||
+            member.AtkComponentBase->OwnerNode == null ||
+            member.ClassJobImageNode == null)
+        {
+            return;
+        }
+
+        var allianceNode = alliance.ComponentBase->OwnerNode;
+        var memberNode = member.AtkComponentBase->OwnerNode;
+        var iconNode = member.ClassJobImageNode;
+        var iconSize = new Vector2(iconNode->Width / 2f, iconNode->Height / 2f)
+                       * Math.Clamp(config.CrossWorldAllianceIconScale, 0.3f, 5f)
+                       * allianceList->Scale;
+        var iconPosition = new Vector2(
+            allianceList->X + allianceNode->AtkResNode.X * allianceList->Scale +
+            memberNode->AtkResNode.X * allianceList->Scale +
+            iconNode->X * allianceList->Scale + iconNode->Width * allianceList->Scale / 2f,
+            allianceList->Y + allianceNode->AtkResNode.Y * allianceList->Scale +
+            memberNode->AtkResNode.Y * allianceList->Scale +
+            iconNode->Y * allianceList->Scale + iconNode->Height * allianceList->Scale / 2f);
+        DrawReadyCheckIcon(
+            drawList,
+            status,
+            iconPosition + config.CrossWorldAllianceIconOffset * allianceList->Scale,
+            iconSize,
+            readyCheckTextureHandle,
+            notPresentTextureHandle);
+    }
+
+    private static void DrawReadyCheckIcon(
+        ImDrawListPtr drawList,
+        ReadyCheckStatus status,
+        Vector2 position,
+        Vector2 size,
+        ImTextureID readyCheckTextureHandle,
+        ImTextureID notPresentTextureHandle)
+    {
+        var min = PixelSnap(position);
+        var max = PixelSnap(position + size);
+        if (status == ReadyCheckStatus.MemberNotPresent)
+        {
+            if (notPresentTextureHandle != nint.Zero)
+            {
+                drawList.AddImage(notPresentTextureHandle, min, max);
+            }
+
+            return;
+        }
+
+        if (readyCheckTextureHandle == nint.Zero)
+        {
+            return;
+        }
+
+        if (status == ReadyCheckStatus.NotReady)
+        {
+            drawList.AddImage(
+                readyCheckTextureHandle,
+                min,
+                max,
+                new Vector2(0.5f, 0f),
+                Vector2.One);
+        }
+        else if (status == ReadyCheckStatus.Ready)
+        {
+            drawList.AddImage(
+                readyCheckTextureHandle,
+                min,
+                max,
+                Vector2.Zero,
+                new Vector2(0.5f, 1f));
         }
     }
 
@@ -361,87 +620,6 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
         }
     }
 
-    private void DrawOverlay()
-    {
-        if (!overlayVisible || members.Count == 0)
-        {
-            return;
-        }
-
-        try
-        {
-            var infoProxy = InfoProxyCrossRealm.Instance();
-            var groupManager = GroupManager.Instance();
-            var agentHud = AgentHUD.Instance();
-            if (infoProxy == null || groupManager == null || agentHud == null)
-            {
-                return;
-            }
-
-            var readyCheckTextureHandle = readyCheckTexture?.GetWrapOrDefault()?.Handle ?? default;
-            var notPresentTextureHandle = notPresentTexture?.GetWrapOrDefault()?.Handle ?? default;
-            if (readyCheckTextureHandle == nint.Zero && notPresentTextureHandle == nint.Zero)
-            {
-                return;
-            }
-
-            var drawList = ImGui.GetForegroundDrawList();
-            var partyList = AddonHelper.GetByName<AddonPartyList>("_PartyList");
-            var alliance1List = AddonHelper.GetByName<AddonAllianceListX>("_AllianceList1");
-            var alliance2List = AddonHelper.GetByName<AddonAllianceListX>("_AllianceList2");
-            var crossWorldAllianceList = AddonHelper.GetByName<AddonAlliance48>("Alliance48");
-            foreach (var member in members)
-            {
-                if (!TryGetHudPosition(
-                        member.ContentID,
-                        member.EntityID,
-                        infoProxy,
-                        groupManager,
-                        agentHud,
-                        out var position))
-                {
-                    continue;
-                }
-
-                if (position.GroupNumber == 0)
-                {
-                    DrawOnPartyList(
-                        position.MemberIndex,
-                        member.Status,
-                        partyList,
-                        drawList,
-                        readyCheckTextureHandle,
-                        notPresentTextureHandle);
-                }
-                else if (position.CrossWorld)
-                {
-                    DrawOnCrossWorldAllianceList(
-                        position.GroupNumber,
-                        position.MemberIndex,
-                        member.Status,
-                        crossWorldAllianceList,
-                        drawList,
-                        readyCheckTextureHandle,
-                        notPresentTextureHandle);
-                }
-                else if (position.GroupNumber is 1 or 2)
-                {
-                    DrawOnAllianceList(
-                        position.MemberIndex,
-                        member.Status,
-                        position.GroupNumber == 1 ? alliance1List : alliance2List,
-                        drawList,
-                        readyCheckTextureHandle,
-                        notPresentTextureHandle);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Warning(ex, "Ready-check overlay drawing failed.");
-        }
-    }
-
     private static bool TryGetHudPosition(
         ulong contentID,
         uint entityID,
@@ -494,186 +672,6 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
         return false;
     }
 
-    private void DrawOnPartyList(
-        int index,
-        ReadyCheckStatus status,
-        AddonPartyList* partyList,
-        ImDrawListPtr drawList,
-        ImTextureID readyCheckTextureHandle,
-        ImTextureID notPresentTextureHandle)
-    {
-        if (index is < 0 or > 7 || partyList == null || !IsActuallyVisible(&partyList->AtkUnitBase))
-        {
-            return;
-        }
-
-        var partyMember = partyList->PartyMembers[index];
-        if (partyMember.PartyMemberComponent == null ||
-            partyMember.PartyMemberComponent->OwnerNode == null ||
-            partyMember.ClassJobIcon == null ||
-            partyList->PartyListAtkResNode == null)
-        {
-            return;
-        }
-
-        var memberNode = partyMember.PartyMemberComponent->OwnerNode;
-        var iconNode = partyMember.ClassJobIcon;
-        var iconSize = new Vector2(iconNode->Width / 1.5f, iconNode->Height / 1.5f)
-                       * Math.Clamp(config.PartyIconScale, 0.3f, 5f)
-                       * partyList->Scale;
-        var iconPosition = new Vector2(
-            partyList->X + memberNode->AtkResNode.X * partyList->Scale +
-            iconNode->X * partyList->Scale + iconNode->Width * partyList->Scale / 2f,
-            partyList->Y + partyList->PartyListAtkResNode->Y +
-            memberNode->AtkResNode.Y * partyList->Scale +
-            iconNode->Y * partyList->Scale + iconNode->Height * partyList->Scale / 2f);
-        DrawReadyCheckIcon(
-            drawList,
-            status,
-            iconPosition + (new Vector2(-7f, -5f) + config.PartyIconOffset) * partyList->Scale,
-            iconSize,
-            readyCheckTextureHandle,
-            notPresentTextureHandle);
-    }
-
-    private void DrawOnAllianceList(
-        int index,
-        ReadyCheckStatus status,
-        AddonAllianceListX* allianceList,
-        ImDrawListPtr drawList,
-        ImTextureID readyCheckTextureHandle,
-        ImTextureID notPresentTextureHandle)
-    {
-        if (index is < 0 or > 7 || allianceList == null || !IsActuallyVisible(&allianceList->AtkUnitBase))
-        {
-            return;
-        }
-
-        var allianceMember = allianceList->AllianceMembers[index];
-        if (allianceMember.ComponentBase == null ||
-            allianceMember.ComponentBase->OwnerNode == null ||
-            allianceMember.ClassJobImageNode == null)
-        {
-            return;
-        }
-
-        var memberNode = allianceMember.ComponentBase->OwnerNode;
-        var iconNode = allianceMember.ClassJobImageNode;
-        var iconSize = new Vector2(iconNode->Width / 3f, iconNode->Height / 3f)
-                       * Math.Clamp(config.AllianceIconScale, 0.3f, 5f)
-                       * allianceList->Scale;
-        var iconPosition = new Vector2(
-            allianceList->X + memberNode->AtkResNode.X * allianceList->Scale +
-            iconNode->X * allianceList->Scale + iconNode->Width * allianceList->Scale / 2f,
-            allianceList->Y + memberNode->AtkResNode.Y * allianceList->Scale +
-            iconNode->Y * allianceList->Scale + iconNode->Height * allianceList->Scale / 2f);
-        DrawReadyCheckIcon(
-            drawList,
-            status,
-            iconPosition + config.AllianceIconOffset * allianceList->Scale,
-            iconSize,
-            readyCheckTextureHandle,
-            notPresentTextureHandle);
-    }
-
-    private void DrawOnCrossWorldAllianceList(
-        int allianceIndex,
-        int memberIndex,
-        ReadyCheckStatus status,
-        AddonAlliance48* allianceList,
-        ImDrawListPtr drawList,
-        ImTextureID readyCheckTextureHandle,
-        ImTextureID notPresentTextureHandle)
-    {
-        if (allianceIndex is < 1 or > 5 ||
-            memberIndex is < 0 or > 7 ||
-            allianceList == null ||
-            !IsActuallyVisible(&allianceList->AtkUnitBase))
-        {
-            return;
-        }
-
-        var alliance = allianceList->Alliances[allianceIndex - 1];
-        if (alliance.ComponentBase == null || alliance.ComponentBase->OwnerNode == null)
-        {
-            return;
-        }
-
-        var member = alliance.Members[memberIndex];
-        if (member.AtkComponentBase == null ||
-            member.AtkComponentBase->OwnerNode == null ||
-            member.ClassJobImageNode == null)
-        {
-            return;
-        }
-
-        var allianceNode = alliance.ComponentBase->OwnerNode;
-        var memberNode = member.AtkComponentBase->OwnerNode;
-        var iconNode = member.ClassJobImageNode;
-        var iconSize = new Vector2(iconNode->Width / 2f, iconNode->Height / 2f)
-                       * Math.Clamp(config.CrossWorldAllianceIconScale, 0.3f, 5f)
-                       * allianceList->Scale;
-        var iconPosition = new Vector2(
-            allianceList->X + allianceNode->AtkResNode.X * allianceList->Scale +
-            memberNode->AtkResNode.X * allianceList->Scale +
-            iconNode->X * allianceList->Scale + iconNode->Width * allianceList->Scale / 2f,
-            allianceList->Y + allianceNode->AtkResNode.Y * allianceList->Scale +
-            memberNode->AtkResNode.Y * allianceList->Scale +
-            iconNode->Y * allianceList->Scale + iconNode->Height * allianceList->Scale / 2f);
-        DrawReadyCheckIcon(
-            drawList,
-            status,
-            iconPosition + config.CrossWorldAllianceIconOffset * allianceList->Scale,
-            iconSize,
-            readyCheckTextureHandle,
-            notPresentTextureHandle);
-    }
-
-    private static void DrawReadyCheckIcon(
-        ImDrawListPtr drawList,
-        ReadyCheckStatus status,
-        Vector2 position,
-        Vector2 size,
-        ImTextureID readyCheckTextureHandle,
-        ImTextureID notPresentTextureHandle)
-    {
-        var min = PixelSnap(position);
-        var max = PixelSnap(position + size);
-        if (status == ReadyCheckStatus.MemberNotPresent)
-        {
-            if (notPresentTextureHandle != nint.Zero)
-            {
-                drawList.AddImage(notPresentTextureHandle, min, max);
-            }
-
-            return;
-        }
-
-        if (readyCheckTextureHandle == nint.Zero)
-        {
-            return;
-        }
-
-        if (status == ReadyCheckStatus.NotReady)
-        {
-            drawList.AddImage(
-                readyCheckTextureHandle,
-                min,
-                max,
-                new Vector2(0.5f, 0f),
-                Vector2.One);
-        }
-        else if (status == ReadyCheckStatus.Ready)
-        {
-            drawList.AddImage(
-                readyCheckTextureHandle,
-                min,
-                max,
-                Vector2.Zero,
-                new Vector2(0.5f, 1f));
-        }
-    }
-
     private static bool ShouldDrawStatus(ReadyCheckStatus status) =>
         status is ReadyCheckStatus.Ready or ReadyCheckStatus.NotReady or ReadyCheckStatus.MemberNotPresent;
 
@@ -704,6 +702,12 @@ public sealed unsafe class ReadyCheck(ReadyCheckConfig config) : ModuleBase
 
         public int MemberIndex { get; } = memberIndex;
     }
+
+    #region 常量
+
+    private const uint INVALID_ENTITY_ID = 0xE0000000;
+
+    #endregion
 }
 
 internal static class ReadyCheckPanel
@@ -911,14 +915,24 @@ internal static class ReadyCheckPanel
 public sealed class ReadyCheckConfig
 {
     public bool ClearOnTerritoryChanged { get; set; } = true;
+
     public bool ClearOnCombat { get; set; }
+
     public bool ClearOnInstancedCombat { get; set; } = true;
+
     public bool ClearAfterTime { get; set; }
+
     public int ClearAfterSeconds { get; set; } = 60;
+
     public Vector2 PartyIconOffset { get; set; }
+
     public Vector2 AllianceIconOffset { get; set; }
+
     public Vector2 CrossWorldAllianceIconOffset { get; set; }
+
     public float PartyIconScale { get; set; } = 1f;
+
     public float AllianceIconScale { get; set; } = 1f;
+
     public float CrossWorldAllianceIconScale { get; set; } = 1f;
 }

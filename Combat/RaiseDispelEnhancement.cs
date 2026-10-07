@@ -34,8 +34,8 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/RaiseDispelEnhancement-1.png"
     };
 
-    private const uint RAISE_STATUS_ID = 148;
-    private const uint DISPEL_ICON_ID = 215530;
+    public override bool HasSettings => true;
+
     private static readonly HashSet<uint> PartialDisplayJobs =
         [23, 24, 25, 27, 28, 31, 33, 35, 36, 40];
     private static readonly string[] DisplayColumns =
@@ -48,7 +48,45 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     private ISharedImmediateTexture? dispelIcon;
     private uint defaultRaiseIconID;
 
-    public override bool HasSettings => true;
+    protected override void OnEnable()
+    {
+        dispelIcon ??= DService.Instance().Texture.GetFromGameIcon(new GameIconLookup(DISPEL_ICON_ID));
+        defaultRaiseIconID = LuminaGetter.TryGetRow<LuminaStatus>(RAISE_STATUS_ID, out var status) ? status.Icon : 0;
+        var lifetime = new FeatureLifetime();
+        try
+        {
+            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 80))
+            {
+                throw new InvalidOperationException("Raise/dispel enhancement update registration failed.");
+            }
+
+            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+            DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
+            lifetime.Add(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
+            runtimeLifetime = lifetime;
+        }
+        catch
+        {
+            runtimeLifetime = null;
+            lifetime.Dispose();
+            throw;
+        }
+    }
+
+    protected override void OnDisable()
+    {
+        var lifetime = runtimeLifetime;
+        runtimeLifetime = null;
+        try
+        {
+            lifetime?.Dispose();
+        }
+        finally
+        {
+            Clear();
+            CombatCharacterSnapshot.Clear();
+        }
+    }
 
     public override bool DrawSettings()
     {
@@ -255,153 +293,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         return changed;
     }
 
-    protected override void OnEnable()
-    {
-        dispelIcon ??= DService.Instance().Texture.GetFromGameIcon(new GameIconLookup(DISPEL_ICON_ID));
-        defaultRaiseIconID = LuminaGetter.TryGetRow<LuminaStatus>(RAISE_STATUS_ID, out var status) ? status.Icon : 0;
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 80))
-            {
-                throw new InvalidOperationException("Raise/dispel enhancement update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
-            lifetime.Add(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            runtimeLifetime = null;
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
-        {
-            Clear();
-            CombatCharacterSnapshot.Clear();
-        }
-    }
-
-    private void OnFrameworkUpdate(IFramework _)
-    {
-        var services = DService.Instance();
-        if (!services.ClientState.IsLoggedIn || GameState.IsInPVPArea)
-        {
-            Clear();
-            return;
-        }
-
-        try
-        {
-            if (config.DisplayRange == RaiseDispelDisplayRange.Partial &&
-                !PartialDisplayJobs.Contains(services.ObjectTable.LocalPlayer?.ClassJob.RowId ?? 0))
-            {
-                Clear();
-                return;
-            }
-            ScanActors();
-        }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Warning(ex, "Raise/dispel enhancement scan failed.");
-        }
-    }
-
-    private void ScanActors()
-    {
-        states.Clear();
-        names.Clear();
-        actorObjects.Clear();
-
-        CombatCharacterSnapshot.Refresh();
-        var localPlayerEntityID = DService.Instance().ObjectTable.LocalPlayer?.EntityID ?? 0;
-        foreach (var player in CombatCharacterSnapshot.Players)
-        {
-            var actorKey = GetActorKey(player);
-            names[actorKey] = player.Name;
-            actorObjects[actorKey] = (player.ObjectIndex, player.GameObjectID);
-
-            if (player.IsDead)
-            {
-                if (TryGetRaiseStatus(player, out var raiseIconID, out var raiseSourceID))
-                {
-                    MarkRaised(
-                        actorKey,
-                        raiseIconID,
-                        localPlayerEntityID != 0 && raiseSourceID == localPlayerEntityID);
-                }
-            }
-            else
-            {
-                if (HasDispellableStatus(player))
-                {
-                    MarkDispellable(actorKey);
-                }
-
-                var castType = GetCastType(player.CastActionID);
-                if (player.IsCasting && castType != CastType.None)
-                {
-                    var targetKey = GetCastTargetKey(player);
-                    if (targetKey != 0)
-                    {
-                        MarkCast(targetKey, actorKey, castType, GetCastPercentage(player));
-                    }
-                }
-            }
-
-            if (states.Count >= 96)
-            {
-                break;
-            }
-        }
-    }
-
-    private void MarkRaised(ulong actorKey, uint iconID, bool raisedByLocalPlayer)
-    {
-        var state = GetState(actorKey);
-        states[actorKey] = state with
-        {
-            HasRaisedStatus = true,
-            RaisedByLocalPlayer = raisedByLocalPlayer,
-            RaiseIconID = iconID == 0 ? state.RaiseIconID : iconID
-        };
-    }
-
-    private void MarkDispellable(ulong actorKey)
-    {
-        var state = GetState(actorKey);
-        states[actorKey] = state with { HasDispellableStatus = true };
-    }
-
-    private void MarkCast(ulong actorKey, ulong casterKey, CastType type, byte percentage)
-    {
-        var state = GetState(actorKey);
-        states[actorKey] = state with
-        {
-            Caster = casterKey,
-            Type = type,
-            Percentage = percentage
-        };
-    }
-
-    private ActorState GetState(ulong actorKey) =>
-        states.TryGetValue(actorKey, out var state)
-            ? state
-            : new(0, CastType.None, false, false, false, 100, 0);
-
     private void DrawOverlay()
     {
         if (states.Count == 0)
@@ -483,31 +374,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
     }
 
-    private bool TryGetListColor(ulong actorKey, ActorState state, out uint color, out CastType type)
-    {
-        var hud = GetHudPosition(actorKey);
-        var isParty = hud?.GroupNumber == 0;
-        var dispel = config.GetDispelOptions();
-        var raise = config.GetRaiseOptions();
-        if (config.ShowDispelOnList && (isParty ? dispel.ShowPartyFrame : dispel.ShowAllianceFrame) && (state.HasDispellableStatus || state.Type == CastType.Dispel))
-        {
-            type = CastType.Dispel;
-            color = config.DispelListColor;
-            return true;
-        }
-
-        if (config.ShowRaiseOnList && (isParty ? raise.ShowPartyFrame : raise.ShowAllianceFrame) && (state.HasRaisedStatus || state.Type == CastType.Raise))
-        {
-            type = CastType.Raise;
-            color = config.RaiseListColor;
-            return true;
-        }
-
-        type = CastType.None;
-        color = 0;
-        return false;
-    }
-
     private void DrawWorldMarker(ImDrawListPtr drawList, Vector2 screenPosition, ActorState state)
     {
         var (type, text) = GetWorldText(state);
@@ -560,75 +426,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             1.5f * textScale);
         DrawShadowedText(drawList, text, textMin + padding, textScale);
     }
-
-    private ImTextureID GetWorldIconHandle(CastType type, ActorState state)
-    {
-        var iconID = type == CastType.Dispel
-            ? DISPEL_ICON_ID
-            : state.RaiseIconID != 0 ? state.RaiseIconID : defaultRaiseIconID;
-        if (iconID == 0)
-        {
-            return default;
-        }
-
-        ISharedImmediateTexture? texture;
-        if (iconID == DISPEL_ICON_ID)
-        {
-            texture = dispelIcon;
-        }
-        else if (!statusIconTextures.TryGetValue(iconID, out texture))
-        {
-            texture = DService.Instance().Texture.GetFromGameIcon(new GameIconLookup(iconID));
-            statusIconTextures[iconID] = texture;
-        }
-
-        return texture?.GetWrapOrDefault()?.Handle ?? default;
-    }
-
-    private (CastType Type, string Text) GetWorldText(ActorState state)
-    {
-        var options = state.Type == CastType.Raise ? config.GetRaiseOptions() : config.GetDispelOptions();
-        var casterName = options.ShowCasterName ? GetCasterDisplayName(state) : string.Empty;
-        if (state.Caster != 0)
-        {
-            if (state.Type == CastType.Raise && (config.GetRaiseOptions().ShowWorldIcon || config.GetRaiseOptions().ShowWorldText))
-            {
-                return (
-                    CastType.Raise,
-                    string.IsNullOrWhiteSpace(casterName)
-                        ? OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingRaise")
-                        : string.Format(
-                            OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingRaiseWithCaster"),
-                            casterName));
-            }
-
-            if (state.Type == CastType.Dispel && (config.GetDispelOptions().ShowWorldIcon || config.GetDispelOptions().ShowWorldText))
-            {
-                return (
-                    CastType.Dispel,
-                    string.IsNullOrWhiteSpace(casterName)
-                        ? OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingDispel")
-                        : string.Format(
-                            OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingDispelWithCaster"),
-                            casterName));
-            }
-        }
-
-        if (state.HasDispellableStatus && (config.GetDispelOptions().ShowWorldIcon || config.GetDispelOptions().ShowWorldText))
-        {
-            return (CastType.Dispel, OmniLoc.Get("Feature.RaiseDispelEnhancement.NeedDispel"));
-        }
-
-        if (state.HasRaisedStatus && (config.GetRaiseOptions().ShowWorldIcon || config.GetRaiseOptions().ShowWorldText))
-        {
-            return (CastType.Raise, OmniLoc.Get("Feature.RaiseDispelEnhancement.Raised"));
-        }
-
-        return (CastType.None, string.Empty);
-    }
-
-    private string GetCasterDisplayName(ActorState state) =>
-        state.Caster != 0 && names.TryGetValue(state.Caster, out var name) ? name : string.Empty;
 
     private void DrawFrameMarker(ImDrawListPtr drawList, ulong actorKey, ActorState state, uint color, CastType type)
     {
@@ -842,6 +639,210 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         drawList.AddText(font, fontSize, position, 0xFFFFFFFF, text);
     }
 
+    private void OnFrameworkUpdate(IFramework _)
+    {
+        var services = DService.Instance();
+        if (!services.ClientState.IsLoggedIn || GameState.IsInPVPArea)
+        {
+            Clear();
+            return;
+        }
+
+        try
+        {
+            if (config.DisplayRange == RaiseDispelDisplayRange.Partial &&
+                !PartialDisplayJobs.Contains(services.ObjectTable.LocalPlayer?.ClassJob.RowId ?? 0))
+            {
+                Clear();
+                return;
+            }
+            ScanActors();
+        }
+        catch (Exception ex)
+        {
+            DalamudServices.PluginLog.Warning(ex, "Raise/dispel enhancement scan failed.");
+        }
+    }
+
+    private void ScanActors()
+    {
+        states.Clear();
+        names.Clear();
+        actorObjects.Clear();
+
+        CombatCharacterSnapshot.Refresh();
+        var localPlayerEntityID = DService.Instance().ObjectTable.LocalPlayer?.EntityID ?? 0;
+        foreach (var player in CombatCharacterSnapshot.Players)
+        {
+            var actorKey = GetActorKey(player);
+            names[actorKey] = player.Name;
+            actorObjects[actorKey] = (player.ObjectIndex, player.GameObjectID);
+
+            if (player.IsDead)
+            {
+                if (TryGetRaiseStatus(player, out var raiseIconID, out var raiseSourceID))
+                {
+                    MarkRaised(
+                        actorKey,
+                        raiseIconID,
+                        localPlayerEntityID != 0 && raiseSourceID == localPlayerEntityID);
+                }
+            }
+            else
+            {
+                if (HasDispellableStatus(player))
+                {
+                    MarkDispellable(actorKey);
+                }
+
+                var castType = GetCastType(player.CastActionID);
+                if (player.IsCasting && castType != CastType.None)
+                {
+                    var targetKey = GetCastTargetKey(player);
+                    if (targetKey != 0)
+                    {
+                        MarkCast(targetKey, actorKey, castType, GetCastPercentage(player));
+                    }
+                }
+            }
+
+            if (states.Count >= 96)
+            {
+                break;
+            }
+        }
+    }
+
+    private void MarkRaised(ulong actorKey, uint iconID, bool raisedByLocalPlayer)
+    {
+        var state = GetState(actorKey);
+        states[actorKey] = state with
+        {
+            HasRaisedStatus = true,
+            RaisedByLocalPlayer = raisedByLocalPlayer,
+            RaiseIconID = iconID == 0 ? state.RaiseIconID : iconID
+        };
+    }
+
+    private void MarkDispellable(ulong actorKey)
+    {
+        var state = GetState(actorKey);
+        states[actorKey] = state with
+        {
+            HasDispellableStatus = true
+        };
+    }
+
+    private void MarkCast(ulong actorKey, ulong casterKey, CastType type, byte percentage)
+    {
+        var state = GetState(actorKey);
+        states[actorKey] = state with
+        {
+            Caster = casterKey,
+            Type = type,
+            Percentage = percentage
+        };
+    }
+
+    private ActorState GetState(ulong actorKey) =>
+        states.TryGetValue(actorKey, out var state)
+            ? state
+            : new(0, CastType.None, false, false, false, 100, 0);
+
+    private bool TryGetListColor(ulong actorKey, ActorState state, out uint color, out CastType type)
+    {
+        var hud = GetHudPosition(actorKey);
+        var isParty = hud?.GroupNumber == 0;
+        var dispel = config.GetDispelOptions();
+        var raise = config.GetRaiseOptions();
+        if (config.ShowDispelOnList && (isParty ? dispel.ShowPartyFrame : dispel.ShowAllianceFrame) && (state.HasDispellableStatus || state.Type == CastType.Dispel))
+        {
+            type = CastType.Dispel;
+            color = config.DispelListColor;
+            return true;
+        }
+
+        if (config.ShowRaiseOnList && (isParty ? raise.ShowPartyFrame : raise.ShowAllianceFrame) && (state.HasRaisedStatus || state.Type == CastType.Raise))
+        {
+            type = CastType.Raise;
+            color = config.RaiseListColor;
+            return true;
+        }
+
+        type = CastType.None;
+        color = 0;
+        return false;
+    }
+
+    private ImTextureID GetWorldIconHandle(CastType type, ActorState state)
+    {
+        var iconID = type == CastType.Dispel
+            ? DISPEL_ICON_ID
+            : state.RaiseIconID != 0 ? state.RaiseIconID : defaultRaiseIconID;
+        if (iconID == 0)
+        {
+            return default;
+        }
+
+        ISharedImmediateTexture? texture;
+        if (iconID == DISPEL_ICON_ID)
+        {
+            texture = dispelIcon;
+        }
+        else if (!statusIconTextures.TryGetValue(iconID, out texture))
+        {
+            texture = DService.Instance().Texture.GetFromGameIcon(new GameIconLookup(iconID));
+            statusIconTextures[iconID] = texture;
+        }
+
+        return texture?.GetWrapOrDefault()?.Handle ?? default;
+    }
+
+    private (CastType Type, string Text) GetWorldText(ActorState state)
+    {
+        var options = state.Type == CastType.Raise ? config.GetRaiseOptions() : config.GetDispelOptions();
+        var casterName = options.ShowCasterName ? GetCasterDisplayName(state) : string.Empty;
+        if (state.Caster != 0)
+        {
+            if (state.Type == CastType.Raise && (config.GetRaiseOptions().ShowWorldIcon || config.GetRaiseOptions().ShowWorldText))
+            {
+                return (
+                    CastType.Raise,
+                    string.IsNullOrWhiteSpace(casterName)
+                        ? OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingRaise")
+                        : string.Format(
+                            OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingRaiseWithCaster"),
+                            casterName));
+            }
+
+            if (state.Type == CastType.Dispel && (config.GetDispelOptions().ShowWorldIcon || config.GetDispelOptions().ShowWorldText))
+            {
+                return (
+                    CastType.Dispel,
+                    string.IsNullOrWhiteSpace(casterName)
+                        ? OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingDispel")
+                        : string.Format(
+                            OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingDispelWithCaster"),
+                            casterName));
+            }
+        }
+
+        if (state.HasDispellableStatus && (config.GetDispelOptions().ShowWorldIcon || config.GetDispelOptions().ShowWorldText))
+        {
+            return (CastType.Dispel, OmniLoc.Get("Feature.RaiseDispelEnhancement.NeedDispel"));
+        }
+
+        if (state.HasRaisedStatus && (config.GetRaiseOptions().ShowWorldIcon || config.GetRaiseOptions().ShowWorldText))
+        {
+            return (CastType.Raise, OmniLoc.Get("Feature.RaiseDispelEnhancement.Raised"));
+        }
+
+        return (CastType.None, string.Empty);
+    }
+
+    private string GetCasterDisplayName(ActorState state) =>
+        state.Caster != 0 && names.TryGetValue(state.Caster, out var name) ? name : string.Empty;
+
     private PartyListPosition? GetHudPosition(ulong actorKey)
     {
         var infoProxy = InfoProxyCrossRealm.Instance();
@@ -1026,16 +1027,27 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
         public int MemberIndex { get; } = memberIndex;
     }
+
+    #region 常量
+
+    private const uint RAISE_STATUS_ID = 148;
+
+    private const uint DISPEL_ICON_ID = 215530;
+
+    #endregion
 }
 
 [Serializable]
 public sealed class RaiseDispelEnhancementConfig
 {
     public RaiseDispelDisplayRange DisplayRange { get; set; } = RaiseDispelDisplayRange.Partial;
+
     public RaiseDispelDisplayOptions? Raise { get; set; }
+
     public RaiseDispelDisplayOptions? Dispel { get; set; }
 
     public RaiseDispelDisplayOptions GetRaiseOptions() => Raise ??= CreateDisplayOptions(ShowRaise);
+
     public RaiseDispelDisplayOptions GetDispelOptions() => Dispel ??= CreateDisplayOptions(ShowDispel);
 
     // 旧配置首次使用时继承共享开关；独立配置保存后不再受旧字段影响。
@@ -1097,10 +1109,15 @@ public enum RaiseDispelDisplayRange
 public sealed class RaiseDispelDisplayOptions
 {
     public bool ShowPartyFrame { get; set; } = true;
+
     public bool ShowAllianceFrame { get; set; } = true;
+
     public bool ShowWorldIcon { get; set; } = true;
+
     public bool ShowWorldText { get; set; } = true;
+
     public bool ShowCasterName { get; set; } = true;
+
     public bool ShowCastProgress { get; set; } = true;
 
     [Newtonsoft.Json.JsonIgnore]

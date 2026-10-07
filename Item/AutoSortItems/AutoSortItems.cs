@@ -36,7 +36,8 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         ]
     };
 
-    private const int SORT_TIMEOUT_MS = 60_000;
+    public override bool HasSettings => true;
+
     private static readonly InventoryType[] InventoryContainers =
     [
         InventoryType.Inventory1,
@@ -122,36 +123,6 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     private TaskHelper? taskHelper;
     private AddonEventRegistry? addonEvents;
 
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings() => AutoSortItemsPanel.Draw(config);
-
-    public void RequestSort()
-    {
-        EnsureRules(config);
-        EnsureTaskHelper();
-        taskHelper!.Abort();
-        ResetQueue();
-        if (IsCategoryVisible("retainer"))
-        {
-            QueueCategory("retainer", true, manual: true);
-            return;
-        }
-
-        if (IsCategoryVisible("saddlebag"))
-        {
-            if (IsCategoryVisible("inventory"))
-            {
-                QueueCategory("inventory", manual: true);
-            }
-
-            QueueSaddlebags(true, manual: true);
-            return;
-        }
-
-        QueueAllEnabled(true, manual: true);
-    }
-
     protected override void OnEnable()
     {
         EnsureRules(config);
@@ -186,12 +157,40 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         queuedCategories.Clear();
     }
 
+    public override bool DrawSettings() => AutoSortItemsPanel.Draw(config);
+
+    public void RequestSort()
+    {
+        EnsureRules(config);
+        EnsureTaskHelper();
+        taskHelper!.Abort();
+        queuedCategories.Clear();
+        if (IsCategoryVisible("retainer"))
+        {
+            QueueCategory("retainer", true, manual: true);
+            return;
+        }
+
+        if (IsCategoryVisible("saddlebag"))
+        {
+            if (IsCategoryVisible("inventory"))
+            {
+                QueueCategory("inventory", manual: true);
+            }
+
+            QueueSaddlebags(true, manual: true);
+            return;
+        }
+
+        QueueAllEnabled(true, manual: true);
+    }
+
     private void EnsureTaskHelper() => taskHelper ??= new()
     {
         RetryIntervalMS = 100,
         TimeoutMS = SORT_TIMEOUT_MS,
-        TimeoutAction = ResetQueue,
-        ExceptionAction = ResetQueue
+        TimeoutAction = queuedCategories.Clear,
+        ExceptionAction = queuedCategories.Clear
     };
 
     private void RegisterAutoSortAddon(string addonName, System.Action queueAction) =>
@@ -699,8 +698,6 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
             ? row.Param.ToString().ToLowerInvariant()
             : string.Empty;
 
-    private void ResetQueue() => queuedCategories.Clear();
-
     private bool IsCategoryTabbed(string category) =>
         SupportsTab(category) &&
         (config.CategoryHeaders?.FirstOrDefault(header => header.Category == category)?.Tab ??
@@ -758,6 +755,12 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     ];
 
     internal sealed record RuleOption(string Key, uint RowID, string LocalizationKey);
+
+    #region 常量
+
+    private const int SORT_TIMEOUT_MS = 60_000;
+
+    #endregion
 }
 
 [Serializable]

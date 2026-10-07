@@ -1,6 +1,7 @@
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit;
+using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
+using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
 using OmenTools;
 using OmenTools.Extensions;
@@ -23,8 +24,6 @@ internal enum LockedDutyPreviewView
 
 internal sealed class LockedDutyPreviewNativeUI : NativeAddon
 {
-    private const float ITEM_SPACING = 2f;
-
     private List<LockedDutyPreviewRow> rows = [];
     private TextNode? summaryNode;
     private ListNode<LockedDutyPreviewRow, LockedDutyPreviewListItemNode>? listNode;
@@ -83,6 +82,8 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
             ItemSpacing = ITEM_SPACING,
             Position = new(ContentStartPosition.X + 2f, ContentStartPosition.Y + 30f),
             Size = new(ContentSize.X - 4f, ContentSize.Y - 72f),
+            ShowNoResultsPlaceholder = false,
+            AutoResetScroll = false,
             OptionsList = rows,
             OnItemSelected = item => onCopyName(item.Name)
         };
@@ -140,10 +141,7 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
         ApplyData();
     }
 
-    public void ClearCallbacks()
-    {
-        LockedDutyPreviewListItemNode.ClearCallbacks();
-    }
+    public void ClearCallbacks() => LockedDutyPreviewListItemNode.ClearCallbacks();
 
     private void SetView(LockedDutyPreviewView view)
     {
@@ -221,6 +219,12 @@ internal sealed class LockedDutyPreviewNativeUI : NativeAddon
             excludedTabButton.Size = new(tabWidth, 28f);
         }
     }
+
+    #region 常量
+
+    private const float ITEM_SPACING = 2f;
+
+    #endregion
 }
 
 internal sealed class LockedDutyPreviewListItemNode : ListItemNode<LockedDutyPreviewRow>, IListItemNode

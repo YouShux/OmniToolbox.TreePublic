@@ -25,14 +25,10 @@ public sealed unsafe class HouseExpirationReminder(
         Category = ModuleCategory.Daily
     };
 
-    internal const int AutoDemolitionDays = 45;
-    internal const int DefaultWarnDays = 10;
-    private ulong lastDetectedHouseID;
-    private bool lastInsideOwnedHouse;
-
     public override bool HasSettings => true;
 
-    public override bool DrawSettings() => HouseExpirationReminderPanel.Draw(config, this);
+    private ulong lastDetectedHouseID;
+    private bool lastInsideOwnedHouse;
 
     protected override void OnEnable()
     {
@@ -49,22 +45,21 @@ public sealed unsafe class HouseExpirationReminder(
         lastDetectedHouseID = 0;
     }
 
+    public override bool DrawSettings() => HouseExpirationReminderPanel.Draw(config, this);
+
     internal HouseExpirationReminderCharacterRecord? GetCurrentCharacterRecord() =>
         GetCurrentCharacterRecord(false);
 
     internal int GetRemainingDays(DateTime lastVisitUTC) =>
         (int)Math.Ceiling((AsUTC(lastVisitUTC).AddDays(AutoDemolitionDays) - DateTime.UtcNow).TotalDays);
 
-    internal void Preview()
-    {
-        SendReminder(
+    internal void Preview() => SendReminder(
             OmniLoc.Get("Feature.HouseExpirationReminder.Title"),
             string.Format(
                 CultureInfo.CurrentCulture,
                 OmniLoc.Get("Feature.HouseExpirationReminder.RemainingMessage"),
                 OmniLoc.Get("Feature.HouseExpirationReminder.PersonalHouse"),
                 NormalizeWarnDays(config.WarnDays)));
-    }
 
     internal bool ClearCharacterRecord(HouseExpirationReminderCharacterRecord record)
     {
@@ -301,7 +296,10 @@ public sealed unsafe class HouseExpirationReminder(
 
         if (record is null && create)
         {
-            record = new() { CharacterKey = key };
+            record = new()
+            {
+                CharacterKey = key
+            };
             config.CharacterRecords.Add(record);
         }
 
@@ -383,6 +381,14 @@ public sealed unsafe class HouseExpirationReminder(
             : value.Kind == DateTimeKind.Utc
                 ? value
                 : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+
+    #region 常量
+
+    internal const int AutoDemolitionDays = 45;
+
+    internal const int DefaultWarnDays = 10;
+
+    #endregion
 }
 
 [Serializable]

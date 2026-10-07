@@ -30,8 +30,7 @@ public sealed unsafe class LockedDutyPreview(
         RequiresPrivateProvider = true
     };
 
-    private const string CONTENTS_FINDER_ADDON_NAME = "ContentsFinder";
-    private const float SCREEN_PADDING = 8f;
+    public override bool HasSettings => true;
 
     private readonly LockedDutyPreviewResolver resolver = new();
     private readonly List<LockedDutyPreviewRow> lockedRows = [];
@@ -43,26 +42,12 @@ public sealed unsafe class LockedDutyPreview(
     private LockedDutyPreviewView currentView;
     private long nextRefreshTick;
 
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings()
-    {
-        var changed = LockedDutyPreviewPanel.Draw(config);
-        if (changed)
-        {
-            RebuildRows();
-            UpdateNativeUIData();
-        }
-
-        return changed;
-    }
-
     protected override void OnEnable()
     {
         var lifetime = new FeatureLifetime();
         try
         {
-            nativeUI = new(OnViewChanged, OnExclude, OnRestore, row => OpenWiki(row.Name), CopyName);
+            nativeUI = new(OnViewChanged, OnExclude, OnRestore, row => OpenWiki(row.Name), name => ImGui.SetClipboardText(name));
             lifetime.Add(DisposeNativeUI);
 
             if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
@@ -102,31 +87,16 @@ public sealed unsafe class LockedDutyPreview(
         }
     }
 
-    private void OnFrameworkUpdate(IFramework framework)
+    public override bool DrawSettings()
     {
-        if (DalamudServices.IsUnloading || runtimeLifetime is null || nativeUI is null)
+        var changed = LockedDutyPreviewPanel.Draw(config);
+        if (changed)
         {
-            return;
+            RebuildRows();
+            UpdateNativeUIData();
         }
 
-        if (!DService.Instance().ClientState.IsLoggedIn ||
-            !TryGetContentsFinder(out _))
-        {
-            contentsFinderWasVisible = false;
-            return;
-        }
-
-        var now = Environment.TickCount64;
-        if (contentsFinderWasVisible && now < nextRefreshTick)
-        {
-            return;
-        }
-
-        contentsFinderWasVisible = true;
-        nextRefreshTick = now + 5_000;
-        resolver.Refresh();
-        RebuildRows();
-        UpdateNativeUIData();
+        return changed;
     }
 
     private void DrawOverlay()
@@ -137,7 +107,7 @@ public sealed unsafe class LockedDutyPreview(
         }
 
         if (!DService.Instance().ClientState.IsLoggedIn ||
-            !TryGetContentsFinder(out AtkUnitBase* addon))
+            !TryGetContentsFinder(out var addon))
         {
             nativeUI.Close();
             return;
@@ -191,6 +161,33 @@ public sealed unsafe class LockedDutyPreview(
         }
 
         nativeUI.SetWindowPosition(new(windowX, windowY));
+    }
+
+    private void OnFrameworkUpdate(IFramework framework)
+    {
+        if (DalamudServices.IsUnloading || runtimeLifetime is null || nativeUI is null)
+        {
+            return;
+        }
+
+        if (!DService.Instance().ClientState.IsLoggedIn ||
+            !TryGetContentsFinder(out _))
+        {
+            contentsFinderWasVisible = false;
+            return;
+        }
+
+        var now = Environment.TickCount64;
+        if (contentsFinderWasVisible && now < nextRefreshTick)
+        {
+            return;
+        }
+
+        contentsFinderWasVisible = true;
+        nextRefreshTick = now + 5_000;
+        resolver.Refresh();
+        RebuildRows();
+        UpdateNativeUIData();
     }
 
     private static bool TryGetContentsFinder(out AtkUnitBase* addon)
@@ -291,8 +288,6 @@ public sealed unsafe class LockedDutyPreview(
     private static void OpenWiki(string dutyName) =>
         Util.OpenLink($"https://ff14.huijiwiki.com/wiki/{Uri.EscapeDataString(dutyName)}");
 
-    private static void CopyName(string dutyName) => ImGui.SetClipboardText(dutyName);
-
     private void DisposeNativeUI()
     {
         var ui = nativeUI;
@@ -306,6 +301,14 @@ public sealed unsafe class LockedDutyPreview(
         ui.Close();
         ui.Dispose();
     }
+
+    #region 常量
+
+    private const string CONTENTS_FINDER_ADDON_NAME = "ContentsFinder";
+
+    private const float SCREEN_PADDING = 8f;
+
+    #endregion
 }
 
 [Serializable]

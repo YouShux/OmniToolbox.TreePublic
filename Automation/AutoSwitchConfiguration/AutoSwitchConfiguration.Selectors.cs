@@ -38,7 +38,7 @@ public sealed partial class AutoSwitchConfiguration
                 ref search, 128, ImGui.GetContentRegionAvail().X))
             searcher.Search(search);
 
-        IReadOnlyList<T> results = orderResults is null ? searcher.SearchResult : orderResults(searcher.SearchResult);
+        var results = orderResults is null ? searcher.SearchResult : orderResults(searcher.SearchResult);
         if (results.Count == 0)
         {
             ImGui.TextDisabled(OmniLoc.Get("Feature.AutoSwitchConfiguration.NoMatches"));

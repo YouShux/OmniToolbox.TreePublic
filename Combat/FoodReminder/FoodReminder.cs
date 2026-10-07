@@ -33,6 +33,8 @@ public sealed class FoodReminder : ModuleBase
         ]
     };
 
+    public override bool HasSettings => true;
+
     private readonly FoodReminderConfig config;
     private readonly System.Action saveConfig;
     private readonly Dictionary<uint, string> reminderTargetNames = [];
@@ -47,38 +49,6 @@ public sealed class FoodReminder : ModuleBase
         if (FoodReminderPanel.NormalizeConfig(config))
         {
             saveConfig();
-        }
-    }
-
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings() => FoodReminderPanel.Draw(config, SendTestReminder);
-
-    public void CheckNow()
-    {
-        if (!DService.Instance().ClientState.IsLoggedIn)
-        {
-            OmniNotifier.Chat(OmniLoc.Get("Feature.FoodReminder.NotLoggedIn"));
-            return;
-        }
-
-        if (!IsAllowedTerritory())
-        {
-            OmniNotifier.Chat(OmniLoc.Get("Feature.FoodReminder.TerritoryDisabled"));
-            return;
-        }
-
-        try
-        {
-            if (CheckAndNotify() == 0)
-            {
-                OmniNotifier.Chat(OmniLoc.Get("Feature.FoodReminder.CheckComplete"));
-            }
-        }
-        catch (Exception ex)
-        {
-            DalamudServices.PluginLog.Warning(ex, "Food reminder manual check failed.");
-            OmniNotifier.Chat(OmniLoc.Get("Feature.FoodReminder.CheckFailed"));
         }
     }
 
@@ -115,6 +85,36 @@ public sealed class FoodReminder : ModuleBase
             countdownProcessed = false;
             seenTargets.Clear();
             ClearReminderLinks();
+        }
+    }
+
+    public override bool DrawSettings() => FoodReminderPanel.Draw(config, SendTestReminder);
+
+    public void CheckNow()
+    {
+        if (!DService.Instance().ClientState.IsLoggedIn)
+        {
+            OmniNotifier.Chat(OmniLoc.Get("Feature.FoodReminder.NotLoggedIn"));
+            return;
+        }
+
+        if (!IsAllowedTerritory())
+        {
+            OmniNotifier.Chat(OmniLoc.Get("Feature.FoodReminder.TerritoryDisabled"));
+            return;
+        }
+
+        try
+        {
+            if (CheckAndNotify() == 0)
+            {
+                OmniNotifier.Chat(OmniLoc.Get("Feature.FoodReminder.CheckComplete"));
+            }
+        }
+        catch (Exception ex)
+        {
+            DalamudServices.PluginLog.Warning(ex, "Food reminder manual check failed.");
+            OmniNotifier.Chat(OmniLoc.Get("Feature.FoodReminder.CheckFailed"));
         }
     }
 

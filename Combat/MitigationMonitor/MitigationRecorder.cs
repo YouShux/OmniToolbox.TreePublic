@@ -267,7 +267,10 @@ internal sealed unsafe class MitigationRecorder
 
     private static bool TryDecodeTargetDamage(ActionEffectHandler.TargetEffects* targetEffects, out TargetDamageResult result)
     {
-        result = new() { Kind = DamageKind.Special };
+        result = new()
+        {
+            Kind = DamageKind.Special
+        };
         foreach (var effect in targetEffects->Effects)
         {
             switch ((ActionEffectType)effect.Type)

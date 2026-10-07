@@ -25,12 +25,10 @@ internal sealed class FloatingInfoOverlay(
         RequiresPrivateProvider = true
     };
 
-    private readonly FloatingInfoOverlayPanel panel = new(config);
-    private FeatureLifetime? runtimeLifetime;
-
     public override bool HasSettings => true;
 
-    public override bool DrawSettings() => panel.Draw();
+    private readonly FloatingInfoOverlayPanel panel = new(config);
+    private FeatureLifetime? runtimeLifetime;
 
     protected override void OnEnable()
     {
@@ -65,6 +63,8 @@ internal sealed class FloatingInfoOverlay(
         runtimeLifetime = null;
         lifetime?.Dispose();
     }
+
+    public override bool DrawSettings() => panel.Draw();
 }
 
 [Serializable]

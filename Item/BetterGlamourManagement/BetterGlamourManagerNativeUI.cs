@@ -1,11 +1,11 @@
 using System.Drawing;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit;
+using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
+using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
-using KamiToolKit.Premade.Node;
-using KamiToolKit.Premade.Node.Simple;
+using KamiToolKit.Nodes.Simplified;
 using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
 using OmniToolbox.UI;
@@ -33,7 +33,7 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
     private TextNode? nameLabelNode;
     private TextInputNode? nameInputNode;
     private TextNode? gearsetLabelNode;
-    private TextDropDownNode? gearsetDropDownNode;
+    private StringDropDownNode? gearsetDropDownNode;
     private TextNode? partHeaderNode;
     private TextNode? itemHeaderNode;
     private TextNode? dyeHeaderNode;
@@ -75,6 +75,8 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
         presetListNode = new()
         {
             ItemSpacing = 2f,
+            ShowNoResultsPlaceholder = false,
+            AutoResetScroll = false,
             OptionsList = presets,
             OnItemSelected = SelectPreset
         };
@@ -131,6 +133,8 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
         itemListNode = new()
         {
             ItemSpacing = 1f,
+            ShowNoResultsPlaceholder = false,
+            AutoResetScroll = false,
             OptionsList = editorRows
         };
         itemListNode.AttachNode(this);
@@ -155,6 +159,8 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
         itemSearchResultsNode = new()
         {
             ItemSpacing = 1f,
+            ShowNoResultsPlaceholder = false,
+            AutoResetScroll = false,
             OptionsList = itemSearchResults,
             OnItemSelected = SelectItemSearchResult
         };
@@ -541,17 +547,28 @@ internal sealed class BetterGlamourManagerNativeUI : NativeAddon
 
     private void SetDetailVisibility(bool visible)
     {
-        if (nameLabelNode is not null) nameLabelNode.IsVisible = visible;
-        if (nameInputNode is not null) nameInputNode.IsVisible = visible;
-        if (gearsetLabelNode is not null) gearsetLabelNode.IsVisible = visible;
-        if (gearsetDropDownNode is not null) gearsetDropDownNode.IsVisible = visible;
-        if (partHeaderNode is not null) partHeaderNode.IsVisible = visible;
-        if (itemHeaderNode is not null) itemHeaderNode.IsVisible = visible;
-        if (dyeHeaderNode is not null) dyeHeaderNode.IsVisible = visible;
-        if (itemListNode is not null) itemListNode.IsVisible = visible;
-        if (applyButton is not null) applyButton.IsVisible = visible;
-        if (exportButton is not null) exportButton.IsVisible = visible;
-        if (deleteButton is not null) deleteButton.IsVisible = visible;
+        if (nameLabelNode is not null)
+            nameLabelNode.IsVisible = visible;
+        if (nameInputNode is not null)
+            nameInputNode.IsVisible = visible;
+        if (gearsetLabelNode is not null)
+            gearsetLabelNode.IsVisible = visible;
+        if (gearsetDropDownNode is not null)
+            gearsetDropDownNode.IsVisible = visible;
+        if (partHeaderNode is not null)
+            partHeaderNode.IsVisible = visible;
+        if (itemHeaderNode is not null)
+            itemHeaderNode.IsVisible = visible;
+        if (dyeHeaderNode is not null)
+            dyeHeaderNode.IsVisible = visible;
+        if (itemListNode is not null)
+            itemListNode.IsVisible = visible;
+        if (applyButton is not null)
+            applyButton.IsVisible = visible;
+        if (exportButton is not null)
+            exportButton.IsVisible = visible;
+        if (deleteButton is not null)
+            deleteButton.IsVisible = visible;
     }
 
     private void ResizeContent()
@@ -732,7 +749,6 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
 {
     public static float ItemHeight => 48f;
 
-    internal const float Gap = 6f;
     private readonly TextNode partNode;
     private readonly BetterGlamourItemIconNode itemIconNode;
     private readonly TextNode itemNameNode;
@@ -741,6 +757,7 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
     private readonly BetterGlamourDyeButtonNode dyeNode;
     private readonly TextNode noDyeNode;
     private BetterGlamourEditorRow? row;
+    private bool isSettingNodeData;
 
     public BetterGlamourEditorListItemNode()
     {
@@ -797,7 +814,16 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
             ? itemData.Item!.ItemID
             : 0;
         itemNameNode.String = GetCurrentItemName();
-        itemSearchInputNode.String = string.Empty;
+        isSettingNodeData = true;
+        try
+        {
+            itemSearchInputNode.String = string.Empty;
+        }
+        finally
+        {
+            isSettingNodeData = false;
+        }
+
         var canDye = itemData.Kind == BetterGlamourEditorItemKind.Item;
         dyeNode.IsVisible = canDye;
         noDyeNode.IsVisible = !canDye;
@@ -890,7 +916,7 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
     private void OnItemSearchInput(ReadOnlySeString value)
     {
         itemSearchInputNode.PlaceholderString = string.Empty;
-        if (!IsSettingNodeData)
+        if (!isSettingNodeData)
         {
             row?.OnSearchChanged?.Invoke(this, value.ExtractText());
         }
@@ -936,13 +962,25 @@ internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamo
         float DyeWidth)
     {
         public float ItemColumnX => PartWidth + Gap;
+
         public float ItemNameX => ItemColumnX + ItemIconWidth + Gap;
+
         public float ItemSearchX => ItemNameX - 8f;
+
         public float ItemSearchWidth => ItemNameWidth + 8f;
+
         public float DyeX => ItemNameX + ItemNameWidth + Gap;
+
         public float ItemWidth => ItemIconWidth + ItemNameWidth + Gap;
+
         public float DyeHeaderX => PartWidth + ItemWidth + Gap * 2f - 16f;
     }
+
+    #region 常量
+
+    internal const float Gap = 6f;
+
+    #endregion
 }
 
 internal sealed class BetterGlamourItemSearchResultNode : ListItemNode<BetterGlamourItemSearchResult>, IListItemNode
@@ -991,7 +1029,11 @@ internal sealed class BetterGlamourDyeButtonNode : TabBarRadioButtonNode
         String = OmniLoc.Get("Feature.BetterGlamourManagement.Dye");
         for (var index = 0; index < previewNodes.Length; index++)
         {
-            previewNodes[index] = new(0f, 0f, 0f) { ShowBorder = false, DisableCollisionNode = true };
+            previewNodes[index] = new(0f, 0f, 0f)
+            {
+                ShowBorder = false
+            };
+            previewNodes[index].CollisionNode.NodeFlags = 0;
             previewNodes[index].AttachNode(this);
         }
     }

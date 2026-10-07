@@ -20,7 +20,6 @@ public sealed unsafe class WidescreenCutscene : ModuleBase
         Category = ModuleCategory.Interface
     };
 
-    private const int LETTERBOX_FLAG = 1 << 5;
     private static readonly CompSig UpdateLetterboxingSignature = new(
         "E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 8B ?? ?? ?? ??");
 
@@ -34,10 +33,7 @@ public sealed unsafe class WidescreenCutscene : ModuleBase
         this.hookRegistry = hookRegistry;
     }
 
-    protected override void OnEnable()
-    {
-        hook = hookRegistry.Register(UpdateLetterboxingSignature, (UpdateLetterboxingDelegate)Detour);
-    }
+    protected override void OnEnable() => hook = hookRegistry.Register(UpdateLetterboxingSignature, (UpdateLetterboxingDelegate)Detour);
 
     protected override void OnDisable()
     {
@@ -61,4 +57,10 @@ public sealed unsafe class WidescreenCutscene : ModuleBase
     {
         [FieldOffset(0x40)] public int ShouldLetterBox;
     }
+
+    #region 常量
+
+    private const int LETTERBOX_FLAG = 1 << 5;
+
+    #endregion
 }

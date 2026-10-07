@@ -26,13 +26,11 @@ public sealed class DisplayIDInformation(
         ]
     };
 
+    public override bool HasSettings => true;
+
     private FeatureLifetime? runtimeLifetime;
     private DisplayIDInformationNativeUI? nativeUI;
     private DisplayIDInformationCombat? combat;
-
-    public override bool HasSettings => true;
-
-    public override bool DrawSettings() => DisplayIDInformationPanel.Draw(config, iconBrowser);
 
     protected override void OnEnable()
     {
@@ -76,6 +74,8 @@ public sealed class DisplayIDInformation(
         }
     }
 
+    public override bool DrawSettings() => DisplayIDInformationPanel.Draw(config, iconBrowser);
+
     private void OnUpdate(IFramework _)
     {
         nativeUI?.UpdateDtr();
@@ -87,20 +87,35 @@ public sealed class DisplayIDInformation(
 public sealed class DisplayIDInformationConfig
 {
     public bool DisplayItemID { get; set; } = true;
+
     public bool DisplayActionID { get; set; } = true;
+
     public bool DisplayActionIDResolved { get; set; } = true;
+
     public bool DisplayActionIDOriginal { get; set; } = true;
+
     public bool DisplayCastBarActionID { get; set; } = true;
+
     public bool DisplayFlyTextDamageActionID { get; set; } = true;
+
     public bool DisplayTargetID { get; set; } = true;
+
     public bool DisplayTargetIDBattleNPC { get; set; } = true;
+
     public bool DisplayTargetIDEventNPC { get; set; } = true;
+
     public bool DisplayTargetIDCompanion { get; set; } = true;
+
     public bool DisplayTargetIDOthers { get; set; } = true;
+
     public bool DisplayStatusID { get; set; } = true;
+
     public bool DisplayStatusIDAppendToName { get; set; } = true;
+
     public bool DisplayWeatherID { get; set; } = true;
+
     public bool DisplayZoneInfo { get; set; } = true;
+
     public bool DisplayIconID { get; set; }
 }
 

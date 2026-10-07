@@ -2,8 +2,9 @@ using System.Globalization;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit;
+using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
+using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
 using OmniToolbox.Config;
 using OmniToolbox.UI;
@@ -12,7 +13,6 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelConfig config) : IDisposable
 {
-    private const float ROW_HEIGHT = 20f;
     private static readonly ByteColor SecondaryTextColor = new() { A = 0xFF, R = 0xA0, G = 0xA0, B = 0xA0 };
 
     private readonly List<NodeBase> injectedNodes = [];
@@ -805,4 +805,10 @@ internal sealed unsafe class BetterCharacterPanelStatusUI(BetterCharacterPanelCo
         NodeFlags NodeFlags);
 
     private readonly record struct TextSnapshot(nint Address, string Text, ByteColor Color);
+
+    #region 常量
+
+    private const float ROW_HEIGHT = 20f;
+
+    #endregion
 }

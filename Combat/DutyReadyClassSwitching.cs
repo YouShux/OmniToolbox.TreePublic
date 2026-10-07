@@ -23,10 +23,6 @@ public sealed unsafe class DutyReadyClassSwitching : ModuleBase
         Category = ModuleCategory.Combat
     };
 
-    private const string ADDON_NAME = "ContentsFinderConfirm";
-    private const uint CLASS_JOB_ICON_BASE = 62100;
-    private const uint CLASS_JOB_ICON_LIMIT = 62200;
-
     private AddonEventRegistry? addonEvents;
     private nint addonAddress;
     private bool switchAttempted;
@@ -137,4 +133,14 @@ public sealed unsafe class DutyReadyClassSwitching : ModuleBase
         switchAttempted = false;
         addonVisible = false;
     }
+
+    #region 常量
+
+    private const string ADDON_NAME = "ContentsFinderConfirm";
+
+    private const uint CLASS_JOB_ICON_BASE = 62100;
+
+    private const uint CLASS_JOB_ICON_LIMIT = 62200;
+
+    #endregion
 }
