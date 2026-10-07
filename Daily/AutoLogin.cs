@@ -1,13 +1,12 @@
 using System.Linq;
+using System.Threading.Tasks;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
-using Dalamud.Game.Text.SeStringHandling;
-using Dalamud.Interface.ImGuiSeStringRenderer;
-using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
 using OmenTools;
+using OmenTools.Dalamud.Abstractions;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Data;
 using OmenTools.Info.Lumina;
@@ -52,6 +51,10 @@ public sealed unsafe class AutoLogin(
         RetryIntervalMS = 100,
         TimeoutMS = 180_000
     };
+    private readonly IPCSubscriber<string, Task<bool>> selectDataCenterAndLogin = new(
+        "DCTravelerX.SelectDCAndLogin",
+        static () => Task.FromException<bool>(
+            new InvalidOperationException("DCTravelerX.SelectDCAndLogin IPC is unavailable.")));
     private AddonEventRegistry? addonEvents;
     private AutoLoginTarget? manualTarget;
     private bool suspendedUntilLogin;
@@ -72,6 +75,8 @@ public sealed unsafe class AutoLogin(
 
     private void OnLogin()
     {
+        tasks.Abort();
+        manualTarget = null;
         crossDataCenterTravelInProgress = false;
         suspendedUntilLogin = false;
     }
@@ -86,13 +91,17 @@ public sealed unsafe class AutoLogin(
             !config.Targets.Any(candidate =>
                 candidate.WorldID == target.WorldID &&
                 candidate.CharacterName.Equals(target.CharacterName, StringComparison.Ordinal)))
+        {
             return false;
+        }
 
         var current = DService.Instance().ObjectTable.LocalPlayer;
         if (current is not null &&
             current.Name.ToString().Equals(target.CharacterName, StringComparison.Ordinal) &&
             DService.Instance().PlayerState.CurrentWorld.RowId == target.WorldID)
+        {
             return false;
+        }
 
         manualTarget = target;
         tasks.Abort();
@@ -211,49 +220,7 @@ public sealed unsafe class AutoLogin(
                     OmniControls.TableTextCentered(target.CharacterName, rowContentHeight);
 
                 OmniControls.NextTableField(OmniLoc.Get("Feature.AutoLogin.Column.World"), detailLayout);
-                using (var rented = new RentedSeStringBuilder())
-                {
-                    var icon = rented.Builder
-                        .AppendIcon((uint)BitmapFontIcon.CrossWorld)
-                        .ToReadOnlySeString();
-                    var worldName = LuminaWrapper.GetWorldName(target.WorldID);
-                    var textWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X - ImGui.GetTextLineHeight());
-                    var textSize = ImGui.CalcTextSize(worldName, false, textWidth);
-                    var worldHeight = MathF.Max(rowContentHeight, textSize.Y);
-                    var worldStyle = new SeStringDrawParams
-                    {
-                        TargetDrawList = default(ImDrawListPtr),
-                        ScreenOffset = Vector2.Zero,
-                        Font = ImGui.GetFont(),
-                        FontSize = ImGui.GetFontSize(),
-                        WrapWidth = float.MaxValue
-                    };
-                    var iconSize = ImGuiHelpers.SeStringWrapped(icon, worldStyle).Size;
-                    var worldPosition = ImGui.GetCursorScreenPos();
-                    var groupWidth = iconSize.X + textSize.X;
-                    var groupLeft = worldPosition.X +
-                                    MathF.Max(0f, (ImGui.GetContentRegionAvail().X - groupWidth) * 0.5f);
-                    var textTop = worldPosition.Y + (worldHeight - textSize.Y) * 0.5f;
-                    var textCenter = textSize.Y * 0.5f;
-                    if (worldName.Length > 0)
-                    {
-                        var font = ImGui.GetFont();
-                        var glyph = font.FindGlyph(worldName[0]);
-                        if (glyph is not null)
-                            textCenter = (glyph->Y0 + glyph->Y1) * 0.5f * ImGui.GetFontSize() / font.FontSize;
-                    }
-
-                    worldStyle.TargetDrawList = ImGui.GetWindowDrawList();
-                    worldStyle.ScreenOffset = new Vector2(
-                        groupLeft, textTop + textCenter - iconSize.Y * 0.5f);
-                    ImGuiHelpers.SeStringWrapped(icon, worldStyle);
-                    ImGui.GetWindowDrawList().AddText(
-                        ImGui.GetFont(), ImGui.GetFontSize(),
-                        new Vector2(groupLeft + iconSize.X, textTop),
-                        ImGui.GetColorU32(ImGuiCol.Text),
-                        worldName, textWidth);
-                    ImGui.Dummy(new Vector2(0f, worldHeight));
-                }
+                OmniControls.TableWorldNameCentered(LuminaWrapper.GetWorldName(target.WorldID), rowContentHeight);
 
                 OmniControls.NextTableField(actionLabel, detailLayout);
                 OmniControls.CenterTableItem(deleteSize, rowContentHeight);
@@ -300,12 +267,15 @@ public sealed unsafe class AutoLogin(
         if (GameState.IsLoggedIn)
             suspendedUntilLogin = false;
 
-        tasks.TimeoutAction = () => manualTarget = null;
+        tasks.TimeoutAction = SuspendUntilNextLogin;
+        tasks.ExceptionAction = SuspendUntilNextLogin;
         DService.Instance().ClientState.Login += OnLogin;
         addonEvents = new(DalamudServices.AddonLifecycle);
         addonEvents.Register(AddonEvent.PostSetup, "LobbyDKT", OnLobbyTravel);
         addonEvents.Register(AddonEvent.PostSetup, "_TitleMenu", OnTitleMenu);
-        OnTitleMenu(AddonEvent.PostSetup, null);
+        if (AddonHelper.TryGetByName("_TitleMenu", out AtkUnitBase* titleMenu) &&
+            titleMenu->IsAddonAndNodesReady())
+            OnTitleMenu(AddonEvent.PostSetup, null);
     }
 
     protected override void OnDisable()
@@ -332,9 +302,13 @@ public sealed unsafe class AutoLogin(
     protected override void OnDispose()
     {
         tasks.Dispose();
+        selectDataCenterAndLogin.Dispose();
     }
 
-    private void OnLobbyTravel(AddonEvent eventType, AddonArgs args) => SuspendUntilNextLogin();
+    private void OnLobbyTravel(AddonEvent eventType, AddonArgs args)
+    {
+        SuspendUntilNextLogin();
+    }
 
     private void OnTitleMenu(AddonEvent eventType, AddonArgs? args)
     {
@@ -344,10 +318,22 @@ public sealed unsafe class AutoLogin(
         }
 
         var lobbyTravelReady = IsLobbyTravelReady();
-        var hasTarget = config.Targets.Any(target => target.Enabled);
-        if (GameState.IsLoggedIn || tasks.IsBusy || lobbyTravelReady || !hasTarget)
+        var target = manualTarget;
+        if (GameState.IsLoggedIn || tasks.IsBusy || lobbyTravelReady ||
+            (target is null && !config.Targets.Any(candidate => candidate.Enabled)))
         {
             return;
+        }
+
+        uint dataCenterID = 0;
+        if (target is not null)
+        {
+            if (!Sheets.Worlds.TryGetValue(target.WorldID, out var targetWorld))
+            {
+                return;
+            }
+
+            dataCenterID = targetWorld.DataCenter.RowId;
         }
 
         tasks.Abort();
@@ -361,6 +347,112 @@ public sealed unsafe class AutoLogin(
         tasks.Enqueue(
             () =>
             {
+                if (target is null || IsLobbyTravelReady())
+                    return true;
+
+                var agent = AgentLobby.Instance();
+                if (agent == null)
+                {
+                    return false;
+                }
+
+                var loadedDataCenterID = GetLoadedDataCenterID(agent);
+                var characters = agent->LobbyData.LobbyUIClient.CurrentDataCenterCharacters;
+                for (var index = 0; index < characters.Count; index++)
+                {
+                    var entry = characters[index];
+                    if (entry.HomeWorldId == target.WorldID &&
+                        entry.NameString.Equals(target.CharacterName, StringComparison.Ordinal) &&
+                        entry.LoginFlags == CharaSelectCharacterEntryLoginFlags.DCTraveling &&
+                        Sheets.Worlds.TryGetValue(entry.CurrentWorldId, out var currentWorld) &&
+                        currentWorld.DataCenter.RowId == loadedDataCenterID)
+                    {
+                        dataCenterID = currentWorld.DataCenter.RowId;
+                        break;
+                    }
+                }
+
+                if (AddonHelper.TryGetByName("_CharaSelectListMenu", out AtkUnitBase* characterSelect) &&
+                    characterSelect->IsAddonAndNodesReady())
+                {
+                    AgentLobbyEvent.CloseCharacterSelect();
+                    return false;
+                }
+
+                if (AddonHelper.TryGetByName("TitleDCWorldMap", out AtkUnitBase* dataCenterSelect) &&
+                    dataCenterSelect->IsAddonAndNodesReady())
+                {
+                    return true;
+                }
+
+                if (!AddonHelper.TryGetByName("_TitleMenu", out AtkUnitBase* titleMenu) ||
+                    !titleMenu->IsAddonAndNodesReady())
+                {
+                    return false;
+                }
+
+                if (GameState.IsCN)
+                    return true;
+
+                var button = titleMenu->GetComponentButtonById(5);
+                if (button == null || !button->IsEnabled || button->OwnerNode == null ||
+                    !button->OwnerNode->IsVisible() ||
+                    button->OwnerNode->AtkResNode.AtkEventManager.Event == null)
+                {
+                    return false;
+                }
+
+                button->Click();
+                return true;
+            },
+            "Open data center selection",
+            timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
+        if (target is not null && GameState.IsCN)
+        {
+            Task<bool>? dataCenterLogin = null;
+            tasks.Enqueue(
+                () =>
+                {
+                    if (IsLobbyTravelReady())
+                        return true;
+
+                    if (dataCenterLogin is null)
+                    {
+                        dataCenterLogin = selectDataCenterAndLogin.InvokeFunc(LuminaWrapper.GetDataCenterName(dataCenterID));
+                    }
+                    if (!dataCenterLogin.IsCompleted)
+                    {
+                        return false;
+                    }
+
+                    var accepted = dataCenterLogin.GetAwaiter().GetResult();
+                    if (!accepted)
+                    {
+                        dataCenterLogin = null;
+                    }
+                    return accepted;
+                },
+                "Select target data center via DCTravelerX",
+                timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
+        }
+        tasks.Enqueue(
+            () =>
+            {
+                if (target is null || IsLobbyTravelReady() || GameState.IsCN)
+                    return true;
+
+                if (!AddonHelper.TryGetByName("TitleDCWorldMap", out AtkUnitBase* dataCenterSelect) ||
+                    !dataCenterSelect->IsAddonAndNodesReady())
+                    return false;
+
+                dataCenterSelect->Callback(17, (int)dataCenterID);
+                return true;
+            },
+            "Select target data center",
+            timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
+        tasks.Enqueue(
+            () =>
+            {
                 if (IsLobbyTravelReady())
                 {
                     return true;
@@ -371,6 +463,19 @@ public sealed unsafe class AutoLogin(
                     tasks.Abort();
                     return true;
                 }
+
+                if (target is not null && GameState.IsCN)
+                {
+                    return true;
+                }
+
+                var agent = AgentLobby.Instance();
+                if (agent == null ||
+                    (AddonHelper.TryGetByName("TitleDCWorldMap", out AtkUnitBase* dataCenterSelect) &&
+                     dataCenterSelect->IsAddonAndNodesReady()) ||
+                    (AddonHelper.TryGetByName("TitleConnect", out AtkUnitBase* connecting) &&
+                     connecting->IsAddonAndNodesReady()))
+                    return false;
 
                 if (AddonHelper.TryGetByName("_CharaSelectListMenu", out AtkUnitBase* characterSelect) &&
                     characterSelect->IsAddonAndNodesReady())
@@ -396,7 +501,15 @@ public sealed unsafe class AutoLogin(
                     !addon->IsAddonAndNodesReady())
                     return false;
 
-                return true;
+                var agent = AgentLobby.Instance();
+                if (agent == null ||
+                    (AddonHelper.TryGetByName("TitleConnect", out AtkUnitBase* connecting) &&
+                     connecting->IsAddonAndNodesReady()))
+                    return false;
+
+                var loadedDataCenterID = GetLoadedDataCenterID(agent);
+                return loadedDataCenterID != 0 &&
+                       (target is null || loadedDataCenterID == dataCenterID);
             },
             "Wait for character selection",
             timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
@@ -408,11 +521,6 @@ public sealed unsafe class AutoLogin(
                     return true;
                 }
 
-                if (!TryGetLoginTarget(out var target))
-                {
-                    return true;
-                }
-
                 var agent = AgentLobby.Instance();
                 if (agent == null)
                 {
@@ -420,11 +528,26 @@ public sealed unsafe class AutoLogin(
                 }
 
                 var client = agent->LobbyData.LobbyUIClient;
+                var currentDataCenterID = GetLoadedDataCenterID(agent);
+                if (currentDataCenterID == 0)
+                    return false;
+
+                var loginTarget = target ?? config.Targets.FirstOrDefault(candidate =>
+                    candidate.Enabled && client.CurrentDataCenterCharacters.Any(entry =>
+                        entry.HomeWorldId == candidate.WorldID &&
+                        entry.NameString.Equals(candidate.CharacterName, StringComparison.Ordinal) &&
+                        LuminaWrapper.GetWorldDC(entry.CurrentWorldId) == currentDataCenterID));
+                if (loginTarget is null)
+                {
+                    SuspendUntilNextLogin();
+                    return true;
+                }
+
                 for (var index = 0; index < client.CurrentDataCenterCharacters.Count; index++)
                 {
                     var entry = client.CurrentDataCenterCharacters[index];
-                    if (entry.HomeWorldId != target.WorldID ||
-                        !entry.NameString.Equals(target.CharacterName, StringComparison.Ordinal))
+                    if (entry.HomeWorldId != loginTarget.WorldID ||
+                        !entry.NameString.Equals(loginTarget.CharacterName, StringComparison.Ordinal))
                     {
                         continue;
                     }
@@ -482,11 +605,16 @@ public sealed unsafe class AutoLogin(
                     return true;
                 }
 
-                manualTarget = null;
-                return true;
+                return false;
             },
             "Select target character",
             timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
+    }
+
+    private static uint GetLoadedDataCenterID(AgentLobby* agent)
+    {
+        var worlds = agent->LobbyData.LobbyUIClient.CurrentDataCenterWorlds;
+        return worlds.Count > 0 ? LuminaWrapper.GetWorldDC(worlds[0].Id) : 0;
     }
 
     private bool IsLobbyTravelReady()
@@ -520,12 +648,6 @@ public sealed unsafe class AutoLogin(
         config.Targets.Add(target);
         saveConfig();
         return true;
-    }
-
-    private bool TryGetLoginTarget(out AutoLoginTarget target)
-    {
-        target = manualTarget ?? config.Targets.FirstOrDefault(target => target.Enabled)!;
-        return target is not null;
     }
 
     private static bool TryParseTarget(string text, out AutoLoginTarget target)

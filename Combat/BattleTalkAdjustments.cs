@@ -53,7 +53,7 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
             "##battleTalkAdjustmentsSettings",
             [new(groupWidth, scaleSize.Y), new(groupWidth, offsetSize.Y)],
             ["##battleTalkAdjustmentsScaleColumn", "##battleTalkAdjustmentsOffsetColumn"],
-            flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 2);
+            flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
         if (!table)
         {
             return false;

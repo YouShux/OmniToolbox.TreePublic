@@ -23,7 +23,7 @@ internal sealed class MitigationHistoryMenu(
 
     public void Draw()
     {
-        ImGui.SetNextWindowSizeConstraints(Vector2.Zero, ImGui.GetMainViewport().WorkSize);
+        OmniControls.SetNextAutoResizeWindowSizeConstraints(Vector2.Zero, ImGui.GetMainViewport().WorkSize);
         if (!ImGui.BeginPopup(HISTORY_POPUP_ID))
         {
             return;
@@ -152,7 +152,7 @@ internal sealed class MitigationHistoryMenu(
 
     private void DrawImportPopup()
     {
-        ImGui.SetNextWindowSizeConstraints(Vector2.Zero, ImGui.GetMainViewport().WorkSize);
+        OmniControls.SetNextAutoResizeWindowSizeConstraints(Vector2.Zero, ImGui.GetMainViewport().WorkSize);
         if (!ImGui.BeginPopup(IMPORT_POPUP_ID))
         {
             return;

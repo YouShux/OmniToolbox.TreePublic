@@ -342,7 +342,7 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
             UpdateChatLockButtonState(button);
         }
 
-        clickedButton.ShowTooltip();
+        clickedButton.ShowAnchoredTextTooltip(GetChatLockTooltip());
     }
 
     private void UpdateChatLockButtonState(TextureButtonNode button)

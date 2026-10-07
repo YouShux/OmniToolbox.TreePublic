@@ -55,6 +55,7 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
     private FeatureLifetime? runtimeLifetime;
     private LootWindow? window;
     private OverlayController? overlayController;
+    private DutyLootTodoOverlayNode? todoOverlayNode;
     private DutyLootOverlayNode? overlayNode;
     private uint activeDutyID;
     private bool exchangeDataPending;
@@ -74,10 +75,14 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
             });
 
             overlayController = new();
+            todoOverlayNode = new(this);
+            overlayController.AddNode(todoOverlayNode);
             overlayNode = new DutyLootOverlayNode(this);
             overlayController.AddNode(overlayNode);
             lifetime.Add(() =>
             {
+                todoOverlayNode?.HideButtonNow();
+                todoOverlayNode = null;
                 overlayNode?.HideButtonsNow();
                 overlayNode = null;
                 overlayController?.Dispose();
@@ -206,20 +211,16 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
 
     // 按钮挂在自有悬浮层 Addon 上，不进入 _ToDoList / ContentsFinder / RaidFinder 的节点树；
     // 这些窗口刷新重建时会按自有结构遍历子节点，外来节点会让原生 RequestedUpdate 崩溃。
-    private sealed class DutyLootOverlayNode : OverlayNode
+    private sealed class DutyLootTodoOverlayNode : OverlayNode
     {
         private const float TODO_BUTTON_GAP = 6f;
         private const float TODO_BUTTON_FALLBACK_X_OFFSET = 220f;
         private const float TODO_BUTTON_Y_OFFSET = -10f;
 
         private readonly IconButtonNode todoButton;
-        private readonly TextButtonNode finderButton;
-        private readonly TextButtonNode raidFinderButton;
         private readonly TextNineGridNode todoTooltip;
-        private readonly TextNineGridNode finderTooltip;
-        private readonly TextNineGridNode raidFinderTooltip;
 
-        public DutyLootOverlayNode(DutyLootPreview module)
+        public DutyLootTodoOverlayNode(DutyLootPreview module)
         {
             todoButton = new()
             {
@@ -230,39 +231,22 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
             };
             todoButton.BackgroundNode.IsVisible = false;
             todoButton.AttachNode(this);
-            todoTooltip = CreateTooltip(todoButton);
-
-            finderButton = CreateFinderButton(module);
-            finderButton.AttachNode(this);
-            finderTooltip = CreateTooltip(finderButton);
-
-            raidFinderButton = CreateFinderButton(module);
-            raidFinderButton.AttachNode(this);
-            raidFinderTooltip = CreateTooltip(raidFinderButton);
+            todoTooltip = CreateTooltip(this, todoButton);
         }
 
-        public override OverlayLayer OverlayLayer => OverlayLayer.AboveUserInterface;
+        public override OverlayLayer OverlayLayer => OverlayLayer.BehindUserInterface;
 
-        public void HideButtonsNow()
+        public void HideButtonNow()
         {
             todoButton.IsVisible = false;
             todoTooltip.IsVisible = false;
-            finderButton.IsVisible = false;
-            finderTooltip.IsVisible = false;
-            raidFinderButton.IsVisible = false;
-            raidFinderTooltip.IsVisible = false;
         }
 
         protected override void OnUpdate()
         {
-            var betweenAreas = DService.Instance().Condition.IsBetweenAreas;
-            var screenReady = UIModule.IsScreenReady();
-            var unitManager = RaptureAtkUnitManager.Instance();
-            var hidden = betweenAreas || !screenReady || GameState.IsInPVPArea ||
-                         (unitManager != null && unitManager->IsEditingHudLayout);
+            var hidden = IsOverlayHidden();
             IsVisible = !hidden;
             UpdateTodoButton(hidden);
-            UpdateFinderButtons(hidden);
         }
 
         private void UpdateTodoButton(bool hidden)
@@ -333,6 +317,42 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
             }
 
             return result;
+        }
+    }
+
+    private sealed class DutyLootOverlayNode : OverlayNode
+    {
+        private readonly TextButtonNode finderButton;
+        private readonly TextButtonNode raidFinderButton;
+        private readonly TextNineGridNode finderTooltip;
+        private readonly TextNineGridNode raidFinderTooltip;
+
+        public DutyLootOverlayNode(DutyLootPreview module)
+        {
+            finderButton = CreateFinderButton(module);
+            finderButton.AttachNode(this);
+            finderTooltip = CreateTooltip(this, finderButton);
+
+            raidFinderButton = CreateFinderButton(module);
+            raidFinderButton.AttachNode(this);
+            raidFinderTooltip = CreateTooltip(this, raidFinderButton);
+        }
+
+        public override OverlayLayer OverlayLayer => OverlayLayer.AboveUserInterface;
+
+        public void HideButtonsNow()
+        {
+            finderButton.IsVisible = false;
+            finderTooltip.IsVisible = false;
+            raidFinderButton.IsVisible = false;
+            raidFinderTooltip.IsVisible = false;
+        }
+
+        protected override void OnUpdate()
+        {
+            var hidden = IsOverlayHidden();
+            IsVisible = !hidden;
+            UpdateFinderButtons(hidden);
         }
 
         private void UpdateFinderButtons(bool hidden)
@@ -411,33 +431,40 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
 
         private TextNineGridNode GetTooltip(NodeBase button) =>
             button == finderButton ? finderTooltip : raidFinderTooltip;
+    }
 
-        private TextNineGridNode CreateTooltip(NodeBase button)
-        {
-            var tooltip = new TextNineGridNode
-            {
-                String = OmniLoc.Get("Feature.DutyLootPreview.ButtonTooltip"),
-                IsVisible = false
-            };
-            tooltip.AlignmentType = AlignmentType.Center;
-            tooltip.TextColor = ColorHelper.GetColor(50);
-            tooltip.TextOutlineColor = ColorHelper.GetColor(7);
-            tooltip.FontType = FontType.Axis;
-            tooltip.FontSize = 18;
-            tooltip.Size = tooltip.TextNode.GetTextDrawSize(false) + new Vector2(16f, 8f);
-            tooltip.AttachNode(this);
-            button.AddEvent(AtkEventType.MouseOver, () => tooltip.IsVisible = button.IsVisible);
-            button.AddEvent(AtkEventType.MouseOut, () => tooltip.IsVisible = false);
-            return tooltip;
-        }
+    private static bool IsOverlayHidden()
+    {
+        var unitManager = RaptureAtkUnitManager.Instance();
+        return DService.Instance().Condition.IsBetweenAreas || !UIModule.IsScreenReady() || GameState.IsInPVPArea ||
+               (unitManager != null && unitManager->IsEditingHudLayout);
+    }
 
-        private static void PositionTooltip(TextNineGridNode tooltip, NodeBase button)
+    private static TextNineGridNode CreateTooltip(NodeBase parent, NodeBase button)
+    {
+        var tooltip = new TextNineGridNode
         {
-            tooltip.Scale = Vector2.One;
-            tooltip.Position = button.Position + new Vector2(
-                (button.Width * button.Scale.X - tooltip.Width) * 0.5f,
-                -tooltip.Height - 4f);
-        }
+            String = OmniLoc.Get("Feature.DutyLootPreview.ButtonTooltip"),
+            IsVisible = false
+        };
+        tooltip.AlignmentType = AlignmentType.Center;
+        tooltip.TextColor = ColorHelper.GetColor(50);
+        tooltip.TextOutlineColor = ColorHelper.GetColor(7);
+        tooltip.FontType = FontType.Axis;
+        tooltip.FontSize = 18;
+        tooltip.Size = tooltip.TextNode.GetTextDrawSize(false) + new Vector2(16f, 8f);
+        tooltip.AttachNode(parent);
+        button.AddEvent(AtkEventType.MouseOver, () => tooltip.IsVisible = button.IsVisible);
+        button.AddEvent(AtkEventType.MouseOut, () => tooltip.IsVisible = false);
+        return tooltip;
+    }
+
+    private static void PositionTooltip(TextNineGridNode tooltip, NodeBase button)
+    {
+        tooltip.Scale = Vector2.One;
+        tooltip.Position = button.Position + new Vector2(
+            (button.Width * button.Scale.X - tooltip.Width) * 0.5f,
+            -tooltip.Height - 4f);
     }
 
     public sealed class Config
