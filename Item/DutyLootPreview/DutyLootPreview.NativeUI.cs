@@ -249,14 +249,13 @@ public sealed unsafe partial class DutyLootPreview
             atkEvent->SetEventIsHandled();
         }
 
-        protected override void Dispose(bool disposing, bool isNativeDestructor)
+        protected override void Dispose(bool isNativeDestructor)
         {
-            if (disposing)
-            {
-                menu.Dispose();
-            }
+            if (IsDisposed)
+                return;
 
-            base.Dispose(disposing, isNativeDestructor);
+            menu.Dispose();
+            base.Dispose(isNativeDestructor);
         }
 
         private sealed class LootIconNode : SimpleComponentNode

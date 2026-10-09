@@ -11,13 +11,13 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Data;
-using OmenTools.Interop.Game.AddonEvent;
 using OmenTools.OmenService;
 using OmenTools.Threading.TaskHelper;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
+using OmniToolbox.Items;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
@@ -293,33 +293,7 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
             return false;
         }
 
-        var confirm = addon->ConfirmCheckBox;
-        if (confirm != null && confirm->AtkResNode != null &&
-            confirm->AtkResNode->IsVisible() && !confirm->IsChecked)
-        {
-            if (checkboxSent)
-            {
-                return false;
-            }
-
-            if (confirm->OwnerNode == null)
-            {
-                return false;
-            }
-
-            checkboxSent = true;
-            // 窗口点击通知不改变控件状态，先通过原生接口勾选，再通知窗口。
-            confirm->SetChecked(true);
-            addon->AtkUnitBase.ClickComponent(confirm->OwnerNode, 3, AtkEventType.ButtonClick);
-            return false;
-        }
-
-        if (addon->YesButton == null || !addon->YesButton->IsEnabled)
-        {
-            return false;
-        }
-
-        return AddonSelectYesnoEvent.ClickYes();
+        return SelectYesnoConfirmation.TryConfirmWithCheckbox(addon, ref checkboxSent);
     }
 
     private bool WaitCurrentApplied()
@@ -397,26 +371,10 @@ public sealed unsafe class OneClickLowerQuality(OneClickLowerQualityConfig confi
         }
     }
 
-    private bool TryGetCurrentSlot(out InventoryItem* slot)
-    {
-        slot = null;
-        var manager = InventoryManager.Instance();
-        if (manager == null)
-        {
-            return false;
-        }
-
-        var container = manager->GetInventoryContainer(currentSlot.Container);
-        if (container == null || !container->IsLoaded || currentSlot.Slot >= container->Size)
-        {
-            return false;
-        }
-
-        slot = container->GetInventorySlot(currentSlot.Slot);
-        return slot != null &&
-               ItemUtil.GetBaseId(slot->ItemId).ItemId == currentSlot.ItemID &&
-               NeedsLowerQuality(slot);
-    }
+    private bool TryGetCurrentSlot(out InventoryItem* slot) =>
+        InventorySlotAccess.TryGet(currentSlot.Container, currentSlot.Slot, out slot) &&
+        ItemUtil.GetBaseId(slot->ItemId).ItemId == currentSlot.ItemID &&
+        NeedsLowerQuality(slot);
 
     private static bool NeedsLowerQuality(InventoryItem* slot) =>
         slot->IsHighQuality() || slot->IsCollectable();

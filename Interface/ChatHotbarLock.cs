@@ -1,13 +1,8 @@
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.ClientState.Keys;
-using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
-using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit.Classes;
-using KamiToolKit.Enums;
-using KamiToolKit.Nodes;
 using OmenTools;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
@@ -22,7 +17,7 @@ using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action saveConfig) : ModuleBase
+public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -33,17 +28,8 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
 
     public override bool HasSettings => true;
 
-    private static readonly string[] ChatAddonNames =
-        ["ChatLog", "ChatLogPanel_0", "ChatLogPanel_1", "ChatLogPanel_2", "ChatLogPanel_3"];
-    private static readonly Vector2 ButtonSize = new(20f, 24f);
-    private static readonly Vector2 LockedTextureCoordinates = new(88f, 0f);
-    private static readonly Vector2 UnlockedTextureCoordinates = new(48f, 0f);
-
-    private readonly Dictionary<string, TextureButtonNode> chatLockButtons = new(StringComparer.Ordinal);
     private FeatureLifetime? runtimeLifetime;
-    private Hook<AtkUnitBase.Delegates.MoveDelta>? moveDeltaHook;
     private bool locksVisible;
-    private bool showChatLock;
 
     private bool ShouldShowLocks
     {
@@ -69,40 +55,22 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
         var lifetime = new FeatureLifetime();
         try
         {
-            // 按注册顺序逆序释放：框架、插件事件、按钮、Hook，最后恢复原生显示。
+            // 卸载后恢复游戏原生锁按钮。
             lifetime.Add(() => SetHotbarLockVisible(true));
-            moveDeltaHook = DService.Instance().Hook.HookFromAddress<AtkUnitBase.Delegates.MoveDelta>(
-                AtkUnitBase.Addresses.MoveDelta.Value,
-                OnMoveDelta);
-            lifetime.Add(moveDeltaHook.Dispose);
-            moveDeltaHook.Enable();
-            lifetime.Add(DisposeChatLockButtons);
-
             var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
             lifetime.Add(addonEvents.Dispose);
-            foreach (var addonName in ChatAddonNames)
-            {
-                addonEvents.Register(AddonEvent.PostSetup, addonName, OnChatAddon);
-                addonEvents.Register(AddonEvent.PostRefresh, addonName, OnChatAddon);
-                addonEvents.Register(AddonEvent.PostRequestedUpdate, addonName, OnChatAddon);
-                addonEvents.Register(AddonEvent.PostDraw, addonName, OnChatAddon);
-                addonEvents.Register(AddonEvent.PreFinalize, addonName, OnChatAddon);
-            }
-
             addonEvents.Register(AddonEvent.PostSetup, "_ActionBar", OnActionBarAddon);
             addonEvents.Register(AddonEvent.PostRequestedUpdate, "_ActionBar", OnActionBarAddon);
             addonEvents.Register(AddonEvent.PostDraw, "_ActionBar", OnActionBarAddon);
 
             if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 16))
             {
-                throw new InvalidOperationException("Chat/hotbar lock update registration failed.");
+                throw new InvalidOperationException("Hotbar lock update registration failed.");
             }
 
             lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
             runtimeLifetime = lifetime;
             locksVisible = ShouldShowLocks;
-            showChatLock = config.ShowChatLock;
-            RefreshChatAddons(locksVisible);
             SetHotbarLockVisible(locksVisible);
         }
         catch
@@ -114,7 +82,6 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
             finally
             {
                 runtimeLifetime = null;
-                moveDeltaHook = null;
             }
 
             throw;
@@ -130,7 +97,6 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
         finally
         {
             runtimeLifetime = null;
-            moveDeltaHook = null;
         }
     }
 
@@ -139,11 +105,10 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
         var changed = false;
         using var table = OmniControls.SettingsTable(
             "##chatHotbarLockOptions",
-            [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ChatHotbarLock.ShowChatLock")) + new Vector2(OmniControls.HelpIconSize().X + ImGui.GetStyle().ItemSpacing.X, 0f),
-             OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ChatHotbarLock.HideLocks")),
+            [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ChatHotbarLock.HideLocks")),
              OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.ChatHotbarLock.Modifier")),
                  OmniControls.MeasureCombo(GetModifierName(config.ModifierKey), OmniTheme.Scale(140f)), OmniControls.HelpIconSize()], ImGui.GetStyle().ItemInnerSpacing.X)],
-            ["##chatHotbarLockShowChatLock", "##chatHotbarLockHideLocks", "##chatHotbarLockModifier"], weights: [1f, 1f, 2f],
+            ["##chatHotbarLockHideLocks", "##chatHotbarLockModifier"], weights: [1f, 2f],
             flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
         if (!table)
         {
@@ -156,24 +121,6 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
                 ImGui.GetStyle().FramePadding.X,
                 MathF.Max(0f, (OmniTheme.CheckboxSize() - ImGui.GetTextLineHeight()) * 0.5f)));
         ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        var showChatLock = config.ShowChatLock;
-        if (OmniControls.Checkbox(
-                $"{OmniLoc.Get("Feature.ChatHotbarLock.ShowChatLock")}##chatHotbarLockShowChatLock",
-                ref showChatLock))
-        {
-            config.ShowChatLock = showChatLock;
-            if (!showChatLock)
-            {
-                config.ChatLocked = false;
-            }
-
-            changed = true;
-        }
-
-        ImGui.SameLine(0f, ImGui.GetStyle().ItemSpacing.X);
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.ChatHotbarLock.ShowChatLock.Help"));
-
         ImGui.TableNextColumn();
         var hideLocks = config.HideLocks;
         if (OmniControls.Checkbox(
@@ -240,182 +187,17 @@ public sealed unsafe class ChatHotbarLock(ChatHotbarLockConfig config, Action sa
     private void OnFrameworkUpdate(IFramework _)
     {
         var showLocks = ShouldShowLocks;
-        if (locksVisible == showLocks && showChatLock == config.ShowChatLock)
+        if (locksVisible == showLocks)
         {
             return;
         }
 
         locksVisible = showLocks;
-        showChatLock = config.ShowChatLock;
-        RefreshChatAddons(showLocks);
         SetHotbarLockVisible(showLocks);
-    }
-
-    private void OnChatAddon(AddonEvent eventType, AddonArgs args)
-    {
-        if (eventType == AddonEvent.PreFinalize)
-        {
-            DisposeChatLockButton(args.AddonName);
-            return;
-        }
-
-        var addon = (AtkUnitBase*)args.Addon.Address;
-        if (addon == null)
-        {
-            return;
-        }
-
-        EnsureChatLockButton(args.AddonName, addon);
-        UpdateChatLockButton(args.AddonName, addon, locksVisible);
     }
 
     private void OnActionBarAddon(AddonEvent _, AddonArgs args) =>
         SetHotbarLockVisible(locksVisible, (AtkUnitBase*)args.Addon.Address);
-
-    private void RefreshChatAddons(bool showLocks)
-    {
-        foreach (var addonName in ChatAddonNames)
-        {
-            if (!AddonHelper.TryGetByName(addonName, out var addon))
-            {
-                DisposeChatLockButton(addonName);
-                continue;
-            }
-
-            EnsureChatLockButton(addonName, addon);
-            UpdateChatLockButton(addonName, addon, showLocks);
-        }
-    }
-
-    private void EnsureChatLockButton(string addonName, AtkUnitBase* addon)
-    {
-        var isMainChat = addonName == "ChatLog";
-        var anchor = addon->GetNodeById(isMainChat ? 11u : 6u);
-        if (anchor == null || anchor->ParentNode == null)
-        {
-            return;
-        }
-
-        if (chatLockButtons.TryGetValue(addonName, out var existingButton))
-        {
-            if (RaptureAtkUnitManager.Instance()->GetAddonByNode((AtkResNode*)existingButton) == addon &&
-                ((AtkResNode*)existingButton)->ParentNode == anchor->ParentNode)
-            {
-                return;
-            }
-
-            DisposeChatLockButton(addonName);
-        }
-
-        var button = CreateChatLockButton();
-        button.AttachNode(anchor, NodePosition.AfterTarget);
-        chatLockButtons[addonName] = button;
-    }
-
-    private TextureButtonNode CreateChatLockButton()
-    {
-        var button = new TextureButtonNode
-        {
-            Size = ButtonSize,
-            TexturePath = "ui/uld/ActionBar.tex",
-            TextureCoordinates = config.ChatLocked ? LockedTextureCoordinates : UnlockedTextureCoordinates,
-            TextureSize = ButtonSize,
-            IsVisible = config.ShowChatLock && ShouldShowLocks,
-            ShowClickableCursor = true,
-        };
-        button.SetTextTooltip(GetChatLockTooltip());
-        button.ImageNode.Scale = new(0.9f, 0.9f);
-        button.ImageNode.Origin = ButtonSize / 2f;
-        button.OnClick = () => OnChatLockButtonClicked(button);
-        return button;
-    }
-
-    private void UpdateChatLockButton(string addonName, AtkUnitBase* addon, bool showLocks)
-    {
-        if (!chatLockButtons.TryGetValue(addonName, out var button))
-        {
-            return;
-        }
-
-        var isMainChat = addonName == "ChatLog";
-        var anchor = addon->GetNodeById(isMainChat ? 11u : 6u);
-        if (anchor == null)
-        {
-            return;
-        }
-
-        var scale = AtkUnitBase.GetGlobalUIScale();
-        button.Position = new(
-            anchor->GetXFloat() + (isMainChat ? 50f : 32f),
-            anchor->GetYFloat() + 2f);
-        button.Scale = new(scale, scale);
-        button.IsVisible = addon->IsVisible && config.ShowChatLock && showLocks;
-        UpdateChatLockButtonState(button);
-    }
-
-    private void OnChatLockButtonClicked(TextureButtonNode clickedButton)
-    {
-        config.ChatLocked = !config.ChatLocked;
-        saveConfig();
-        foreach (var button in chatLockButtons.Values)
-        {
-            UpdateChatLockButtonState(button);
-        }
-
-        clickedButton.ShowAnchoredTextTooltip(GetChatLockTooltip());
-    }
-
-    private void UpdateChatLockButtonState(TextureButtonNode button)
-    {
-        var textureCoordinates = config.ChatLocked ? LockedTextureCoordinates : UnlockedTextureCoordinates;
-        if (button.TextureCoordinates == textureCoordinates)
-        {
-            return;
-        }
-
-        button.TextureCoordinates = textureCoordinates;
-        button.SetTextTooltip(GetChatLockTooltip());
-    }
-
-    private string GetChatLockTooltip() => OmniLoc.Get(config.ChatLocked
-        ? "Feature.ChatHotbarLock.Tooltip.Unlock"
-        : "Feature.ChatHotbarLock.Tooltip.Lock");
-
-    private void DisposeChatLockButtons()
-    {
-        foreach (var addonName in ChatAddonNames)
-        {
-            DisposeChatLockButton(addonName);
-        }
-
-        chatLockButtons.Clear();
-    }
-
-    private void DisposeChatLockButton(string addonName)
-    {
-        if (chatLockButtons.Remove(addonName, out var button))
-        {
-            AddonHelper.TryGetByName(addonName, out var addon);
-            NativeNodeDetach.DetachAndDestroyComponent(button);
-            // 同帧移除已销毁按钮的碰撞引用，不能等下一帧再重建。
-            NativeNodeDetach.UpdateNodeLists(addon);
-        }
-    }
-
-    private bool OnMoveDelta(AtkUnitBase* addon, short* xDelta, short* yDelta)
-    {
-        if (config.ShowChatLock &&
-            config.ChatLocked &&
-            addon != null &&
-            addon->NameString.StartsWith("ChatLog", StringComparison.Ordinal))
-        {
-            *xDelta = 0;
-            *yDelta = 0;
-            return false;
-        }
-
-        return moveDeltaHook!.Original(addon, xDelta, yDelta);
-    }
 
     private static void SetHotbarLockVisible(bool visible)
     {

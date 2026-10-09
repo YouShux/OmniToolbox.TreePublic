@@ -139,9 +139,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
                     .Where(friend => selectedContentIDs.Contains(friend.ContentID)).ToArray();
                 confirmationOwnerContentID = ownerContentID;
                 openConfirmation = true;
-                DalamudServices.PluginLog.Information(
-                    "[BatchFriendRemoval] 点击批量删除：所选 {SelectedCount}，确认目标 {TargetCount}。",
-                    selectedContentIDs.Count, confirmationTargets.Length);
             }
         }
 
@@ -268,8 +265,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
 
         OmniControls.DrawPopupBackground();
 
-        if (ImGui.IsWindowAppearing())
-            DalamudServices.PluginLog.Information("[BatchFriendRemoval] 确认窗口已显示，目标 {TargetCount}。", confirmationTargets.Length);
         using var textWrap = ImRaii.TextWrapPos(textWidth <= ImGui.GetContentRegionAvail().X ? -1f : 0f);
         ImGui.TextUnformatted(title);
         ImGui.TextUnformatted(message);
@@ -280,7 +275,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         {
             if (OmniControls.SmallButton(confirmLabel, false, confirmSize))
             {
-                DalamudServices.PluginLog.Information("[BatchFriendRemoval] 用户确认删除 {TargetCount} 位好友。", confirmationTargets.Length);
                 BeginRemoval(confirmationTargets, confirmationOwnerContentID);
                 ImGui.CloseCurrentPopup();
             }
@@ -293,7 +287,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
                 (ImGui.GetContentRegionAvail().X - cancelSize.X) * 0.5f));
         if (OmniControls.SmallButton(cancelLabel, false, cancelSize))
         {
-            DalamudServices.PluginLog.Information("[BatchFriendRemoval] 用户取消批量删除。");
             ImGui.CloseCurrentPopup();
         }
     }
@@ -312,7 +305,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         var version = Interlocked.Increment(ref operationVersion);
         totalCount = 0;
         removedCount = 0;
-        DalamudServices.PluginLog.Information("[BatchFriendRemoval] 刷新好友名单，批次 {Version}。", version);
         var responseVersion = snapshot.Version;
         EnqueueStep(version, ownerContentID, "RequestFriends", () => RequestFriends(ref responseVersion));
         EnqueueStep(version, ownerContentID, "WaitForFriends", () =>
@@ -337,7 +329,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
             return false;
 
         showRequested = true;
-        DalamudServices.PluginLog.Information("[BatchFriendRemoval] 删除操作正在打开原生好友名单。");
         uiModule->ExecuteMainCommand(FRIEND_LIST_MAIN_COMMAND_ID);
         return false;
     }
@@ -370,10 +361,7 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         }
 
         responseVersion = snapshot.Version;
-        var accepted = proxy->RequestData();
-        if (accepted)
-            DalamudServices.PluginLog.Information("[BatchFriendRemoval] 好友数据请求已受理，之前的快照版本 {Version}。", responseVersion);
-        return accepted;
+        return proxy->RequestData();
     }
 
     private void OnEndRequest(InfoProxyFriendList* proxy)
@@ -385,9 +373,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
             return;
 
         CaptureFriends(proxy, ownerContentID, snapshot.Version + 1);
-        DalamudServices.PluginLog.Information(
-            "[BatchFriendRemoval] 好友数据回包：原生条目 {EntryCount}，有效 Content ID {FriendCount}，姓名未获取 {UnresolvedCount}，快照版本 {Version}。",
-            proxy->EntryCount, snapshot.Friends.Length, snapshot.Friends.Count(static friend => friend.IsUnresolved), snapshot.Version);
     }
 
     private void CaptureFriends(InfoProxyFriendList* proxy, ulong ownerContentID, int version)
@@ -444,9 +429,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
                     if (name == unavailableName)
                         name = string.Empty;
                 }
-                DalamudServices.PluginLog.Information(
-                    "[BatchFriendRemoval] 补充姓名：ContentID={ContentID}，NativeNamesAligned={Aligned}，NameRead={NameRead}，HomeWorld={HomeWorld}/{ResolvedHomeWorld}，State={State}。",
-                    entry.ContentId, useDisplayedNames, !string.IsNullOrWhiteSpace(name), entry.HomeWorld, homeWorld, entry.State);
             }
 
             var worldName = homeWorld > 1 ? LuminaWrapper.GetWorldName(homeWorld) : string.Empty;
@@ -469,7 +451,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         var version = Interlocked.Increment(ref operationVersion);
         removedCount = 0;
         totalCount = targets.Length;
-        DalamudServices.PluginLog.Information("[BatchFriendRemoval] 开始删除，批次 {Version}，目标 {TargetCount}。", version, totalCount);
         var showRequested = false;
         EnqueueStep(version, ownerContentID, "PrepareFriendList", () => PrepareFriendList(ref showRequested));
         var initialResponseVersion = snapshot.Version;
@@ -495,9 +476,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
                     return false;
 
                 removedCount++;
-                DalamudServices.PluginLog.Information(
-                    "[BatchFriendRemoval] 已确认移除：ContentID={ContentID}，进度 {RemovedCount}/{TotalCount}。",
-                    friend.ContentID, removedCount, totalCount);
                 currentFriend = null;
                 return true;
             });
@@ -551,9 +529,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
             menuAddonID = menu->Id;
             if (agent->SelectedContentId == friend.ContentID)
             {
-                DalamudServices.PluginLog.Information(
-                    "[BatchFriendRemoval] 原生菜单目标已匹配：ContentID={ContentID}，Row={Row}，MenuAddon={MenuAddonID}。",
-                    friend.ContentID, nativeRowIndex, menuAddonID);
                 return true;
             }
 
@@ -602,9 +577,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         }
 
         awaitingMenu = true;
-        DalamudServices.PluginLog.Information(
-            "[BatchFriendRemoval] 点击原生好友行：Row={Row}，目标 ContentID={ContentID}，HomeWorld={HomeWorld}。",
-            nativeRowIndex, friend.ContentID, friend.HomeWorld);
         addon->FriendList->DispatchItemEvent(nativeRowIndex, AtkEventType.ListItemClick);
         menu = Addons.ContextMenuAddon;
         if (menu != null)
@@ -648,7 +620,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
                 (context->CurrentContextMenu->ContextItemDisabledMask & (1u << index)) != 0)
                 return false;
 
-            DalamudServices.PluginLog.Information("[BatchFriendRemoval] 选择删除菜单项，Index={Index}，ContentID={ContentID}。", index, friend.ContentID);
             return AddonContextMenuEvent.Select(index);
         }
         return false;
@@ -686,7 +657,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         if (confirmation->YesButton == null || !confirmation->YesButton->IsEnabled)
             return false;
 
-        DalamudServices.PluginLog.Information("[BatchFriendRemoval] 点击原生删除确认，ContentID={ContentID}。", friend.ContentID);
         return AddonSelectYesnoEvent.ClickYes();
     }
 
@@ -703,7 +673,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
                 {
                     started = true;
                     currentStep = step;
-                    DalamudServices.PluginLog.Information("[BatchFriendRemoval] 开始步骤 {Step}，批次 {Version}。", step, version);
                 }
 
                 return action();
@@ -743,46 +712,16 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
 
     private void StopOperation(string reason)
     {
-        DalamudServices.PluginLog.Information(
-            "[BatchFriendRemoval] 操作结束：Reason={Reason}，Step={Step}，ContentID={ContentID}，进度 {RemovedCount}/{TotalCount}。",
-            reason, currentStep, currentFriend?.ContentID ?? 0, removedCount, totalCount);
         if (reason is not ("Completed" or "Stopped" or
             "CharacterChanged"))
-            LogNativeState();
+            DalamudServices.PluginLog.Warning(
+                "[BatchFriendRemoval] 操作终止：Reason={Reason}，Step={Step}，ContentID={ContentID}。",
+                reason, currentStep, currentFriend?.ContentID ?? 0);
         Interlocked.Increment(ref operationVersion);
         tasks?.Abort();
         currentFriend = null;
         friendAddonID = 0;
         menuAddonID = 0;
-    }
-
-    private void LogNativeState()
-    {
-        var proxy = InfoProxyFriendList.Instance();
-        var addon = AddonHelper.GetByName<AddonFriendList>("FriendList");
-        var addonReady = ((AtkUnitBase*)addon)->IsAddonAndNodesReady();
-        var context = AgentContext.Instance();
-        var confirmation = (AddonSelectYesno*)Addons.SelectYesno;
-        var menu = Addons.ContextMenuAddon;
-        DalamudServices.PluginLog.Warning(
-            "[BatchFriendRemoval] 原生状态：FriendListReady={Ready}，Addon={AddonID}/{ExpectedAddonID}，Entries={EntryCount}，Rows={RowCount}，Filter={Filter}，Row={Row}，MenuReady={MenuReady}，ConfirmReady={ConfirmReady}，Snapshot={SnapshotVersion}。",
-            addonReady, addonReady ? addon->Id : 0, friendAddonID,
-            proxy != null ? proxy->EntryCount : 0,
-            addonReady && addon->FriendList != null ? addon->FriendList->ListLength : 0,
-            proxy != null ? proxy->FilterGroup.ToString() : "Unavailable", nativeRowIndex,
-            menu->IsAddonAndNodesReady(), ((AtkUnitBase*)confirmation)->IsAddonAndNodesReady(), snapshot.Version);
-        if (context != null)
-            DalamudServices.PluginLog.Warning(
-                "[BatchFriendRemoval] 菜单目标：OwnerAddon={OwnerAddon}，TargetCID={TargetCID}，ConfirmCID={ConfirmCID}，ConfirmAddon={ConfirmAddon}，HomeWorld={HomeWorld}/{ExpectedHomeWorld}。",
-                context->OwnerAddon, context->TargetContentId, context->YesNoTargetContentId,
-                context->YesNoAddon, context->YesNoTargetHomeWorldId, currentFriend?.HomeWorld ?? 0);
-        var agent = AgentFriendlist.Instance();
-        if (agent != null)
-            DalamudServices.PluginLog.Warning(
-                "[BatchFriendRemoval] 好友代理：SelectedCID={SelectedCID}，ConfirmAddon={ConfirmAddon}，实际确认窗口={ActualConfirmAddon}，实际菜单={ActualMenuAddon}/{ExpectedMenuAddon}。",
-                agent->SelectedContentId, agent->SelectYesNoAddonId,
-                ((AtkUnitBase*)confirmation)->IsAddonAndNodesReady() ? confirmation->Id : 0,
-                menu->IsAddonAndNodesReady() ? menu->Id : 0, menuAddonID);
     }
 
     private sealed record FriendEntry(ulong ContentID, string Name, ushort HomeWorld, string WorldName)

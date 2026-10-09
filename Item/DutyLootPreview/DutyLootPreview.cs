@@ -7,6 +7,7 @@ using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
 using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
+using KamiToolKit.Nodes.Simplified;
 using KamiToolKit.UiOverlay;
 using OmenTools;
 using OmenTools.Extensions;
@@ -329,6 +330,7 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
         private readonly TextButtonNode raidFinderButton;
         private readonly TextNineGridNode finderTooltip;
         private readonly TextNineGridNode raidFinderTooltip;
+        private int buttonTheme = -1;
 
         public DutyLootOverlayNode(DutyLootPreview module)
         {
@@ -360,6 +362,26 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
 
         private void UpdateFinderButtons(bool hidden)
         {
+            if (!hidden && DService.Instance().ClientState.IsLoggedIn)
+            {
+                var theme = (int)AtkStage.Instance()->AtkUIColorHolder->ActiveColorThemeType;
+                if (buttonTheme != theme)
+                {
+                    // 登录后的首次显示及主题切换时，重新解析按钮纹理和文字颜色。
+                    foreach (var button in new[] { finderButton, raidFinderButton })
+                    {
+                        ((SimpleNineGridNode)button.BackgroundNode).TexturePath = "ui/uld/ButtonA.tex";
+                        button.LabelNode.TextColor = ColorHelper.GetColor(50);
+                        button.LabelNode.TextOutlineColor = ColorHelper.GetColor(7);
+                        button.LabelNode.TextFlags = theme == 0
+                            ? button.LabelNode.TextFlags | TextFlags.Emboss
+                            : button.LabelNode.TextFlags & ~TextFlags.Emboss;
+                    }
+
+                    buttonTheme = theme;
+                }
+            }
+
             AtkUnitBase* contentsAddon = null;
             AtkComponentButton* contentsAnchor = null;
             if (!hidden &&
@@ -396,16 +418,12 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
                 raidAgent != null && raidAgent->IsAddonShown() && raidAgent->InterfaceSub.SelectedDutyId > 0);
         }
 
-        private static TextButtonNode CreateFinderButton(DutyLootPreview module)
+        private static TextButtonNode CreateFinderButton(DutyLootPreview module) => new()
         {
-            var button = new TextButtonNode
-            {
-                String = OmniLoc.Get("Feature.DutyLootPreview.Button"),
-                OnClick = module.ToggleWindow,
-                IsVisible = false
-            };
-            return button;
-        }
+            String = OmniLoc.Get("Feature.DutyLootPreview.Button"),
+            OnClick = module.ToggleWindow,
+            IsVisible = false
+        };
 
         private void UpdateFinderButton(
             AtkUnitBase* addon,
@@ -428,8 +446,39 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
             button.Position = new(
                 anchorNode->ScreenX - (button.Width + 6f) * anchorScale.X,
                 anchorNode->ScreenY);
+            if (IsCoveredByWindow(addon, button.Position, button.Position + button.Size * button.Scale))
+            {
+                button.IsVisible = false;
+                GetTooltip(button).IsVisible = false;
+                return;
+            }
             button.IsEnabled = DService.Instance().ClientState.IsLoggedIn && hasSelectedDuty;
             PositionTooltip(GetTooltip(button), button);
+        }
+
+        private static bool IsCoveredByWindow(AtkUnitBase* source, Vector2 minimum, Vector2 maximum)
+        {
+            var manager = RaptureAtkUnitManager.Instance();
+            if (manager is null)
+                return false;
+            var units = &manager->AllLoadedUnitsList;
+            for (var index = 0; index < units->Count; index++)
+            {
+                var addon = units->Entries[index].Value;
+                if (addon == null || addon == source || !addon->IsVisible || addon->RootNode == null ||
+                    !addon->RootNode->IsVisible() || (addon->VisibilityFlags & 5) != 0 ||
+                    addon->WindowNode == null || !addon->WindowNode->IsVisible() ||
+                    addon->DepthLayer < source->DepthLayer ||
+                    addon->DepthLayer == source->DepthLayer && addon->DrawOrderIndex <= source->DrawOrderIndex)
+                    continue;
+
+                FFXIVClientStructs.FFXIV.Common.Math.Bounds bounds;
+                addon->GetWindowBounds(&bounds);
+                if (minimum.X < bounds.Pos2.X && maximum.X > bounds.Pos1.X &&
+                    minimum.Y < bounds.Pos2.Y && maximum.Y > bounds.Pos1.Y)
+                    return true;
+            }
+            return false;
         }
 
         private TextNineGridNode GetTooltip(NodeBase button) =>
