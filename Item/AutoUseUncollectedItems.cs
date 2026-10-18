@@ -216,6 +216,7 @@ public sealed unsafe class AutoUseUncollectedItems : ModuleBase
         CollectionType.Portrait,
         CollectionType.FashionAccessory,
         CollectionType.Glasses,
+        CollectionType.RidingMap,
         CollectionType.BlindBox
     ];
 }
