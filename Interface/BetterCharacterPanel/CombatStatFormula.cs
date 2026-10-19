@@ -3,11 +3,9 @@ using OmenTools.Interop.Game.Lumina;
 
 namespace OmniToolbox.TreePublic;
 
-internal readonly record struct CombatLevelModifier(int Main, int Sub, int Div);
-
 internal static class CombatStatFormula
 {
-    internal static CombatLevelModifier GetLevelModifier(int level) => LevelTable[Math.Clamp(level, 1, 100)];
+    internal static BetterCharacterPanelState.CombatLevelModifier GetLevelModifier(int level) => LevelTable[Math.Clamp(level, 1, 100)];
 
     internal static double CalculateGcd(int level, int speed, int speedModifier) =>
         CalculateGcdValue(250, speed, GetLevelModifier(level), speedModifier) / 100d;
@@ -83,7 +81,7 @@ internal static class CombatStatFormula
         _ => (level - 90) * 3.4d + 156d
     };
 
-    private static int CalculateGcdValue(int gcd, int speed, CombatLevelModifier modifier, int speedModifier) =>
+    private static int CalculateGcdValue(int gcd, int speed, BetterCharacterPanelState.CombatLevelModifier modifier, int speedModifier) =>
         (int)Math.Floor(
             Math.Floor((1000d + Math.Ceiling(130d * (modifier.Sub - speed) / modifier.Div)) * gcd / 100d)
             * (100d - speedModifier)
@@ -91,7 +89,7 @@ internal static class CombatStatFormula
 
     #region 预置数据
 
-    private static readonly CombatLevelModifier[] LevelTable =
+    private static readonly BetterCharacterPanelState.CombatLevelModifier[] LevelTable =
     [
         default,
         new(20, 56, 56), new(21, 57, 57), new(22, 60, 60), new(24, 62, 62), new(26, 65, 65),

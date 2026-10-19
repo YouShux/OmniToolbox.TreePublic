@@ -1,4 +1,4 @@
-using System.Text;
+using Dalamud.Interface.ImGuiNotification;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
@@ -78,69 +78,42 @@ public sealed unsafe partial class BetterGlamourManagement
 
     private void CopyPreset(BetterGlamourPreset preset)
     {
-        var builder = new StringBuilder();
-        builder.AppendLine(string.Format(
-            OmniLoc.Get("Feature.BetterGlamourManagement.Export.Single"),
-            OmniLoc.Get("Feature.BetterGlamourManagement.Hairstyle"),
-            GetHairstyleName(preset.HairstyleID)));
-        builder.AppendLine(string.Format(
-            OmniLoc.Get("Feature.BetterGlamourManagement.Export.Weapon"),
-            FormatWeapon(preset)));
-        AppendPair(builder, preset, Parts[0], Parts[5]);
-        AppendPair(builder, preset, Parts[1], Parts[6]);
-        AppendPair(builder, preset, Parts[2], Parts[7]);
-        AppendPair(builder, preset, Parts[3], Parts[8]);
-        AppendPair(builder, preset, Parts[4], Parts[9]);
-        builder.Append(string.Format(
-            OmniLoc.Get("Feature.BetterGlamourManagement.Export.Single"),
-            OmniLoc.Get("Feature.BetterGlamourManagement.Part.Glasses"),
-            GetGlassesName(preset.GlassesID)));
-        ImGui.SetClipboardText(builder.ToString());
+        ImGui.SetClipboardText(GlamourClipboard.Export(preset));
         OmniNotifier.Popup(
             Info.Title,
             OmniLoc.Get("Feature.BetterGlamourManagement.Copied"),
-            Dalamud.Interface.ImGuiNotification.NotificationType.Success);
+            NotificationType.Success);
     }
 
-    private static void AppendPair(
-        StringBuilder builder,
-        BetterGlamourPreset preset,
-        GlamourPart left,
-        GlamourPart right) => builder.AppendLine(string.Format(
-        OmniLoc.Get("Feature.BetterGlamourManagement.Export.Pair"),
-        OmniLoc.Get(left.TextKey),
-        FormatItem(GetOrCreateItem(preset, left.Slot)),
-        OmniLoc.Get(right.TextKey),
-        FormatItem(GetOrCreateItem(preset, right.Slot))));
-
-    private static string FormatWeapon(BetterGlamourPreset preset)
+    private void ImportClipboard()
     {
-        var mainHand = FormatItem(GetOrCreateItem(preset, 0));
-        var offHand = GetOrCreateItem(preset, 1);
-        return offHand.ItemID == 0
-            ? mainHand
-            : $"{OmniLoc.Get("Feature.BetterGlamourManagement.MainHand")}：{mainHand}；{OmniLoc.Get("Feature.BetterGlamourManagement.OffHand")}：{FormatItem(offHand)}";
-    }
-
-    private static string FormatItem(BetterGlamourItem item)
-    {
-        if (item.ItemID == 0)
+        try
         {
-            return OmniLoc.Get("Feature.BetterGlamourManagement.None");
+            if (config.Presets.Count >= MAX_PRESET_COUNT)
+                throw new InvalidOperationException(string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.PresetLimitReached"), MAX_PRESET_COUNT));
+            var preset = GlamourClipboard.Import(ImGui.GetClipboardText());
+            ValidateRemotePreset(preset);
+            var oldSelection = selectedPresetIndex;
+            config.Presets.Add(preset);
+            selectedPresetIndex = config.Presets.Count - 1;
+            try
+            {
+                saveConfig();
+            }
+            catch
+            {
+                config.Presets.Remove(preset);
+                selectedPresetIndex = oldSelection;
+                throw;
+            }
+            managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
+            QueuePortraitPreview(preset);
+            OmniNotifier.Popup(Info.Title, string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.Imported"), preset.Name), NotificationType.Success);
         }
-
-        if (!LuminaGetter.TryGetRow<Item>(item.ItemID, out var row))
+        catch (Exception error)
         {
-            return string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.UnknownItem"), item.ItemID);
+            OmniNotifier.Popup(Info.Title, string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.ImportFailed"), error.Message), NotificationType.Error);
         }
-
-        var name = row.Name.ExtractText();
-        return row.DyeCount switch
-        {
-            0 => name,
-            1 => $"{name} {GetDyeName(item.Stain0)}",
-            _ => $"{name} {GetDyeName(item.Stain0)} {GetDyeName(item.Stain1)}"
-        };
     }
 
     internal static string GetItemName(uint itemID)
@@ -376,5 +349,3 @@ public sealed unsafe partial class BetterGlamourManagement
 
     internal readonly record struct GlamourDyeOption(byte ID, string Name, Vector4 Color);
 }
-
-internal readonly record struct BetterGlamourItemSearchResult(uint ItemID, string Name, uint IconID);

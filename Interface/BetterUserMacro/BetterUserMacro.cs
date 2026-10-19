@@ -18,7 +18,6 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
@@ -26,7 +25,7 @@ using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : ModuleBase
+public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings config) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -45,6 +44,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
     private FeatureLifetime? runtimeLifetime;
     private Hook<AddonActionBarBase.Delegates.ShowTooltip>? tooltipHook;
     private Hook<AtkDragDropManager.Delegates.Drop>? macroDropHook;
+    private Hook<RaptureMacroModule.Delegates.SetSavePendingFlag>? macroSaveHook;
+    private bool macroIconsDirty = true;
     private AddonMacro* lineNumberAddon;
     private bool macroInputRepositioned;
     private nint macroDropAddonAddress;
@@ -70,6 +71,11 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
                 OnMacroDrop);
             lifetime.Add(macroDropHook.Dispose);
             macroDropHook.Enable();
+            macroSaveHook = DService.Instance().Hook.HookFromAddress<RaptureMacroModule.Delegates.SetSavePendingFlag>(
+                RaptureMacroModule.MemberFunctionPointers.SetSavePendingFlag, OnMacroSavePending);
+            lifetime.Add(macroSaveHook.Dispose);
+            macroSaveHook.Enable();
+            macroIconsDirty = true;
 
             lifetime.Add(ClearMacroUI);
             var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
@@ -97,6 +103,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             lifetime.Dispose();
             tooltipHook = null;
             macroDropHook = null;
+            macroSaveHook = null;
             throw;
         }
     }
@@ -113,10 +120,16 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         {
             tooltipHook = null;
             macroDropHook = null;
+            macroSaveHook = null;
         }
     }
 
-    public override bool DrawSettings() => BetterUserMacroPanel.Draw(config);
+    public override bool DrawSettings()
+    {
+        var changed = Panel.Draw(config);
+        macroIconsDirty |= changed;
+        return changed;
+    }
 
     public bool TrySetSelectedMacroIcon(uint iconID)
     {
@@ -131,10 +144,9 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
             return false;
         }
 
+        macroIconsDirty = true;
         if (!TryGetSelectedMacroContext(out var agent, out var addon, out var set, out var index))
-        {
-            return false;
-        }
+            return true;
 
         var macroModule = RaptureMacroModule.Instance();
         var macro = macroModule is null ? null : macroModule->GetMacro(set, index);
@@ -152,7 +164,11 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         if (config.CustomIcons)
         {
             ScanSelectedMacroEditorIcon();
-            ScanAllMacroCustomIcons();
+            if (macroIconsDirty)
+            {
+                macroIconsDirty = false;
+                ScanAllMacroCustomIcons();
+            }
         }
 
         if (!AddonHelper.TryGetByName("Macro", out AddonMacro* addon) || !IsMacroAddonVisible(addon))
@@ -251,8 +267,8 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
 
         for (var lineIndex = 0; lineIndex < MACRO_LINE_COUNT; lineIndex++)
         {
-            var line = BetterUserMacroParser.Decode(macro->Lines[lineIndex].AsSpan());
-            if (!BetterUserMacroParser.TryParseActionName(line, out var actionName) ||
+            var line = Parser.Decode(macro->Lines[lineIndex].AsSpan());
+            if (!Parser.TryParseActionName(line, out var actionName) ||
             !TryResolveAction(actionName, out var actionID))
             {
                 continue;
@@ -291,6 +307,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
 
     private void OnMacroSetup(AddonEvent _, AddonArgs args)
     {
+        macroIconsDirty = true;
         var addon = (AddonMacro*)args.Addon.Address;
         if (addon is null)
         {
@@ -301,8 +318,11 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         EnsureMacroDropTargets(addon);
     }
 
-    private void OnMacroRefresh(AddonEvent _, AddonArgs args)
+    private void OnMacroRefresh(AddonEvent eventType, AddonArgs args)
     {
+        if (eventType == AddonEvent.PostShow)
+            macroIconsDirty = true;
+
         var addon = (AddonMacro*)args.Addon.Address;
         if (addon is null)
         {
@@ -458,6 +478,12 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         DragDropType acceptedType,
         bool canNotAccept)
     {
+        if (data is not null && data->DragDropInterface is not null &&
+            data->DragDropInterface->DragDropType == DragDropType.Macro)
+        {
+            macroIconsDirty = true;
+        }
+
         var addon = AddonHelper.GetByName<AddonMacro>("Macro");
         var source = default(MacroSlot);
         var target = default(MacroSlot);
@@ -713,13 +739,20 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
         var macroModule = RaptureMacroModule.Instance();
         var macro = macroModule is null ? null : macroModule->GetMacro(set, index);
         if (macroModule is null || macro is null ||
-            !BetterUserMacroParser.TryFindCustomIcon(agent->RawMacroString.AsSpan(), out var iconID) ||
+            !Parser.TryFindCustomIcon(agent->RawMacroString.AsSpan(), out var iconID) ||
             macro->IconId == iconID)
         {
             return;
         }
 
         ApplyMacroIcon(agent, addon, macroModule, macro, set, index, iconID);
+    }
+
+    private void OnMacroSavePending(RaptureMacroModule* module, bool needsSave, uint set)
+    {
+        macroSaveHook!.Original(module, needsSave, set);
+        if (needsSave)
+            macroIconsDirty = true;
     }
 
     private void ScanAllMacroCustomIcons()
@@ -787,7 +820,7 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
 
         for (var index = 0; index < MACRO_LINE_COUNT; index++)
         {
-            if (BetterUserMacroParser.TryParseCustomIcon(macro->Lines[index].AsSpan(), out iconID))
+            if (Parser.TryParseCustomIcon(macro->Lines[index].AsSpan(), out iconID))
             {
                 return true;
             }
@@ -826,10 +859,14 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
     {
         macro->SetIcon(iconID);
         macroModule->SetSavePendingFlag(true, set);
-        ReloadMacroSlot(set, index);
         RefreshMacroAddonSlot(addon, set, index, iconID);
         agent->OpenMacro(set, index);
         RefreshMacroAddonSlot(addon, set, index, iconID);
+        var hotbarModule = RaptureHotbarModule.Instance();
+        if (hotbarModule is not null)
+        {
+            hotbarModule->ReloadAllMacroSlots();
+        }
     }
 
     private static uint GetCurrentMacroSlotIcon(AddonMacro* addon, MacroSlot slot)
@@ -1304,116 +1341,15 @@ public sealed unsafe class BetterUserMacro(BetterUserMacroConfig config) : Modul
     private const int MACRO_LINE_COUNT = 15;
 
     #endregion
-}
 
-[Serializable]
-public sealed class BetterUserMacroConfig
-{
-    public bool Tooltips { get; set; } = true;
-
-    public bool LineNumbers { get; set; } = true;
-
-    public bool DragSwap { get; set; } = true;
-
-    public bool CustomIcons { get; set; } = true;
-}
-
-internal static class BetterUserMacroPanel
-{
-    public static bool Draw(BetterUserMacroConfig config)
+    public sealed class Settings
     {
-        var changed = false;
-        var style = ImGui.GetStyle();
-        using var cellPadding = ImRaii.PushStyle(
-            ImGuiStyleVar.CellPadding,
-            new Vector2(Math.Clamp(style.CellPadding.X * 0.9f, 5f, 11f), style.CellPadding.Y));
-        using var itemSpacing = ImRaii.PushStyle(
-            ImGuiStyleVar.ItemSpacing,
-            new Vector2(Math.Clamp(style.ItemSpacing.X, 9f, 17f), style.ItemSpacing.Y));
-        using var table = OmniControls.SettingsTable(
-            "##betterUserMacroSettings",
-            [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.Tooltips")),
-             OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.LineNumbers")),
-             OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.DragSwap")),
-             OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.CustomIcons"))],
-            ["##c0", "##c1", "##c2", "##c3"], weights: [1f, 1f, 1f, 1.25f], columnsPerRow: 4);
-        if (!table)
-        {
-            return false;
-        }
+        public bool Tooltips { get; set; } = true;
 
-        ImGui.TableNextRow();
-        ImGui.TableNextColumn();
-        var tooltips = config.Tooltips;
-        if (DrawCheckbox(
-                "Feature.BetterUserMacro.Tooltips",
-                "tooltips",
-                ref tooltips,
-                $"{PREVIEW_IMAGE_BASE_URL}1.png"))
-        {
-            config.Tooltips = tooltips;
-            changed = true;
-        }
+        public bool LineNumbers { get; set; } = true;
 
-        ImGui.TableNextColumn();
-        var lineNumbers = config.LineNumbers;
-        if (DrawCheckbox(
-                "Feature.BetterUserMacro.LineNumbers",
-                "lineNumbers",
-                ref lineNumbers,
-                $"{PREVIEW_IMAGE_BASE_URL}2.png"))
-        {
-            config.LineNumbers = lineNumbers;
-            changed = true;
-        }
+        public bool DragSwap { get; set; } = true;
 
-        ImGui.TableNextColumn();
-        var dragSwap = config.DragSwap;
-        if (DrawCheckbox("Feature.BetterUserMacro.DragSwap", "dragSwap", ref dragSwap))
-        {
-            config.DragSwap = dragSwap;
-            changed = true;
-        }
-
-        ImGui.TableNextColumn();
-        var customIcons = config.CustomIcons;
-        if (DrawCheckbox(
-                "Feature.BetterUserMacro.CustomIcons",
-                "customIcons",
-                ref customIcons,
-                $"{PREVIEW_IMAGE_BASE_URL}3.png"))
-        {
-            config.CustomIcons = customIcons;
-            changed = true;
-        }
-
-        return changed;
+        public bool CustomIcons { get; set; } = true;
     }
-
-    private static bool DrawCheckbox(
-        string labelKey,
-        string id,
-        ref bool value,
-        string? previewImageURL = null)
-    {
-        var changed = OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##betterUserMacro{id}", ref value);
-        if (previewImageURL is not null)
-        {
-            OmniControls.PreviewImageIcon(previewImageURL);
-        }
-        else
-        {
-            OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-            OmniControls.HelpIcon(OmniLoc.Get($"{labelKey}.Help"));
-        }
-
-        return changed;
-    }
-
-    #region 常量
-
-    private const string PREVIEW_IMAGE_BASE_URL =
-        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/BetterUserMacro-";
-
-    #endregion
 }

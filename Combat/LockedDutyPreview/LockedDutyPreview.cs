@@ -9,15 +9,14 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class LockedDutyPreview(
-    LockedDutyPreviewConfig config,
+public sealed unsafe partial class LockedDutyPreview(
+    LockedDutyPreview.Settings config,
     Action saveConfig) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
@@ -309,31 +308,9 @@ public sealed unsafe class LockedDutyPreview(
     private const float SCREEN_PADDING = 8f;
 
     #endregion
-}
 
-[Serializable]
-public sealed class LockedDutyPreviewConfig
-{
-    public HashSet<uint> ExcludedContentFinderConditionIds { get; set; } = [];
-}
-
-internal static class LockedDutyPreviewPanel
-{
-    public static bool Draw(LockedDutyPreviewConfig config)
+    public sealed class Settings
     {
-        var changed = false;
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.LockedDutyPreview.ClearExcluded"), false))
-        {
-            changed = config.ExcludedContentFinderConditionIds.Count > 0;
-            config.ExcludedContentFinderConditionIds.Clear();
-        }
-
-        ImGui.SameLine();
-        ImGui.AlignTextToFramePadding();
-        ImGui.TextDisabled(string.Format(
-            OmniLoc.Get("Feature.LockedDutyPreview.ExcludedCount"),
-            config.ExcludedContentFinderConditionIds.Count));
-
-        return changed;
+        public HashSet<uint> ExcludedContentFinderConditionIds { get; set; } = [];
     }
 }

@@ -15,14 +15,13 @@ using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBase
+public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -32,7 +31,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         RequiresPrivateProvider = true,
         Commands =
         [
-            new ModuleCommand("Feature.AutoSortItems.CommandDescription", OmniCommandCatalog.Format("sort"))
+            new ModuleCommand("Feature.AutoSortItems.CommandDescription", OmniCommandCatalog.Format("sortitems"))
         ]
     };
 
@@ -157,7 +156,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         queuedCategories.Clear();
     }
 
-    public override bool DrawSettings() => AutoSortItemsPanel.Draw(config);
+    public override bool DrawSettings() => Panel.Draw(config);
 
     public void RequestSort()
     {
@@ -322,7 +321,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         taskHelper.Enqueue(() => FinishSort(category), $"Finish sort {category}");
     }
 
-    private bool StartSort(string category, IReadOnlyList<AutoSortItemsRule> rules, bool manual)
+    private bool StartSort(string category, IReadOnlyList<Settings.Rule> rules, bool manual)
     {
         if (!CanSort(category, manual))
         {
@@ -677,7 +676,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         config.Rules!.Any(rule =>
             rule.Enabled && string.Equals(rule.Category, category, StringComparison.Ordinal));
 
-    internal static void EnsureRules(AutoSortItemsConfig config)
+    internal static void EnsureRules(Settings config)
     {
         config.Rules ??= CreateDefaultRules();
         if (config.CategoryHeaders is null)
@@ -702,7 +701,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         }
     }
 
-    private static List<AutoSortItemsRule> CreateDefaultRules() =>
+    private static List<Settings.Rule> CreateDefaultRules() =>
     [
         new(true, "armoury", "id", "asc"),
         new(true, "armoury", "lv", "asc"),
@@ -717,7 +716,7 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
         new(true, "saddlebag", "category", "asc")
     ];
 
-    private static List<AutoSortItemsCategoryHeader> CreateDefaultCategoryHeaders() =>
+    private static List<Settings.CategoryHeader> CreateDefaultCategoryHeaders() =>
     [
         new("inventory", true),
         new("saddlebag", true),
@@ -731,44 +730,26 @@ public sealed unsafe class AutoSortItems(AutoSortItemsConfig config) : ModuleBas
     private const int SORT_TIMEOUT_MS = 60_000;
 
     #endregion
+
+    public sealed class Settings
+    {
+        public List<Rule>? Rules { get; set; }
+
+        public List<CategoryHeader>? CategoryHeaders { get; set; }
+
+        public bool SortArmouryOnJobChange { get; set; } = true;
+
+        public bool AutoMerge { get; set; } = true;
+
+        public sealed record Rule(
+            bool Enabled = true,
+            string? Category = null,
+            string? Condition = null,
+            string? Order = null);
+
+        public sealed record CategoryHeader(
+            string Category,
+            bool Tab = false);
+
+    }
 }
-
-[Serializable]
-public sealed class AutoSortItemsConfig
-{
-    public List<AutoSortItemsRule>? Rules { get; set; }
-
-    public List<AutoSortItemsCategoryHeader>? CategoryHeaders { get; set; }
-
-    public bool SortArmouryOnJobChange { get; set; } = true;
-
-    public bool AutoMerge { get; set; } = true;
-
-    public int ArmouryCategory { get; set; }
-
-    public int ArmouryChestID { get; set; }
-
-    public int ArmouryItemLevel { get; set; }
-
-    public int InventoryCategory { get; set; }
-
-    public int InventoryHQ { get; set; }
-
-    public int InventoryID { get; set; }
-
-    public int InventoryItemLevel { get; set; }
-
-    public int InventoryTab { get; set; } = 1;
-}
-
-[Serializable]
-public sealed record AutoSortItemsRule(
-    bool Enabled = true,
-    string? Category = null,
-    string? Condition = null,
-    string? Order = null);
-
-[Serializable]
-public sealed record AutoSortItemsCategoryHeader(
-    string Category,
-    bool Tab = false);

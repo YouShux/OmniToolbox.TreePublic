@@ -450,7 +450,7 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
             button.Position = new(
                 anchorNode->ScreenX - (button.Width + 6f) * anchorScale.X,
                 anchorNode->ScreenY);
-            if (IsCoveredByWindow(addon, button.Position, button.Position + button.Size * button.Scale))
+            if (GameWindowClip.IsCoveredByWindow(addon, button.Position, button.Position + button.Size * button.Scale))
             {
                 button.IsVisible = false;
                 GetTooltip(button).IsVisible = false;
@@ -458,31 +458,6 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
             }
             button.IsEnabled = DService.Instance().ClientState.IsLoggedIn && hasSelectedDuty;
             PositionTooltip(GetTooltip(button), button);
-        }
-
-        private static bool IsCoveredByWindow(AtkUnitBase* source, Vector2 minimum, Vector2 maximum)
-        {
-            var manager = RaptureAtkUnitManager.Instance();
-            if (manager is null)
-                return false;
-            var units = &manager->AllLoadedUnitsList;
-            for (var index = 0; index < units->Count; index++)
-            {
-                var addon = units->Entries[index].Value;
-                if (addon == null || addon == source || !addon->IsVisible || addon->RootNode == null ||
-                    !addon->RootNode->IsVisible() || (addon->VisibilityFlags & 5) != 0 ||
-                    addon->WindowNode == null || !addon->WindowNode->IsVisible() ||
-                    addon->DepthLayer < source->DepthLayer ||
-                    addon->DepthLayer == source->DepthLayer && addon->DrawOrderIndex <= source->DrawOrderIndex)
-                    continue;
-
-                FFXIVClientStructs.FFXIV.Common.Math.Bounds bounds;
-                addon->GetWindowBounds(&bounds);
-                if (minimum.X < bounds.Pos2.X && maximum.X > bounds.Pos1.X &&
-                    minimum.Y < bounds.Pos2.Y && maximum.Y > bounds.Pos1.Y)
-                    return true;
-            }
-            return false;
         }
 
         private TextNineGridNode GetTooltip(NodeBase button) =>

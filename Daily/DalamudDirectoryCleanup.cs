@@ -49,6 +49,8 @@ public sealed class DalamudDirectoryCleanup : ModuleBase
             .EnumerateDirectories()
             .Select(static directory => directory.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        installedPluginNames.UnionWith(DalamudServices.PluginInterface.InstalledPlugins
+            .Select(static plugin => plugin.InternalName));
         installedPluginNames.Add("AEAssistV3");
 
         // 当前插件可能从开发目录或自定义目录加载，因此不一定存在对应的已安装插件目录。

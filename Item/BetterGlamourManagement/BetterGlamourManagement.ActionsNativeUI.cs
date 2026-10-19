@@ -1,0 +1,110 @@
+using FFXIVClientStructs.FFXIV.Component.GUI;
+using KamiToolKit.BaseTypes;
+using KamiToolKit.Classes;
+using KamiToolKit.Nodes;
+using OmenTools.Extensions;
+using OmenTools.Interop.Game.Helpers;
+using OmniToolbox.UI;
+
+namespace OmniToolbox.TreePublic;
+
+public sealed partial class BetterGlamourManagement
+{
+    internal sealed class BetterGlamourActionsNativeUI : NativeAddon
+    {
+        private readonly Action onTryOnAll;
+        private readonly Action onSave;
+        private readonly Action onExport;
+        private readonly Action onManager;
+        private readonly Action onClear;
+        private TextButtonNode? tryOnAllButton;
+        private TextButtonNode? saveButton;
+        private TextButtonNode? exportButton;
+        private TextButtonNode? managerButton;
+        private TextButtonNode? clearButton;
+
+        [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
+        public BetterGlamourActionsNativeUI(
+            Action onTryOnAll,
+            Action onSave,
+            Action onExport,
+            Action onManager,
+            Action onClear)
+        {
+            InternalName = "OmniBetterGlamourActions";
+            Title = OmniLoc.Get("BetterGlamourManagementTitle");
+            Subtitle = string.Empty;
+            Size = new(300f, 168f);
+            ContentPadding = new(8f, 8f);
+            RememberClosePosition = false;
+            CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
+            EnableContextMenu = false;
+            RespectCloseAll = false;
+            DisableClose = true;
+            this.onTryOnAll = onTryOnAll;
+            this.onSave = onSave;
+            this.onExport = onExport;
+            this.onManager = onManager;
+            this.onClear = onClear;
+        }
+
+        protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
+        {
+            if (AddonHelper.TryGetByName("CharacterInspect", out var inspectAddon) && inspectAddon->WindowNode != null)
+                addon->SetScale(inspectAddon->WindowNode->GetScale().X / AtkUnitBase.GetGlobalUIScale(), true);
+            tryOnAllButton = CreateButton("Feature.BetterGlamourManagement.TryOnAll", onTryOnAll);
+            saveButton = CreateButton("Feature.BetterGlamourManagement.Save", onSave);
+            exportButton = CreateButton("Feature.BetterGlamourManagement.Export", onExport);
+            managerButton = CreateButton("Feature.BetterGlamourManagement.OpenSaved", onManager);
+            clearButton = CreateButton("Feature.BetterGlamourManagement.Clear", onClear);
+            ResizeContent();
+        }
+
+        protected override unsafe void OnUpdate(AtkUnitBase* addon) => ResizeContent();
+
+        protected override unsafe void OnFinalize(AtkUnitBase* addon)
+        {
+            tryOnAllButton = null;
+            saveButton = null;
+            exportButton = null;
+            managerButton = null;
+            clearButton = null;
+        }
+
+        private TextButtonNode CreateButton(string textKey, Action onClick)
+        {
+            var button = new TextButtonNode
+            {
+                String = OmniLoc.Get(textKey),
+                OnClick = onClick
+            };
+            button.AttachNode(this);
+            return button;
+        }
+
+        private void ResizeContent()
+        {
+            const float GAP = 6f;
+            var width = MathF.Max(80f, (ContentSize.X - GAP) / 2f);
+            var x = ContentStartPosition.X;
+            var y = ContentStartPosition.Y;
+            PositionButton(tryOnAllButton, x, y, width);
+            PositionButton(saveButton, x + width + GAP, y, width);
+            PositionButton(exportButton, x, y + 34f, width);
+            PositionButton(managerButton, x + width + GAP, y + 34f, width);
+            PositionButton(clearButton, x, y + 68f, ContentSize.X);
+        }
+
+        private static void PositionButton(TextButtonNode? button, float x, float y, float width)
+        {
+            if (button is null)
+            {
+                return;
+            }
+
+            button.Position = new(x, y);
+            button.Size = new(width, 28f);
+        }
+    }
+
+}

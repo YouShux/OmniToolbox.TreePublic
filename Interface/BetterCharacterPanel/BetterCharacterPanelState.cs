@@ -11,83 +11,7 @@ using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-internal enum BetterCharacterPanelTooltip
-{
-    MainStat,
-    Vitality,
-    ExpectedDamage,
-    ExpectedHeal,
-    CriticalHit,
-    DirectHit,
-    Determination,
-    Defense,
-    MagicDefense,
-    Speed,
-    Tenacity,
-    Piety
-}
-
-internal readonly record struct BetterCharacterPanelStatInfo(
-    double DisplayValue,
-    int CurrentValue,
-    int PrevTier,
-    int NextTier,
-    double PointsPerTier);
-
-internal readonly record struct BetterCharacterPanelExpectedOutput(
-    double AverageDamage,
-    double NormalDamage,
-    double CriticalDamage,
-    double AverageHeal,
-    double NormalHeal,
-    double CriticalHeal);
-
-internal readonly record struct BetterCharacterPanelAlternateGcd(int Gcd, string NameKey);
-
-internal readonly record struct BetterCharacterPanelGcdModifier(
-    int Modifier,
-    string? AbbreviationKey);
-
-internal readonly record struct BetterCharacterPanelCalculationInput(
-    int JobID,
-    int Level,
-    int AttackPower,
-    int CriticalHit,
-    int Determination,
-    int DirectHit,
-    int Speed,
-    int Piety,
-    int Tenacity,
-    int WeaponDamage,
-    int Defense,
-    int MagicDefense,
-    BetterCharacterPanelGcdModifier? GcdModifier);
-
-internal readonly record struct BetterCharacterPanelSpeedCalculation(
-    BetterCharacterPanelStatInfo SpeedBonus,
-    BetterCharacterPanelStatInfo MainGcd,
-    BetterCharacterPanelAlternateGcd? AlternateGcd,
-    BetterCharacterPanelStatInfo AlternateGcdInfo,
-    BetterCharacterPanelGcdModifier? Modifier);
-
-internal readonly record struct BetterCharacterPanelStats(
-    int JobID,
-    int Level,
-    int CraftingPoints,
-    int GatheringPoints,
-    BetterCharacterPanelStatInfo CriticalRate,
-    BetterCharacterPanelStatInfo CriticalDamage,
-    BetterCharacterPanelStatInfo DirectHit,
-    BetterCharacterPanelStatInfo Determination,
-    BetterCharacterPanelStatInfo PhysicalMitigation,
-    BetterCharacterPanelStatInfo MagicMitigation,
-    BetterCharacterPanelSpeedCalculation Speed,
-    BetterCharacterPanelStatInfo TenacityMitigation,
-    BetterCharacterPanelStatInfo TenacityDamage,
-    BetterCharacterPanelStatInfo Piety,
-    BetterCharacterPanelExpectedOutput Expected);
-
-internal static unsafe class BetterCharacterPanelState
+internal static unsafe partial class BetterCharacterPanelState
 {
     private enum Attribute
     {
@@ -110,7 +34,7 @@ internal static unsafe class BetterCharacterPanelState
     internal static double CalculateGcd(int level, int speed, int speedModifier) =>
         CombatStatFormula.CalculateGcd(level, speed, speedModifier);
 
-    public static BetterCharacterPanelStats Calculate(PlayerState* playerState)
+    public static Stats Calculate(PlayerState* playerState)
     {
         var level = Math.Clamp((int)playerState->CurrentLevel, 1, 100);
         var jobID = (int)playerState->CurrentClassJobId;
@@ -134,7 +58,7 @@ internal static unsafe class BetterCharacterPanelState
                 default);
         }
 
-        return Calculate(new BetterCharacterPanelCalculationInput(
+        return Calculate(new CalculationInput(
             jobID,
             level,
             GetAttribute(playerState, IsCaster(jobID) ? Attribute.AttackMagicPotency : Attribute.AttackPower),
@@ -150,7 +74,7 @@ internal static unsafe class BetterCharacterPanelState
             GetGcdModifier(jobID, level, GetAttribute(playerState, Attribute.Haste))));
     }
 
-    internal static BetterCharacterPanelStats Calculate(BetterCharacterPanelCalculationInput input)
+    internal static Stats Calculate(CalculationInput input)
     {
         var level = Math.Clamp(input.Level, 1, 100);
         var modifier = CombatStatFormula.GetLevelModifier(level);
@@ -232,7 +156,7 @@ internal static unsafe class BetterCharacterPanelState
 
     public static ReadOnlySeString BuildTooltip(
         BetterCharacterPanelTooltip tooltip,
-        in BetterCharacterPanelStats stats) => tooltip switch
+        in Stats stats) => tooltip switch
         {
             BetterCharacterPanelTooltip.MainStat => OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.MainStat"),
             BetterCharacterPanelTooltip.Vitality => OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.Vitality"),
@@ -283,7 +207,7 @@ internal static unsafe class BetterCharacterPanelState
             _ => throw new ArgumentOutOfRangeException(nameof(tooltip), tooltip, null)
         };
 
-    private static BetterCharacterPanelStatInfo CalculateTier(
+    private static StatInfo CalculateTier(
         int currentValue,
         int baseValue,
         int div,
@@ -299,7 +223,7 @@ internal static unsafe class BetterCharacterPanelState
         return new(displayValue, currentValue, previousTier, Math.Max(currentValue + 1, nextTier), div / coefficient);
     }
 
-    private static BetterCharacterPanelStatInfo CalculateDefense(int defense, CombatLevelModifier modifier)
+    private static StatInfo CalculateDefense(int defense, CombatLevelModifier modifier)
     {
         var displayValue = Math.Floor(15d * defense / modifier.Div) / 100d;
         var previousTier = (int)Math.Ceiling(displayValue * 100d * modifier.Div / 15d);
@@ -307,7 +231,7 @@ internal static unsafe class BetterCharacterPanelState
         return new(displayValue, defense, previousTier, Math.Max(defense + 1, nextTier), modifier.Div / 15d);
     }
 
-    private static BetterCharacterPanelStatInfo CalculatePiety(int piety, CombatLevelModifier modifier)
+    private static StatInfo CalculatePiety(int piety, CombatLevelModifier modifier)
     {
         var extraMp = Math.Floor(150d * (piety - modifier.Main) / modifier.Div);
         var previousTier = (int)Math.Ceiling(extraMp * modifier.Div / 150d + modifier.Main);
@@ -315,11 +239,11 @@ internal static unsafe class BetterCharacterPanelState
         return new(extraMp + 200d, piety, previousTier, Math.Max(piety + 1, nextTier), modifier.Div / 150d);
     }
 
-    private static BetterCharacterPanelSpeedCalculation CalculateSpeed(
+    private static SpeedCalculation CalculateSpeed(
         int speed,
         CombatLevelModifier modifier,
-        BetterCharacterPanelAlternateGcd? alternateGcd,
-        BetterCharacterPanelGcdModifier? gcdModifier)
+        AlternateGcd? alternateGcd,
+        GcdModifier? gcdModifier)
     {
         var speedModifier = gcdModifier?.Modifier ?? 0;
 
@@ -343,14 +267,14 @@ internal static unsafe class BetterCharacterPanelState
         var speedBonus = CalculateTier(speed, modifier.Sub, modifier.Div, 130d, 0d, 1000d);
         var baseGcd = speedModifier == 0 ? 250 : SpeedValue(250, modifier.Sub);
         var mainGcdValue = SpeedValue(250, speed) / 100d;
-        var mainGcd = new BetterCharacterPanelStatInfo(
+        var mainGcd = new StatInfo(
             mainGcdValue,
             speed,
             mainGcdValue < baseGcd / 100d ? TierValue(mainGcdValue + 0.01d, 250) : modifier.Sub,
             Math.Max(speed + 1, TierValue(mainGcdValue, 250)),
             modifier.Div / 130d * 1000d / baseGcd);
 
-        var alternateInfo = default(BetterCharacterPanelStatInfo);
+        var alternateInfo = default(StatInfo);
         if (alternateGcd is { } alternate)
         {
             var alternateBaseGcd = speedModifier == 0
@@ -370,7 +294,7 @@ internal static unsafe class BetterCharacterPanelState
         return new(speedBonus, mainGcd, alternateGcd, alternateInfo, gcdModifier);
     }
 
-    private static BetterCharacterPanelExpectedOutput CalculateExpectedOutput(
+    private static ExpectedOutput CalculateExpectedOutput(
         int jobID,
         int level,
         int attackPower,
@@ -395,7 +319,7 @@ internal static unsafe class BetterCharacterPanelState
         tenacity,
         modifier);
 
-    internal static BetterCharacterPanelExpectedOutput CalculateExpectedOutput(
+    internal static ExpectedOutput CalculateExpectedOutput(
         int level,
         int attackPower,
         int weaponBaseDamage,
@@ -497,7 +421,7 @@ internal static unsafe class BetterCharacterPanelState
         });
     }
 
-    private static BetterCharacterPanelGcdModifier? GetGcdModifier(int jobID, int level, int haste)
+    private static GcdModifier? GetGcdModifier(int jobID, int level, int haste)
     {
         // 星空彩绘只影响星空领域内支持的技能。
         if (jobID == 42
@@ -533,7 +457,7 @@ internal static unsafe class BetterCharacterPanelState
         return new(100 - haste, abbreviationKey);
     }
 
-    private static BetterCharacterPanelAlternateGcd? GetAlternateGcd(int jobID, int level) =>
+    private static AlternateGcd? GetAlternateGcd(int jobID, int level) =>
         (jobID, level) switch
         {
             (25, >= 35) => new(350, "Feature.BetterCharacterPanel.AlternateGcd.FireIII"),
@@ -556,7 +480,7 @@ internal static unsafe class BetterCharacterPanelState
     private static ReadOnlySeString BuildTierTooltip(
         string titleKey,
         string bodyKey,
-        BetterCharacterPanelStatInfo info,
+        StatInfo info,
         double pointsPerTier)
     {
         using var rented = new RentedSeStringBuilder();
@@ -567,8 +491,8 @@ internal static unsafe class BetterCharacterPanelState
     }
 
     private static ReadOnlySeString BuildTenacityTooltip(
-        BetterCharacterPanelStatInfo mitigation,
-        BetterCharacterPanelStatInfo damage)
+        StatInfo mitigation,
+        StatInfo damage)
     {
         using var rented = new RentedSeStringBuilder();
         AppendColored(
@@ -587,7 +511,7 @@ internal static unsafe class BetterCharacterPanelState
     }
 
     private static ReadOnlySeString BuildSpeedTooltip(
-        BetterCharacterPanelSpeedCalculation speed,
+        SpeedCalculation speed,
         bool caster)
     {
         var modifier = speed.Modifier?.AbbreviationKey is { } abbreviationKey
@@ -645,7 +569,7 @@ internal static unsafe class BetterCharacterPanelState
 
     private static void AppendTierLine(
         RentedSeStringBuilder rented,
-        BetterCharacterPanelStatInfo info)
+        StatInfo info)
     {
         var wasted = Math.Max(0, info.CurrentValue - info.PrevTier);
         rented.Builder.Append("\n").Append(OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.Tier.Wasted"));

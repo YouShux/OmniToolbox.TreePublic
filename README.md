@@ -16,3 +16,4 @@ Omni Toolbox 的公开功能模块源码与 IPC 文档。
 | 水晶传送与以太网 | [传送](IPC/传送.md) |
 | 物品存取与缓存获取 | [自动存取](IPC/自动存取.md) |
 | 市场板与 NPC 商店 | [交易](IPC/交易.md) |
+| 幻化方案同步、原生预览与手机帧缓存 | [幻化管理](IPC/GlamourManagement.md) |

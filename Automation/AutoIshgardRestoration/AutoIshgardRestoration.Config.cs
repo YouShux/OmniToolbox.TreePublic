@@ -1,5 +1,4 @@
 using System.Numerics;
-using Newtonsoft.Json;
 
 namespace OmniToolbox.TreePublic;
 
@@ -7,7 +6,6 @@ public sealed partial class AutoIshgardRestoration
 {
     public sealed class Config
     {
-        [JsonProperty("SelectedRecipeId")]
         public uint SelectedRecipeID;
         public int TicketThreshold = 5;
         public bool AutoBuyScrips;
