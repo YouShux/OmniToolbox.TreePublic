@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Threading;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -23,7 +24,7 @@ using OmniToolbox.UI;
 namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class BetterGlamourManagement(
-    BetterGlamourManagementConfig config,
+    BetterGlamourManagement.Settings config,
     Action saveConfig,
     ItemPreviewService itemPreviewService) : ModuleBase
 {
@@ -39,7 +40,7 @@ public sealed unsafe partial class BetterGlamourManagement(
         [
             new ModuleCommand(
                 "Feature.BetterGlamourManagement.CommandDescription",
-                OmniCommandCatalog.Format("glamour"))
+                OmniCommandCatalog.Format("glamourmanager"))
         ]
     };
 
@@ -47,6 +48,7 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     private BetterGlamourActionsNativeUI? actionsNativeUI;
     private BetterGlamourManagerNativeUI? managerNativeUI;
+    private BetterGlamourPortraitPreview? portraitPreview;
     private TaskHelper? taskHelper;
     private BetterGlamourPreset? activeTryOnPreset;
     private BetterGlamourPreset? boundTryOnPreset;
@@ -64,13 +66,33 @@ public sealed unsafe partial class BetterGlamourManagement(
                 TimeoutMS = 10_000
             };
             actionsNativeUI = new(TryOnInspect, SaveInspect, ExportInspect, OpenManager, ClearTryOn);
+            portraitPreview = new();
+            var services = DService.Instance();
+            portraitPreview.Initialize(new()
+            {
+                PluginInterface = DalamudServices.PluginInterface,
+                AddonLifecycle = services.AddonLifecycle,
+                TextureReadback = services.TextureReadback,
+                Framework = services.Framework,
+                ClientState = services.ClientState,
+                ObjectTable = services.ObjectTable,
+                Condition = services.Condition,
+                GameGUI = services.GameGUI,
+                DataManager = services.Data,
+                Log = services.Log
+            }, () => config.Presets);
+            portraitPreview.Enable();
+            EnableRemote();
             managerNativeUI = new(
                 SelectPreset,
-                _ => saveConfig(),
+                PresetChanged,
                 ChangePresetGearset,
-                StartTryOn,
+                ToggleTryOn,
+                IsTryingOnPreset,
                 CopyPreset,
-                DeletePreset);
+                DeletePreset,
+                ImportClipboard,
+                portraitPreview);
             if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 250))
             {
                 throw new InvalidOperationException("Better glamour management update registration failed.");
@@ -87,8 +109,12 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     protected override void OnDisable()
     {
+        DisableRemote();
         DalamudServices.PluginInterface.UiBuilder.Draw -= Draw;
         FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
+        managerNativeUI?.ClearPreviewTexture();
+        portraitPreview?.Dispose();
+        portraitPreview = null;
         ClearTryOn();
         taskHelper?.Dispose();
         taskHelper = null;
@@ -145,10 +171,12 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     private void OnFrameworkUpdate(IFramework framework)
     {
+        RemoteTick();
         if (!DService.Instance().ClientState.IsLoggedIn)
         {
             activeTryOnPreset = null;
             boundTryOnPreset = null;
+            managerNativeUI?.UpdateTryOnButton();
             previewPlayerAddress = nint.Zero;
             pendingTryOnRestore = false;
             lastGearsetIndex = int.MinValue;
@@ -166,7 +194,7 @@ public sealed unsafe partial class BetterGlamourManagement(
             if (lastGearsetIndex != currentGearsetIndex)
             {
                 lastGearsetIndex = currentGearsetIndex;
-                SynchronizeBoundTryOn(currentGearsetIndex, true);
+                SynchronizeBoundTryOn(currentGearsetIndex);
             }
             else if (boundTryOnPreset is not null &&
                      !ReferenceEquals(activeTryOnPreset, boundTryOnPreset))
@@ -217,11 +245,11 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     private void SaveInspect()
     {
-        if (config.Presets.Count >= MaxPresetCount)
+        if (config.Presets.Count >= MAX_PRESET_COUNT)
         {
             OmniNotifier.Popup(
                 Info.Title,
-                string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.PresetLimitReached"), MaxPresetCount),
+                string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.PresetLimitReached"), MAX_PRESET_COUNT),
                 NotificationType.Warning);
             return;
         }
@@ -292,11 +320,24 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     private void StartTryOn(BetterGlamourPreset preset)
     {
+        if (!ReferenceEquals(boundTryOnPreset, preset))
+            boundTryOnPreset = null;
         activeTryOnPreset = preset;
+        managerNativeUI?.UpdateTryOnButton();
         previewPlayerAddress = DService.Instance().ObjectTable.LocalPlayer?.Address ?? nint.Zero;
         pendingTryOnRestore = true;
         TryApplyActiveTryOn();
     }
+
+    private void ToggleTryOn(BetterGlamourPreset preset)
+    {
+        if (IsTryingOnPreset(preset))
+            ClearTryOn();
+        else
+            StartTryOn(preset);
+    }
+
+    internal bool IsTryingOnPreset(BetterGlamourPreset preset) => ReferenceEquals(activeTryOnPreset, preset);
 
     private bool IsActiveTryOnApplied()
     {
@@ -372,8 +413,10 @@ public sealed unsafe partial class BetterGlamourManagement(
     {
         taskHelper?.Abort();
         activeTryOnPreset = null;
+        boundTryOnPreset = null;
         previewPlayerAddress = nint.Zero;
         pendingTryOnRestore = false;
+        managerNativeUI?.UpdateTryOnButton();
         itemPreviewService.ClearPreviewResidue();
     }
 
@@ -385,10 +428,36 @@ public sealed unsafe partial class BetterGlamourManagement(
         {
             managerNativeUI.Open();
         }
+        if (selectedPresetIndex >= 0 && selectedPresetIndex < config.Presets.Count)
+            QueuePortraitPreview(config.Presets[selectedPresetIndex]);
+        else
+        {
+            managerNativeUI?.ClearPreviewTexture();
+            portraitPreview?.CancelPreview();
+        }
     }
 
-    private void SelectPreset(BetterGlamourPreset preset) =>
+    private void SelectPreset(BetterGlamourPreset preset)
+    {
         selectedPresetIndex = config.Presets.IndexOf(preset);
+        QueuePortraitPreview(preset);
+    }
+
+    private void PresetChanged(BetterGlamourPreset preset)
+    {
+        saveConfig();
+        QueuePortraitPreview(preset);
+    }
+
+    private void QueuePortraitPreview(BetterGlamourPreset preset)
+    {
+        Volatile.Write(ref phoneSelectedID, string.Empty);
+        managerNativeUI?.ClearPreviewTexture();
+        portraitPreview?.QueuePreset(preset);
+        Volatile.Write(ref phoneSelectedID, selectedPresetIndex >= 0 && selectedPresetIndex < config.Presets.Count
+            ? config.Presets[selectedPresetIndex].ID
+            : string.Empty);
+    }
 
     private void ChangePresetGearset(BetterGlamourPreset preset, int gearsetIndex)
     {
@@ -414,12 +483,12 @@ public sealed unsafe partial class BetterGlamourManagement(
             if (currentGearsetIndex == previousGearsetIndex || currentGearsetIndex == gearsetIndex)
             {
                 lastGearsetIndex = currentGearsetIndex;
-                SynchronizeBoundTryOn(currentGearsetIndex, true);
+                SynchronizeBoundTryOn(currentGearsetIndex);
             }
         }
     }
 
-    private void SynchronizeBoundTryOn(int gearsetIndex, bool clearIfUnbound)
+    private void SynchronizeBoundTryOn(int gearsetIndex)
     {
         boundTryOnPreset = config.Presets.Find(item => item.GearsetIndex == gearsetIndex);
         if (boundTryOnPreset is not null)
@@ -432,7 +501,7 @@ public sealed unsafe partial class BetterGlamourManagement(
             return;
         }
 
-        if (clearIfUnbound && activeTryOnPreset is not null)
+        if (activeTryOnPreset is not null)
         {
             ClearTryOn();
         }
@@ -460,6 +529,13 @@ public sealed unsafe partial class BetterGlamourManagement(
         selectedPresetIndex = Math.Min(index, config.Presets.Count - 1);
         saveConfig();
         managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
+        if (selectedPresetIndex >= 0)
+            QueuePortraitPreview(config.Presets[selectedPresetIndex]);
+        else
+        {
+            managerNativeUI?.ClearPreviewTexture();
+            portraitPreview?.CancelPreview();
+        }
     }
 
     private void NotifyNoInspectData() => OmniNotifier.Popup(
@@ -499,39 +575,12 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     private const float SCREEN_PADDING = 8f;
 
-    internal const int MaxPresetCount = 100;
+    internal const int MAX_PRESET_COUNT = 100;
 
     #endregion
-}
 
-[Serializable]
-public sealed class BetterGlamourManagementConfig
-{
-    public List<BetterGlamourPreset> Presets { get; set; } = [];
-}
-
-[Serializable]
-public sealed class BetterGlamourPreset
-{
-    public string Name { get; set; } = string.Empty;
-
-    public int GearsetIndex { get; set; } = -1;
-
-    public ushort GlassesID { get; set; }
-
-    public uint HairstyleID { get; set; }
-
-    public List<BetterGlamourItem> Items { get; set; } = [];
-}
-
-[Serializable]
-public sealed class BetterGlamourItem
-{
-    public int Slot { get; set; }
-
-    public uint ItemID { get; set; }
-
-    public byte Stain0 { get; set; }
-
-    public byte Stain1 { get; set; }
+    public sealed class Settings
+    {
+        public List<BetterGlamourPreset> Presets { get; set; } = [];
+    }
 }

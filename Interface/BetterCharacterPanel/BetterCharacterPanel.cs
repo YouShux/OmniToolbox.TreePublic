@@ -2,13 +2,12 @@ using OmenTools.ImGuiOm;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Config;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed class BetterCharacterPanel(BetterCharacterPanelConfig config) : ModuleBase
+public sealed partial class BetterCharacterPanel(BetterCharacterPanelConfig config) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -57,121 +56,5 @@ public sealed class BetterCharacterPanel(BetterCharacterPanelConfig config) : Mo
 
         nativeUI?.RefreshSettings();
         return true;
-    }
-}
-
-[Serializable]
-public sealed class BetterCharacterPanelConfig
-{
-    public bool ShowUsefulStats { get; set; } = true;
-
-    public bool AdjustEquipmentPositions { get; set; } = true;
-
-    public bool SoulstoneAboveOffhand { get; set; } = true;
-
-    public bool ReverseCharacterPanel { get; set; } = true;
-
-    public bool ShowGearSetReorderButtons { get; set; } = true;
-}
-
-internal static class BetterCharacterPanelPanel
-{
-    public static bool Draw(BetterCharacterPanelConfig config)
-    {
-        var changed = false;
-        var style = ImGui.GetStyle();
-        using var cellPadding = ImRaii.PushStyle(
-            ImGuiStyleVar.CellPadding,
-            new Vector2(Math.Clamp(style.CellPadding.X * 0.9f, 5f, 11f), style.CellPadding.Y));
-        using var itemSpacing = ImRaii.PushStyle(
-            ImGuiStyleVar.ItemSpacing,
-            new Vector2(Math.Clamp(style.ItemSpacing.X, 9f, 17f), style.ItemSpacing.Y));
-        using (var table = OmniControls.SettingsTable(
-                   "##betterCharacterPanelOptions",
-                   [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats")) + new Vector2(OmniControls.HelpIconSize().X + style.ItemSpacing.X, 0f),
-                    OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ReverseCharacterPanel")),
-                    OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ShowGearSetReorderButtons")),
-                    Vector2.Max(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.AdjustEquipmentPositions")),
-                        OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.SoulstoneAboveOffhand")) + new Vector2(OmniTheme.Scale(26f), 0f))],
-                   ["##c0", "##c1", "##c2", "##c3"], weights: [1f, 1f, 1f, 1.25f], columnsPerRow: 4))
-        {
-            if (table)
-            {
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                if (DrawCheckbox(
-                        "Feature.BetterCharacterPanel.ShowUsefulStats",
-                        "usefulStats",
-                        config.ShowUsefulStats,
-                        out var showUsefulStats))
-                {
-                    config.ShowUsefulStats = showUsefulStats;
-                    changed = true;
-                }
-                OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                OmniControls.HelpIcon(OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats.Help"));
-
-                ImGui.TableNextColumn();
-                if (DrawCheckbox(
-                        "Feature.BetterCharacterPanel.ReverseCharacterPanel",
-                        "reverse",
-                        config.ReverseCharacterPanel,
-                        out var reverseCharacterPanel))
-                {
-                    config.ReverseCharacterPanel = reverseCharacterPanel;
-                    changed = true;
-                }
-
-                ImGui.TableNextColumn();
-                if (DrawCheckbox(
-                        "Feature.BetterCharacterPanel.ShowGearSetReorderButtons",
-                        "gearSetReorder",
-                        config.ShowGearSetReorderButtons,
-                        out var showGearSetReorderButtons))
-                {
-                    config.ShowGearSetReorderButtons = showGearSetReorderButtons;
-                    changed = true;
-                }
-
-                ImGui.TableNextColumn();
-                if (DrawCheckbox(
-                        "Feature.BetterCharacterPanel.AdjustEquipmentPositions",
-                        "equipmentPositions",
-                        config.AdjustEquipmentPositions,
-                        out var adjustEquipmentPositions))
-                {
-                    config.AdjustEquipmentPositions = adjustEquipmentPositions;
-                    changed = true;
-                }
-
-                ImGui.Spacing();
-                ImGui.Indent(OmniTheme.Scale(26f));
-                using (ImRaii.Disabled(!config.AdjustEquipmentPositions))
-                {
-                    if (DrawCheckbox(
-                            "Feature.BetterCharacterPanel.SoulstoneAboveOffhand",
-                            "soulstoneAboveOffhand",
-                            config.SoulstoneAboveOffhand,
-                            out var soulstoneAboveOffhand))
-                    {
-                        config.SoulstoneAboveOffhand = soulstoneAboveOffhand;
-                        changed = true;
-                    }
-                }
-
-                ImGui.Unindent(OmniTheme.Scale(26f));
-            }
-        }
-        return changed;
-    }
-
-    private static bool DrawCheckbox(
-        string labelKey,
-        string id,
-        bool value,
-        out bool updatedValue)
-    {
-        updatedValue = value;
-        return OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##betterCharacterPanel{id}", ref updatedValue);
     }
 }

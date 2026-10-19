@@ -10,7 +10,6 @@ using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.Notifications;
@@ -19,7 +18,7 @@ using OmenObjectTable = OmenTools.Dalamud.Services.Game.Object.Abstractions.IObj
 
 namespace OmniToolbox.TreePublic;
 
-public sealed class FoodReminder : ModuleBase
+public sealed partial class FoodReminder : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -30,7 +29,7 @@ public sealed class FoodReminder : ModuleBase
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/FoodReminder-1.png",
         Commands =
         [
-            new ModuleCommand("Feature.FoodReminder.CommandDescription", OmniCommandCatalog.Format("food"))
+            new ModuleCommand("Feature.FoodReminder.CommandDescription", OmniCommandCatalog.Format("foodcheck"))
         ]
     };
 
@@ -47,7 +46,7 @@ public sealed class FoodReminder : ModuleBase
     {
         this.config = config;
         this.saveConfig = saveConfig;
-        if (FoodReminderPanel.NormalizeConfig(config))
+        if (Panel.NormalizeConfig(config))
         {
             saveConfig();
         }
@@ -89,7 +88,7 @@ public sealed class FoodReminder : ModuleBase
         }
     }
 
-    public override bool DrawSettings() => FoodReminderPanel.Draw(config, SendTestReminder);
+    public override bool DrawSettings() => Panel.Draw(config, SendTestReminder);
 
     public void CheckNow()
     {
@@ -343,22 +342,4 @@ public sealed class FoodReminder : ModuleBase
         float FoodRemainingSeconds);
 
     private readonly record struct ReminderTargetKey(byte Kind, ulong Value, string Name);
-}
-
-[Serializable]
-public sealed class FoodReminderConfig
-{
-    public int TargetNameMode { get; set; } = 1;
-
-    public string PartyMessage { get; set; } = "吃一下食物！";
-
-    public int ThresholdSeconds { get; set; } = 480;
-
-    public bool UseWhitelist { get; set; }
-
-    public HashSet<uint> BlacklistTerritoryIds { get; set; } = [];
-
-    public HashSet<uint> WhitelistTerritoryIds { get; set; } = [];
-
-    public HashSet<uint> AllowedTerritoryIds { get; set; } = [];
 }

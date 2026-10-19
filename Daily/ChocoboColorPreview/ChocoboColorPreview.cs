@@ -20,8 +20,8 @@ using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class ChocoboColorPreview(
-    ChocoboColorPreviewConfig config,
+public sealed unsafe partial class ChocoboColorPreview(
+    ChocoboColorPreview.Settings config,
     System.Action saveConfig) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
@@ -37,13 +37,13 @@ public sealed unsafe class ChocoboColorPreview(
     private static readonly Vector3 DefaultChocoboColor = new(219f, 180f, 87f);
     private static readonly ChocoboFruit[] Fruits =
     [
-        new("Feature.ChocoboColorPreview.Fruit.XelphatolApple", new(1, -1, -1), ["塞尔法特尔沙果", "Xelphatol Apple"]),
-        new("Feature.ChocoboColorPreview.Fruit.MamookPear", new(-1, 1, -1), ["辉鳞油梨", "Mamook Pear"]),
-        new("Feature.ChocoboColorPreview.Fruit.OGhomoroBerries", new(-1, -1, 1), ["奥·哥摩罗浆果", "O'Ghomoro Berries"]),
-        new("Feature.ChocoboColorPreview.Fruit.DomanPlum", new(-1, 1, 1), ["多玛青梅", "Doman Plum"]),
-        new("Feature.ChocoboColorPreview.Fruit.Valfruit", new(1, -1, 1), ["瓦尔醋栗", "Valfruit"]),
-        new("Feature.ChocoboColorPreview.Fruit.CieldalaesPineapple", new(1, 1, -1), ["谢尔达莱凤梨", "Cieldalaes Pineapple"]),
-        new("Feature.ChocoboColorPreview.Fruit.HanLemon", Vector3.Zero, ["拉札罕柠檬", "Han Lemon"])
+        new("Feature.ChocoboColorPreview.Fruit.XelphatolApple", new(1, -1, -1), 8157),
+        new("Feature.ChocoboColorPreview.Fruit.MamookPear", new(-1, 1, -1), 8159),
+        new("Feature.ChocoboColorPreview.Fruit.OGhomoroBerries", new(-1, -1, 1), 8161),
+        new("Feature.ChocoboColorPreview.Fruit.DomanPlum", new(-1, 1, 1), 8158),
+        new("Feature.ChocoboColorPreview.Fruit.Valfruit", new(1, -1, 1), 8160),
+        new("Feature.ChocoboColorPreview.Fruit.CieldalaesPineapple", new(1, 1, -1), 8162),
+        new("Feature.ChocoboColorPreview.Fruit.HanLemon", Vector3.Zero, 8163)
     ];
 
     private readonly List<ChocoboColor> colors = [];
@@ -245,21 +245,10 @@ public sealed unsafe class ChocoboColorPreview(
             return;
         }
 
-        var itemInfo = new Dictionary<string, ChocoboFruitInfo>(StringComparer.Ordinal);
-        foreach (var item in LuminaGetter.Get<Item>())
-        {
-            var name = item.Name.ExtractText();
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                itemInfo.TryAdd(name, new(name, item.Icon));
-            }
-        }
-
         foreach (var fruit in Fruits)
         {
-            var candidate = fruit.Candidates.FirstOrDefault(itemInfo.ContainsKey);
-            fruitInfo[fruit.LocalizationKey] = candidate is not null
-                ? itemInfo[candidate]
+            fruitInfo[fruit.LocalizationKey] = LuminaGetter.TryGetRow<Item>(fruit.ItemID, out var item)
+                ? new(item.Name.ExtractText(), item.Icon)
                 : new(OmniLoc.Get(fruit.LocalizationKey), 0);
         }
     }
@@ -470,7 +459,7 @@ public sealed unsafe class ChocoboColorPreview(
     private readonly record struct ChocoboFruit(
         string LocalizationKey,
         Vector3 Delta,
-        string[] Candidates);
+        uint ItemID);
 
     private readonly record struct ChocoboFruitInfo(string Name, uint IconID);
 
@@ -501,16 +490,11 @@ public sealed unsafe class ChocoboColorPreview(
     private const int COLOR_STEP = 5;
 
     #endregion
-}
 
-internal readonly record struct ChocoboFruitRequirement(string Name, uint IconID, int Count);
+    public sealed class Settings
+    {
+        public byte TargetStainID { get; set; }
 
-internal readonly record struct ChocoboFeedOrder(int Index, string Name, uint IconID);
-
-[Serializable]
-public sealed class ChocoboColorPreviewConfig
-{
-    public byte TargetStainID { get; set; }
-
-    public byte PreviewStainID { get; set; }
+        public byte PreviewStainID { get; set; }
+    }
 }

@@ -47,11 +47,8 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
     private ulong settingsOwnerContentID;
     private bool refreshRequested;
     private int operationVersion;
-    private int removedCount;
-    private int totalCount;
     private uint friendAddonID;
     private uint menuAddonID;
-    private int nativeRowIndex;
     private string currentStep = string.Empty;
 
     protected override void OnEnable()
@@ -303,8 +300,8 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
             return;
 
         var version = Interlocked.Increment(ref operationVersion);
-        totalCount = 0;
-        removedCount = 0;
+
+
         var responseVersion = snapshot.Version;
         EnqueueStep(version, ownerContentID, "RequestFriends", () => RequestFriends(ref responseVersion));
         EnqueueStep(version, ownerContentID, "WaitForFriends", () =>
@@ -432,7 +429,7 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
             }
 
             var worldName = homeWorld > 1 ? LuminaWrapper.GetWorldName(homeWorld) : string.Empty;
-            friends.Add(new(entry.ContentId, name, homeWorld, worldName));
+            friends.Add(new(entry.ContentId, name, worldName));
         }
 
         snapshot = new(ownerContentID, friends.ToArray(), version);
@@ -449,8 +446,8 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         }
 
         var version = Interlocked.Increment(ref operationVersion);
-        removedCount = 0;
-        totalCount = targets.Length;
+
+
         var showRequested = false;
         EnqueueStep(version, ownerContentID, "PrepareFriendList", () => PrepareFriendList(ref showRequested));
         var initialResponseVersion = snapshot.Version;
@@ -475,7 +472,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
                     currentSnapshot.Friends.Any(entry => entry.ContentID == friend.ContentID))
                     return false;
 
-                removedCount++;
                 currentFriend = null;
                 return true;
             });
@@ -547,6 +543,7 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         }
         menuAddonID = 0;
 
+        var nativeRowIndex = -1;
         if (preferredIndex < 0)
         {
             var entries = proxy->CharDataSpan;
@@ -724,7 +721,7 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         menuAddonID = 0;
     }
 
-    private sealed record FriendEntry(ulong ContentID, string Name, ushort HomeWorld, string WorldName)
+    private sealed record FriendEntry(ulong ContentID, string Name, string WorldName)
     {
         public bool IsUnresolved => string.IsNullOrWhiteSpace(Name);
 

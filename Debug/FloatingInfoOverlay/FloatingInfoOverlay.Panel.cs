@@ -1,0 +1,537 @@
+using System.Globalization;
+using OmenTools.ImGuiOm;
+using OmenTools.OmenService;
+using OmniToolbox.Common.Module.Abstractions;
+using OmniToolbox.Common.Module.Enums;
+using OmniToolbox.Common.Module.Models;
+using OmniToolbox.Host;
+using OmniToolbox.Lifecycle;
+using OmniToolbox.TreeHouse;
+using OmniToolbox.UI;
+using OmniToolbox.UI.Theme;
+
+namespace OmniToolbox.TreePublic;
+
+internal sealed partial class FloatingInfoOverlay
+{
+    internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
+    {
+        private string filterInput = string.Empty;
+
+        public bool Draw()
+        {
+            using var wrap = ImRaii.TextWrapPos(0f);
+            var changed = false;
+            ImGui.TextUnformatted($"{OmniLoc.Get("Feature.FloatingInfoOverlay.General")}：");
+            changed |= DrawGeneralSettings();
+            ImGui.Spacing();
+            ImGui.Separator();
+            ImGui.Spacing();
+            ImGui.TextUnformatted($"{OmniLoc.Get("Feature.FloatingInfoOverlay.ObjectTypes")}：");
+            changed |= DrawObjectTypes();
+            ImGui.Spacing();
+            ImGui.Separator();
+            ImGui.Spacing();
+            ImGui.TextUnformatted($"{OmniLoc.Get("Feature.FloatingInfoOverlay.DisplayOptions")}：");
+            changed |= DrawDisplayOptions();
+
+            return changed;
+        }
+
+        private bool DrawGeneralSettings()
+        {
+            var changed = false;
+            using (var table = OmniControls.SettingsTable(
+                       "##floatingInfoGeneral",
+                       [OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.Opacity")),
+                            OmniControls.MeasureFloatInput(config.Opacity, "%.2f", OmniTheme.Scale(64f))]),
+                           OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.Range")),
+                               OmniControls.MeasureFloatInput(config.Range, "%.0fm", OmniTheme.Scale(64f))]),
+                           OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.MaxObjects")),
+                               OmniControls.MeasureInput(config.MaxObjects.ToString(), OmniTheme.Scale(64f))]),
+                           OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.MergeDistance")),
+                               OmniControls.MeasureFloatInput(config.MergeDistance, "%.0fm", OmniTheme.Scale(64f)), OmniControls.HelpIconSize()]),
+                           OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.Scale")),
+                               OmniControls.MeasureFloatInput(config.Scale, "%.2f", OmniTheme.Scale(64f))])],
+                       ["##opacity", "##range", "##maxObjects", "##mergeDistance"],
+                       flags: ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4))
+            {
+                if (table)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    var opacity = config.Opacity;
+                    if (DrawFloatSlider(
+                            "Feature.FloatingInfoOverlay.Opacity",
+                            "opacity",
+                            ref opacity,
+                            0.1f,
+                            1f,
+                            "%.2f"))
+                    {
+                        config.Opacity = opacity;
+                    }
+                    changed |= ImGui.IsItemDeactivatedAfterEdit();
+
+                    ImGui.TableNextColumn();
+                    var range = config.Range;
+                    if (DrawFloatSlider(
+                            "Feature.FloatingInfoOverlay.Range",
+                            "range",
+                            ref range,
+                            5f,
+                            200f,
+                            "%.0fm"))
+                    {
+                        config.Range = range;
+                    }
+                    changed |= ImGui.IsItemDeactivatedAfterEdit();
+
+                    ImGui.TableNextColumn();
+                    var maxObjects = config.MaxObjects;
+                    if (DrawIntSlider(
+                            "Feature.FloatingInfoOverlay.MaxObjects",
+                            "maxObjects",
+                            ref maxObjects,
+                            1,
+                            100))
+                    {
+                        config.MaxObjects = maxObjects;
+                    }
+                    changed |= ImGui.IsItemDeactivatedAfterEdit();
+
+                    ImGui.TableNextColumn();
+                    var mergeDistance = config.MergeDistance;
+                    if (DrawFloatSlider(
+                            "Feature.FloatingInfoOverlay.MergeDistance",
+                            "mergeDistance",
+                            ref mergeDistance,
+                            0f,
+                            50f,
+                            "%.0fm",
+                            OmniControls.HelpIconSize().X + ImGui.GetStyle().ItemSpacing.X))
+                    {
+                        config.MergeDistance = mergeDistance;
+                    }
+                    changed |= ImGui.IsItemDeactivatedAfterEdit();
+
+                    OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+                    OmniControls.HelpIcon(OmniLoc.Get("Feature.FloatingInfoOverlay.MergeDistance.Help"));
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    var scale = config.Scale;
+                    if (DrawFloatSlider(
+                            "Feature.FloatingInfoOverlay.Scale",
+                            "scale",
+                            ref scale,
+                            0.3f,
+                            3f,
+                            "%.2f"))
+                    {
+                        config.Scale = scale;
+                    }
+                    changed |= ImGui.IsItemDeactivatedAfterEdit();
+                }
+            }
+
+            ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
+            var addLabel = OmniLoc.Get("Feature.FloatingInfoOverlay.Add");
+            var addButtonSize = OmniControls.CompactButtonSize(addLabel);
+            using (var table = OmniControls.SettingsTable(
+                       "##floatingInfoFilters",
+                       [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.FloatingInfoOverlay.OnlyCasting")),
+                           OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.FloatingInfoOverlay.EnableDataIdFilter")),
+                           OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.FloatingInfoOverlay.Whitelist")),
+                           OmniControls.MeasureGroup([OmniControls.MeasureInput("0xFFFFFFFF"), addButtonSize])],
+                       ["##onlyCasting", "##enableFilter", "##whitelist", "##filterInput"],
+                       flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4))
+            {
+                if (table)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.OnlyCasting",
+                        "onlyCasting",
+                        config.OnlyCasting,
+                        value => config.OnlyCasting = value);
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.EnableDataIdFilter",
+                        "enableFilter",
+                        config.EnableDataIDFilter,
+                        value => config.EnableDataIDFilter = value);
+                    ImGui.TableNextColumn();
+                    using (ImRaii.Disabled(!config.EnableDataIDFilter))
+                    {
+                        changed |= DrawCheckbox(
+                            "Feature.FloatingInfoOverlay.Whitelist",
+                            "whitelist",
+                            config.UseDataIDWhitelist,
+                            value => config.UseDataIDWhitelist = value);
+                    }
+
+                    ImGui.TableNextColumn();
+                    OmniControls.InputTextWithHint(
+                        "##floatingInfoDataIdInput",
+                        OmniLoc.Get("Feature.FloatingInfoOverlay.FilterInput"),
+                        ref filterInput,
+                        32,
+                        MathF.Max(1f, ImGui.GetContentRegionAvail().X - addButtonSize.X - ImGui.GetStyle().ItemSpacing.X));
+                    OmniControls.SameLineOrWrap(addButtonSize.X);
+                    if (OmniControls.SmallButton(
+                            $"{addLabel}##addDataId",
+                            false,
+                            addButtonSize))
+                    {
+                        changed |= TryAddFilterDataID();
+                    }
+                }
+            }
+
+            return DrawFilterTable() || changed;
+        }
+
+        private bool DrawObjectTypes()
+        {
+            var changed = false;
+            using var table = ImRaii.Table(
+                "##floatingInfoObjectTypes",
+                OmniControls.ColumnsThatFit(4, OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowNonEntityTargets")).X),
+                ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX,
+                new Vector2(ImGui.GetContentRegionAvail().X, 0f));
+            if (!table)
+            {
+                return false;
+            }
+
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            changed |= DrawCheckbox(
+                "Feature.FloatingInfoOverlay.ShowPlayers",
+                "players",
+                config.ShowPlayers,
+                value => config.ShowPlayers = value);
+            ImGui.TableNextColumn();
+            changed |= DrawCheckbox(
+                "Feature.FloatingInfoOverlay.ShowLocalPlayer",
+                "localPlayer",
+                config.ShowLocalPlayer,
+                value => config.ShowLocalPlayer = value);
+            ImGui.TableNextColumn();
+            changed |= DrawCheckbox(
+                "Feature.FloatingInfoOverlay.ShowBattleNpcs",
+                "battleNpcs",
+                config.ShowBattleNpcs,
+                value => config.ShowBattleNpcs = value);
+            ImGui.TableNextColumn();
+            changed |= DrawCheckbox(
+                "Feature.FloatingInfoOverlay.ShowEventNpcs",
+                "eventNpcs",
+                config.ShowEventNpcs,
+                value => config.ShowEventNpcs = value);
+            ImGui.TableNextRow();
+            ImGui.TableNextColumn();
+            changed |= DrawCheckbox(
+                "Feature.FloatingInfoOverlay.ShowEventObjects",
+                "eventObjects",
+                config.ShowEventObjects,
+                value => config.ShowEventObjects = value);
+            ImGui.TableNextColumn();
+            changed |= DrawCheckbox(
+                "Feature.FloatingInfoOverlay.ShowCompanions",
+                "companions",
+                config.ShowCompanions,
+                value => config.ShowCompanions = value);
+            ImGui.TableNextColumn();
+            changed |= DrawCheckbox(
+                "Feature.FloatingInfoOverlay.ShowNonEntityTargets",
+                "nonEntityTargets",
+                config.ShowNonEntityTargets,
+                value => config.ShowNonEntityTargets = value);
+            return changed;
+        }
+
+        private bool DrawDisplayOptions()
+        {
+            var changed = false;
+            using (var table = ImRaii.Table(
+                       "##floatingInfoDisplayOptions",
+                       OmniControls.ColumnsThatFit(4, OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowDataId")).X),
+                       ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX,
+                       new Vector2(ImGui.GetContentRegionAvail().X, 0f)))
+            {
+                if (table)
+                {
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowDataId",
+                        "dataId",
+                        config.ShowDataID,
+                        value => config.ShowDataID = value);
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowEntityId",
+                        "entityId",
+                        config.ShowEntityID,
+                        value => config.ShowEntityID = value);
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowDecimalId",
+                        "decimalId",
+                        config.ShowDecimalID,
+                        value => config.ShowDecimalID = value);
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowHexId",
+                        "hexId",
+                        config.ShowHexID,
+                        value => config.ShowHexID = value);
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowDistance",
+                        "distance",
+                        config.ShowDistance,
+                        value => config.ShowDistance = value);
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowPosition",
+                        "position",
+                        config.ShowPosition,
+                        value => config.ShowPosition = value);
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowRotation",
+                        "rotation",
+                        config.ShowRotation,
+                        value => config.ShowRotation = value);
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowHealth",
+                        "health",
+                        config.ShowHealth,
+                        value => config.ShowHealth = value);
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowMana",
+                        "mana",
+                        config.ShowMana,
+                        value => config.ShowMana = value);
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowMarker",
+                        "marker",
+                        config.ShowMarker,
+                        value => config.ShowMarker = value);
+                    OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+                    OmniControls.HelpIcon(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowMarker.Help"));
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowCastInfo",
+                        "castInfo",
+                        config.ShowCastInfo,
+                        value => config.ShowCastInfo = value);
+                    ImGui.TableNextColumn();
+                    changed |= DrawCheckbox(
+                        "Feature.FloatingInfoOverlay.ShowStatusList",
+                        "statusList",
+                        config.ShowStatusList,
+                        value => config.ShowStatusList = value);
+                }
+            }
+
+            return changed;
+        }
+
+        private bool DrawFilterTable()
+        {
+            var changed = false;
+            using var disabled = ImRaii.Disabled(!config.EnableDataIDFilter);
+            var style = ImGui.GetStyle();
+            var removeLabel = OmniLoc.Get("Feature.FloatingInfoOverlay.Remove");
+            var removeButtonSize = OmniControls.CompactButtonSize(removeLabel);
+            var rowHeight = removeButtonSize.Y + style.CellPadding.Y * 2f;
+            var tableHeight = MathF.Max(
+                                  OmniTheme.SmallButtonSize().Y,
+                                  ImGui.GetTextLineHeight() + style.CellPadding.Y * 2f) +
+                              Math.Clamp(config.FilterDataIds.Count, 1, 3) *
+                              rowHeight +
+                              style.ItemSpacing.Y;
+            string[] labels = [OmniLoc.Get("Feature.FloatingInfoOverlay.ShowDataId"),
+                OmniLoc.Get("Feature.FloatingInfoOverlay.DecimalId"), OmniLoc.Get("Feature.FloatingInfoOverlay.Hex"),
+                OmniLoc.Get("Feature.FloatingInfoOverlay.Action")];
+            var numberWidth = ImGui.CalcTextSize(uint.MaxValue.ToString(CultureInfo.InvariantCulture)).X;
+            var hexWidth = ImGui.CalcTextSize("0xFFFFFFFF").X;
+            using var table = OmniControls.DataTable(
+                "##floatingInfoDataIds",
+                labels, [numberWidth, numberWidth, hexWidth, removeButtonSize.X],
+                [numberWidth, numberWidth, hexWidth, removeButtonSize.X], out var detailLayout,
+                ImGuiTableFlags.SizingStretchSame |
+                ImGuiTableFlags.Borders |
+                ImGuiTableFlags.RowBg |
+                ImGuiTableFlags.ScrollY,
+                new Vector2(ImGui.GetContentRegionAvail().X, tableHeight), stretchColumn: -1);
+            if (!table)
+            {
+                return false;
+            }
+
+            if (!detailLayout)
+            {
+                ImGui.TableSetupScrollFreeze(0, 1);
+            }
+
+            OmniControls.BeginTableHeaderRow();
+            OmniControls.TableHeader(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowDataId"));
+            if (!detailLayout)
+            {
+                OmniControls.TableHeader(labels[1]);
+                OmniControls.TableHeader(labels[2]);
+                OmniControls.TableHeader(labels[3]);
+            }
+            if (config.FilterDataIds.Count == 0)
+            {
+                ImGui.TableNextRow(ImGuiTableRowFlags.None, rowHeight);
+                for (var column = 0; column < (detailLayout ? 1 : 4); column++)
+                {
+                    ImGui.TableNextColumn();
+                    OmniControls.TableTextCentered("-");
+                }
+
+                return false;
+            }
+
+            var removeIndex = -1;
+            for (var index = 0; index < config.FilterDataIds.Count; index++)
+            {
+                var dataID = config.FilterDataIds[index];
+                ImGui.TableNextRow(ImGuiTableRowFlags.None, rowHeight);
+                OmniControls.NextTableField(labels[0], detailLayout);
+                OmniControls.TableTextCentered(dataID.ToString(CultureInfo.InvariantCulture));
+                OmniControls.NextTableField(labels[1], detailLayout);
+                OmniControls.TableTextCentered(dataID.ToString(CultureInfo.InvariantCulture));
+                OmniControls.NextTableField(labels[2], detailLayout);
+                OmniControls.TableTextCentered($"0x{dataID:X8}");
+                OmniControls.NextTableField(labels[3], detailLayout);
+                ImGui.SetCursorPosX(ImGui.GetCursorPosX() + MathF.Max(
+                    0f,
+                    (ImGui.GetContentRegionAvail().X - removeButtonSize.X) * 0.5f));
+                if (OmniControls.SmallButton(
+                        $"{removeLabel}##remove{dataID}",
+                        false,
+                        removeButtonSize))
+                {
+                    removeIndex = index;
+                }
+            }
+
+            if (removeIndex >= 0)
+            {
+                config.FilterDataIds.RemoveAt(removeIndex);
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        private static bool DrawCheckbox(
+            string key,
+            string id,
+            bool value,
+            Action<bool> setValue)
+        {
+            if (!OmniControls.Checkbox($"{OmniLoc.Get(key)}##floatingInfo{id}", ref value))
+            {
+                return false;
+            }
+
+            setValue(value);
+            return true;
+        }
+
+        private static bool DrawFloatSlider(
+            string key,
+            string id,
+            ref float value,
+            float minimum,
+            float maximum,
+            string format,
+            float trailingWidth = 0f)
+        {
+            var label = OmniLoc.Get(key);
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(label);
+            OmniControls.SameLineOrWrap(OmniControls.MeasureFloatInput(value, format, OmniTheme.Scale(64f)).X);
+            var width = MathF.Max(1f, ImGui.GetContentRegionAvail().X - trailingWidth);
+            var changed = OmniControls.SliderFloat(
+                $"##floatingInfo{id}",
+                ref value,
+                minimum,
+                maximum,
+                format,
+                width);
+            return changed;
+        }
+
+        private static bool DrawIntSlider(
+            string key,
+            string id,
+            ref int value,
+            int minimum,
+            int maximum)
+        {
+            var label = OmniLoc.Get(key);
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(label);
+            OmniControls.SameLineOrWrap(OmniControls.MeasureInput(value.ToString(), OmniTheme.Scale(64f)).X);
+            var changed = OmniControls.SliderInt(
+                $"##floatingInfo{id}",
+                ref value,
+                minimum,
+                maximum,
+                "%d",
+                MathF.Max(1f, ImGui.GetContentRegionAvail().X));
+            return changed;
+        }
+
+        private bool TryAddFilterDataID()
+        {
+            if (!TryParseDataID(filterInput, out var dataID))
+            {
+                return false;
+            }
+
+            if (config.FilterDataIds.Contains(dataID))
+            {
+                return false;
+            }
+
+            config.FilterDataIds.Add(dataID);
+            filterInput = string.Empty;
+            return true;
+        }
+
+        private static bool TryParseDataID(string text, out uint dataID)
+        {
+            text = text.Trim();
+            if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                return uint.TryParse(
+                    text.AsSpan(2),
+                    NumberStyles.HexNumber,
+                    CultureInfo.InvariantCulture,
+                    out dataID);
+            }
+
+            return uint.TryParse(
+                text,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out dataID);
+        }
+    }
+
+}

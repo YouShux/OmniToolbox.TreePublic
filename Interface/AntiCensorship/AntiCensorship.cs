@@ -12,7 +12,6 @@ using OmenTools.Interop.Game.Models;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Config;
 using OmniToolbox.Host;
 using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
@@ -20,7 +19,7 @@ using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleBase
+public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -48,7 +47,7 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
     private static bool AllowFilterCall;
 
     private FeatureLifetime? runtimeLifetime;
-    private AntiCensorshipProcessor? processor;
+    private Processor? processor;
     private Hook<GetFilteredUtf8StringDelegate>? getFilteredUtf8StringHook;
     private Hook<LocalMessageDisplayDelegate>? localMessageDisplayHook;
     private Hook<PartyFinderMessageDisplayDelegate>? partyFinderMessageDisplayHook;
@@ -156,8 +155,9 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
             config.Separator = string.IsNullOrWhiteSpace(separator) || separator == "*"
                 ? '.'
                 : separator[0];
-            changed = true;
+            processor?.Clear();
         }
+        changed |= ImGui.IsItemDeactivatedAfterEdit();
 
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
         OmniControls.HelpIcon(OmniLoc.Get("Feature.AntiCensorship.AutoHandle.Help"));
@@ -182,10 +182,11 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
         {
             config.HighlightColorValue = color;
             config.UseCustomHighlightColor = true;
-            changed = true;
+            processor?.Clear();
         }
 
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+        changed |= ImGui.IsItemDeactivatedAfterEdit();
         OmniControls.HelpIcon(OmniLoc.Get("Feature.AntiCensorship.Coloring.Help"));
         if (!changed)
         {
@@ -368,20 +369,4 @@ public sealed unsafe class AntiCensorship(AntiCensorshipConfig config) : ModuleB
         textInputReceiveEventHook = null;
         vulgarInstanceOffset = 0;
     }
-}
-
-[Serializable]
-public sealed class AntiCensorshipConfig
-{
-    public bool EnableColoring { get; set; }
-
-    public bool EnableAutoHandle { get; set; } = true;
-
-    public int HighlightColor { get; set; } = 17;
-
-    public bool UseCustomHighlightColor { get; set; }
-
-    public Vector3 HighlightColorValue { get; set; } = new(1f, 0f, 0f);
-
-    public char Separator { get; set; } = '.';
 }

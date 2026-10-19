@@ -20,7 +20,7 @@ public sealed partial class AutoIshgardRestoration : ModuleBase
         SupportUrls = ["https://github.com/Angelways"],
         Commands =
         [
-            new("Feature.AutoIshgardRestoration.OpenCommand", OmniCommandCatalog.Format("ishgard"))
+            new("Feature.AutoIshgardRestoration.OpenCommand", OmniCommandCatalog.Format("ishgardrestoration"))
         ]
     };
 
@@ -79,7 +79,7 @@ public sealed partial class AutoIshgardRestoration : ModuleBase
 
     public override bool TryHandleCommand(string command, string arguments)
     {
-        return string.Equals(command, "ishgard", StringComparison.OrdinalIgnoreCase) &&
+        return string.Equals(command, "ishgardrestoration", StringComparison.OrdinalIgnoreCase) &&
             HandleCommandArguments(arguments);
     }
 
