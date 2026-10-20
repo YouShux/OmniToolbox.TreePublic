@@ -170,9 +170,8 @@ public sealed unsafe partial class AutoPartyInvite : ModuleBase
         {
             HandleChatMessage(logModule, contentID, messageIndex, worldID, (XivChatType)chatType);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DService.Instance().Log.Warning(ex, "Auto party invite failed to handle a chat message.");
         }
     }
 

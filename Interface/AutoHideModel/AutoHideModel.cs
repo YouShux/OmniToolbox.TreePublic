@@ -458,12 +458,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         {
             UpdateVisibility();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             if (Environment.TickCount64 >= nextVisibilityWarningTick)
             {
                 nextVisibilityWarningTick = Environment.TickCount64 + 10_000;
-                DalamudServices.PluginLog.Warning(ex, "Auto hide model visibility update failed.");
             }
             RestoreNonPlayerVisibility();
         }
@@ -811,12 +810,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
                     casterEntityID != localPlayer.EntityID && !IsObjectIDInParty(casterEntityID));
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             if (Environment.TickCount64 >= nextEffectWarningTick)
             {
                 nextEffectWarningTick = Environment.TickCount64 + 10_000;
-                DalamudServices.PluginLog.Warning(ex, "Auto hide model action effect processing failed.");
             }
         }
         finally

@@ -64,7 +64,7 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
         var lifetime = new FeatureLifetime();
         try
         {
-            LoadDrops();
+            BeginLoadDrops();
             window = new(this);
             lifetime.Add(() =>
             {
@@ -117,12 +117,23 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
             activeDutyID = 0;
             exchangeDataPending = false;
             nextExchangeRetryAt = 0;
+            dropsLoadStep = -1;
             dropsByDuty.Clear();
+            bossRows.Clear();
+            bossSources.Clear();
+            chestRows.Clear();
+            pendingChestItems = null;
+            pendingChestItemIndex = 0;
         }
     }
 
     private void OnFrameworkUpdate(IFramework _)
     {
+        if (dropsLoadStep >= 0 && StepLoadDrops())
+        {
+            activeDutyID = 0;
+        }
+
         if (DService.Instance().Condition.IsBetweenAreas || !UIModule.IsScreenReady())
         {
             activeDutyID = 0;

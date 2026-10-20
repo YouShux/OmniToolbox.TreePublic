@@ -78,8 +78,7 @@ public sealed unsafe partial class BetterGlamourManagement(
                 ObjectTable = services.ObjectTable,
                 Condition = services.Condition,
                 GameGUI = services.GameGUI,
-                DataManager = services.Data,
-                Log = services.Log
+                DataManager = services.Data
             }, () => config.Presets);
             portraitPreview.Enable();
             EnableRemote();

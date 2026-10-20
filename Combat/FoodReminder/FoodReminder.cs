@@ -94,13 +94,11 @@ public sealed partial class FoodReminder : ModuleBase
     {
         if (!DService.Instance().ClientState.IsLoggedIn)
         {
-            DalamudServices.PluginLog.Warning("Food reminder manual check requires a logged-in character.");
             return;
         }
 
         if (!IsAllowedTerritory())
         {
-            DalamudServices.PluginLog.Warning("Food reminder manual check is disabled in territory {TerritoryID}.", DService.Instance().ClientState.TerritoryType);
             return;
         }
 
@@ -108,9 +106,8 @@ public sealed partial class FoodReminder : ModuleBase
         {
             CheckAndNotify();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "Food reminder manual check failed.");
         }
     }
 
@@ -135,9 +132,8 @@ public sealed partial class FoodReminder : ModuleBase
             countdownProcessed = true;
             CheckAndNotify();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "Food reminder countdown handling failed.");
         }
     }
 

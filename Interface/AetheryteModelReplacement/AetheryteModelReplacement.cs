@@ -52,7 +52,6 @@ public sealed unsafe partial class AetheryteModelReplacement(
     private PresetScanProgress? presetScanProgress;
     private bool presetScanFailed;
     private string gameDataVersion = string.Empty;
-    private int lastLoggedPresetCount = -1;
     private Hook<ResourceManager.Delegates.GetResourceSync>? getResourceSyncHook;
     private Hook<ResourceManager.Delegates.GetResourceAsync>? getResourceAsyncHook;
     private bool redirectSharedGroup;
@@ -97,7 +96,6 @@ public sealed unsafe partial class AetheryteModelReplacement(
         }
 
         presets = presetScanCache?.Presets ?? presets;
-        lastLoggedPresetCount = -1;
         var lifetime = new FeatureLifetime();
         try
         {
@@ -259,15 +257,10 @@ public sealed unsafe partial class AetheryteModelReplacement(
             presetScanCacheVersion = gameDataVersion;
             SavePresetScanCheckpoint(completedScan);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             presetScanProgress = null;
             presetScanFailed = true;
-            if (lastLoggedPresetCount != -2)
-            {
-                lastLoggedPresetCount = -2;
-                DService.Instance().Log.Error(ex, "[AetheryteModelReplacement] 水晶预设扫描失败。");
-            }
         }
     }
 

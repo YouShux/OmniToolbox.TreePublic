@@ -195,9 +195,8 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : ModuleB
                 }
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "Ready-check overlay drawing failed.");
         }
     }
 
@@ -396,9 +395,8 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : ModuleB
             clearAfterTick = 0;
             ProcessReadyCheckResults();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "Ready-check start processing failed.");
         }
     }
 
@@ -417,9 +415,8 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : ModuleB
             ProcessReadyCheckResults();
             ScheduleOverlayClear();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "Ready-check completion processing failed.");
         }
     }
 

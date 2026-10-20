@@ -176,9 +176,8 @@ public sealed class DalamudDirectoryCleanup : ModuleBase
 
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "Dalamud directory cleanup failed for {Path}.", path);
             return false;
         }
     }

@@ -41,7 +41,6 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : ModuleBase
     private nint addonAddress;
     private int lastMask = -1;
     private (SeString ProbabilityLine, string AverageLine) displayLines;
-    private bool updateErrorLogged;
 
     protected override void OnEnable()
     {
@@ -134,15 +133,9 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : ModuleBase
             }
 
             Refresh(addon);
-            updateErrorLogged = false;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            if (!updateErrorLogged)
-            {
-                DalamudServices.PluginLog.Error(ex, "Failed to update Wondrous Tails probability display.");
-            }
-            updateErrorLogged = true;
         }
     }
 
@@ -300,7 +293,6 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : ModuleBase
         snapshots.Clear();
         addonAddress = nint.Zero;
         lastMask = -1;
-        updateErrorLogged = false;
     }
 
     private sealed class InstructionSnapshot

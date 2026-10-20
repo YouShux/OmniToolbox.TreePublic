@@ -152,9 +152,8 @@ public sealed partial class BetterGlamourManagement
                 {
                     Disable();
                 }
-                catch (Exception cleanup)
+                catch (Exception)
                 {
-                    context.Log.Error(cleanup, "Omni preview initialization cleanup failed");
                 }
                 throw;
             }
@@ -337,7 +336,6 @@ public sealed partial class BetterGlamourManagement
                     Stop();
                     phase = "error";
                     message = error.Message;
-                    context?.Log.Error(error, "Omni preview request failed");
                 }
             }
 
@@ -350,9 +348,8 @@ public sealed partial class BetterGlamourManagement
                 {
                     frameIpc?.SendMessage(image, frameWidth, frameHeight, requestID);
                 }
-                catch (Exception error)
+                catch (Exception)
                 {
-                    context?.Log.Warning(error, "Omni preview frame consumer failed");
                 }
             }
         }
@@ -485,14 +482,12 @@ public sealed partial class BetterGlamourManagement
                 {
                     Stop();
                 }
-                catch (Exception cleanup)
+                catch (Exception)
                 {
-                    context.Log.Error(cleanup, "OmniOutfitPreview cleanup failed");
                 }
 
                 phase = "error";
                 message = error.Message;
-                context.Log.Error(error, "OmniOutfitPreview stopped");
             }
         }
 

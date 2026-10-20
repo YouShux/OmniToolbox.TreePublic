@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Linq;
 using Lumina.Excel.Sheets;
 using LuminaSupplemental.Excel.Model;
@@ -13,57 +14,103 @@ namespace OmniToolbox.TreePublic;
 public sealed unsafe partial class DutyLootPreview
 {
     private readonly Dictionary<uint, Dictionary<uint, HashSet<string>>> dropsByDuty = [];
+    private readonly Dictionary<(uint ContentFinderConditionID, uint FightNo), DungeonBoss> bossRows = [];
+    private readonly Dictionary<(uint ContentFinderConditionID, uint FightNo), string> bossSources = [];
+    private readonly Dictionary<uint, DungeonChest> chestRows = [];
+    private List<DungeonChestItem>? pendingChestItems;
+    private int pendingChestItemIndex;
+    private int dropsLoadStep = -1;
 
-    private void LoadDrops()
+    private void BeginLoadDrops()
     {
         dropsByDuty.Clear();
-        var bosses = new Dictionary<(uint ContentFinderConditionID, uint FightNo), DungeonBoss>();
-        foreach (var boss in Load<DungeonBoss>(CsvLoader.DungeonBossResourceName))
+        bossRows.Clear();
+        bossSources.Clear();
+        chestRows.Clear();
+        pendingChestItems = null;
+        pendingChestItemIndex = 0;
+        dropsLoadStep = 0;
+    }
+
+    private bool StepLoadDrops()
+    {
+        var phaseStarted = Stopwatch.GetTimestamp();
+        switch (dropsLoadStep)
         {
-            bosses.TryAdd((boss.ContentFinderConditionId, boss.FightNo), boss);
+            case 0:
+                foreach (var boss in Load<DungeonBoss>(CsvLoader.DungeonBossResourceName))
+                {
+                    bossRows.TryAdd((boss.ContentFinderConditionId, boss.FightNo), boss);
+                }
+                dropsLoadStep = 1;
+                return false;
+            case 1:
+                foreach (var chest in Load<DungeonChest>(CsvLoader.DungeonChestResourceName))
+                {
+                    chestRows.TryAdd(chest.RowId, chest);
+                }
+                dropsLoadStep = 2;
+                return false;
+            case 2:
+                foreach (var drop in Load<DungeonBossDrop>(CsvLoader.DungeonBossDropResourceName))
+                {
+                    AddBoss(drop.ContentFinderConditionId, drop.FightNo, drop.ItemId);
+                }
+                dropsLoadStep = 3;
+                return false;
+            case 3:
+                foreach (var drop in Load<DungeonBossChest>(CsvLoader.DungeonBossChestResourceName))
+                {
+                    AddBoss(drop.ContentFinderConditionId, drop.FightNo, drop.ItemId);
+                }
+                dropsLoadStep = 4;
+                return false;
+            case 4:
+                pendingChestItems = Load<DungeonChestItem>(CsvLoader.DungeonChestItemResourceName);
+                pendingChestItemIndex = 0;
+                dropsLoadStep = 5;
+                return false;
+            case 5:
+                var chestSource = OmniLoc.Get("Feature.DutyLootPreview.Chest");
+                while (pendingChestItems is not null && pendingChestItemIndex < pendingChestItems.Count)
+                {
+                    var drop = pendingChestItems[pendingChestItemIndex++];
+                    if (chestRows.TryGetValue(drop.ChestId, out var chest))
+                    {
+                        AddDrop(chest.ContentFinderConditionId, drop.ItemId, chestSource);
+                    }
+
+                    if (Stopwatch.GetElapsedTime(phaseStarted).TotalMilliseconds >= 8)
+                        break;
+                }
+                if (pendingChestItems is not null && pendingChestItemIndex < pendingChestItems.Count)
+                    return false;
+
+                pendingChestItems = null;
+                dropsLoadStep = -1;
+                return true;
+            default:
+                return true;
         }
+    }
 
-        var chests = Load<DungeonChest>(CsvLoader.DungeonChestResourceName)
-            .ToDictionary(static chest => chest.RowId);
-
-        foreach (var drop in Load<DungeonBossDrop>(CsvLoader.DungeonBossDropResourceName))
+    private void AddBoss(uint dutyID, uint fight, uint itemID)
+    {
+        if (!bossSources.TryGetValue((dutyID, fight), out var source))
         {
-            AddBoss(drop.ContentFinderConditionId, drop.FightNo, drop.ItemId);
-        }
-
-        foreach (var drop in Load<DungeonBossChest>(CsvLoader.DungeonBossChestResourceName))
-        {
-            AddBoss(drop.ContentFinderConditionId, drop.FightNo, drop.ItemId);
-        }
-
-        foreach (var drop in Load<DungeonChestItem>(CsvLoader.DungeonChestItemResourceName))
-        {
-            if (chests.TryGetValue(drop.ChestId, out var chest))
-            {
-                AddDrop(chest.ContentFinderConditionId, drop.ItemId, OmniLoc.Get("Feature.DutyLootPreview.Chest"));
-            }
-        }
-
-        return;
-
-        void AddBoss(uint dutyID, uint fight, uint itemID)
-        {
-            var source = bosses.TryGetValue((dutyID, fight), out var boss) &&
-                         LuminaGetter.TryGetRow<BNpcName>(boss.BNpcNameId, out var name)
+            source = bossRows.TryGetValue((dutyID, fight), out var boss) &&
+                     LuminaGetter.TryGetRow<BNpcName>(boss.BNpcNameId, out var name)
                 ? name.Singular.ExtractText()
                 : string.Format(OmniLoc.Get("Feature.DutyLootPreview.Boss"), fight);
-            AddDrop(dutyID, itemID, source);
+            bossSources.Add((dutyID, fight), source);
         }
+
+        AddDrop(dutyID, itemID, source);
     }
 
     private static List<T> Load<T>(string resourceName) where T : ICsv, new()
     {
         var rows = CsvLoader.LoadResource<T>(resourceName, true, out var failedLines, out var exceptions);
-        if (failedLines.Count != 0)
-        {
-            DalamudServices.PluginLog.Warning(
-                $"Duty loot resource {resourceName}: {failedLines.Count} invalid rows. {exceptions.FirstOrDefault()?.Message}");
-        }
 
         return rows;
     }

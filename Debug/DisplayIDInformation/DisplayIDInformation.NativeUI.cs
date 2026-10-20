@@ -99,11 +99,10 @@ public sealed partial class DisplayIDInformation
                     tooltipHook = TooltipSig.GetHook<ShowTooltipDelegate>(OnTooltip);
                     tooltipHook.Enable();
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     tooltipHook?.Dispose();
                     tooltipHook = null;
-                    DalamudServices.PluginLog.Warning(ex, "Display ID generic tooltip hook initialization failed.");
                 }
 
                 if (tooltipHook is not null)

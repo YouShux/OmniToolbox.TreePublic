@@ -1,5 +1,6 @@
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
@@ -54,6 +55,8 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
     private uint pendingSourceIcon;
     private uint pendingTargetIcon;
     private int pendingRefreshFrames;
+    private ulong macroCharacterContentID;
+    private long macroScanRetryUntil;
 
     protected override void OnEnable()
     {
@@ -76,6 +79,12 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             lifetime.Add(macroSaveHook.Dispose);
             macroSaveHook.Enable();
             macroIconsDirty = true;
+            macroCharacterContentID = 0;
+            macroScanRetryUntil = Environment.TickCount64 + 30_000;
+
+            var condition = DService.Instance().Condition;
+            condition.ConditionChange += OnConditionChanged;
+            lifetime.Add(() => condition.ConditionChange -= OnConditionChanged);
 
             lifetime.Add(ClearMacroUI);
             var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
@@ -161,13 +170,27 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
 
     private void OnFrameworkUpdate(IFramework _)
     {
+        if (DService.Instance().Condition.IsBetweenAreas)
+        {
+            return;
+        }
+
+        var macroModule = RaptureMacroModule.Instance();
+        var contentID = macroModule is null ? 0 : macroModule->CharacterContentId;
+        if (contentID != 0 && contentID != macroCharacterContentID)
+        {
+            macroCharacterContentID = contentID;
+            macroIconsDirty = true;
+            macroScanRetryUntil = Environment.TickCount64 + 30_000;
+        }
+
         if (config.CustomIcons)
         {
             ScanSelectedMacroEditorIcon();
             if (macroIconsDirty)
             {
-                macroIconsDirty = false;
-                ScanAllMacroCustomIcons();
+                if (ScanAllMacroCustomIcons())
+                    macroIconsDirty = false;
             }
         }
 
@@ -748,6 +771,17 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         ApplyMacroIcon(agent, addon, macroModule, macro, set, index, iconID);
     }
 
+    private void OnConditionChanged(ConditionFlag flag, bool value)
+    {
+        if (value || flag is not (ConditionFlag.BetweenAreas or ConditionFlag.BetweenAreas51))
+        {
+            return;
+        }
+
+        macroIconsDirty = true;
+        macroScanRetryUntil = Environment.TickCount64 + 30_000;
+    }
+
     private void OnMacroSavePending(RaptureMacroModule* module, bool needsSave, uint set)
     {
         macroSaveHook!.Original(module, needsSave, set);
@@ -755,13 +789,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             macroIconsDirty = true;
     }
 
-    private void ScanAllMacroCustomIcons()
+    private bool ScanAllMacroCustomIcons()
     {
         var macroModule = RaptureMacroModule.Instance();
-        if (macroModule is null)
-        {
-            return;
-        }
+        if (macroModule is null || macroModule->CharacterContentId == 0)
+            return false;
 
         var addon = AddonHelper.GetByName<AddonMacro>("Macro");
         var currentSet = GetCurrentMacroSet();
@@ -771,14 +803,20 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         }
 
         var changed = false;
+        var anyMacro = false;
         for (var set = 0u; set < MACRO_PAGE_COUNT; set++)
         {
             var changedPage = false;
             for (var index = 0u; index < MACRO_SLOTS_PER_PAGE; index++)
             {
                 var macro = macroModule->GetMacro(set, index);
-                if (macro is null || !macro->IsNotEmpty() ||
-                    !TryFindMacroCustomIcon(macro, out var iconID) || macro->IconId == iconID)
+                if (macro is null || !macro->IsNotEmpty())
+                {
+                    continue;
+                }
+
+                anyMacro = true;
+                if (!TryFindMacroCustomIcon(macro, out var iconID) || macro->IconId == iconID)
                 {
                     continue;
                 }
@@ -798,9 +836,12 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             }
         }
 
+        if (!anyMacro && Environment.TickCount64 < macroScanRetryUntil)
+            return false;
+
         if (!changed)
         {
-            return;
+            return true;
         }
 
         var hotbarModule = RaptureHotbarModule.Instance();
@@ -808,6 +849,8 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         {
             hotbarModule->ReloadAllMacroSlots();
         }
+
+        return true;
     }
 
     private static bool TryFindMacroCustomIcon(RaptureMacroModule.Macro* macro, out uint iconID)
