@@ -62,6 +62,5 @@ public sealed partial class BetterGlamourManagement
 
         public required IDataManager DataManager { get; init; }
 
-        public required IPluginLog Log { get; init; }
     }
 }

@@ -33,7 +33,6 @@ public sealed unsafe partial class BetterGlamourManagement
 
     private void EnableRemote()
     {
-        saveConfig();
         remoteGate = DalamudServices.PluginInterface.GetIpcProvider<string, string>("Omni.Glamour.Management.V1");
         remoteGate.RegisterFunc(RemoteRequest);
         asyncManagementGate = DalamudServices.PluginInterface.GetIpcProvider<string, Task<string>>("Omni.Glamour.Management.V2");
@@ -433,9 +432,8 @@ public sealed unsafe partial class BetterGlamourManagement
                 return nativeButtonAtlas = $"data:image/png;base64,{Convert.ToBase64String(output.ToArray())}";
             }
         }
-        catch (Exception exception)
+        catch (Exception)
         {
-            IPluginLog.Instance().Warning(exception, "Failed to encode glamour preview button atlas.");
             return nativeButtonAtlas = string.Empty;
         }
     }

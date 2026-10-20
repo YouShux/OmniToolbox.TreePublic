@@ -91,12 +91,11 @@ public sealed partial class MitigationMonitor
             {
                 ProcessActionEffect(casterEntityID, header, effects, targetEntityIds);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 if (Environment.TickCount64 >= nextEffectWarningTick)
                 {
                     nextEffectWarningTick = Environment.TickCount64 + 10_000;
-                    DalamudServices.PluginLog.Warning(ex, "Mitigation monitor action effect processing failed.");
                 }
             }
             finally

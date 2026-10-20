@@ -200,9 +200,8 @@ public sealed partial class AutoSwitchConfiguration : ModuleBase
                 {
                     return true;
                 }
-                catch (Exception exception)
+                catch (Exception)
                 {
-                    DService.Instance().Log.Warning(exception, "Auto switch configuration failed to change a plugin collection.");
                     Fail("Plugin collection operation failed.");
                     return true;
                 }
@@ -227,7 +226,6 @@ public sealed partial class AutoSwitchConfiguration : ModuleBase
     private void Fail(string reason)
     {
         CancelFlow();
-        DalamudServices.PluginLog.Warning("Auto switch configuration failed: {Reason}", reason);
     }
 
     private bool IsCurrentFlow(CancellationToken token, uint territory) => !token.IsCancellationRequested &&

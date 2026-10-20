@@ -255,9 +255,8 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                DalamudServices.PluginLog.Warning(ex, "Anti-censorship party finder text processing failed.");
             }
         }
 
@@ -301,9 +300,8 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
             processor.RememberAutoHandledHighlight(handled, original);
             textInput->SetText(handled.EncodeWithNullTerminator());
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "Anti-censorship chat input processing failed.");
         }
     }
 
@@ -324,9 +322,8 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
 
             source->SetString(text.EncodeWithNullTerminator());
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "Anti-censorship message highlighting failed.");
         }
     }
 

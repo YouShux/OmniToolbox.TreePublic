@@ -59,9 +59,8 @@ internal sealed partial class FloatingInfoOverlay
                     clickConsumed |= clicked;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                DalamudServices.PluginLog.Warning(ex, "Floating info overlay draw failed.");
             }
         }
 

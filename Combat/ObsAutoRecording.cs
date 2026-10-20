@@ -185,9 +185,8 @@ public sealed partial class ObsAutoRecording : ModuleBase
         catch (OperationCanceledException) when (current.Cancellation.IsCancellationRequested)
         {
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "OBS countdown recording could not be started.");
             if (!current.Closing && ReferenceEquals(session, current))
             {
                 NotifyFailure("Feature.ObsAutoRecording.StartFailed");
@@ -221,9 +220,8 @@ public sealed partial class ObsAutoRecording : ModuleBase
         catch (OperationCanceledException) when (current.Cancellation.IsCancellationRequested)
         {
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "OBS recording could not be stopped after duty wipe.");
             if (notifyFailure && !current.Closing && ReferenceEquals(session, current))
             {
                 NotifyFailure("Feature.ObsAutoRecording.StopFailed");
@@ -252,9 +250,8 @@ public sealed partial class ObsAutoRecording : ModuleBase
                     await current.Client.SendRequestAsync("StopRecord", cleanupCancellation.Token);
                     current.OwnsRecording = false;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
-                    DalamudServices.PluginLog.Warning(ex, "OBS recording could not be stopped while disabling the feature.");
                 }
             }
 
@@ -475,7 +472,6 @@ public sealed partial class ObsAutoRecording : ModuleBase
             catch (Exception ex)
             {
                 failure = ex;
-                DalamudServices.PluginLog.Warning(ex, "OBS WebSocket receive loop stopped unexpectedly.");
             }
             finally
             {

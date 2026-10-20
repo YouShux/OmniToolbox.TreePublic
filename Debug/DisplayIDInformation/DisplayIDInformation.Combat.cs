@@ -136,12 +136,11 @@ public sealed partial class DisplayIDInformation
                     ActionEffectHandler.MemberFunctionPointers.Receive, OnActionEffect);
                 actionEffectHook.Enable();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 actionEffectHookUnavailable = true;
                 actionEffectHook?.Dispose();
                 actionEffectHook = null;
-                DalamudServices.PluginLog.Warning(ex, "Display ID ActionEffect hook initialization failed.");
             }
         }
 
@@ -163,9 +162,8 @@ public sealed partial class DisplayIDInformation
             {
                 CaptureActionEffects(effectHeader, effectArray);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                DalamudServices.PluginLog.Warning(ex, "Display ID ActionEffect capture failed.");
             }
 
             actionEffectHook!.Original(sourceID, sourceCharacter, position, effectHeader, effectArray, effectTail);

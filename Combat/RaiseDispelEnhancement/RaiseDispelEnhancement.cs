@@ -334,9 +334,8 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                 ImGui.End();
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "Raise/dispel enhancement drawing failed.");
         }
     }
 
@@ -653,9 +652,8 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             }
             ScanActors();
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            DalamudServices.PluginLog.Warning(ex, "Raise/dispel enhancement scan failed.");
         }
     }
 

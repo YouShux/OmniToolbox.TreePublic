@@ -439,9 +439,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
     {
         if (!IsEnabled || tasks is null || tasks.IsBusy || targets.Length == 0)
         {
-            DalamudServices.PluginLog.Warning(
-                "[BatchFriendRemoval] 删除未开始：Enabled={Enabled}，Busy={Busy}，目标 {TargetCount}。",
-                IsEnabled, tasks?.IsBusy == true, targets.Length);
             return;
         }
 
@@ -644,9 +641,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         var actualText = new ReadOnlySeString(confirmation->PromptText->NodeText.AsSpan()).ExtractText();
         if (expectedText.Length == 0 || actualText != expectedText)
         {
-            DalamudServices.PluginLog.Warning(
-                "[BatchFriendRemoval] 确认文本不匹配：ContentID={ContentID}，Expected={Expected}，Actual={Actual}。",
-                friend.ContentID, expectedText, actualText);
             StopOperation("TargetMismatch");
             return true;
         }
@@ -697,10 +691,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
                                                                                {
                                                                                    if (version != Volatile.Read(ref operationVersion))
                                                                                        return;
-
-                                                                                   DalamudServices.PluginLog.Warning(
-                                                                                       "[BatchFriendRemoval] 步骤失败：Step={Step}，TimedOut={TimedOut}，批次 {Version}。",
-                                                                                       step, timedOut, version);
                                                                                    StopOperation(!timedOut
                                                                                        ? "OperationFailed"
                                                                                        : step == "PrepareFriendList" ? "NativeWindowRequired"
@@ -709,11 +699,6 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
 
     private void StopOperation(string reason)
     {
-        if (reason is not ("Completed" or "Stopped" or
-            "CharacterChanged"))
-            DalamudServices.PluginLog.Warning(
-                "[BatchFriendRemoval] 操作终止：Reason={Reason}，Step={Step}，ContentID={ContentID}。",
-                reason, currentStep, currentFriend?.ContentID ?? 0);
         Interlocked.Increment(ref operationVersion);
         tasks?.Abort();
         currentFriend = null;

@@ -122,8 +122,6 @@ public sealed unsafe class DutyReadyClassSwitching : ModuleBase
         {
             return;
         }
-
-        DalamudServices.PluginLog.Warning("Duty ready class switching failed: no gearset for class job {ClassJobID}.", classJobID);
     }
 
     private void ClearState()
