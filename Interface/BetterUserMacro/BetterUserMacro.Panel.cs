@@ -44,7 +44,8 @@ public sealed partial class BetterUserMacro
                 [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.Tooltips")),
              OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.LineNumbers")),
              OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.DragSwap")),
-             OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.CustomIcons"))],
+             OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterUserMacro.CustomIcons")) +
+             new Vector2(OmniControls.HelpIconSize().X + style.ItemSpacing.X, 0f)],
                 ["##c0", "##c1", "##c2", "##c3"], weights: [1f, 1f, 1f, 1.25f], columnsPerRow: 4);
             if (!table)
             {
@@ -95,6 +96,9 @@ public sealed partial class BetterUserMacro
                 config.CustomIcons = customIcons;
                 changed = true;
             }
+
+            OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.BetterUserMacro.CustomIcons.Help"));
 
             return changed;
         }

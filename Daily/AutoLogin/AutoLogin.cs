@@ -274,7 +274,7 @@ public sealed unsafe partial class AutoLogin(
             !GameState.IsLoggedIn ||
             GameState.ContentFinderCondition != 0 ||
             tasks.IsBusy ||
-            !GetCurrentAccountTargets().Any(candidate =>
+            !config.Targets.Any(candidate =>
                 candidate.WorldID == target.WorldID &&
                 candidate.CharacterName.Equals(target.CharacterName, StringComparison.Ordinal)))
         {
@@ -320,7 +320,7 @@ public sealed unsafe partial class AutoLogin(
     {
         if (!TryParseTarget(arguments, out var target))
         {
-            return true;
+            return false;
         }
 
         TryRelog(target);

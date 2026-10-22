@@ -1,3 +1,4 @@
+using Lumina.Excel.Sheets;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using LuminaAction = Lumina.Excel.Sheets.Action;
@@ -105,10 +106,7 @@ public sealed partial class SkillMonitor
                     iconID = action.Icon;
                     name = action.Name.ToString();
                     unlockLevel = action.ClassJobLevel;
-                    if (cooldownMilliseconds == 0)
-                    {
-                        cooldownMilliseconds = action.Recast100ms * 100;
-                    }
+                    cooldownMilliseconds = action.Recast100ms * 100;
                 }
                 else if (raw.StatusID != 0 && LuminaGetter.TryGetRow<LuminaStatus>(raw.StatusID, out var status))
                 {
@@ -191,6 +189,27 @@ public sealed partial class SkillMonitor
                 true,
                 action.ClassJobLevel);
             return true;
+        }
+
+        public static int GetCooldownMilliseconds(SkillMonitorDefinition definition, uint classJobID, byte level)
+        {
+            var traitID = definition.ActionID switch
+            {
+                3585 => 494u,
+                7405 => 447u,
+                7561 => 644u,
+                16012 => 456u,
+                16542 => 629u,
+                16889 => 452u,
+                _ => 0u
+            };
+            if (traitID == 0 || !LuminaGetter.TryGetRow<Trait>(traitID, out var trait) || level < trait.Level ||
+                !trait.ClassJobCategory.IsValid || !trait.ClassJobCategory.Value.IsClassJobIn(classJobID))
+            {
+                return definition.CooldownMilliseconds;
+            }
+
+            return Math.Max(0, definition.CooldownMilliseconds + trait.Value * 100);
         }
 
         private static SkillMonitorGroup GetGroup(ulong classJobs)
