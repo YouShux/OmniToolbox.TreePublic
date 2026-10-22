@@ -180,10 +180,13 @@ public sealed partial class SkillMonitor
                     continue;
                 }
 
+                var member = members[memberIndex];
+                var cooldownMilliseconds = SkillMonitorDefinitions.GetCooldownMilliseconds(
+                    definitions[definitionIndex], member.ClassJobID, member.Level);
                 var state = states[memberIndex, definitionIndex];
                 state.CooldownKnown = true;
-                state.ReadyAtTick = action.Tick + definitions[definitionIndex].CooldownMilliseconds;
-                state.CooldownMilliseconds = definitions[definitionIndex].CooldownMilliseconds;
+                state.ReadyAtTick = action.Tick + cooldownMilliseconds;
+                state.CooldownMilliseconds = cooldownMilliseconds;
                 state.ActiveUntilTick = action.Tick + definitions[definitionIndex].ActiveMilliseconds;
                 states[memberIndex, definitionIndex] = state;
                 return;

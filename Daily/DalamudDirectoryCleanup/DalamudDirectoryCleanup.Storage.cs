@@ -8,18 +8,19 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class DalamudDirectoryCleanup
 {
-    private static ScanResult Scan(string root, DateTime nowUTC, CancellationToken token)
+    private static ScanResult Scan(string root, DateTime nowUTC, CancellationToken token,
+        IReadOnlySet<string> protectedPluginNames)
     {
         var rootDirectory = new DirectoryInfo(root);
         root = rootDirectory.ResolveLinkTarget(true)?.FullName ?? rootDirectory.FullName;
-        var result = new ScanResult(Path.GetFullPath(root), [], []);
+        var result = new ScanResult(Path.GetFullPath(root), [], [], protectedPluginNames);
         var rootFiles = GetFiles(result, string.Empty, token);
         AddExpired(result, rootFiles.Where(file => IsRootLog(file.Name)), Category.Logs, LOG_RETENTION_DAYS, nowUTC);
         foreach (var group in rootFiles.Where(file => IsConfigBackup(file.Name)).GroupBy(
                      file => file.Name[..file.Name.IndexOf(".bak-", StringComparison.OrdinalIgnoreCase)],
                      StringComparer.OrdinalIgnoreCase))
             AddBackupGroup(result, group, nowUTC);
-        foreach (var directory in GetBackupDirectories(result))
+        foreach (var directory in GetDirectories(result, "backups", token))
         {
             var files = GetFiles(result, Path.GetRelativePath(root, directory.FullName), token)
                 .Where(file => file.Extension.Equals(".zip", StringComparison.OrdinalIgnoreCase) &&
@@ -27,9 +28,46 @@ public sealed partial class DalamudDirectoryCleanup
                         CultureInfo.InvariantCulture, DateTimeStyles.None, out _));
             AddBackupGroup(result, files, nowUTC);
         }
+        AddOrphanedPluginConfigs(result, token);
 
         result.Entries.Sort(static (left, right) => StringComparer.OrdinalIgnoreCase.Compare(left.Path, right.Path));
         return result;
+    }
+
+    private static void AddOrphanedPluginConfigs(ScanResult result, CancellationToken token)
+    {
+        var installedPath = Path.Combine(result.Root, "installedPlugins");
+        try
+        {
+            var installedNames = new DirectoryInfo(installedPath).EnumerateDirectories()
+                .Select(static directory => directory.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            installedNames.UnionWith(result.ProtectedPluginNames);
+            foreach (var file in GetFiles(result, "pluginConfigs", token))
+            {
+                var suffix = file.Name.IndexOf(".json", StringComparison.OrdinalIgnoreCase);
+                if (suffix > 0 && !installedNames.Contains(file.Name[..suffix]))
+                    result.Entries.Add(new(file.FullName, file.Length, file.LastWriteTimeUtc,
+                        file.CreationTimeUtc, Category.PluginConfigs));
+            }
+            var pending = new Stack<DirectoryInfo>(GetDirectories(result, "pluginConfigs", token)
+                .Where(directory => !installedNames.Contains(directory.Name)));
+            while (pending.TryPop(out var directory))
+            {
+                token.ThrowIfCancellationRequested();
+                var relativePath = Path.GetRelativePath(result.Root, directory.FullName);
+                foreach (var file in GetFiles(result, relativePath, token))
+                    result.Entries.Add(new(file.FullName, file.Length, file.LastWriteTimeUtc,
+                        file.CreationTimeUtc, Category.PluginConfigs));
+                foreach (var child in GetDirectories(result, relativePath, token))
+                    pending.Push(child);
+                result.Entries.Add(new(directory.FullName, 0, directory.LastWriteTimeUtc,
+                    directory.CreationTimeUtc, Category.PluginConfigs, true));
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            result.Errors.Add($"{installedPath}: {exception.Message}");
+        }
     }
 
     private static void AddBackupGroup(ScanResult result, IEnumerable<FileInfo> files, DateTime nowUTC) =>
@@ -72,13 +110,14 @@ public sealed partial class DalamudDirectoryCleanup
         return files;
     }
 
-    private static DirectoryInfo[] GetBackupDirectories(ScanResult result)
+    private static DirectoryInfo[] GetDirectories(ScanResult result, string relativePath, CancellationToken token)
     {
-        var path = Path.Combine(result.Root, "backups");
+        var path = Path.Combine(result.Root, relativePath);
         if (!Directory.Exists(path))
             return [];
         try
         {
+            token.ThrowIfCancellationRequested();
             return IsSafePath(result.Root, path)
                 ? new DirectoryInfo(path).GetDirectories().Where(directory => IsSafePath(result.Root, directory.FullName)).ToArray()
                 : [];
@@ -127,7 +166,7 @@ public sealed partial class DalamudDirectoryCleanup
     private static CleanupResult DeleteSelected(ScanResult preview, Candidate[] selected, CancellationToken token)
     {
         var result = new CleanupResult();
-        var current = Scan(preview.Root, DateTime.UtcNow, token);
+        var current = Scan(preview.Root, DateTime.UtcNow, token, preview.ProtectedPluginNames);
         if (current.Errors.Count > 0)
         {
             result.Errors.AddRange(current.Errors);
@@ -136,7 +175,8 @@ public sealed partial class DalamudDirectoryCleanup
         }
 
         var eligible = current.Entries.ToDictionary(static entry => entry.Path, StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in selected)
+        foreach (var entry in selected.OrderBy(static entry => entry.IsDirectory)
+                     .ThenByDescending(static entry => entry.Path.Length))
         {
             if (token.IsCancellationRequested)
             {
@@ -149,6 +189,25 @@ public sealed partial class DalamudDirectoryCleanup
                 if (!eligible.ContainsKey(entry.Path) || !IsSafePath(preview.Root, entry.Path))
                 {
                     result.Skipped++;
+                    continue;
+                }
+                if (entry.Category == Category.PluginConfigs && !IsOrphanedPluginConfig(preview, entry))
+                {
+                    result.Skipped++;
+                    continue;
+                }
+                if (entry.IsDirectory)
+                {
+                    var directory = new DirectoryInfo(entry.Path);
+                    if (!directory.Exists || directory.CreationTimeUtc != entry.CreationUTC ||
+                        (directory.Attributes & FileAttributes.ReadOnly) != 0 ||
+                        directory.EnumerateFileSystemInfos().Any())
+                    {
+                        result.Skipped++;
+                        continue;
+                    }
+                    directory.Delete();
+                    result.Deleted++;
                     continue;
                 }
 
@@ -178,6 +237,18 @@ public sealed partial class DalamudDirectoryCleanup
             }
         }
         return result;
+    }
+
+    private static bool IsOrphanedPluginConfig(ScanResult result, Candidate entry)
+    {
+        var relativePath = Path.GetRelativePath(Path.Combine(result.Root, "pluginConfigs"), entry.Path);
+        var separator = relativePath.IndexOf(Path.DirectorySeparatorChar);
+        var name = separator >= 0 ? relativePath[..separator] : relativePath;
+        if (separator < 0 && !entry.IsDirectory)
+            name = name[..name.IndexOf(".json", StringComparison.OrdinalIgnoreCase)];
+        var installedPath = Path.Combine(result.Root, "installedPlugins");
+        return Directory.Exists(installedPath) && !result.ProtectedPluginNames.Contains(name) &&
+               !Directory.Exists(Path.Combine(installedPath, name));
     }
 
     #region 常量
