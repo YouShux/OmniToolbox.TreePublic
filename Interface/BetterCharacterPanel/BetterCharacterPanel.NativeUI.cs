@@ -25,7 +25,7 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class BetterCharacterPanel
 {
-    internal sealed unsafe class BetterCharacterPanelNativeUI : IDisposable
+    internal sealed unsafe partial class BetterCharacterPanelNativeUI : IDisposable
     {
         private readonly BetterCharacterPanelConfig config;
         private readonly AddonEventRegistry addonEvents;
@@ -107,10 +107,12 @@ public sealed partial class BetterCharacterPanel
             }
 
             RestoreAllEquipmentLayouts();
-            if (config.AdjustEquipmentPositions)
+            if (config.AdjustEquipmentPositions || config.SoulstoneAboveOffhand)
             {
                 ApplyOpenEquipmentLayouts();
             }
+
+            UpdateInspectItemLevel(AddonHelper.GetByName(CHARACTER_INSPECT_ADDON_NAME));
 
             if (AddonHelper.TryGetByName(GEAR_SET_LIST_ADDON_NAME, out var gearSetList)
                 && gearSetList->IsAddonAndNodesReady())
@@ -146,6 +148,7 @@ public sealed partial class BetterCharacterPanel
             addonEvents.Register(AddonEvent.PreRequestedUpdate, CHARACTER_ADDON_NAME, OnCharacterAddon);
             addonEvents.Register(AddonEvent.PreFinalize, CHARACTER_ADDON_NAME, OnCharacterAddon);
             addonEvents.Register(AddonEvent.PostSetup, CHARACTER_INSPECT_ADDON_NAME, OnCharacterInspectAddon);
+            addonEvents.Register(AddonEvent.PreDraw, CHARACTER_INSPECT_ADDON_NAME, OnCharacterInspectAddon);
             addonEvents.Register(AddonEvent.PreFinalize, CHARACTER_INSPECT_ADDON_NAME, OnCharacterInspectAddon);
             addonEvents.Register(AddonEvent.PostSetup, GEAR_SET_LIST_ADDON_NAME, OnGearSetListAddon);
             addonEvents.Register(AddonEvent.PreRequestedUpdate, GEAR_SET_LIST_ADDON_NAME, OnGearSetListAddon);
@@ -172,6 +175,7 @@ public sealed partial class BetterCharacterPanel
                 && inspect->IsAddonAndNodesReady())
             {
                 ApplyInspectEquipmentPositions(inspect);
+                UpdateInspectItemLevel(inspect);
             }
 
             if (AddonHelper.TryGetByName(GEAR_SET_LIST_ADDON_NAME, out var gearSetList)
@@ -220,14 +224,19 @@ public sealed partial class BetterCharacterPanel
         private void OnCharacterInspectAddon(AddonEvent eventType, AddonArgs args)
         {
             var inspect = (AtkUnitBase*)args.Addon.Address;
-            if (eventType == AddonEvent.PostSetup)
-            {
-                ApplyInspectEquipmentPositions(inspect);
-            }
-            else if (eventType == AddonEvent.PreFinalize)
+            if (eventType == AddonEvent.PreFinalize)
             {
                 RestoreEquipmentLayout(inspect);
+                inspectItemLevelDisplay = null;
+                inspectItemLevelText = null;
+                displayedInspectItemLevel = -1;
+                return;
             }
+
+            if (eventType == AddonEvent.PostSetup)
+                ApplyInspectEquipmentPositions(inspect);
+
+            UpdateInspectItemLevel(inspect);
         }
 
         private void OnGearSetListAddon(AddonEvent eventType, AddonArgs args)
@@ -356,7 +365,8 @@ public sealed partial class BetterCharacterPanel
 
         private void ApplyCharacterEquipmentPositions(AtkUnitBase* character)
         {
-            if (!config.AdjustEquipmentPositions || character == null || equipmentLayouts.ContainsKey((nint)character))
+            if ((!config.AdjustEquipmentPositions && !config.SoulstoneAboveOffhand) ||
+                character == null || equipmentLayouts.ContainsKey((nint)character))
             {
                 return;
             }
@@ -378,7 +388,8 @@ public sealed partial class BetterCharacterPanel
 
         private void ApplyInspectEquipmentPositions(AtkUnitBase* inspect)
         {
-            if (!config.AdjustEquipmentPositions || inspect == null || equipmentLayouts.ContainsKey((nint)inspect))
+            if ((!config.AdjustEquipmentPositions && !config.SoulstoneAboveOffhand) ||
+                inspect == null || equipmentLayouts.ContainsKey((nint)inspect))
             {
                 return;
             }
@@ -626,6 +637,7 @@ public sealed partial class BetterCharacterPanel
 
         private void RestoreAll()
         {
+            ClearInspectItemLevel();
             statusUI.Restore();
             RestoreReverseCharacterPanel(reversedCharacterAddon);
             RestoreGearSetList(adjustedGearSetList);

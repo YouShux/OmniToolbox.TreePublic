@@ -2,6 +2,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using FFXIVClientStructs.Expansion.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
@@ -261,10 +262,41 @@ public sealed unsafe partial class AutoLogin(
     public AutoLoginTarget[] GetCurrentAccountTargets()
     {
         var player = DService.Instance().ObjectTable.LocalPlayer;
-        if (!GameState.IsLoggedIn || player is null || player.AccountID == 0)
+        if (!GameState.IsLoggedIn || player is null)
             return [];
 
-        return [.. config.Targets.Where(target => target.AccountID == player.AccountID)];
+        var accountInfo = AccountInfo.Instance();
+        if (accountInfo is null || accountInfo->AccountID == 0)
+            return [];
+
+        var accountID = accountInfo->AccountID;
+        var characterName = player.Name.ToString();
+        var homeWorldID = DService.Instance().PlayerState.HomeWorld.RowId;
+        var currentContentID = LocalPlayerState.ContentID;
+        var hasCurrentCharacter = currentContentID != 0 &&
+                                  accountInfo->Characters.Any(character => character.ContentID == currentContentID);
+        var changed = false;
+        foreach (var target in config.Targets)
+        {
+            if (target.AccountID == accountID)
+                continue;
+
+            var isCurrentCharacter = target.WorldID == homeWorldID &&
+                                     target.CharacterName.Equals(characterName, StringComparison.Ordinal);
+            if (!isCurrentCharacter &&
+                (!hasCurrentCharacter || !accountInfo->Characters.Any(character =>
+                    character.ContentID != 0 && character.HomeWorld == target.WorldID &&
+                    character.Name.ToString().Equals(target.CharacterName, StringComparison.Ordinal))))
+                continue;
+
+            target.AccountID = accountID;
+            changed = true;
+        }
+
+        if (changed)
+            saveConfig();
+
+        return [.. config.Targets.Where(target => target.AccountID == accountID)];
     }
 
     public bool TryRelog(AutoLoginTarget target)
@@ -676,7 +708,7 @@ public sealed unsafe partial class AutoLogin(
             DService.Instance().PlayerState.HomeWorld.RowId,
             localPlayer.Name.ToString())
         {
-            AccountID = localPlayer.AccountID
+            AccountID = LocalPlayerState.AccountID
         };
         GetCurrentAccountTargets();
         if (config.Targets.Any(candidate => candidate.WorldID == target.WorldID &&
