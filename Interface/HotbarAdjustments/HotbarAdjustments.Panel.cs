@@ -14,9 +14,13 @@ public sealed unsafe partial class HotbarAdjustments
         using var table = OmniControls.SettingsTable(
             "##hotbarAdjustmentsOptions",
             [
-                OmniControls.MeasureGroup(
-                    [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HotbarAdjustments.HideBackground")),
-                     OmniControls.HelpIconSize()]),
+                Vector2.Max(
+                    OmniControls.MeasureGroup(
+                        [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HotbarAdjustments.HideBackground")),
+                         OmniControls.HelpIconSize()]),
+                    OmniControls.MeasureGroup(
+                        [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HotbarAdjustments.UnlockActions")),
+                         OmniControls.HelpIconSize()])),
                 OmniControls.MeasureGroup(
                     [ImGui.CalcTextSize(opacityLabel), OmniTheme.Scale(new Vector2(100f, 0f))], spacing),
                 OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HotbarAdjustments.HideLocks")),
@@ -86,6 +90,19 @@ public sealed unsafe partial class HotbarAdjustments
 
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X, spacing);
         OmniControls.HelpIcon(OmniLoc.Get("Feature.HotbarAdjustments.Modifier.Help"));
+
+        ImGui.TableNextRow();
+        ImGui.TableNextColumn();
+        if (OmniControls.Checkbox(
+                $"{OmniLoc.Get("Feature.HotbarAdjustments.UnlockActions")}##hotbarUnlockActions",
+                ref config.UnlockActions))
+        {
+            changed = true;
+            if (IsEnabled)
+                UpdateActionDragDropRestrictions();
+        }
+        OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+        OmniControls.HelpIcon(OmniLoc.Get("Feature.HotbarAdjustments.UnlockActions.Help"));
 
         if (changed && IsEnabled)
             UpdateAllHotbars(false);

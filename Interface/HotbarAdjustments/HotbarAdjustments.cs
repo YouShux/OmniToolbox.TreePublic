@@ -28,6 +28,7 @@ public sealed unsafe partial class HotbarAdjustments(HotbarAdjustments.Settings 
         try
         {
             lifetime.Add(() => UpdateAllHotbars(true));
+            InitializeActionDragDrop(lifetime);
             var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
             lifetime.Add(addonEvents.Dispose);
             foreach (var addonName in AddonNames)
@@ -40,6 +41,7 @@ public sealed unsafe partial class HotbarAdjustments(HotbarAdjustments.Settings 
 
             runtimeLifetime = lifetime;
             UpdateAllHotbars(false);
+            UpdateActionDragDropRestrictions();
         }
         catch
         {
@@ -65,6 +67,8 @@ public sealed unsafe partial class HotbarAdjustments(HotbarAdjustments.Settings 
         public bool HideLocks = true;
 
         public int ModifierKey;
+
+        public bool UnlockActions = true;
     }
 
     private static readonly string[] AddonNames =

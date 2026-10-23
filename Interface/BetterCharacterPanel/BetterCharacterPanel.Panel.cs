@@ -23,12 +23,20 @@ public sealed partial class BetterCharacterPanel
                 new Vector2(Math.Clamp(style.ItemSpacing.X, 9f, 17f), style.ItemSpacing.Y));
             using (var table = OmniControls.SettingsTable(
                        "##betterCharacterPanelOptions",
-                       [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats")) + new Vector2(OmniControls.HelpIconSize().X + style.ItemSpacing.X, 0f),
-                        OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ReverseCharacterPanel")),
+                       [Vector2.Max(
+                            OmniControls.MeasureGroup(
+                                [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats")),
+                                 OmniControls.HelpIconSize()]),
+                            OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.AdjustEquipmentPositions"))),
+                        Vector2.Max(
+                            OmniControls.MeasureGroup(
+                                [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ShowTargetItemLevel")),
+                                 OmniControls.HelpIconSize()]) +
+                            new Vector2(OmniTheme.SmallButtonSize().X + OmniTheme.Scale(5f), 0f),
+                            OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.SoulstoneAboveOffhand"))),
                         OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ShowGearSetReorderButtons")),
-                        Vector2.Max(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.AdjustEquipmentPositions")),
-                            OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.SoulstoneAboveOffhand")) + new Vector2(OmniTheme.Scale(26f), 0f))],
-                       ["##c0", "##c1", "##c2", "##c3"], weights: [1f, 1f, 1f, 1.25f], columnsPerRow: 4))
+                        OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.BetterCharacterPanel.ReverseCharacterPanel"))],
+                       ["##c0", "##c1", "##c2", "##c3"], weights: [1f, 1.25f, 1f, 1f], columnsPerRow: 4))
             {
                 if (table)
                 {
@@ -48,14 +56,18 @@ public sealed partial class BetterCharacterPanel
 
                     ImGui.TableNextColumn();
                     if (DrawCheckbox(
-                            "Feature.BetterCharacterPanel.ReverseCharacterPanel",
-                            "reverse",
-                            config.ReverseCharacterPanel,
-                            out var reverseCharacterPanel))
+                            "Feature.BetterCharacterPanel.ShowTargetItemLevel",
+                            "targetItemLevel",
+                            config.ShowTargetItemLevel,
+                            out var showTargetItemLevel))
                     {
-                        config.ReverseCharacterPanel = reverseCharacterPanel;
+                        config.ShowTargetItemLevel = showTargetItemLevel;
                         changed = true;
                     }
+                    OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
+                    OmniControls.HelpIcon(OmniLoc.Get("Feature.BetterCharacterPanel.ShowTargetItemLevel.Help"));
+                    OmniControls.PreviewImageIcon(
+                        "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/BetterCharacterPanel-2.png");
 
                     ImGui.TableNextColumn();
                     if (DrawCheckbox(
@@ -70,6 +82,18 @@ public sealed partial class BetterCharacterPanel
 
                     ImGui.TableNextColumn();
                     if (DrawCheckbox(
+                            "Feature.BetterCharacterPanel.ReverseCharacterPanel",
+                            "reverse",
+                            config.ReverseCharacterPanel,
+                            out var reverseCharacterPanel))
+                    {
+                        config.ReverseCharacterPanel = reverseCharacterPanel;
+                        changed = true;
+                    }
+
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    if (DrawCheckbox(
                             "Feature.BetterCharacterPanel.AdjustEquipmentPositions",
                             "equipmentPositions",
                             config.AdjustEquipmentPositions,
@@ -79,22 +103,16 @@ public sealed partial class BetterCharacterPanel
                         changed = true;
                     }
 
-                    ImGui.Spacing();
-                    ImGui.Indent(OmniTheme.Scale(26f));
-                    using (ImRaii.Disabled(!config.AdjustEquipmentPositions))
+                    ImGui.TableNextColumn();
+                    if (DrawCheckbox(
+                            "Feature.BetterCharacterPanel.SoulstoneAboveOffhand",
+                            "soulstoneAboveOffhand",
+                            config.SoulstoneAboveOffhand,
+                            out var soulstoneAboveOffhand))
                     {
-                        if (DrawCheckbox(
-                                "Feature.BetterCharacterPanel.SoulstoneAboveOffhand",
-                                "soulstoneAboveOffhand",
-                                config.SoulstoneAboveOffhand,
-                                out var soulstoneAboveOffhand))
-                        {
-                            config.SoulstoneAboveOffhand = soulstoneAboveOffhand;
-                            changed = true;
-                        }
+                        config.SoulstoneAboveOffhand = soulstoneAboveOffhand;
+                        changed = true;
                     }
-
-                    ImGui.Unindent(OmniTheme.Scale(26f));
                 }
             }
             return changed;

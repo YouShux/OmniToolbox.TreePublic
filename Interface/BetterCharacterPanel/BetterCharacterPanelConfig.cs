@@ -11,6 +11,8 @@ public sealed class BetterCharacterPanelConfig
 {
     public bool ShowUsefulStats { get; set; } = true;
 
+    public bool ShowTargetItemLevel { get; set; } = true;
+
     public bool AdjustEquipmentPositions { get; set; } = true;
 
     public bool SoulstoneAboveOffhand { get; set; } = true;
