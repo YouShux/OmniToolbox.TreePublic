@@ -34,12 +34,15 @@ public sealed partial class BetterGlamourManagement
             IsVisible = option is not null;
             if (option is not { } dye)
             {
-                SetFixedTooltip(string.Empty, itemRow.ShowTooltip, itemRow.HideTooltip);
+                CollisionNode.SetTextTooltip(string.Empty);
                 return;
             }
 
-            SetDye(dye.ID, dye.Color);
-            SetFixedTooltip(dye.Name, itemRow.ShowTooltip, itemRow.HideTooltip);
+            if (itemRow.IsHairColor)
+                SetColor(dye.Color);
+            else
+                SetDye(dye.ID, dye.Color);
+            CollisionNode.SetTextTooltip(dye.Name);
             IsSelected = dye.ID == itemRow.SelectedID;
         }
     }

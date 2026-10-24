@@ -1,18 +1,15 @@
 using Item = Lumina.Excel.Sheets.Item;
-using System.Drawing;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Input;
-using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
-using KamiToolKit.Classes;
-using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
-using Lumina.Text.ReadOnly;
-using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.UI;
+using OmniToolbox.Collections;
+using OmniToolbox.Items;
 using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;
 
 #pragma warning disable KTKExperimental_TextureImageNode
@@ -31,7 +28,10 @@ public sealed partial class BetterGlamourManagement
         private readonly Action<BetterGlamourPreset> onExport;
         private readonly Action<BetterGlamourPreset> onDelete;
         private readonly Action onImport;
+        private readonly Action onCreate;
         private readonly BetterGlamourPortraitPreview portraitPreview;
+        private readonly ItemPatchMap itemPatchMap;
+        private readonly CollectionSourceService collectionSourceService;
         private TextureImageNode? previewImage;
         private readonly List<TextureButtonNode> previewButtons = [];
         private readonly List<SimpleImageNode> previewButtonRings = [];
@@ -51,13 +51,11 @@ public sealed partial class BetterGlamourManagement
         ];
         private Vector2 previewLastMouse;
         private nint boundPreviewTexture;
-        private readonly List<BetterGlamourEditorRow> editorRows = [];
+        private readonly List<BetterGlamourEditorPair> editorRows = [];
         private readonly List<GearsetOption> gearsetOptions = [];
-        private readonly List<BetterGlamourItemSearchResult> itemSearchResults = [];
         private List<BetterGlamourPreset> presets = [];
         private BetterGlamourPreset? selectedPreset;
-        private BetterGlamourItem? selectedDyeItem;
-        private bool pendingDyeSelectionRefresh;
+        private bool pendingEditorRefresh;
         private ListNode<BetterGlamourPreset, BetterGlamourPresetListItemNode>? presetListNode;
         private VerticalLineNode? separatorNode;
         private TextNode? emptyNode;
@@ -65,18 +63,16 @@ public sealed partial class BetterGlamourManagement
         private TextInputNode? nameInputNode;
         private TextNode? gearsetLabelNode;
         private StringDropDownNode? gearsetDropDownNode;
-        private TextNode? partHeaderNode;
-        private TextNode? itemHeaderNode;
-        private TextNode? dyeHeaderNode;
-        private ListNode<BetterGlamourEditorRow, BetterGlamourEditorListItemNode>? itemListNode;
+        private ListNode<BetterGlamourEditorPair, BetterGlamourEditorListItemNode>? itemListNode;
         private TextButtonNode? applyButton;
         private TextButtonNode? exportButton;
         private TextButtonNode? deleteButton;
         private TextButtonNode? importButton;
+        private TextButtonNode? createButton;
         private BetterGlamourDyePickerNativeUI? dyePicker;
-        private SimpleNineGridNode? itemSearchBackgroundNode;
-        private ListNode<BetterGlamourItemSearchResult, BetterGlamourItemSearchResultNode>? itemSearchResultsNode;
-        private BetterGlamourEditorListItemNode? activeItemSearchRow;
+        private BetterGlamourItemPickerNativeUI? itemPicker;
+        private BetterGlamourHairColorNativeUI? hairColorPicker;
+        private CustomizeData? editorHairAppearance;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
         public BetterGlamourManagerNativeUI(
@@ -88,12 +84,15 @@ public sealed partial class BetterGlamourManagement
             Action<BetterGlamourPreset> onExport,
             Action<BetterGlamourPreset> onDelete,
             Action onImport,
-            BetterGlamourPortraitPreview portraitPreview)
+            Action onCreate,
+            BetterGlamourPortraitPreview portraitPreview,
+            ItemPatchMap itemPatchMap,
+            CollectionSourceService collectionSourceService)
         {
             InternalName = "OmniBetterGlamourManager";
             Title = OmniLoc.Get("Feature.BetterGlamourManagement.WindowTitle");
             Subtitle = FormatPresetCount(0);
-            Size = new(1050f, 650f);
+            Size = new(1250f, 650f);
             ContentPadding = new(10f, 8f);
             RememberClosePosition = true;
             CreateWindowNode = static () => new WindowNode { ShowCloseButton = true };
@@ -105,7 +104,10 @@ public sealed partial class BetterGlamourManagement
             this.onExport = onExport;
             this.onDelete = onDelete;
             this.onImport = onImport;
+            this.onCreate = onCreate;
             this.portraitPreview = portraitPreview;
+            this.itemPatchMap = itemPatchMap;
+            this.collectionSourceService = collectionSourceService;
         }
 
         protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
@@ -134,7 +136,7 @@ public sealed partial class BetterGlamourManagement
             nameLabelNode = CreateLabel("Feature.BetterGlamourManagement.PresetName");
             nameInputNode = new()
             {
-                MaxCharacters = 80,
+                MaxCharacters = 40,
                 ShowLimitText = true,
                 OnInputReceived = value =>
                 {
@@ -164,13 +166,9 @@ public sealed partial class BetterGlamourManagement
             };
             gearsetDropDownNode.AttachNode(this);
 
-            partHeaderNode = CreateHeader("Feature.BetterGlamourManagement.Column.Part");
-            itemHeaderNode = CreateHeader("Feature.BetterGlamourManagement.Column.Item");
-            dyeHeaderNode = CreateHeader("Feature.BetterGlamourManagement.Dye");
-
             itemListNode = new()
             {
-                ItemSpacing = 1f,
+                ItemSpacing = 0f,
                 ShowNoResultsPlaceholder = false,
                 AutoResetScroll = false,
                 OptionsList = editorRows
@@ -180,31 +178,8 @@ public sealed partial class BetterGlamourManagement
             applyButton = CreateButton("Feature.BetterGlamourManagement.Apply", () => Invoke(onApply));
             exportButton = CreateButton("Feature.BetterGlamourManagement.SharePreset", () => Invoke(onExport));
             importButton = CreateButton("Feature.BetterGlamourManagement.ImportClipboard", onImport);
+            createButton = CreateButton("Feature.BetterGlamourManagement.NewPreset", onCreate);
             deleteButton = CreateButton("Feature.BetterGlamourManagement.Delete", () => Invoke(onDelete));
-
-            itemSearchBackgroundNode = new()
-            {
-                TexturePath = "ui/uld/ListB.tex",
-                TextureCoordinates = Vector2.Zero,
-                TextureSize = new(32f, 32f),
-                TopOffset = 10,
-                BottomOffset = 12,
-                LeftOffset = 10,
-                RightOffset = 10
-            };
-            itemSearchBackgroundNode.AttachNode(this);
-            itemSearchBackgroundNode.IsVisible = false;
-
-            itemSearchResultsNode = new()
-            {
-                ItemSpacing = 1f,
-                ShowNoResultsPlaceholder = false,
-                AutoResetScroll = false,
-                OptionsList = itemSearchResults,
-                OnItemSelected = SelectItemSearchResult
-            };
-            itemSearchResultsNode.AttachNode(this);
-            itemSearchResultsNode.IsVisible = false;
 
             previewBorder = new SimpleNineGridNode
             {
@@ -265,18 +240,28 @@ public sealed partial class BetterGlamourManagement
                 previewButtonRings[i].IsVisible = portraitPreview.NativeButtonChecked(PreviewButtonData[i].NodeID);
             presetListNode?.Update();
             itemListNode?.Update();
-            itemSearchResultsNode?.Update();
-            UpdateItemSearchResults();
-            if (pendingDyeSelectionRefresh)
+            var appearance = GetHairAppearance();
+            if (appearance?.Tribe != editorHairAppearance?.Tribe || appearance?.Sex != editorHairAppearance?.Sex)
+                ClosePickers();
+            if (appearance?.Tribe != editorHairAppearance?.Tribe ||
+                appearance?.Sex != editorHairAppearance?.Sex ||
+                appearance?.HairColor != editorHairAppearance?.HairColor ||
+                appearance?.HighlightsColor != editorHairAppearance?.HighlightsColor ||
+                appearance?.Highlights != editorHairAppearance?.Highlights)
+                pendingEditorRefresh = true;
+            if (pendingEditorRefresh)
             {
-                pendingDyeSelectionRefresh = false;
+                pendingEditorRefresh = false;
                 if (selectedPreset is not null)
                 {
                     BuildEditorRows();
-                    itemListNode?.FullRebuild();
+                    if (itemListNode is not null)
+                        itemListNode.OptionsList = editorRows;
                 }
             }
         }
+
+        protected override unsafe void OnHide(AtkUnitBase* addon) => ClosePickers();
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
@@ -289,11 +274,15 @@ public sealed partial class BetterGlamourManagement
             previewDragLeft = false;
             previewDragRight = false;
             previewHovered = false;
-            dyePicker?.Close();
+            ClosePickers();
             dyePicker?.Dispose();
+            itemPicker?.Dispose();
+            hairColorPicker?.Dispose();
             dyePicker = null;
-            selectedDyeItem = null;
-            pendingDyeSelectionRefresh = false;
+            itemPicker = null;
+            hairColorPicker = null;
+            editorHairAppearance = null;
+            pendingEditorRefresh = false;
             presetListNode = null;
             separatorNode = null;
             emptyNode = null;
@@ -301,18 +290,12 @@ public sealed partial class BetterGlamourManagement
             nameInputNode = null;
             gearsetLabelNode = null;
             gearsetDropDownNode = null;
-            partHeaderNode = null;
-            itemHeaderNode = null;
-            dyeHeaderNode = null;
             itemListNode = null;
-            itemSearchBackgroundNode = null;
-            itemSearchResultsNode = null;
-            activeItemSearchRow = null;
-            itemSearchResults.Clear();
             applyButton = null;
             exportButton = null;
             deleteButton = null;
             importButton = null;
+            createButton = null;
         }
 
         private unsafe void StartPreviewDrag()
@@ -421,14 +404,6 @@ public sealed partial class BetterGlamourManagement
             return node;
         }
 
-        private TextNode CreateHeader(string textKey)
-        {
-            var node = CreateLabel(textKey);
-            node.AlignmentType = AlignmentType.Center;
-            node.TextColor = ColorHelper.GetColor(50);
-            return node;
-        }
-
         private TextButtonNode CreateButton(string textKey, Action onClick)
         {
             var button = new TextButtonNode
@@ -448,7 +423,6 @@ public sealed partial class BetterGlamourManagement
             }
 
             selectedPreset = preset;
-            selectedDyeItem = null;
             onSelected(preset);
             ApplySelection();
         }
@@ -508,9 +482,7 @@ public sealed partial class BetterGlamourManagement
 
         private void ApplySelection()
         {
-            dyePicker?.Close();
-            selectedDyeItem = null;
-            CloseItemSearch();
+            ClosePickers();
             UpdateTryOnButton();
             var hasSelection = selectedPreset is not null;
             if (emptyNode is not null)
@@ -563,184 +535,144 @@ public sealed partial class BetterGlamourManagement
         private void BuildEditorRows()
         {
             editorRows.Clear();
-            editorRows.Add(new(
-                OmniLoc.Get("Feature.BetterGlamourManagement.Hairstyle"),
-                selectedPreset!,
-                null,
-                false,
-                true,
-                false,
-                null,
-                () => onChanged(selectedPreset!),
-                FocusItemSearch,
-                SearchItems,
-                CloseItemSearch));
-            AddItemRow("Feature.BetterGlamourManagement.MainHand", 0);
-            AddItemRow("Feature.BetterGlamourManagement.OffHand", 1);
-            foreach (var part in BetterGlamourManagement.Parts)
-            {
-                AddItemRow(part.TextKey, part.Slot);
-            }
-
-            editorRows.Add(new(
-                OmniLoc.Get("Feature.BetterGlamourManagement.Part.Glasses"),
-                selectedPreset!,
-                null,
-                true,
-                false,
-                false,
-                null,
-                () => onChanged(selectedPreset!),
-                FocusItemSearch,
-                SearchItems,
-                CloseItemSearch));
-        }
-
-        private void AddItemRow(string textKey, int slot)
-        {
-            var item = BetterGlamourManagement.GetOrCreateItem(selectedPreset!, slot);
-            editorRows.Add(new(
-                OmniLoc.Get(textKey),
-                selectedPreset!,
-                item,
-                false,
-                false,
-                ReferenceEquals(item, selectedDyeItem),
-                () => OpenDyePicker(item),
-                () => onChanged(selectedPreset!),
-                FocusItemSearch,
-                SearchItems,
-                CloseItemSearch));
-        }
-
-        private void FocusItemSearch(BetterGlamourEditorListItemNode row)
-        {
-            if (!ReferenceEquals(activeItemSearchRow, row))
-            {
-                CloseItemSearch();
-                activeItemSearchRow = row;
-            }
-        }
-
-        private void SearchItems(BetterGlamourEditorListItemNode row, string query)
-        {
-            if (query.Length == 0 && !ReferenceEquals(activeItemSearchRow, row))
-            {
-                return;
-            }
-
-            FocusItemSearch(row);
-            itemSearchResults.Clear();
-            itemSearchResults.AddRange(row.Search(query));
-            if (itemSearchResultsNode is null)
-            {
-                return;
-            }
-
-            itemSearchResultsNode.OptionsList = itemSearchResults;
-            itemSearchResultsNode.IsVisible = itemSearchResults.Count > 0;
-            if (itemSearchBackgroundNode is not null)
-            {
-                itemSearchBackgroundNode.IsVisible = itemSearchResults.Count > 0;
-            }
-            itemSearchResultsNode.Size = new(
-                row.ItemSearchWidth,
-                BetterGlamourItemSearchResultNode.ItemHeight * Math.Min(6, itemSearchResults.Count) + 2f);
-            PositionItemSearchResults();
-        }
-
-        private void SelectItemSearchResult(BetterGlamourItemSearchResult result)
-        {
-            if (activeItemSearchRow is { } row)
-            {
-                row.SetItemSearchResult(result);
-            }
-
-            CloseItemSearch();
-        }
-
-        private void UpdateItemSearchResults()
-        {
-            if (activeItemSearchRow is null)
-            {
-                return;
-            }
-
-            if (!activeItemSearchRow.IsVisible)
-            {
-                CloseItemSearch();
-                return;
-            }
-
-            PositionItemSearchResults();
-        }
-
-        private unsafe void PositionItemSearchResults()
-        {
-            if (activeItemSearchRow is null || itemSearchResultsNode is null)
-            {
-                return;
-            }
-
-            AtkUnitBase* addon = this;
-            var scale = addon->GetScale();
-            var position = activeItemSearchRow.ItemSearchInputScreenPosition;
-            var gap = 2f * scale;
-            var resultSize = ((AtkResNode*)itemSearchResultsNode)->GetSize();
-            var viewport = ImGui.GetMainViewport();
-            var screenStart = viewport.WorkPos - viewport.Pos;
-            var screenEnd = screenStart + viewport.WorkSize;
-            var y = position.Y + activeItemSearchRow.ItemSearchInputScreenSize.Y + gap;
-            if (y + resultSize.Y > screenEnd.Y - gap)
-                y = position.Y - resultSize.Y - gap;
-            var resultPosition = Vector2.Clamp(new(position.X, y), screenStart,
-                Vector2.Max(screenStart, screenEnd - resultSize));
-            itemSearchResultsNode.ScreenX = resultPosition.X;
-            itemSearchResultsNode.ScreenY = resultPosition.Y;
-            if (itemSearchBackgroundNode is not null)
-            {
-                itemSearchBackgroundNode.Size = new(
-                    activeItemSearchRow.ItemSearchWidth,
-                    itemSearchResultsNode.Height);
-                itemSearchBackgroundNode.ScreenX = itemSearchResultsNode.ScreenX;
-                itemSearchBackgroundNode.ScreenY = itemSearchResultsNode.ScreenY;
-            }
-        }
-
-        private void CloseItemSearch()
-        {
-            var row = activeItemSearchRow;
-            activeItemSearchRow = null;
-            itemSearchResults.Clear();
-            if (itemSearchResultsNode is not null)
-            {
-                itemSearchResultsNode.OptionsList = itemSearchResults;
-                itemSearchResultsNode.IsVisible = false;
-            }
-
-            if (itemSearchBackgroundNode is not null)
-            {
-                itemSearchBackgroundNode.IsVisible = false;
-            }
-
-            row?.ClearItemSearchText();
-        }
-
-        private void OpenDyePicker(BetterGlamourItem item)
-        {
+            editorHairAppearance = GetHairAppearance();
             if (selectedPreset is not { } owner)
                 return;
+            var hair = new BetterGlamourEditorRow(
+                OmniLoc.Get("Feature.BetterGlamourManagement.Hairstyle"),
+                owner,
+                null,
+                BetterGlamourEditorItemKind.Hairstyle,
+                () => OpenItemPicker(owner, BetterGlamourEditorItemKind.Hairstyle, null),
+                channel => OpenHairColor(owner, channel),
+                enabled =>
+                {
+                    if (!IsCurrentPreset(owner))
+                        return;
+                    owner.HighlightsEnabled = enabled;
+                    NotifyPresetChanged(owner);
+                },
+                editorHairAppearance);
+            var glasses = new BetterGlamourEditorRow(
+                OmniLoc.Get("Feature.BetterGlamourManagement.Part.Glasses"),
+                owner,
+                null,
+                BetterGlamourEditorItemKind.Glasses,
+                () => OpenItemPicker(owner, BetterGlamourEditorItemKind.Glasses, null));
+            editorRows.Add(new(hair, glasses));
+            editorRows.Add(new(
+                CreateItemRow(owner, "Feature.BetterGlamourManagement.MainHand", 0),
+                CreateItemRow(owner, "Feature.BetterGlamourManagement.OffHand", 1)));
+            for (var index = 0; index < 5; index++)
+                editorRows.Add(new(
+                    CreateItemRow(owner, Parts[index].TextKey, Parts[index].Slot),
+                    CreateItemRow(owner, Parts[index + 5].TextKey, Parts[index + 5].Slot)));
+        }
 
-            dyePicker ??= new();
-            selectedDyeItem = item;
-            pendingDyeSelectionRefresh = true;
-            dyePicker.OpenFor(item, () =>
+        private BetterGlamourEditorRow CreateItemRow(BetterGlamourPreset owner, string textKey, int slot)
+        {
+            var item = GetOrCreateItem(owner, slot);
+            return new(
+                OmniLoc.Get(textKey),
+                owner,
+                item,
+                BetterGlamourEditorItemKind.Item,
+                () => OpenItemPicker(owner, BetterGlamourEditorItemKind.Item, item),
+                channel => OpenDyePicker(owner, item, channel));
+        }
+
+        private CustomizeData? GetHairAppearance()
+        {
+            if (selectedPreset is not { } preset || !portraitPreview.TryGetHairAppearance(out var appearance))
+                return null;
+            appearance.HairColor = preset.HairColor ?? appearance.HairColor;
+            appearance.HighlightsColor = preset.HighlightColor ?? appearance.HighlightsColor;
+            appearance.Highlights = preset.HighlightsEnabled ?? appearance.Highlights;
+            return appearance;
+        }
+
+        private bool IsCurrentPreset(BetterGlamourPreset owner) =>
+            IsOpen && ReferenceEquals(owner, selectedPreset) && presets.Contains(owner);
+
+        private void NotifyPresetChanged(BetterGlamourPreset owner)
+        {
+            if (!IsCurrentPreset(owner))
+                return;
+            onChanged(owner);
+            pendingEditorRefresh = true;
+        }
+
+        private void OpenItemPicker(BetterGlamourPreset owner, BetterGlamourEditorItemKind kind, BetterGlamourItem? item)
+        {
+            if (!IsCurrentPreset(owner))
+                return;
+            dyePicker?.Close();
+            hairColorPicker?.Close();
+            itemPicker ??= new(itemPatchMap, collectionSourceService);
+            var currentID = kind switch
             {
-                if (presets.Contains(owner))
-                    onChanged(owner);
-
-                pendingDyeSelectionRefresh = true;
+                BetterGlamourEditorItemKind.Hairstyle => owner.HairstyleID,
+                BetterGlamourEditorItemKind.Glasses => owner.GlassesID,
+                _ => item?.ItemID ?? 0
+            };
+            itemPicker.OpenFor(kind, item?.Slot ?? -1, currentID, GetHairAppearance(), result =>
+            {
+                if (!IsCurrentPreset(owner))
+                    return;
+                switch (kind)
+                {
+                    case BetterGlamourEditorItemKind.Hairstyle:
+                        owner.HairstyleID = result.ItemID;
+                        break;
+                    case BetterGlamourEditorItemKind.Glasses:
+                        owner.GlassesID = (ushort)result.ItemID;
+                        break;
+                    case BetterGlamourEditorItemKind.Item when item is not null:
+                        if (result.ItemID != 0 &&
+                            (!LuminaGetter.TryGetRow<Item>(result.ItemID, out var itemRow) || !FitsSlot(itemRow, item.Slot)))
+                            return;
+                        item.ItemID = result.ItemID;
+                        break;
+                }
+                NotifyPresetChanged(owner);
             });
+        }
+
+        private void OpenDyePicker(BetterGlamourPreset owner, BetterGlamourItem item, int channel)
+        {
+            if (!IsCurrentPreset(owner))
+                return;
+            itemPicker?.Close();
+            hairColorPicker?.Close();
+            dyePicker ??= new();
+            dyePicker.OpenFor(item, channel, () => NotifyPresetChanged(owner));
+        }
+
+        private void OpenHairColor(BetterGlamourPreset owner, int channel)
+        {
+            if (!IsCurrentPreset(owner) || GetHairAppearance() is not { } appearance ||
+                !TryGetHairPalette(appearance.Tribe, appearance.Sex, channel == 1, out var colors))
+                return;
+            itemPicker?.Close();
+            dyePicker?.Close();
+            hairColorPicker ??= new();
+            hairColorPicker.OpenFor(colors, channel == 0 ? appearance.HairColor : appearance.HighlightsColor, channel == 1, color =>
+            {
+                if (!IsCurrentPreset(owner))
+                    return;
+                if (channel == 0)
+                    owner.HairColor = color;
+                else
+                    owner.HighlightColor = color;
+                NotifyPresetChanged(owner);
+            });
+        }
+
+        private void ClosePickers()
+        {
+            itemPicker?.Close();
+            dyePicker?.Close();
+            hairColorPicker?.Close();
         }
 
         private void SetDetailVisibility(bool visible)
@@ -753,12 +685,6 @@ public sealed partial class BetterGlamourManagement
                 gearsetLabelNode.IsVisible = visible;
             if (gearsetDropDownNode is not null)
                 gearsetDropDownNode.IsVisible = visible;
-            if (partHeaderNode is not null)
-                partHeaderNode.IsVisible = visible;
-            if (itemHeaderNode is not null)
-                itemHeaderNode.IsVisible = visible;
-            if (dyeHeaderNode is not null)
-                dyeHeaderNode.IsVisible = visible;
             if (itemListNode is not null)
                 itemListNode.IsVisible = visible;
             if (applyButton is not null)
@@ -771,8 +697,8 @@ public sealed partial class BetterGlamourManagement
 
         private void ResizeContent()
         {
-            const float PRESET_WIDTH = 190f;
-            const float SEPARATOR_GAP = 12f;
+            const float PRESET_WIDTH = 214f;
+            const float SEPARATOR_GAP = 4f;
             const float LABEL_WIDTH = 72f;
             const float BUTTON_GAP = 8f;
             var contentX = ContentStartPosition.X;
@@ -820,7 +746,7 @@ public sealed partial class BetterGlamourManagement
 
             if (separatorNode is not null)
             {
-                separatorNode.Position = new(contentX + PRESET_WIDTH + 4f, contentY);
+                separatorNode.Position = new(contentX + PRESET_WIDTH, contentY);
                 separatorNode.Size = new(4f, ContentSize.Y);
             }
 
@@ -834,23 +760,19 @@ public sealed partial class BetterGlamourManagement
             PositionLabeledControl(gearsetLabelNode, gearsetDropDownNode, detailX, contentY + 34f, detailWidth, LABEL_WIDTH);
 
             var headerY = contentY + 72f;
-            var columns = BetterGlamourEditorListItemNode.GetColumns(detailWidth);
-            PositionHeader(partHeaderNode, detailX, headerY, columns.PartWidth);
-            PositionHeader(itemHeaderNode, detailX + columns.ItemColumnX, headerY, columns.ItemWidth);
-            PositionHeader(dyeHeaderNode, detailX + columns.DyeHeaderX, headerY, columns.DyeWidth);
-
             var buttonY = contentY + ContentSize.Y - 28f;
             if (itemListNode is not null)
             {
-                itemListNode.Position = new(detailX, headerY + 24f);
-                itemListNode.Size = new(detailWidth, MathF.Max(100f, buttonY - headerY - 34f));
+                itemListNode.Position = new(detailX, headerY);
+                itemListNode.Size = new(detailWidth, MathF.Max(100f, buttonY - headerY - 10f));
             }
 
-            var buttonWidth = (detailX + detailWidth - contentX - BUTTON_GAP * 3f) / 4f;
-            PositionButton(importButton, contentX, buttonY, buttonWidth);
-            PositionButton(exportButton, contentX + buttonWidth + BUTTON_GAP, buttonY, buttonWidth);
-            PositionButton(applyButton, contentX + (buttonWidth + BUTTON_GAP) * 2f, buttonY, buttonWidth);
-            PositionButton(deleteButton, contentX + (buttonWidth + BUTTON_GAP) * 3f, buttonY, buttonWidth);
+            var buttonWidth = (detailX + detailWidth - contentX - BUTTON_GAP * 4f) / 5f;
+            PositionButton(createButton, contentX, buttonY, buttonWidth);
+            PositionButton(importButton, contentX + buttonWidth + BUTTON_GAP, buttonY, buttonWidth);
+            PositionButton(exportButton, contentX + (buttonWidth + BUTTON_GAP) * 2f, buttonY, buttonWidth);
+            PositionButton(applyButton, contentX + (buttonWidth + BUTTON_GAP) * 3f, buttonY, buttonWidth);
+            PositionButton(deleteButton, contentX + (buttonWidth + BUTTON_GAP) * 4f, buttonY, buttonWidth);
         }
 
         private static string FormatPresetCount(int presetCount) =>
@@ -875,17 +797,6 @@ public sealed partial class BetterGlamourManagement
                 control.Position = new(x + labelWidth + 4f, y + 2f);
                 control.Size = new(width - labelWidth - 4f, 28f);
             }
-        }
-
-        private static void PositionHeader(TextNode? node, float x, float y, float width)
-        {
-            if (node is null)
-            {
-                return;
-            }
-
-            node.Position = new(x, y);
-            node.Size = new(width, 22f);
         }
 
         private static void PositionButton(TextButtonNode? button, float x, float y, float width)

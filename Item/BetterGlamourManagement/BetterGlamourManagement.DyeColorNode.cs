@@ -22,9 +22,6 @@ public sealed partial class BetterGlamourManagement
         private readonly float colorInset;
         private readonly float highlightInset;
         private readonly float lowlightInset;
-        private Action<BetterGlamourDyeColorNode, string>? showTooltip;
-        private Action? hideTooltip;
-        private string tooltipText = string.Empty;
         private bool isSelected;
         private bool showBorder = true;
 
@@ -57,14 +54,7 @@ public sealed partial class BetterGlamourManagement
 
             highlightNode = CreateBorder(new(69f, 1f));
             lowlightNode = CreateBorder(new(141f, 1f));
-            CollisionNode.AddEvent(AtkEventType.MouseOver, () =>
-            {
-                if (tooltipText.Length != 0)
-                {
-                    showTooltip?.Invoke(this, tooltipText);
-                }
-            });
-            CollisionNode.AddEvent(AtkEventType.MouseOut, () => hideTooltip?.Invoke());
+            UpdateBorderVisibility();
         }
 
         public override Vector4 Color
@@ -97,14 +87,10 @@ public sealed partial class BetterGlamourManagement
             noDyeLineNode.IsVisible = stainID == 0;
         }
 
-        public void SetFixedTooltip(
-            string text,
-            Action<BetterGlamourDyeColorNode, string>? show,
-            Action? hide)
+        public void SetColor(Vector4 color)
         {
-            tooltipText = text;
-            showTooltip = show;
-            hideTooltip = hide;
+            Color = color;
+            noDyeLineNode.IsVisible = false;
         }
 
         protected override void OnSizeChanged()
@@ -121,16 +107,19 @@ public sealed partial class BetterGlamourManagement
                 12,
                 24);
             clipNode.Position = colorNode.Position;
-            clipNode.Size = colorNode.Size;
+            clipNode.Size = clipNode.TextureSize;
+            clipNode.Scale = colorNode.Size / clipNode.TextureSize;
 
             highlightNode.Position = new(highlightInset, highlightInset);
-            highlightNode.Size = new(
+            highlightNode.Size = highlightNode.TextureSize;
+            highlightNode.Scale = new Vector2(
                 MathF.Max(1f, Width - highlightInset * 2f),
-                MathF.Max(1f, Height - highlightInset * 2f));
+                MathF.Max(1f, Height - highlightInset * 2f)) / highlightNode.TextureSize;
             lowlightNode.Position = new(lowlightInset, lowlightInset);
-            lowlightNode.Size = new(
+            lowlightNode.Size = lowlightNode.TextureSize;
+            lowlightNode.Scale = new Vector2(
                 MathF.Max(1f, Width - lowlightInset * 2f),
-                MathF.Max(1f, Height - lowlightInset * 2f));
+                MathF.Max(1f, Height - lowlightInset * 2f)) / lowlightNode.TextureSize;
         }
 
         private void UpdateBorderVisibility()

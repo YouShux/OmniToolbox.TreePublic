@@ -12,5 +12,11 @@ public sealed class BetterGlamourPreset
 
     public uint HairstyleID { get; set; }
 
+    public byte? HairColor { get; set; }
+
+    public byte? HighlightColor { get; set; }
+
+    public bool? HighlightsEnabled { get; set; }
+
     public List<BetterGlamourItem> Items { get; set; } = [];
 }
