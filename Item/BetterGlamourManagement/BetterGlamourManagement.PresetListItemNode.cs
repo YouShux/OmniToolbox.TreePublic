@@ -40,8 +40,8 @@ public sealed partial class BetterGlamourManagement
         protected override void OnSizeChanged()
         {
             base.OnSizeChanged();
-            nameNode.Position = new(8f, 0f);
-            nameNode.Size = new(MathF.Max(20f, Width - 12f), Height);
+            nameNode.Position = new(4f, 0f);
+            nameNode.Size = new(MathF.Max(20f, Width - 6f), Height);
         }
 
         protected override void SetNodeData(BetterGlamourPreset itemData)
@@ -49,13 +49,15 @@ public sealed partial class BetterGlamourManagement
             var name = string.IsNullOrWhiteSpace(itemData.Name)
                 ? OmniLoc.Get("Feature.BetterGlamourManagement.WindowTitle")
                 : itemData.Name;
-            nameNode.String = itemData.GearsetIndex >= 0
+            var label = itemData.GearsetIndex >= 0
                 ? string.Format(
                     OmniLoc.Get("Feature.BetterGlamourManagement.PresetList.Bound"),
                     name,
                     itemData.GearsetIndex + 1)
                 : string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.PresetList.Unbound"), name);
             OnSizeChanged();
+            nameNode.String = label;
+            TextTooltip = label;
         }
     }
 

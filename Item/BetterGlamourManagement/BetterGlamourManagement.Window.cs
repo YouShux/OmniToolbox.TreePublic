@@ -85,6 +85,62 @@ public sealed unsafe partial class BetterGlamourManagement
             NotificationType.Success);
     }
 
+    private void CreatePreset()
+    {
+        if (config.Presets.Count >= MAX_PRESET_COUNT)
+        {
+            OmniNotifier.Popup(
+                Info.Title,
+                string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.PresetLimitReached"), MAX_PRESET_COUNT),
+                NotificationType.Warning);
+            return;
+        }
+
+        var preset = new BetterGlamourPreset
+        {
+            Name = string.Format(
+                OmniLoc.Get("Feature.BetterGlamourManagement.DefaultName"),
+                DateTime.Now.ToString("yyyy-MM-dd HH:mm"))
+        };
+        foreach (var slot in InspectSlots)
+        {
+            GetOrCreateItem(preset, slot).ItemID = slot switch
+            {
+                2 => 10032,
+                3 => 10033,
+                4 => 10034,
+                6 => 10035,
+                7 => 10036,
+                8 => 9293,
+                9 => 9292,
+                10 => 9294,
+                11 or 12 => 9295,
+                _ => 0
+            };
+        }
+
+        var oldSelection = selectedPresetIndex;
+        config.Presets.Add(preset);
+        selectedPresetIndex = config.Presets.Count - 1;
+        try
+        {
+            saveConfig();
+        }
+        catch (Exception error)
+        {
+            config.Presets.Remove(preset);
+            selectedPresetIndex = oldSelection;
+            OmniNotifier.Popup(
+                Info.Title,
+                string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.CreateFailed"), error.Message),
+                NotificationType.Error);
+            return;
+        }
+
+        managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
+        QueuePortraitPreview(preset);
+    }
+
     private void ImportClipboard()
     {
         try
@@ -141,6 +197,25 @@ public sealed unsafe partial class BetterGlamourManagement
         return SearchItems(query, HairstyleSearchIndex);
     }
 
+    private static List<BetterGlamourItemSearchResult> SearchHairstyles(string query, CustomizeData appearance)
+    {
+        var availableIDs = new HashSet<uint>();
+        foreach (var hairMakeType in LuminaGetter.Get<HairMakeType>())
+        {
+            if (hairMakeType.Tribe.RowId != appearance.Tribe || hairMakeType.Gender != appearance.Sex)
+                continue;
+
+            foreach (var rowID in hairMakeType.CharaMakeStruct[0].SubMenuParam)
+            {
+                if (rowID != 0)
+                    availableIDs.Add(rowID);
+            }
+            break;
+        }
+
+        return SearchHairstyles(query).FindAll(option => availableIDs.Contains(option.ItemID));
+    }
+
     internal static List<BetterGlamourItemSearchResult> SearchGlasses(string query)
     {
         GlassesSearchIndex ??= BuildGlassesSearchIndex();
@@ -152,29 +227,16 @@ public sealed unsafe partial class BetterGlamourManagement
         BetterGlamourItemSearchResult[] searchIndex)
     {
         query = query.Trim();
-        if (query.Length == 0)
-        {
-            return [];
-        }
-
         var results = new List<BetterGlamourItemSearchResult>();
-        for (var index = 0; index < searchIndex.Length; index++)
+        var isItemID = uint.TryParse(query, out var itemID);
+        foreach (var result in searchIndex)
         {
-            if (searchIndex[index].Name.StartsWith(query, StringComparison.OrdinalIgnoreCase))
+            if (query.Length == 0 ||
+                result.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                isItemID && result.ItemID == itemID)
             {
-                results.Add(searchIndex[index]);
+                results.Add(result);
             }
-        }
-
-        for (var index = 0; index < searchIndex.Length; index++)
-        {
-            if (!searchIndex[index].Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                searchIndex[index].Name.StartsWith(query, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            results.Add(searchIndex[index]);
         }
 
         return results;
@@ -196,7 +258,7 @@ public sealed unsafe partial class BetterGlamourManagement
                 continue;
             }
 
-            items.Add(new(item.RowId, item.Name.ExtractText(), (uint)item.Icon));
+            items.Add(new(item.RowId, item.Name.ExtractText(), (uint)item.Icon, item.LevelEquip));
         }
 
         return [.. items];

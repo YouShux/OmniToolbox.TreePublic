@@ -12,6 +12,7 @@ using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
 using OmenTools.Threading.TaskHelper;
 using OmniToolbox.Commands;
+using OmniToolbox.Collections;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -26,7 +27,9 @@ namespace OmniToolbox.TreePublic;
 public sealed unsafe partial class BetterGlamourManagement(
     BetterGlamourManagement.Settings config,
     Action saveConfig,
-    ItemPreviewService itemPreviewService) : ModuleBase
+    ItemPreviewService itemPreviewService,
+    ItemPatchMap itemPatchMap,
+    CollectionSourceService collectionSourceService) : ModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -43,6 +46,8 @@ public sealed unsafe partial class BetterGlamourManagement(
                 OmniCommandCatalog.Format("glamourmanager"))
         ]
     };
+
+    public override bool HasSettings => true;
 
     private static readonly int[] InspectSlots = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12];
 
@@ -61,6 +66,7 @@ public sealed unsafe partial class BetterGlamourManagement(
     {
         try
         {
+            EnablePlateExport();
             taskHelper = new()
             {
                 TimeoutMS = 10_000
@@ -79,7 +85,7 @@ public sealed unsafe partial class BetterGlamourManagement(
                 Condition = services.Condition,
                 GameGUI = services.GameGUI,
                 DataManager = services.Data
-            }, () => config.Presets);
+            }, () => config.Presets, () => itemPreviewService.TryGetOriginalHairAppearance(out var customize) ? customize : null);
             portraitPreview.Enable();
             EnableRemote();
             managerNativeUI = new(
@@ -91,7 +97,10 @@ public sealed unsafe partial class BetterGlamourManagement(
                 CopyPreset,
                 DeletePreset,
                 ImportClipboard,
-                portraitPreview);
+                CreatePreset,
+                portraitPreview,
+                itemPatchMap,
+                collectionSourceService);
             if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 250))
             {
                 throw new InvalidOperationException("Better glamour management update registration failed.");
@@ -117,6 +126,7 @@ public sealed unsafe partial class BetterGlamourManagement(
         ClearTryOn();
         taskHelper?.Dispose();
         taskHelper = null;
+        DisposePlateExport();
         DisposeActionsNativeUI();
         DisposeManagerNativeUI();
         boundTryOnPreset = null;
@@ -124,7 +134,11 @@ public sealed unsafe partial class BetterGlamourManagement(
         lastGearsetIndex = int.MinValue;
     }
 
-    private void Draw() => DrawInspectActions();
+    private void Draw()
+    {
+        DrawPlateExport();
+        DrawInspectActions();
+    }
 
     private void DrawInspectActions()
     {
@@ -312,6 +326,9 @@ public sealed unsafe partial class BetterGlamourManagement(
         {
             preset.GlassesID = uiState->Inspect.GlassesIds[0];
             preset.HairstyleID = ResolveInspectHairstyleID(uiState->Inspect.CustomizeData);
+            preset.HairColor = uiState->Inspect.CustomizeData.HairColor;
+            preset.HighlightColor = uiState->Inspect.CustomizeData.HighlightsColor;
+            preset.HighlightsEnabled = uiState->Inspect.CustomizeData.Highlights;
         }
 
         return preset.Items.Count == 0 ? null : preset;
@@ -355,7 +372,7 @@ public sealed unsafe partial class BetterGlamourManagement(
         }
 
         return itemPreviewService.IsGlassesPreviewApplied(preset.GlassesID) &&
-               (preset.HairstyleID == 0 || itemPreviewService.IsHairstylePreviewApplied(preset.HairstyleID));
+               itemPreviewService.IsHairAppearancePreviewApplied(preset.HairstyleID, preset.HairColor, preset.HighlightColor, preset.HighlightsEnabled);
     }
 
     private void TryApplyActiveTryOn()
@@ -395,14 +412,7 @@ public sealed unsafe partial class BetterGlamourManagement(
         taskHelper.DelayNext(100);
         taskHelper.Enqueue(() =>
         {
-            if (preset.HairstyleID != 0)
-            {
-                itemPreviewService.PreviewHairstyle(preset.HairstyleID);
-            }
-            else
-            {
-                itemPreviewService.RestoreHairstylePreview();
-            }
+            itemPreviewService.PreviewHairAppearance(preset.HairstyleID, preset.HairColor, preset.HighlightColor, preset.HighlightsEnabled);
 
             return true;
         });
@@ -581,5 +591,7 @@ public sealed unsafe partial class BetterGlamourManagement(
     public sealed class Settings
     {
         public List<BetterGlamourPreset> Presets { get; set; } = [];
+
+        public bool EnableGlamourPlateExport { get; set; } = true;
     }
 }

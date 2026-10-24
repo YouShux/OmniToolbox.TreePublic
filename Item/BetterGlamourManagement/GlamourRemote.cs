@@ -226,11 +226,11 @@ public sealed unsafe partial class BetterGlamourManagement
                 }
                 case "preview-draft":
                 {
-                    GetRemotePreset(id);
+                    var preset = GetRemotePreset(id);
                     if (!IsSelectedRemotePreset(id))
                         throw new InvalidOperationException("另一端已切换预览，请重新选择方案。");
 
-                    var incoming = GlamourClipboard.Import(request.GetProperty("preset").GetRawText());
+                    var incoming = GlamourClipboard.Import(request.GetProperty("preset").GetRawText(), preset);
                     ValidateRemotePreset(incoming);
                     Volatile.Write(ref phoneSelectedID, string.Empty);
                     QueuePortraitPreview(incoming);
@@ -239,7 +239,7 @@ public sealed unsafe partial class BetterGlamourManagement
                 case "save":
                 {
                     var preset = GetRemotePreset(id);
-                    var incoming = GlamourClipboard.Import(request.GetProperty("preset").GetRawText());
+                    var incoming = GlamourClipboard.Import(request.GetProperty("preset").GetRawText(), preset);
                     ValidateRemotePreset(incoming);
                     var gearsetIndex = request.TryGetProperty("gearsetIndex", out var gearsetValue) ? gearsetValue.GetInt32() : preset.GearsetIndex;
                     if (gearsetIndex < -1 || gearsetIndex > 99 || gearsetIndex >= 0 && !TryGetGearsetName(gearsetIndex, out _))
@@ -247,10 +247,16 @@ public sealed unsafe partial class BetterGlamourManagement
 
                     var oldName = preset.Name;
                     var oldHair = preset.HairstyleID;
+                    var oldHairColor = preset.HairColor;
+                    var oldHighlightColor = preset.HighlightColor;
+                    var oldHighlightsEnabled = preset.HighlightsEnabled;
                     var oldGlasses = preset.GlassesID;
                     var oldItems = preset.Items;
                     preset.Name = incoming.Name;
                     preset.HairstyleID = incoming.HairstyleID;
+                    preset.HairColor = incoming.HairColor;
+                    preset.HighlightColor = incoming.HighlightColor;
+                    preset.HighlightsEnabled = incoming.HighlightsEnabled;
                     preset.GlassesID = incoming.GlassesID;
                     preset.Items = incoming.Items;
                     try
@@ -261,6 +267,9 @@ public sealed unsafe partial class BetterGlamourManagement
                     {
                         preset.Name = oldName;
                         preset.HairstyleID = oldHair;
+                        preset.HairColor = oldHairColor;
+                        preset.HighlightColor = oldHighlightColor;
+                        preset.HighlightsEnabled = oldHighlightsEnabled;
                         preset.GlassesID = oldGlasses;
                         preset.Items = oldItems;
                         throw;
@@ -381,6 +390,9 @@ public sealed unsafe partial class BetterGlamourManagement
                 hairstyleId = preset.HairstyleID,
                 hairstyleName = GetHairstyleName(preset.HairstyleID),
                 hairstyleIcon = GetHairstyleIcon(preset.HairstyleID),
+                hairColor = preset.HairColor,
+                highlightColor = preset.HighlightColor,
+                highlightsEnabled = preset.HighlightsEnabled,
                 items = InspectSlots.Select(slot =>
                 {
                     var item = preset.Items.Find(item => item.Slot == slot);

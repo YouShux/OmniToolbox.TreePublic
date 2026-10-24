@@ -25,10 +25,15 @@ public sealed partial class BetterGlamourManagement
     {
         private readonly IconNode iconNode;
 
-        public BetterGlamourItemIconNode()
+        public BetterGlamourItemIconNode(bool interactive = true)
         {
             iconNode = new();
             iconNode.AttachNode(this);
+            if (!interactive)
+            {
+                CollisionNode.RemoveNodeFlags(NodeFlags.HasCollision);
+                iconNode.CollisionNode.RemoveNodeFlags(NodeFlags.HasCollision);
+            }
         }
 
         public uint IconID

@@ -21,6 +21,9 @@ public sealed partial class BetterGlamourManagement
                 Name = string.IsNullOrWhiteSpace(preset.Name) ? "导入幻化" : preset.Name,
                 GlassesID = preset.GlassesID,
                 HairstyleID = preset.HairstyleID,
+                HairColor = preset.HairColor,
+                HighlightColor = preset.HighlightColor,
+                HighlightsEnabled = preset.HighlightsEnabled,
                 Items = preset.Items.Select(x => new BetterGlamourItem
                 {
                     Slot = x.Slot,
@@ -37,7 +40,7 @@ public sealed partial class BetterGlamourManagement
             }, Options);
         }
 
-        public static BetterGlamourPreset Import(string text)
+        public static BetterGlamourPreset Import(string text, BetterGlamourPreset? existing = null)
         {
             if (string.IsNullOrWhiteSpace(text) || text.Length > 65536)
                 throw new InvalidDataException("剪贴板为空或超过 64KB。");
@@ -58,6 +61,15 @@ public sealed partial class BetterGlamourManagement
             if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("Name", out _) || !root.TryGetProperty("Items", out _))
                 throw new InvalidDataException("缺少条目名称或装备数据；网页链接、普通分享文字不能直接导入。");
             var preset = root.Deserialize<BetterGlamourPreset>(Options) ?? throw new InvalidDataException("条目为空。");
+            if (existing != null)
+            {
+                if (!root.TryGetProperty(nameof(BetterGlamourPreset.HairColor), out _))
+                    preset.HairColor = existing.HairColor;
+                if (!root.TryGetProperty(nameof(BetterGlamourPreset.HighlightColor), out _))
+                    preset.HighlightColor = existing.HighlightColor;
+                if (!root.TryGetProperty(nameof(BetterGlamourPreset.HighlightsEnabled), out _))
+                    preset.HighlightsEnabled = existing.HighlightsEnabled;
+            }
             return PrepareImportedPreset(preset);
         }
 
@@ -72,7 +84,8 @@ public sealed partial class BetterGlamourManagement
                     throw new InvalidDataException("包含重复/未知装备部位或无效物品 ID。");
             }
 
-            if (!preset.Items.Any(x => x.ItemID != 0) && preset.GlassesID == 0 && preset.HairstyleID == 0)
+            if (!preset.Items.Any(x => x.ItemID != 0) && preset.GlassesID == 0 && preset.HairstyleID == 0 &&
+                !preset.HairColor.HasValue && !preset.HighlightColor.HasValue && !preset.HighlightsEnabled.HasValue)
                 throw new InvalidDataException("条目没有任何外观数据。");
             preset.Name = preset.Name.Trim();
             preset.ID = Guid.NewGuid().ToString("N");

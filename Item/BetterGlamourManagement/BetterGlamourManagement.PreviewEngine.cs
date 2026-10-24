@@ -13,6 +13,7 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Plugin.Ipc;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
@@ -20,7 +21,9 @@ using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using KamiToolKit.Classes;
 using OmenTools.Interop.Game.Helpers;
+using OmniToolbox.Items;
 using OmniToolbox.UI;
 using CharaMakeCustomize = Lumina.Excel.Sheets.CharaMakeCustomize;
 using Glasses = Lumina.Excel.Sheets.Glasses;
@@ -39,6 +42,8 @@ public sealed partial class BetterGlamourManagement
         private string cachedPhoneStatus = "{\"ready\":false}";
         private volatile bool enabled;
         private Func<IReadOnlyList<BetterGlamourPreset>> getPresets = null!;
+        private Func<CustomizeData?>? getBaseHairAppearance;
+        private CustomizeData? baselineHairAppearance;
         private readonly object commandLock = new();
         private Plan? pendingPreset;
         private long due;
@@ -59,6 +64,8 @@ public sealed partial class BetterGlamourManagement
         private nint hiddenTryonRoot;
         private bool savedDisableShowOnOpen;
         private bool savedDisableFocusOnShow;
+        private bool savedDisableFocusability;
+        private bool savedTryonClickThrough;
         private bool closingTryon;
         private byte savedTryonAlpha;
         private nint guardedTryonAddon;
@@ -116,7 +123,7 @@ public sealed partial class BetterGlamourManagement
         public float AspectRatio => ratio > 0 ? ratio : 0.75f;
         public string Message => pendingPreset == null ? message : OmniLoc.Get("Feature.BetterGlamourManagement.Preview.Loading");
 
-        public void Initialize(OmniPreviewContext previewContext, Func<IReadOnlyList<BetterGlamourPreset>> presets)
+        public void Initialize(OmniPreviewContext previewContext, Func<IReadOnlyList<BetterGlamourPreset>> presets, Func<CustomizeData?>? baseHairAppearance = null)
         {
             ArgumentNullException.ThrowIfNull(previewContext);
             ArgumentNullException.ThrowIfNull(previewContext.PluginInterface);
@@ -125,6 +132,7 @@ public sealed partial class BetterGlamourManagement
             ArgumentNullException.ThrowIfNull(presets);
             context = previewContext;
             getPresets = presets;
+            getBaseHairAppearance = baseHairAppearance;
         }
 
         public void Enable()
@@ -262,6 +270,29 @@ public sealed partial class BetterGlamourManagement
             Volatile.Write(ref cachedPhoneStatus, Status());
         }
 
+        internal bool TryGetHairAppearance(out CustomizeData customize)
+        {
+            customize = default;
+            if (!enabled || !Safe())
+                return false;
+
+            if (ownsTryon && context?.ObjectTable.LocalPlayer?.Address == player && baselineHairAppearance is { } baseline)
+                customize = pendingPreset == null ? desired.CustomizeData : baseline;
+            else if (getBaseHairAppearance?.Invoke() is { } current)
+                customize = current;
+            else
+                return false;
+
+            if (pendingPreset is { } plan)
+            {
+                customize.HairColor = plan.HairColor ?? customize.HairColor;
+                customize.HighlightsColor = plan.HighlightColor ?? customize.HighlightsColor;
+                customize.Highlights = plan.HighlightsEnabled ?? customize.Highlights;
+            }
+
+            return true;
+        }
+
         public void CancelPreview()
         {
             pendingPreset = null;
@@ -364,6 +395,8 @@ public sealed partial class BetterGlamourManagement
             {
                 addon->DisableShowOnOpen = savedDisableShowOnOpen;
                 addon->DisableFocusOnShow = savedDisableFocusOnShow;
+                addon->DisableFocusability = savedDisableFocusability;
+                FlagHelper.UpdateFlag(ref addon->Flags1A3, TRYON_CLICK_THROUGH_FLAG, savedTryonClickThrough);
                 addon->SetAlpha(savedTryonAlpha);
                 hiddenTryonRoot = guardedTryonAddon = 0;
                 closingTryon = false;
@@ -419,7 +452,7 @@ public sealed partial class BetterGlamourManagement
                 var humanReady = character != null && (nint)character != player && draw != null && draw->GetModelType() == CharacterBase.ModelType.Human;
                 if (requestProcessed && humanReady && view->State == 6)
                     ApplyPreviewCustomization(character, (Human*)draw);
-                bool extraMatched = humanReady && ((Human*)draw)->Customize.Hairstyle == desired.CustomizeData.Hairstyle && character->DrawData.GlassesIds[0] == desired.GlassesIds[0];
+                bool extraMatched = humanReady && ItemPreviewService.HairAppearanceMatches(((Human*)draw)->Customize, desired.CustomizeData) && character->DrawData.GlassesIds[0] == desired.GlassesIds[0];
                 outfitVerified = requestProcessed && humanReady && extraMatched && Matches(ref desired, (Human*)draw, mask, tryon->CharaView.HeadgearHidden);
                 var target = RenderTargetManager.Instance();
                 var nativeTexture = tryon->Texture;
@@ -575,6 +608,14 @@ public sealed partial class BetterGlamourManagement
             player = localPlayer.Address;
             desired = default;
             desired.CopyFromCharacter((Character*)player);
+            baselineHairAppearance ??= getBaseHairAppearance == null
+                ? desired.CustomizeData
+                : getBaseHairAppearance() ?? throw new InvalidOperationException(OmniLoc.Get("Feature.BetterGlamourManagement.Preview.HairAppearanceUnavailable"));
+            var hairAppearance = baselineHairAppearance.Value;
+            desired.CustomizeData.Hairstyle = hairAppearance.Hairstyle;
+            desired.CustomizeData.HairColor = plan.HairColor ?? hairAppearance.HairColor;
+            desired.CustomizeData.HighlightsColor = plan.HighlightColor ?? hairAppearance.HighlightsColor;
+            desired.CustomizeData.Highlights = plan.HighlightsEnabled ?? hairAppearance.Highlights;
             Array.Fill(mask, false);
             foreach (var part in plan.Items)
             {
@@ -604,9 +645,28 @@ public sealed partial class BetterGlamourManagement
                 throw new InvalidOperationException("原生试衣间不可用。");
             if (!reuse && tryon->IsAgentActive())
                 throw new InvalidOperationException("请先关闭游戏中已打开的试衣间，再选择方案预览。");
-            var seed = plan.Items.First(x => x.ItemID != 0);
             if (!reuse)
             {
+                var seed = plan.Items.FirstOrDefault(part => part.ItemID != 0);
+                if (seed == null)
+                {
+                    foreach (var slot in InspectSlots)
+                    {
+                        if (!InventorySlotAccess.TryGet(InventoryType.EquippedItems, (ushort)slot, out var item) || item->ItemId == 0)
+                            continue;
+                        seed = new Part
+                        {
+                            Slot = slot,
+                            ItemID = item->GlamourId != 0 ? item->GlamourId : item->ItemId,
+                            Dye0 = item->Stains[0],
+                            Dye1 = item->Stains[1]
+                        };
+                        break;
+                    }
+                }
+
+                if (seed == null)
+                    throw new InvalidOperationException(OmniLoc.Get("Feature.BetterGlamourManagement.Preview.EquipmentUnavailable"));
                 savedTryonItems = tryon->TryOnItems.ToArray();
                 previousSaveOutfit = tryon->SaveDeleteOutfit;
                 previousDisplayGear = tryon->DisplayGear;
@@ -695,6 +755,7 @@ public sealed partial class BetterGlamourManagement
             if (oldTexture != null)
                 oldTexture->DecRef();
             player = 0;
+            baselineHairAppearance = null;
             renderIndex = 0;
             frameWidth = frameHeight = 0;
             phase = "idle";
@@ -720,7 +781,7 @@ public sealed partial class BetterGlamourManagement
             var view = View;
             if (view == null || !CanCustomizePreview(ownsTryon, view->ClientObjectIndex, view->ClientObjectId, (nint)character, player))
                 return;
-            var hairChanged = human->Customize.Hairstyle != desired.CustomizeData.Hairstyle;
+            var hairChanged = !ItemPreviewService.HairAppearanceMatches(human->Customize, desired.CustomizeData);
             var glassesChanged = character->DrawData.GlassesIds[0] != desired.GlassesIds[0];
             if ((!hairChanged && !glassesChanged) || customizationAttempts >= 3 || loadingSeconds < customizationRetryAt)
                 return;
@@ -732,6 +793,9 @@ public sealed partial class BetterGlamourManagement
             {
                 var customize = character->DrawData.CustomizeData;
                 customize.Hairstyle = desired.CustomizeData.Hairstyle;
+                customize.HairColor = desired.CustomizeData.HairColor;
+                customize.HighlightsColor = desired.CustomizeData.HighlightsColor;
+                customize.Highlights = desired.CustomizeData.Highlights;
                 var data = new Human.DrawData
                 {
                     CustomizeData = customize
@@ -758,10 +822,14 @@ public sealed partial class BetterGlamourManagement
                 closingTryon = false;
                 savedDisableShowOnOpen = addon->DisableShowOnOpen;
                 savedDisableFocusOnShow = addon->DisableFocusOnShow;
+                savedDisableFocusability = addon->DisableFocusability;
+                savedTryonClickThrough = FlagHelper.ReadFlag(ref addon->Flags1A3, TRYON_CLICK_THROUGH_FLAG);
             }
 
             addon->DisableShowOnOpen = true;
             addon->DisableFocusOnShow = true;
+            addon->DisableFocusability = true;
+            FlagHelper.SetFlag(ref addon->Flags1A3, TRYON_CLICK_THROUGH_FLAG);
             if (root->IsVisible())
             {
                 root->ToggleVisibility(false);
@@ -781,6 +849,8 @@ public sealed partial class BetterGlamourManagement
                 addon->DisableShowOnOpen = savedDisableShowOnOpen;
                 addon->DisableFocusOnShow = savedDisableFocusOnShow;
                 addon->Hide(true, false, 0);
+                addon->DisableFocusability = savedDisableFocusability;
+                FlagHelper.UpdateFlag(ref addon->Flags1A3, TRYON_CLICK_THROUGH_FLAG, savedTryonClickThrough);
                 addon->Close(false);
             }
         }
@@ -809,6 +879,9 @@ public sealed partial class BetterGlamourManagement
             Name = preset.Name,
             Glasses = preset.GlassesID,
             Hairstyle = preset.HairstyleID,
+            HairColor = preset.HairColor,
+            HighlightColor = preset.HighlightColor,
+            HighlightsEnabled = preset.HighlightsEnabled,
             Items = preset.Items.Select(item => new Part
             {
                 Slot = item.Slot,
@@ -841,8 +914,9 @@ public sealed partial class BetterGlamourManagement
             foreach (var part in plan.Items)
                 if (part == null || !ValidSlot(part.Slot) || !slots.Add(part.Slot) || part.ItemID >= 2_000_000)
                     throw new InvalidDataException("方案包含无效或重复部位/物品 ID。");
-            if (!plan.Items.Any(part => part.ItemID != 0))
-                throw new InvalidDataException("方案没有装备数据。");
+            if (!plan.Items.Any(part => part.ItemID != 0) && plan.Glasses == 0 && plan.Hairstyle == 0 &&
+                !plan.HairColor.HasValue && !plan.HighlightColor.HasValue && !plan.HighlightsEnabled.HasValue)
+                throw new InvalidDataException("方案没有外观数据。");
         }
 
         internal static float RotationPixels(float radians) => radians * 100f;
@@ -936,6 +1010,9 @@ public sealed partial class BetterGlamourManagement
             public string Name = string.Empty;
             public ushort Glasses;
             public uint Hairstyle;
+            public byte? HairColor;
+            public byte? HighlightColor;
+            public bool? HighlightsEnabled;
             public Part[] Items = [];
         }
 
@@ -955,6 +1032,7 @@ public sealed partial class BetterGlamourManagement
 
         internal const uint PREVIEW_RENDER_SLOT = 2;
         internal const ushort PREVIEW_OBJECT_ID = 242;
+        private const int TRYON_CLICK_THROUGH_FLAG = 0x40;
 
         #endregion
     }

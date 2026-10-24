@@ -1,12 +1,13 @@
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using ObjectTable = OmenTools.Dalamud.Services.Game.Object.Abstractions.IObjectTable;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed partial class BetterGlamourManagement
 {
-    internal readonly record struct BetterGlamourItemSearchResult(uint ItemID, string Name, uint IconID);
+    internal readonly record struct BetterGlamourItemSearchResult(uint ItemID, string Name, uint IconID, uint EquipLevel = 0);
 
     internal enum BetterGlamourEditorItemKind
     {
@@ -19,28 +20,19 @@ public sealed partial class BetterGlamourManagement
         string PartName,
         BetterGlamourPreset Preset,
         BetterGlamourItem? Item,
-        bool IsGlasses,
-        bool IsHairstyle,
-        bool IsDyeSelected,
-        Action? OpenDye,
-        Action OnChanged,
-        Action<BetterGlamourEditorListItemNode>? OnSearchFocused = null,
-        Action<BetterGlamourEditorListItemNode, string>? OnSearchChanged = null,
-        Action? OnSearchClosed = null)
-    {
-        internal BetterGlamourEditorItemKind Kind => IsHairstyle
-            ? BetterGlamourEditorItemKind.Hairstyle
-            : IsGlasses
-                ? BetterGlamourEditorItemKind.Glasses
-                : BetterGlamourEditorItemKind.Item;
-    }
+        BetterGlamourEditorItemKind Kind,
+        Action OpenItem,
+        Action<int>? OpenDye = null,
+        Action<bool>? SetHighlights = null,
+        CustomizeData? HairAppearance = null);
+
+    internal sealed record BetterGlamourEditorPair(BetterGlamourEditorRow Left, BetterGlamourEditorRow Right);
 
     internal sealed record BetterGlamourDyeGridRow(
         List<GlamourDyeOption> Options,
         byte SelectedID,
         Action<GlamourDyeOption> OnSelected,
-        Action<BetterGlamourDyeColorNode, string> ShowTooltip,
-        Action HideTooltip);
+        bool IsHairColor = false);
 
     internal sealed class OmniPreviewContext
     {

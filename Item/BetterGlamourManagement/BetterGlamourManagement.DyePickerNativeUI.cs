@@ -44,8 +44,6 @@ public sealed partial class BetterGlamourManagement
         private Action? onChanged;
         private TabBarNode? tabBarNode;
         private ListNode<BetterGlamourDyeGridRow, BetterGlamourDyeGridRowNode>? listNode;
-        private TextNineGridNode? tooltipNode;
-        private BetterGlamourDyeColorNode? tooltipAnchor;
         private int selectedStain;
         private int selectedCategory = ALL_CATEGORY;
         private bool pendingRowsRebuild;
@@ -62,17 +60,19 @@ public sealed partial class BetterGlamourManagement
             CreateWindowNode = static () => new WindowNode { ShowCloseButton = true };
         }
 
-        public void OpenFor(BetterGlamourItem glamourItem, Action changed)
+        public void OpenFor(BetterGlamourItem glamourItem, int channel, Action changed)
         {
             item = glamourItem;
             onChanged = changed;
-            selectedStain = 0;
+            selectedStain = channel == 1 ? 1 : 0;
             if (!IsOpen)
             {
                 Open();
             }
 
-            tabBarNode?.SelectTab(OmniLoc.Get("Feature.BetterGlamourManagement.Column.Stain0"));
+            tabBarNode?.SelectTab(OmniLoc.Get(selectedStain == 0
+                ? "Feature.BetterGlamourManagement.Column.Stain0"
+                : "Feature.BetterGlamourManagement.Column.Stain1"));
             RebuildRows();
         }
 
@@ -98,7 +98,6 @@ public sealed partial class BetterGlamourManagement
                     tabBarNode?.SelectTab(label);
                     SelectStain(stain);
                 });
-                node.SetFixedTooltip(string.Empty, ShowDyeTooltip, HideDyeTooltip);
                 node.CollisionNode.ShowClickableCursor = true;
                 node.AttachNode(tabBarNode);
                 stainPreviewNodes[index] = node;
@@ -112,7 +111,7 @@ public sealed partial class BetterGlamourManagement
                     Color = index == ALL_CATEGORY ? new(0.2f, 0.2f, 0.2f, 1f) : CategoryColors[index]
                 };
                 node.CollisionNode.AddEvent(AtkEventType.MouseClick, () => SelectCategory(category));
-                node.SetFixedTooltip(OmniLoc.Get(CategoryTooltipKeys[index]), ShowDyeTooltip, HideDyeTooltip);
+                node.CollisionNode.SetTextTooltip(OmniLoc.Get(CategoryTooltipKeys[index]));
                 node.CollisionNode.ShowClickableCursor = true;
                 node.AttachNode(this);
                 categoryNodes.Add(node);
@@ -127,15 +126,10 @@ public sealed partial class BetterGlamourManagement
             };
             listNode.AttachNode(this);
 
-            tooltipNode = new()
-            {
-                AlignmentType = AlignmentType.Center,
-                FontSize = 12,
-                FontType = FontType.Axis,
-                IsVisible = false
-            };
-            tooltipNode.AttachNode(this);
             ResizeContent();
+            tabBarNode.SelectTab(OmniLoc.Get(selectedStain == 0
+                ? "Feature.BetterGlamourManagement.Column.Stain0"
+                : "Feature.BetterGlamourManagement.Column.Stain1"));
             SelectCategory(ALL_CATEGORY);
         }
 
@@ -149,15 +143,19 @@ public sealed partial class BetterGlamourManagement
             }
 
             listNode?.Update();
-            PositionTooltip();
+        }
+
+        protected override unsafe void OnHide(AtkUnitBase* addon)
+        {
+            tabBarNode?.HideTooltip();
+            item = null;
+            onChanged = null;
         }
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
             tabBarNode = null;
             listNode = null;
-            tooltipNode = null;
-            tooltipAnchor = null;
             Array.Clear(stainPreviewNodes);
             categoryNodes.Clear();
             rows.Clear();
@@ -205,7 +203,7 @@ public sealed partial class BetterGlamourManagement
 
         private void RebuildRows()
         {
-            HideDyeTooltip();
+            tabBarNode?.HideTooltip();
             UpdateStainPreviews();
             rows.Clear();
             var options = new List<BetterGlamourManagement.GlamourDyeOption>();
@@ -222,9 +220,7 @@ public sealed partial class BetterGlamourManagement
                 rows.Add(new(
                     options.GetRange(index, Math.Min(SWATCHES_PER_ROW, options.Count - index)),
                     item is null ? (byte)0 : selectedStain == 0 ? item.Stain0 : item.Stain1,
-                    SelectDye,
-                    ShowDyeTooltip,
-                    HideDyeTooltip));
+                    SelectDye));
             }
 
             if (listNode is not null)
@@ -243,6 +239,13 @@ public sealed partial class BetterGlamourManagement
 
             const float CATEGORY_WIDTH = 42f;
             const float GAP = 8f;
+            var listPosition = new Vector2(ContentStartPosition.X + CATEGORY_WIDTH + GAP, ContentStartPosition.Y + 38f);
+            var listSize = new Vector2(
+                MathF.Max(120f, ContentSize.X - CATEGORY_WIDTH - GAP),
+                MathF.Max(80f, ContentSize.Y - 38f));
+            if (listNode.Position == listPosition && listNode.Size == listSize)
+                return;
+
             tabBarNode.Position = ContentStartPosition;
             tabBarNode.Size = new(ContentSize.X, 28f);
             var tabWidth = ContentSize.X / stainPreviewNodes.Length;
@@ -261,10 +264,8 @@ public sealed partial class BetterGlamourManagement
                 categoryNodes[index].Size = new(36f, 36f);
             }
 
-            listNode.Position = new(ContentStartPosition.X + CATEGORY_WIDTH + GAP, ContentStartPosition.Y + 38f);
-            listNode.Size = new(
-                MathF.Max(120f, ContentSize.X - CATEGORY_WIDTH - GAP),
-                MathF.Max(80f, ContentSize.Y - 38f));
+            listNode.Position = listPosition;
+            listNode.Size = listSize;
         }
 
         private void UpdateStainPreviews()
@@ -280,56 +281,8 @@ public sealed partial class BetterGlamourManagement
                 var option = BetterGlamourManagement.DyeOptions.Find(option => option.ID == stainID);
                 node.SetDye(stainID, option.ID == 0 ? KnownColor.White.Vector() : option.Color);
                 node.IsSelected = index == selectedStain;
-                node.SetFixedTooltip(
-                    option.Name ?? BetterGlamourManagement.GetDyeName(stainID),
-                    ShowDyeTooltip,
-                    HideDyeTooltip);
+                node.CollisionNode.SetTextTooltip(option.Name ?? BetterGlamourManagement.GetDyeName(stainID));
             }
-        }
-
-        private void ShowDyeTooltip(BetterGlamourDyeColorNode anchor, string text)
-        {
-            if (tooltipNode is null || text.Length == 0)
-            {
-                return;
-            }
-
-            tooltipAnchor = anchor;
-            tooltipNode.String = text;
-            var textSize = tooltipNode.TextNode.GetTextDrawSize(false);
-            tooltipNode.Size = new(MathF.Max(64f, textSize.X + 18f), MathF.Max(24f, textSize.Y + 6f));
-            tooltipNode.IsVisible = true;
-            PositionTooltip();
-        }
-
-        private void HideDyeTooltip()
-        {
-            tooltipAnchor = null;
-            if (tooltipNode is not null)
-            {
-                tooltipNode.IsVisible = false;
-            }
-        }
-
-        private unsafe void PositionTooltip()
-        {
-            if (tooltipNode is not { IsVisible: true } || tooltipAnchor is null)
-            {
-                return;
-            }
-
-            AtkUnitBase* addon = this;
-            var scale = MathF.Max(0.01f, addon->GetScale());
-            var anchorPosition = (tooltipAnchor.ScreenPosition - new Vector2(addon->X, addon->Y)) / scale;
-            var maxX = MathF.Max(
-                ContentStartPosition.X,
-                ContentStartPosition.X + ContentSize.X - tooltipNode.Width);
-            tooltipNode.Position = new(
-                Math.Clamp(
-                    anchorPosition.X + (tooltipAnchor.Width - tooltipNode.Width) / 2f,
-                    ContentStartPosition.X,
-                    maxX),
-                MathF.Max(4f, anchorPosition.Y - tooltipNode.Height - 4f));
         }
 
         private static int GetCategory(BetterGlamourManagement.GlamourDyeOption option)
