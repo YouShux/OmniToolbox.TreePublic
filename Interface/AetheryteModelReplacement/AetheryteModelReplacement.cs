@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
@@ -22,27 +23,39 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using LuminaAetheryte = Lumina.Excel.Sheets.Aetheryte;
 using LuminaTerritoryType = Lumina.Excel.Sheets.TerritoryType;
-using ModuleBase = OmniToolbox.Common.Module.Abstractions.ModuleBase;
+using OmniModuleBase = OmniToolbox.Common.Module.Abstractions.OmniModuleBase;
 
 namespace OmniToolbox.TreePublic;
 
+[ModuleApiVersion(1)]
 public sealed unsafe partial class AetheryteModelReplacement(
     AetheryteModelReplacement.Settings config,
-    System.Action saveConfig) : ModuleBase
+    System.Action saveConfig) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("AetheryteModelReplacementTitle"),
-        Description = OmniLoc.Get("AetheryteModelReplacementDescription"),
         Category = ModuleCategory.Interface,
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/AetheryteModelReplacement-1.png"
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "AetheryteModelReplacementTitle",
+            ["Description"] = "AetheryteModelReplacementDescription",
+            ["Feature.AetheryteModelReplacement.Actions"] = "Feature.AetheryteModelReplacement.Actions",
+            ["Feature.AetheryteModelReplacement.AddRule"] = "Feature.AetheryteModelReplacement.AddRule",
+            ["Feature.AetheryteModelReplacement.DeleteRule"] = "Feature.AetheryteModelReplacement.DeleteRule",
+            ["Feature.AetheryteModelReplacement.PresetsLoading"] = "Feature.AetheryteModelReplacement.PresetsLoading",
+            ["Feature.AetheryteModelReplacement.PresetsUnavailable"] = "Feature.AetheryteModelReplacement.PresetsUnavailable",
+            ["Feature.AetheryteModelReplacement.Source"] = "Feature.AetheryteModelReplacement.Source",
+            ["Feature.AetheryteModelReplacement.Target"] = "Feature.AetheryteModelReplacement.Target"
+        });
 
     public override bool HasSettings => true;
 
@@ -58,11 +71,10 @@ public sealed unsafe partial class AetheryteModelReplacement(
     private Dictionary<RedirectKey, string> redirectTargets = [];
     private bool redirectsDirty = true;
     private uint currentTerritoryID;
-    private FeatureLifetime? runtimeLifetime;
 
     internal bool IsPresetScanPending => presetScanCache is null && !presetScanFailed;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
         if (EnsureRules())
         {
@@ -96,54 +108,36 @@ public sealed unsafe partial class AetheryteModelReplacement(
         }
 
         presets = presetScanCache?.Presets ?? presets;
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 250))
-            {
-                throw new InvalidOperationException("Aetheryte model replacement update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            getResourceSyncHook = DService.Instance().Hook.HookFromMemberFunction(
-                typeof(ResourceManager.MemberFunctionPointers),
-                "GetResourceSync",
-                (ResourceManager.Delegates.GetResourceSync)GetResourceSyncDetour);
-            lifetime.Add(ReleaseResourceHooks);
-            getResourceAsyncHook = DService.Instance().Hook.HookFromMemberFunction(
-                typeof(ResourceManager.MemberFunctionPointers),
-                "GetResourceAsync",
-                (ResourceManager.Delegates.GetResourceAsync)GetResourceAsyncDetour);
-            getResourceSyncHook.Enable();
-            getResourceAsyncHook.Enable();
-            Volatile.Write(ref currentTerritoryID, DService.Instance().ClientState.TerritoryType);
-            UpdateResourceRedirect(true);
-            var clientState = DService.Instance().ClientState;
-            clientState.TerritoryChanged += OnTerritoryChanged;
-            lifetime.Add(() => clientState.TerritoryChanged -= OnTerritoryChanged);
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            runtimeLifetime = null;
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             presetScanProgress = null;
             DisableResourceRedirect();
+        });
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 250))
+        {
+            throw new InvalidOperationException("Aetheryte model replacement update registration failed.");
         }
+
+        lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+        getResourceSyncHook = DService.Instance().Hook.HookFromMemberFunction(
+            typeof(ResourceManager.MemberFunctionPointers),
+            "GetResourceSync",
+            (ResourceManager.Delegates.GetResourceSync)GetResourceSyncDetour);
+        lifetime.Add(ReleaseResourceHooks);
+        getResourceAsyncHook = DService.Instance().Hook.HookFromMemberFunction(
+            typeof(ResourceManager.MemberFunctionPointers),
+            "GetResourceAsync",
+            (ResourceManager.Delegates.GetResourceAsync)GetResourceAsyncDetour);
+        lifetime.OnStopping(getResourceSyncHook.Disable);
+        getResourceSyncHook.Enable();
+        lifetime.OnStopping(getResourceAsyncHook.Disable);
+        getResourceAsyncHook.Enable();
+        Volatile.Write(ref currentTerritoryID, DService.Instance().ClientState.TerritoryType);
+        UpdateResourceRedirect(true);
+        var clientState = DService.Instance().ClientState;
+        lifetime.OnStopping(() => clientState.TerritoryChanged -= OnTerritoryChanged);
+        clientState.TerritoryChanged += OnTerritoryChanged;
     }
 
     public override bool DrawSettings()
@@ -590,7 +584,6 @@ public sealed unsafe partial class AetheryteModelReplacement(
 
     private readonly record struct RedirectKey(uint TerritoryID, string SourcePath);
 
-
     #region 常量
 
     private const int PRESET_CACHE_SCHEMA_VERSION = 1;
@@ -606,6 +599,5 @@ public sealed unsafe partial class AetheryteModelReplacement(
         public string PresetCacheGameDataVersion { get; set; } = string.Empty;
 
         public PresetScanResult? CachedPresetScan { get; set; }
-
     }
 }

@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Enums;
 using OmenTools.OmenService;
@@ -8,16 +9,22 @@ using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed class GlamourName : ModuleBase
+[ModuleApiVersion(1)]
+public sealed class GlamourName : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("GlamourNameTitle"),
-        Description = OmniLoc.Get("GlamourNameDescription"),
         Category = ModuleCategory.Item,
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Item/GlamourName-1.png"
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "GlamourNameTitle",
+            ["Description"] = "GlamourNameDescription"
+        });
 
     private readonly TooltipManager.ItemTooltipUpdateDelegate tooltipHandler;
     private TooltipManager? tooltipManager;
@@ -27,18 +34,18 @@ public sealed class GlamourName : ModuleBase
         tooltipHandler = OnItemTooltip;
     }
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => tooltipManager?.Unreg(tooltipHandler));
+
         tooltipManager = TooltipManager.Instance();
         tooltipManager.RegItem(tooltipHandler);
         tooltipManager.TriggerItemDetailUpdate();
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        var manager = tooltipManager!;
-        manager.Unreg(tooltipHandler);
-        manager.TriggerItemDetailUpdate();
+        tooltipManager?.TriggerItemDetailUpdate();
         tooltipManager = null;
     }
 

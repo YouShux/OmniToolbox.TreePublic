@@ -1,4 +1,5 @@
 using Item = Lumina.Excel.Sheets.Item;
+using System.Linq;
 using System.Drawing;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Input;
@@ -11,6 +12,7 @@ using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
+using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.UI;
 using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;
@@ -42,6 +44,8 @@ public sealed partial class BetterGlamourManagement
             base.OnSizeChanged();
             nameNode.Position = new(4f, 0f);
             nameNode.Size = new(MathF.Max(20f, Width - 6f), Height);
+            if (!TextTooltip.IsEmpty)
+                nameNode.String = TextTooltip;
         }
 
         protected override void SetNodeData(BetterGlamourPreset itemData)
@@ -49,15 +53,15 @@ public sealed partial class BetterGlamourManagement
             var name = string.IsNullOrWhiteSpace(itemData.Name)
                 ? OmniLoc.Get("Feature.BetterGlamourManagement.WindowTitle")
                 : itemData.Name;
-            var label = itemData.GearsetIndex >= 0
+            var gearsets = itemData.GetGearsetIndices(DService.Instance().PlayerState.ContentId);
+            var label = gearsets.Count > 0
                 ? string.Format(
                     OmniLoc.Get("Feature.BetterGlamourManagement.PresetList.Bound"),
                     name,
-                    itemData.GearsetIndex + 1)
+                    string.Join(", ", gearsets.Select(static index => index + 1)))
                 : string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.PresetList.Unbound"), name);
-            OnSizeChanged();
-            nameNode.String = label;
             TextTooltip = label;
+            OnSizeChanged();
         }
     }
 

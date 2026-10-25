@@ -49,7 +49,7 @@ public sealed partial class AutoIshgardRestoration
 
         if (artisanIsBusy?.InvokeFunc() == true)
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ArtisanBusy"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ArtisanBusy"));
             return;
         }
 
@@ -61,14 +61,14 @@ public sealed partial class AutoIshgardRestoration
         craftCycleStartingItemCount = snapshot.ItemCount;
         if (craftItem is null)
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ArtisanUnavailable"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ArtisanUnavailable"));
             return;
         }
 
         artisanStartedByModule = true;
         craftItem.InvokeAction((ushort)recipe.RecipeID, 9999);
         EnterPhase(AutomationPhase.WaitArtisanStart);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ArtisanStarting"), reason, recipe.ItemName);
+        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ArtisanStarting"), reason, recipe.ItemName);
     }
 
     private void RequestArtisanStop()

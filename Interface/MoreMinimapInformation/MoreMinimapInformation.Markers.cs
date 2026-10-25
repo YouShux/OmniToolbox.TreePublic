@@ -168,7 +168,7 @@ public sealed unsafe partial class MoreMinimapInformation
                 Position = new Vector2(level.X, level.Z),
                 IconId = 60653,
                 Size = new Vector2(24f),
-                TextTooltip = OmniLoc.Get("Feature.MoreMinimapInformation.AetherCurrents"),
+                TextTooltip = OmniLoc.Get(this, "Feature.MoreMinimapInformation.AetherCurrents"),
                 IsVisible = false
             };
             aetherCurrentMarkers.Add(marker);

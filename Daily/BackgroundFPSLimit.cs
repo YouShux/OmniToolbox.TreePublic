@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -14,22 +15,32 @@ using ClientFramework = FFXIVClientStructs.FFXIV.Client.System.Framework.Framewo
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Settings config) : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Settings config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("BackgroundFPSLimitTitle"),
-        Description = OmniLoc.Get("BackgroundFPSLimitDescription"),
         Category = ModuleCategory.Daily
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "BackgroundFPSLimitTitle",
+            ["Description"] = "BackgroundFPSLimitDescription",
+            ["Feature.BackgroundFPSLimit.Help"] = "Feature.BackgroundFPSLimit.Help",
+            ["Feature.BackgroundFPSLimit.Target"] = "Feature.BackgroundFPSLimit.Target"
+        });
 
     public override bool HasSettings => true;
 
     private readonly Stopwatch frameTimer = new();
     private SafeWaitHandle? frameWaitHandle;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnUpdate));
+
         try
         {
             frameWaitHandle = CreateWaitableTimerExW(
@@ -57,9 +68,8 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
         }
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        FrameworkManager.Instance().Unreg(OnUpdate);
         frameWaitHandle?.Dispose();
         frameWaitHandle = null;
         frameTimer.Reset();
@@ -68,7 +78,7 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
     public override bool DrawSettings()
     {
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.BackgroundFPSLimit.Target"));
+        ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.BackgroundFPSLimit.Target"));
         var inputWidth = OmniControls.MeasureInput(short.MaxValue.ToString(), OmniTheme.Scale(120f), step: 1).X;
         OmniControls.SameLineOrWrap(inputWidth);
         ImGui.SetNextItemWidth(inputWidth);
@@ -80,7 +90,7 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
 
         var save = ImGui.IsItemDeactivatedAfterEdit();
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.BackgroundFPSLimit.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.BackgroundFPSLimit.Help"));
         return save;
     }
 
@@ -104,7 +114,7 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
             }
             catch (Win32Exception)
             {
-                SetEnabled(false);
+                RequestEnabled(false);
                 throw;
             }
         }

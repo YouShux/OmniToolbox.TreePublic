@@ -23,20 +23,20 @@ public sealed partial class AutoIshgardRestoration
             StopOwnedTeleport();
             movableSince = null;
             EnterPhase(AutomationPhase.WaitForPlayerMovable);
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.EnteredFirmament");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.EnteredFirmament");
             return;
         }
 
         if (!firmamentTravelStartedByModule || !isTeleportBusy())
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.TeleportCommandFailed"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.TeleportCommandFailed"));
             return;
         }
 
-        status = OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForFirmament");
+        status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForFirmament");
         if (PhaseTimedOut(TimeSpan.FromMinutes(3)))
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.FirmamentTeleportTimedOut"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.FirmamentTeleportTimedOut"));
         }
     }
 
@@ -45,36 +45,36 @@ public sealed partial class AutoIshgardRestoration
         if (DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
         {
             movableSince = null;
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForStableTerritory");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForStableTerritory");
             return;
         }
 
         if (!IsPlayerMovable())
         {
             movableSince = null;
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForPlayerMovable");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForPlayerMovable");
             return;
         }
 
         movableSince ??= DateTime.UtcNow;
         if (DateTime.UtcNow - movableSince.Value < TimeSpan.FromSeconds(1))
         {
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForContinuousMovability");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForContinuousMovability");
             return;
         }
 
         if (!vnavmeshIPC.IsPluginEnabled())
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.NavigationUnavailable"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.NavigationUnavailable"));
             return;
         }
 
         if (!vnavmeshIPC.GetIsNavReady())
         {
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForNavigationReady");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForNavigationReady");
             if (PhaseTimedOut(TimeSpan.FromSeconds(90)))
             {
-                FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.NavigationNotReady"));
+                FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.NavigationNotReady"));
             }
             return;
         }
@@ -87,28 +87,28 @@ public sealed partial class AutoIshgardRestoration
         vnavPathStartedByModule = true;
         EnterPhase(AutomationPhase.MoveToInitialPoint);
         nextActionAt = DateTime.UtcNow.AddSeconds(5);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.MovingToCraftingPoint"), FormatPosition(initialDestination));
+        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.MovingToCraftingPoint"), FormatPosition(initialDestination));
     }
 
     private void DriveMoveToInitialPoint(RecipeOption recipe)
     {
         if (DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.LeftFirmamentDuringTravel"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.LeftFirmamentDuringTravel"));
             return;
         }
 
         var player = DService.Instance().ObjectTable.LocalPlayer;
         if (player is null)
         {
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForPlayerPosition");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForPlayerPosition");
             return;
         }
 
         if (Vector3.Distance(player.Position, initialDestination) <= 2f)
         {
             StopOwnedVnavPath();
-            StartCraftingCycle(recipe, OmniLoc.Get("Feature.AutoIshgardRestoration.ReachedCraftingPoint"));
+            StartCraftingCycle(recipe, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ReachedCraftingPoint"));
             return;
         }
 
@@ -119,10 +119,10 @@ public sealed partial class AutoIshgardRestoration
             nextActionAt = DateTime.UtcNow.AddSeconds(5);
         }
 
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.MovingToCraftingPoint"), FormatPosition(initialDestination));
+        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.MovingToCraftingPoint"), FormatPosition(initialDestination));
         if (PhaseTimedOut(TimeSpan.FromSeconds(90)))
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.CraftingPointTravelTimedOut"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.CraftingPointTravelTimedOut"));
         }
     }
 

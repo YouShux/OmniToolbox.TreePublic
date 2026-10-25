@@ -90,6 +90,7 @@ public sealed partial class BetterGlamourManagement
             preset.Name = preset.Name.Trim();
             preset.ID = Guid.NewGuid().ToString("N");
             preset.GearsetIndex = -1;
+            preset.GearsetBindings = [];
             return preset;
         }
     }

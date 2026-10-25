@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Diagnostics;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
@@ -10,19 +11,32 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class BattleTalkAdjustments : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("BattleTalkAdjustmentsTitle"),
-        Description = OmniLoc.Get("BattleTalkAdjustmentsDescription"),
         Category = ModuleCategory.Combat
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "BattleTalkAdjustmentsTitle",
+            ["Description"] = "BattleTalkAdjustmentsDescription",
+            ["Feature.BattleTalkAdjustments.Offset"] = "Feature.BattleTalkAdjustments.Offset",
+            ["Feature.BattleTalkAdjustments.PreviewSpeaker"] = "Feature.BattleTalkAdjustments.PreviewSpeaker",
+            ["Feature.BattleTalkAdjustments.PreviewText"] = "Feature.BattleTalkAdjustments.PreviewText",
+            ["Feature.BattleTalkAdjustments.Scale"] = "Feature.BattleTalkAdjustments.Scale",
+            ["Feature.BattleTalkAdjustments.Territory.Blacklist"] = "Feature.BattleTalkAdjustments.Territory.Blacklist",
+            ["Feature.BattleTalkAdjustments.Territory.Whitelist"] = "Feature.BattleTalkAdjustments.Territory.Whitelist",
+            ["Feature.BattleTalkAdjustments.Territory.WorkMode"] = "Feature.BattleTalkAdjustments.Territory.WorkMode",
+            ["Feature.BattleTalkAdjustments.Territory.WorkMode.Help"] = "Feature.BattleTalkAdjustments.Territory.WorkMode.Help"
+        });
 
     public override bool HasSettings => true;
 
@@ -32,7 +46,6 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
     private Vector2 nativeScale = Vector2.One;
     private bool hasNativeScale;
     private bool rootHidden;
-    private FeatureLifetime? runtimeLifetime;
 
     public BattleTalkAdjustments(BattleTalkAdjustmentsConfig config)
     {
@@ -40,9 +53,37 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         config.Scale = Math.Clamp(config.Scale <= 0f ? 1f : config.Scale, 0.01f, 3f);
     }
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        runtimeLifetime = new();
+        var lifetime = Activation;
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PreShow,
+            ADDON_NAME,
+            OnPreShow));
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PreUpdate,
+            ADDON_NAME,
+            OnLayoutUpdated));
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostShow,
+            ADDON_NAME,
+            OnLayoutUpdated));
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PreDraw,
+            ADDON_NAME,
+            OnPreDraw));
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostUpdate,
+            ADDON_NAME,
+            OnLayoutUpdated));
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostDraw,
+            ADDON_NAME,
+            OnPostDraw));
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PreFinalize,
+            ADDON_NAME,
+            OnPreFinalize));
         DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreShow, ADDON_NAME, OnPreShow);
         DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreUpdate, ADDON_NAME, OnLayoutUpdated);
         DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PostShow, ADDON_NAME, OnLayoutUpdated);
@@ -50,41 +91,11 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PostUpdate, ADDON_NAME, OnLayoutUpdated);
         DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PostDraw, ADDON_NAME, OnPostDraw);
         DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreFinalize, ADDON_NAME, OnPreFinalize);
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PreShow,
-            ADDON_NAME,
-            OnPreShow));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PreUpdate,
-            ADDON_NAME,
-            OnLayoutUpdated));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PostShow,
-            ADDON_NAME,
-            OnLayoutUpdated));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PreDraw,
-            ADDON_NAME,
-            OnPreDraw));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PostUpdate,
-            ADDON_NAME,
-            OnLayoutUpdated));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PostDraw,
-            ADDON_NAME,
-            OnPostDraw));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PreFinalize,
-            ADDON_NAME,
-            OnPreFinalize));
         ApplyLayout(Addons.BattleTalk);
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        runtimeLifetime?.Dispose();
-        runtimeLifetime = null;
         Restore(Addons.BattleTalk);
     }
 
@@ -92,8 +103,8 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
     {
         var changed = false;
         var settingsChanged = false;
-        var scaleLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Scale");
-        var offsetLabel = OmniLoc.Get("Feature.BattleTalkAdjustments.Offset");
+        var scaleLabel = OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Scale");
+        var offsetLabel = OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Offset");
         var scaleSize = OmniControls.MeasureFloatInput(config.Scale, "%.2fx");
         var offsetSize = OmniControls.MeasureGroup([OmniControls.MeasureInput("-1500"), OmniControls.MeasureInput("-1500")]);
         var groupWidth = MathF.Max(ImGui.CalcTextSize(scaleLabel).X + scaleSize.X,
@@ -155,10 +166,10 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
 
         ImGui.Spacing();
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.BattleTalkAdjustments.Territory.WorkMode"));
+        ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Territory.WorkMode"));
         ImGui.SameLine();
         if (OmniControls.RadioButton(
-                $"{OmniLoc.Get("Feature.BattleTalkAdjustments.Territory.Blacklist")}##battleTalkAdjustmentsBlacklist",
+                $"{OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Territory.Blacklist")}##battleTalkAdjustmentsBlacklist",
                 !config.UseWhitelist))
         {
             config.UseWhitelist = false;
@@ -167,7 +178,7 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
 
         ImGui.SameLine();
         if (OmniControls.RadioButton(
-                $"{OmniLoc.Get("Feature.BattleTalkAdjustments.Territory.Whitelist")}##battleTalkAdjustmentsWhitelist",
+                $"{OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Territory.Whitelist")}##battleTalkAdjustmentsWhitelist",
                 config.UseWhitelist))
         {
             config.UseWhitelist = true;
@@ -175,7 +186,7 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
         }
 
         ImGui.SameLine();
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.BattleTalkAdjustments.Territory.WorkMode.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Territory.WorkMode.Help"));
         ImGui.Spacing();
         changed |= territorySelector.Draw(
             config.UseWhitelist ? config.WhitelistTerritoryIDs : config.BlacklistTerritoryIDs,
@@ -188,8 +199,8 @@ public sealed unsafe class BattleTalkAdjustments : ModuleBase
             if (battleTalk == null || !battleTalk->IsVisible)
             {
                 UIModule.Instance()->ShowBattleTalk(
-                    OmniLoc.Get("Feature.BattleTalkAdjustments.PreviewSpeaker"),
-                    OmniLoc.Get("Feature.BattleTalkAdjustments.PreviewText"),
+                    OmniLoc.Get(this, "Feature.BattleTalkAdjustments.PreviewSpeaker"),
+                    OmniLoc.Get(this, "Feature.BattleTalkAdjustments.PreviewText"),
                     10f,
                     1);
                 previewTimer.Restart();

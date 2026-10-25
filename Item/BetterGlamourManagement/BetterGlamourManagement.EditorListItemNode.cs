@@ -1,11 +1,13 @@
 using System.Drawing;
+using Dalamud.Game.ClientState.Keys;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
-using Lumina.Excel.Sheets;
+using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
+using OmniToolbox.Host;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
@@ -14,7 +16,7 @@ public sealed partial class BetterGlamourManagement
 {
     internal sealed class BetterGlamourEditorListItemNode : ListItemNode<BetterGlamourEditorPair>, IListItemNode
     {
-        public static float ItemHeight => 64f;
+        public static float ItemHeight => 60f;
 
         private readonly EquipmentCell left = new();
         private readonly EquipmentCell right = new();
@@ -29,9 +31,9 @@ public sealed partial class BetterGlamourManagement
         protected override void OnSizeChanged()
         {
             base.OnSizeChanged();
-            var cellWidth = MathF.Max(1f, (Width - 28f) / 2f);
+            var cellWidth = MathF.Max(1f, (Width - 12f) / 2f);
             left.Position = Vector2.Zero;
-            right.Position = new(cellWidth + 28f, 0f);
+            right.Position = new(cellWidth + 12f, 0f);
             left.Size = right.Size = new(cellWidth, ItemHeight);
         }
 
@@ -47,11 +49,12 @@ public sealed partial class BetterGlamourManagement
             private readonly CollisionNode titleInput;
             private readonly BetterGlamourItemIconNode icon;
             private readonly BetterGlamourDyeColorNode[] dyes = new BetterGlamourDyeColorNode[2];
+            private readonly TextureButtonNode swapDyes;
             private readonly CheckboxNode highlights;
             private BetterGlamourEditorRow? row;
             private bool settingData;
 
-            public EquipmentCell()
+            public unsafe EquipmentCell()
             {
                 title = new()
                 {
@@ -60,25 +63,57 @@ public sealed partial class BetterGlamourManagement
                 };
                 title.AttachNode(this);
                 titleInput = new() { ShowClickableCursor = true };
-                titleInput.AddEvent(AtkEventType.MouseClick, () => row?.OpenItem());
+                AtkEventListener.Delegates.ReceiveEvent onItemClick = (_, _, _, _, eventData) =>
+                {
+                    if (eventData is null)
+                        return;
+                    if (eventData->IsLeftClick)
+                        row?.OpenItem();
+                    else if (eventData->IsRightClick)
+                    {
+                        if (DalamudServices.KeyState[VirtualKey.CONTROL])
+                            row?.UndoItem?.Invoke();
+                        else
+                            row?.ClearItem?.Invoke();
+                    }
+                };
+                titleInput.AddEvent(AtkEventType.MouseClick, onItemClick);
                 titleInput.AttachNode(this);
                 icon = new();
                 icon.CollisionNode.ShowClickableCursor = true;
-                icon.CollisionNode.AddEvent(AtkEventType.MouseClick, () => row?.OpenItem());
+                icon.CollisionNode.AddEvent(AtkEventType.MouseClick, onItemClick);
                 icon.AttachNode(this);
                 for (var index = 0; index < dyes.Length; index++)
                 {
                     var channel = index;
                     var dye = new BetterGlamourDyeColorNode(2f, 0f, 0f);
                     dye.CollisionNode.ShowClickableCursor = true;
-                    dye.CollisionNode.AddEvent(AtkEventType.MouseClick, () =>
+                    dye.CollisionNode.AddEvent(AtkEventType.MouseClick, (_, _, _, _, eventData) =>
                     {
-                        if (dye.IsEnabled)
+                        if (!dye.IsEnabled || eventData is null)
+                            return;
+                        if (eventData->IsLeftClick)
                             row?.OpenDye?.Invoke(channel);
+                        else if (eventData->IsRightClick)
+                        {
+                            if (DalamudServices.KeyState[VirtualKey.CONTROL])
+                                row?.UndoDye?.Invoke(channel);
+                            else
+                                row?.ClearDye?.Invoke(channel);
+                        }
                     });
                     dye.AttachNode(this);
                     dyes[index] = dye;
                 }
+                swapDyes = new()
+                {
+                    TexturePath = "ui/uld/ColorantButton.tex",
+                    TextureCoordinates = new(72f, 0f),
+                    TextureSize = new(36f, 36f),
+                    TextTooltip = LuminaWrapper.GetAddonText(15975),
+                    OnClick = () => row?.SwapDyes?.Invoke()
+                };
+                swapDyes.AttachNode(this);
                 highlights = new()
                 {
                     DisableAutoResize = true,
@@ -95,22 +130,18 @@ public sealed partial class BetterGlamourManagement
             public void SetRow(BetterGlamourEditorRow value)
             {
                 row = value;
-                var name = value.Kind switch
+                if (value.Kind == BetterGlamourEditorItemKind.Item)
+                    icon.SetItem(value.Item?.ItemID ?? 0, value.Item?.Stain0 ?? 0, value.Item?.Stain1 ?? 0);
+                else
                 {
-                    BetterGlamourEditorItemKind.Hairstyle => GetHairstyleName(value.Preset.HairstyleID),
-                    BetterGlamourEditorItemKind.Glasses => GetGlassesName(value.Preset.GlassesID),
-                    _ => GetItemName(value.Item?.ItemID ?? 0)
-                };
-                title.String = $"{value.PartName}：{name}";
-                titleInput.TextTooltip = title.String;
-                icon.IconID = value.Kind switch
-                {
-                    BetterGlamourEditorItemKind.Hairstyle => GetHairstyleIcon(value.Preset.HairstyleID),
-                    BetterGlamourEditorItemKind.Glasses => GetGlassesIcon(value.Preset.GlassesID),
-                    _ => LuminaWrapper.GetItemIconID(value.Item?.ItemID ?? 0)
-                };
+                    icon.IconID = value.Kind == BetterGlamourEditorItemKind.Hairstyle
+                        ? GetHairstyleIcon(value.Preset.HairstyleID)
+                        : GetGlassesIcon(value.Preset.GlassesID);
+                }
                 icon.ItemTooltip = value.Kind == BetterGlamourEditorItemKind.Item ? value.Item?.ItemID ?? 0 : 0;
                 var isHair = value.Kind == BetterGlamourEditorItemKind.Hairstyle;
+                swapDyes.IsVisible = value.SwapDyes is not null;
+                swapDyes.IsEnabled = value.Item is { } equipment && equipment.Stain0 != equipment.Stain1;
                 highlights.IsVisible = isHair;
                 settingData = true;
                 try
@@ -142,11 +173,7 @@ public sealed partial class BetterGlamourManagement
                         var label = OmniLoc.Get(channel == 0
                             ? "Feature.BetterGlamourManagement.Column.Stain0"
                             : "Feature.BetterGlamourManagement.Column.Stain1");
-                        var tooltip = $"{label}：{GetDyeName(stain)}";
-                        if (item.ItemID == 0 ||
-                            LuminaGetter.TryGetRow<Item>(item.ItemID, out var itemRow) && itemRow.DyeCount <= channel)
-                            tooltip += $"\n{OmniLoc.Get("Feature.BetterGlamourManagement.DyeMayNotDisplay")}";
-                        dye.TextTooltip = tooltip;
+                        dye.TextTooltip = $"{label}：{GetDyeName(stain)}\n{OmniLoc.Get("Feature.BetterGlamourManagement.DyeClickHint")}";
                     }
                 }
                 OnSizeChanged();
@@ -155,17 +182,33 @@ public sealed partial class BetterGlamourManagement
             protected override void OnSizeChanged()
             {
                 base.OnSizeChanged();
-                title.Position = new(66f, 3f);
-                title.Size = new(MathF.Max(1f, Width - 66f), 22f);
+                title.Position = new(64f, 3f);
+                title.Size = new(MathF.Max(1f, Width - 64f), 22f);
                 titleInput.Position = title.Position;
                 titleInput.Size = title.Size;
-                icon.Position = new(0f, 4f);
+                if (row is { } value)
+                {
+                    var name = value.Kind switch
+                    {
+                        BetterGlamourEditorItemKind.Hairstyle => GetHairstyleName(value.Preset.HairstyleID),
+                        BetterGlamourEditorItemKind.Glasses => GetGlassesName(value.Preset.GlassesID),
+                        _ => GetItemName(value.Item?.ItemID ?? 0)
+                    };
+                    var label = $"{value.PartName}：{name}";
+                    title.String = label;
+                    titleInput.TextTooltip = value.UndoItem is not null
+                        ? $"{label}\n{OmniLoc.Get("Feature.BetterGlamourManagement.ItemClickHint")}"
+                        : label;
+                }
+                icon.Position = new(0f, 2f);
                 icon.Size = new(56f, 56f);
-                dyes[0].Position = new(66f, 30f);
-                dyes[1].Position = new(100f, 30f);
+                dyes[0].Position = new(64f, 28f);
+                dyes[1].Position = new(98f, 28f);
                 foreach (var dye in dyes)
                     dye.Size = new(28f, 28f);
-                highlights.Position = new(134f, 30f);
+                swapDyes.Position = new(132f, 28f);
+                swapDyes.Size = new(28f, 28f);
+                highlights.Position = new(132f, 28f);
                 highlights.Size = new(76f, 28f);
                 highlights.Label.Width = highlights.Width - highlights.Height;
                 highlights.Label.String = OmniLoc.Get("Feature.BetterGlamourManagement.Highlights");

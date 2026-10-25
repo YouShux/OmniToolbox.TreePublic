@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Linq;
 using Dalamud.Utility;
 using OmenTools;
@@ -11,14 +12,31 @@ using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class ItemTooltipRemark : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("ItemTooltipRemarkTitle"),
-        Description = OmniLoc.Get("ItemTooltipRemarkDescription"),
         Category = ModuleCategory.Item
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "ItemTooltipRemarkTitle",
+            ["Description"] = "ItemTooltipRemarkDescription",
+            ["Common.Action"] = "Common.Action",
+            ["Common.Delete"] = "Common.Delete",
+            ["Common.Item"] = "Common.Item",
+            ["Feature.ItemTooltipRemark.Color"] = "Feature.ItemTooltipRemark.Color",
+            ["Feature.ItemTooltipRemark.Edit"] = "Feature.ItemTooltipRemark.Edit",
+            ["Feature.ItemTooltipRemark.ItemId"] = "Feature.ItemTooltipRemark.ItemId",
+            ["Feature.ItemTooltipRemark.Load"] = "Feature.ItemTooltipRemark.Load",
+            ["Feature.ItemTooltipRemark.Menu"] = "Feature.ItemTooltipRemark.Menu",
+            ["Feature.ItemTooltipRemark.Prefix"] = "Feature.ItemTooltipRemark.Prefix",
+            ["Feature.ItemTooltipRemark.Remark"] = "Feature.ItemTooltipRemark.Remark",
+            ["Feature.ItemTooltipRemark.Save"] = "Feature.ItemTooltipRemark.Save"
+        });
 
     public override bool HasSettings => true;
 
@@ -39,7 +57,7 @@ public sealed unsafe partial class ItemTooltipRemark : ModuleBase
         tooltipHandler = OnItemTooltip;
     }
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
         var manager = TooltipManager.Instance();
         manager.RegItem(tooltipHandler);
@@ -49,7 +67,7 @@ public sealed unsafe partial class ItemTooltipRemark : ModuleBase
         manager.TriggerItemDetailUpdate();
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
         if (menuEntry != null)
             ContextMenuManager.Instance().Unreg(menuEntry);
@@ -79,7 +97,7 @@ public sealed unsafe partial class ItemTooltipRemark : ModuleBase
     {
         var changed = false;
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.Color"));
+        ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.ItemTooltipRemark.Color"));
         OmniControls.SameLineOrWrap(ImGui.GetFrameHeight());
         var color = UIColorPicker.Resolve(config.ColorKey, config.UseCustomColor, config.Color);
         if (UIColorPicker.Draw(
@@ -94,30 +112,30 @@ public sealed unsafe partial class ItemTooltipRemark : ModuleBase
         }
 
         var inputWidth = OmniControls.MeasureInput(int.MaxValue.ToString(), OmniTheme.Scale(120f)).X;
-        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.ItemTooltipRemark.ItemId")).X +
+        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.ItemTooltipRemark.ItemId")).X +
             inputWidth + ImGui.GetStyle().ItemSpacing.X, OmniTheme.Scale(12f));
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.ItemId"));
+        ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.ItemTooltipRemark.ItemId"));
         OmniControls.SameLineOrWrap(inputWidth);
         if (OmniControls.InputInt("##itemTooltipRemarkItemId", ref editingItemID, inputWidth) && editingItemID < 0)
         {
             editingItemID = 0;
         }
 
-        OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(OmniLoc.Get("Feature.ItemTooltipRemark.Load")).X);
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.ItemTooltipRemark.Load"), false))
+        OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(OmniLoc.Get(this, "Feature.ItemTooltipRemark.Load")).X);
+        if (OmniControls.SmallButton(OmniLoc.Get(this, "Feature.ItemTooltipRemark.Load"), false))
         {
             LoadEditor(GetEditingItemID(), false);
         }
 
-        OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(OmniLoc.Get("Feature.ItemTooltipRemark.Save")).X);
-        if (OmniControls.SmallButton(OmniLoc.Get("Feature.ItemTooltipRemark.Save"), false))
+        OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(OmniLoc.Get(this, "Feature.ItemTooltipRemark.Save")).X);
+        if (OmniControls.SmallButton(OmniLoc.Get(this, "Feature.ItemTooltipRemark.Save"), false))
         {
             changed |= SaveRemark(GetEditingItemID(), editingText, out editingText);
         }
 
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.ItemTooltipRemark.Remark"));
+        ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.ItemTooltipRemark.Remark"));
         if (focusTextInput)
         {
             ImGui.SetKeyboardFocusHere();
@@ -140,7 +158,7 @@ public sealed unsafe partial class ItemTooltipRemark : ModuleBase
         }
 
         ImGui.Separator();
-        var editLabel = OmniLoc.Get("Feature.ItemTooltipRemark.Edit");
+        var editLabel = OmniLoc.Get(this, "Feature.ItemTooltipRemark.Edit");
         var deleteLabel = OmniLoc.Get("Common.Delete");
         var editButtonSize = OmniControls.CompactButtonSize(editLabel);
         var deleteButtonSize = OmniControls.CompactButtonSize(deleteLabel);
@@ -159,7 +177,7 @@ public sealed unsafe partial class ItemTooltipRemark : ModuleBase
         {
             using var table = OmniControls.DataTable(
                 "##itemTooltipRemarkTable",
-                [OmniLoc.Get("Common.Item"), OmniLoc.Get("Feature.ItemTooltipRemark.Remark"), OmniLoc.Get("Common.Action")],
+                [OmniLoc.Get("Common.Item"), OmniLoc.Get(this, "Feature.ItemTooltipRemark.Remark"), OmniLoc.Get("Common.Action")],
                 [iconSize + OmniTheme.Scale(6f) + ImGui.GetFontSize() * 4f, ImGui.GetFontSize() * 4f,
                     MathF.Max(editButtonSize.X, deleteButtonSize.X)],
                 [OmniTheme.Scale(220f), OmniTheme.Scale(330f), actionSize.X],
@@ -183,7 +201,7 @@ public sealed unsafe partial class ItemTooltipRemark : ModuleBase
                 ImGui.TableSetupScrollFreeze(0, 1);
                 OmniControls.BeginTableHeaderRow();
                 OmniControls.TableHeader(OmniLoc.Get("Common.Item"));
-                OmniControls.TableHeader(OmniLoc.Get("Feature.ItemTooltipRemark.Remark"));
+                OmniControls.TableHeader(OmniLoc.Get(this, "Feature.ItemTooltipRemark.Remark"));
                 OmniControls.TableHeader(OmniLoc.Get("Common.Action"));
                 ImGui.TableSetColumnIndex(0);
                 var itemWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X);
@@ -231,7 +249,7 @@ public sealed unsafe partial class ItemTooltipRemark : ModuleBase
                 ImGui.TableNextColumn();
                 ItemSelectionTable.DrawItemCell(itemId, detailLayout ? 0f : rowContentHeight, iconSize, wrapName: true);
 
-                OmniControls.NextTableField(OmniLoc.Get("Feature.ItemTooltipRemark.Remark"), detailLayout);
+                OmniControls.NextTableField(OmniLoc.Get(this, "Feature.ItemTooltipRemark.Remark"), detailLayout);
                 OmniControls.TableTextCentered(remark, detailLayout ? 0f : rowContentHeight);
                 OmniControls.HelpTooltip(remark);
 
@@ -342,7 +360,7 @@ public sealed unsafe partial class ItemTooltipRemark : ModuleBase
         }
 
         builder.Builder
-            .Append(OmniLoc.Get("Feature.ItemTooltipRemark.Prefix"))
+            .Append(OmniLoc.Get(this, "Feature.ItemTooltipRemark.Prefix"))
             .Append(remark);
         if (useCustomColor)
         {

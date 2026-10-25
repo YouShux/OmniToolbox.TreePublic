@@ -37,10 +37,10 @@ public sealed partial class AutoIshgardRestoration
         {
             if (!lottery->AtkUnitBase.IsReady)
             {
-                status = OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryInitializing");
+                status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryInitializing");
                 if (PhaseTimedOut(TimeSpan.FromSeconds(15)))
                 {
-                    FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryNotInitialized"));
+                    FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryNotInitialized"));
                 }
                 return;
             }
@@ -71,7 +71,7 @@ public sealed partial class AutoIshgardRestoration
 
         if (PhaseTimedOut(TimeSpan.FromSeconds(15)))
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryOpenFailed"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryOpenFailed"));
         }
     }
 
@@ -84,18 +84,18 @@ public sealed partial class AutoIshgardRestoration
             {
                 EnterPhase(AutomationPhase.PostLottery);
                 nextActionAt = DateTime.UtcNow.AddMilliseconds(700);
-                status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryTicketComplete"), ticketsToPlay);
+                status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryTicketComplete"), ticketsToPlay);
             }
             else if (PhaseTimedOut(TimeSpan.FromSeconds(10)))
             {
-                FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryClosedEarly"));
+                FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryClosedEarly"));
             }
             return;
         }
 
         if (!addon->AtkUnitBase.IsReady)
         {
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryPreparing");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryPreparing");
             return;
         }
 
@@ -122,12 +122,12 @@ public sealed partial class AutoIshgardRestoration
             {
                 ClickButton(&addon->AtkUnitBase, addon->CloseButton);
                 nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
-                status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryResultClosing"), ticketsToPlay);
+                status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryResultClosing"), ticketsToPlay);
             }
         }
         else if (addon->Stage == 2)
         {
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryRevealing"), ticketsToPlay);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryRevealing"), ticketsToPlay);
         }
         else if (!lotteryScratched && DateTime.UtcNow >= nextActionAt)
         {
@@ -143,12 +143,12 @@ public sealed partial class AutoIshgardRestoration
                 &eventData);
             lotteryScratchAttempts++;
             nextActionAt = DateTime.UtcNow.AddMilliseconds(1500);
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryScratchAttempt"), lotteryScratchAttempts);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryScratchAttempt"), lotteryScratchAttempts);
         }
 
         if (PhaseTimedOut(TimeSpan.FromSeconds(30)))
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryRevealTimedOut"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryRevealTimedOut"));
         }
     }
 
@@ -164,7 +164,7 @@ public sealed partial class AutoIshgardRestoration
         {
             if (!lottery->AtkUnitBase.IsReady)
             {
-                status = OmniLoc.Get("Feature.AutoIshgardRestoration.UI.NextLotteryInitializing");
+                status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.NextLotteryInitializing");
                 return;
             }
 
@@ -176,7 +176,7 @@ public sealed partial class AutoIshgardRestoration
             {
                 EnterPhase(AutomationPhase.PlayLottery);
                 nextActionAt = DateTime.UtcNow;
-                status = OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryContinuing");
+                status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryContinuing");
             }
             return;
         }
@@ -212,13 +212,13 @@ public sealed partial class AutoIshgardRestoration
                 .FirstOrDefault(o => GetBaseID(o.Address) == LOTTERY_NPC_ID && o.IsTargetable);
             if (npc is null)
             {
-                FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryNPCMissing"));
+                FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryNPCMissing"));
                 return;
             }
 
             if (!SendNPCEventStart(npc.Address))
             {
-                FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryNPCOpenFailed"));
+                FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryNPCOpenFailed"));
                 return;
             }
 
@@ -227,18 +227,18 @@ public sealed partial class AutoIshgardRestoration
             lotteryScratched = false;
             lotteryTicketCounted = false;
             lotteryScratchAttempts = 0;
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryRemaining"), ticketsToPlay);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryRemaining"), ticketsToPlay);
             return;
         }
 
         if (ReadInventory(activeItemID).ItemCount > 0)
         {
             EnterPhase(AutomationPhase.MoveToAppraiser);
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryReturnToSubmission"), recipe.ItemName);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryReturnToSubmission"), recipe.ItemName);
         }
         else
         {
-            BeginNextCraftingCycle(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.SubmissionLotteryComplete"));
+            BeginNextCraftingCycle(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.SubmissionLotteryComplete"));
         }
     }
 
@@ -249,7 +249,7 @@ public sealed partial class AutoIshgardRestoration
         lotteryScratched = false;
         lotteryTicketCounted = false;
         lotteryScratchAttempts = 0;
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.LotteryScratchPreparing"), ticketsToPlay);
+        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.LotteryScratchPreparing"), ticketsToPlay);
     }
 
     private static unsafe bool TryReadVoucherCount(out int current, out int limit)

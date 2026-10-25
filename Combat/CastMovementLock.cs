@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Plugin.Services;
@@ -16,14 +17,24 @@ using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class CastMovementLock : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe class CastMovementLock : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("CastMovementLockTitle"),
-        Description = OmniLoc.Get("CastMovementLockDescription"),
         Category = ModuleCategory.Combat
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "CastMovementLockTitle",
+            ["Description"] = "CastMovementLockDescription",
+            ["Feature.CastMovementLock.TemporaryMovementKey"] = "Feature.CastMovementLock.TemporaryMovementKey",
+            ["Feature.CastMovementLock.TemporaryMovementKey.Alt"] = "Feature.CastMovementLock.TemporaryMovementKey.Alt",
+            ["Feature.CastMovementLock.TemporaryMovementKey.Control"] = "Feature.CastMovementLock.TemporaryMovementKey.Control",
+            ["Feature.CastMovementLock.TemporaryMovementKey.Shift"] = "Feature.CastMovementLock.TemporaryMovementKey.Shift"
+        });
 
     private readonly Config config;
     private bool ownsMovementLock;
@@ -35,8 +46,10 @@ public sealed unsafe class CastMovementLock : ModuleBase
         config = configStore.GetOrCreate<Config>(ModuleName);
     }
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnUpdate));
+
         var input = InputIDManager.Instance();
         var framework = FrameworkManager.Instance();
         input.RegPrePressed(OnMovementInput);
@@ -46,22 +59,21 @@ public sealed unsafe class CastMovementLock : ModuleBase
         framework.Reg(OnUpdate);
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
         var input = InputIDManager.Instance();
         input.UnregPrePressed(OnMovementInput);
         input.UnregPreDown(OnMovementInput);
         input.UnregPreHeld(OnMovementInput);
         input.UnregPreReleased(OnMovementInput);
-        FrameworkManager.Instance().Unreg(OnUpdate);
         ReleaseMovementLock();
     }
 
     public override bool DrawSettings()
     {
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.CastMovementLock.TemporaryMovementKey"));
-        var preview = OmniLoc.Get($"Feature.CastMovementLock.TemporaryMovementKey.{config.TemporaryMovementKey}");
+        ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.CastMovementLock.TemporaryMovementKey"));
+        var preview = OmniLoc.Get(this, $"Feature.CastMovementLock.TemporaryMovementKey.{config.TemporaryMovementKey}");
         var width = OmniControls.MeasureCombo(preview, OmniTheme.Scale(140f)).X;
         OmniControls.SameLineOrWrap(width);
         if (OmniControls.BeginCombo("##castMovementLockTemporaryMovementKey", preview, width))
@@ -69,7 +81,7 @@ public sealed unsafe class CastMovementLock : ModuleBase
             foreach (var key in TemporaryMovementKeys)
             {
                 if (OmniControls.RoundedSelectable(
-                        OmniLoc.Get($"Feature.CastMovementLock.TemporaryMovementKey.{key}"),
+                        OmniLoc.Get(this, $"Feature.CastMovementLock.TemporaryMovementKey.{key}"),
                         config.TemporaryMovementKey == key))
                 {
                     config.TemporaryMovementKey = key;

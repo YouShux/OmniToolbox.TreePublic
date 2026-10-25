@@ -10,7 +10,7 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
-using OmenTools.Threading.TaskHelper;
+using TreeTools.Threading;
 using OmniToolbox.Commands;
 using OmniToolbox.Collections;
 using OmniToolbox.Common.Module.Abstractions;
@@ -18,26 +18,28 @@ using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Items;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
+[ModuleApiVersion(1)]
 public sealed unsafe partial class BetterGlamourManagement(
     BetterGlamourManagement.Settings config,
     Action saveConfig,
     ItemPreviewService itemPreviewService,
     ItemPatchMap itemPatchMap,
-    CollectionSourceService collectionSourceService) : ModuleBase
+    CollectionSourceService collectionSourceService,
+    Func<uint, bool> isInGlamourDresser,
+    Func<uint, bool> isInArmoire,
+    Func<long> getInventoryRevision) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("BetterGlamourManagementTitle"),
-        Description = OmniLoc.Get("BetterGlamourManagementDescription"),
         Category = ModuleCategory.Item,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Item/BetterGlamourManagement-1.png?v=a2e7f88",
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Item/BetterGlamourManagement-1.png?v=18138f9d",
         RequiresPrivateProvider = true,
         Commands =
         [
@@ -46,6 +48,132 @@ public sealed unsafe partial class BetterGlamourManagement(
                 OmniCommandCatalog.Format("glamourmanager"))
         ]
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "BetterGlamourManagementTitle",
+            ["Description"] = "BetterGlamourManagementDescription",
+            ["Feature.BetterGlamourManagement.Apply"] = "Feature.BetterGlamourManagement.Apply",
+            ["Feature.BetterGlamourManagement.BindGearset"] = "Feature.BetterGlamourManagement.BindGearset",
+            ["Feature.BetterGlamourManagement.BindGearsetHint"] = "Feature.BetterGlamourManagement.BindGearsetHint",
+            ["Feature.BetterGlamourManagement.BoundGearsets"] = "Feature.BetterGlamourManagement.BoundGearsets",
+            ["Feature.BetterGlamourManagement.Clear"] = "Feature.BetterGlamourManagement.Clear",
+            ["Feature.BetterGlamourManagement.ClearGearsetBindings"] = "Feature.BetterGlamourManagement.ClearGearsetBindings",
+            ["Feature.BetterGlamourManagement.ClearTryOn"] = "Feature.BetterGlamourManagement.ClearTryOn",
+            ["Feature.BetterGlamourManagement.Column.Stain0"] = "Feature.BetterGlamourManagement.Column.Stain0",
+            ["Feature.BetterGlamourManagement.Column.Stain1"] = "Feature.BetterGlamourManagement.Column.Stain1",
+            ["Feature.BetterGlamourManagement.CommandDescription"] = "Feature.BetterGlamourManagement.CommandDescription",
+            ["Feature.BetterGlamourManagement.Copied"] = "Feature.BetterGlamourManagement.Copied",
+            ["Feature.BetterGlamourManagement.CreateFailed"] = "Feature.BetterGlamourManagement.CreateFailed",
+            ["Feature.BetterGlamourManagement.DefaultName"] = "Feature.BetterGlamourManagement.DefaultName",
+            ["Feature.BetterGlamourManagement.Delete"] = "Feature.BetterGlamourManagement.Delete",
+            ["Feature.BetterGlamourManagement.Dye"] = "Feature.BetterGlamourManagement.Dye",
+            ["Feature.BetterGlamourManagement.DyeCategory.Blue"] = "Feature.BetterGlamourManagement.DyeCategory.Blue",
+            ["Feature.BetterGlamourManagement.DyeCategory.Brown"] = "Feature.BetterGlamourManagement.DyeCategory.Brown",
+            ["Feature.BetterGlamourManagement.DyeCategory.Green"] = "Feature.BetterGlamourManagement.DyeCategory.Green",
+            ["Feature.BetterGlamourManagement.DyeCategory.Neutral"] = "Feature.BetterGlamourManagement.DyeCategory.Neutral",
+            ["Feature.BetterGlamourManagement.DyeCategory.Purple"] = "Feature.BetterGlamourManagement.DyeCategory.Purple",
+            ["Feature.BetterGlamourManagement.DyeCategory.Red"] = "Feature.BetterGlamourManagement.DyeCategory.Red",
+            ["Feature.BetterGlamourManagement.DyeCategory.Special"] = "Feature.BetterGlamourManagement.DyeCategory.Special",
+            ["Feature.BetterGlamourManagement.DyeCategory.Yellow"] = "Feature.BetterGlamourManagement.DyeCategory.Yellow",
+            ["Feature.BetterGlamourManagement.DyeClickHint"] = "Feature.BetterGlamourManagement.DyeClickHint",
+            ["Feature.BetterGlamourManagement.DyePicker.Back"] = "Feature.BetterGlamourManagement.DyePicker.Back",
+            ["Feature.BetterGlamourManagement.DyePicker.MissingDye"] = "Feature.BetterGlamourManagement.DyePicker.MissingDye",
+            ["Feature.BetterGlamourManagement.DyePicker.Quantity"] = "Feature.BetterGlamourManagement.DyePicker.Quantity",
+            ["Feature.BetterGlamourManagement.DyePicker.Redo"] = "Feature.BetterGlamourManagement.DyePicker.Redo",
+            ["Feature.BetterGlamourManagement.DyePicker.Source"] = "Feature.BetterGlamourManagement.DyePicker.Source",
+            ["Feature.BetterGlamourManagement.DyePicker.Undo"] = "Feature.BetterGlamourManagement.DyePicker.Undo",
+            ["Feature.BetterGlamourManagement.Empty"] = "Feature.BetterGlamourManagement.Empty",
+            ["Feature.BetterGlamourManagement.Export"] = "Feature.BetterGlamourManagement.Export",
+            ["Feature.BetterGlamourManagement.HairColor"] = "Feature.BetterGlamourManagement.HairColor",
+            ["Feature.BetterGlamourManagement.HairColors.Current"] = "Feature.BetterGlamourManagement.HairColors.Current",
+            ["Feature.BetterGlamourManagement.HairColors.EnableHighlights"] = "Feature.BetterGlamourManagement.HairColors.EnableHighlights",
+            ["Feature.BetterGlamourManagement.HairColors.Original"] = "Feature.BetterGlamourManagement.HairColors.Original",
+            ["Feature.BetterGlamourManagement.HairColors.Title"] = "Feature.BetterGlamourManagement.HairColors.Title",
+            ["Feature.BetterGlamourManagement.HairPaletteUnavailable"] = "Feature.BetterGlamourManagement.HairPaletteUnavailable",
+            ["Feature.BetterGlamourManagement.Hairstyle"] = "Feature.BetterGlamourManagement.Hairstyle",
+            ["Feature.BetterGlamourManagement.HighlightColor"] = "Feature.BetterGlamourManagement.HighlightColor",
+            ["Feature.BetterGlamourManagement.Highlights"] = "Feature.BetterGlamourManagement.Highlights",
+            ["Feature.BetterGlamourManagement.ImportClipboard"] = "Feature.BetterGlamourManagement.ImportClipboard",
+            ["Feature.BetterGlamourManagement.ImportFailed"] = "Feature.BetterGlamourManagement.ImportFailed",
+            ["Feature.BetterGlamourManagement.Imported"] = "Feature.BetterGlamourManagement.Imported",
+            ["Feature.BetterGlamourManagement.ItemClickHint"] = "Feature.BetterGlamourManagement.ItemClickHint",
+            ["Feature.BetterGlamourManagement.ItemPicker.Ascending"] = "Feature.BetterGlamourManagement.ItemPicker.Ascending",
+            ["Feature.BetterGlamourManagement.ItemPicker.Descending"] = "Feature.BetterGlamourManagement.ItemPicker.Descending",
+            ["Feature.BetterGlamourManagement.ItemPicker.Level"] = "Feature.BetterGlamourManagement.ItemPicker.Level",
+            ["Feature.BetterGlamourManagement.ItemPicker.NoResults"] = "Feature.BetterGlamourManagement.ItemPicker.NoResults",
+            ["Feature.BetterGlamourManagement.ItemPicker.NoStoredResults"] = "Feature.BetterGlamourManagement.ItemPicker.NoStoredResults",
+            ["Feature.BetterGlamourManagement.ItemPicker.Search"] = "Feature.BetterGlamourManagement.ItemPicker.Search",
+            ["Feature.BetterGlamourManagement.ItemPicker.SortID"] = "Feature.BetterGlamourManagement.ItemPicker.SortID",
+            ["Feature.BetterGlamourManagement.ItemPicker.SortLevel"] = "Feature.BetterGlamourManagement.ItemPicker.SortLevel",
+            ["Feature.BetterGlamourManagement.ItemPicker.SortName"] = "Feature.BetterGlamourManagement.ItemPicker.SortName",
+            ["Feature.BetterGlamourManagement.ItemPicker.Title"] = "Feature.BetterGlamourManagement.ItemPicker.Title",
+            ["Feature.BetterGlamourManagement.LegacyGearsetHint"] = "Feature.BetterGlamourManagement.LegacyGearsetHint",
+            ["Feature.BetterGlamourManagement.MainHand"] = "Feature.BetterGlamourManagement.MainHand",
+            ["Feature.BetterGlamourManagement.NewPreset"] = "Feature.BetterGlamourManagement.NewPreset",
+            ["Feature.BetterGlamourManagement.NoDye"] = "Feature.BetterGlamourManagement.NoDye",
+            ["Feature.BetterGlamourManagement.NoInspectData"] = "Feature.BetterGlamourManagement.NoInspectData",
+            ["Feature.BetterGlamourManagement.None"] = "Feature.BetterGlamourManagement.None",
+            ["Feature.BetterGlamourManagement.OffHand"] = "Feature.BetterGlamourManagement.OffHand",
+            ["Feature.BetterGlamourManagement.OpenSaved"] = "Feature.BetterGlamourManagement.OpenSaved",
+            ["Feature.BetterGlamourManagement.Part.Body"] = "Feature.BetterGlamourManagement.Part.Body",
+            ["Feature.BetterGlamourManagement.Part.Ears"] = "Feature.BetterGlamourManagement.Part.Ears",
+            ["Feature.BetterGlamourManagement.Part.Feet"] = "Feature.BetterGlamourManagement.Part.Feet",
+            ["Feature.BetterGlamourManagement.Part.Glasses"] = "Feature.BetterGlamourManagement.Part.Glasses",
+            ["Feature.BetterGlamourManagement.Part.Hands"] = "Feature.BetterGlamourManagement.Part.Hands",
+            ["Feature.BetterGlamourManagement.Part.Head"] = "Feature.BetterGlamourManagement.Part.Head",
+            ["Feature.BetterGlamourManagement.Part.Legs"] = "Feature.BetterGlamourManagement.Part.Legs",
+            ["Feature.BetterGlamourManagement.Part.Neck"] = "Feature.BetterGlamourManagement.Part.Neck",
+            ["Feature.BetterGlamourManagement.Part.RingLeft"] = "Feature.BetterGlamourManagement.Part.RingLeft",
+            ["Feature.BetterGlamourManagement.Part.RingRight"] = "Feature.BetterGlamourManagement.Part.RingRight",
+            ["Feature.BetterGlamourManagement.Part.Wrists"] = "Feature.BetterGlamourManagement.Part.Wrists",
+            ["Feature.BetterGlamourManagement.PlateExport"] = "Feature.BetterGlamourManagement.PlateExport",
+            ["Feature.BetterGlamourManagement.PlateExport.Action"] = "Feature.BetterGlamourManagement.PlateExport.Action",
+            ["Feature.BetterGlamourManagement.PlateExport.DefaultName"] = "Feature.BetterGlamourManagement.PlateExport.DefaultName",
+            ["Feature.BetterGlamourManagement.PlateExport.Empty"] = "Feature.BetterGlamourManagement.PlateExport.Empty",
+            ["Feature.BetterGlamourManagement.PlateExport.Failed"] = "Feature.BetterGlamourManagement.PlateExport.Failed",
+            ["Feature.BetterGlamourManagement.PlateExport.Help"] = "Feature.BetterGlamourManagement.PlateExport.Help",
+            ["Feature.BetterGlamourManagement.PlateExport.OpenManager"] = "Feature.BetterGlamourManagement.PlateExport.OpenManager",
+            ["Feature.BetterGlamourManagement.PlateExport.Saved"] = "Feature.BetterGlamourManagement.PlateExport.Saved",
+            ["Feature.BetterGlamourManagement.PlateImport.Action"] = "Feature.BetterGlamourManagement.PlateImport.Action",
+            ["Feature.BetterGlamourManagement.PlateImport.Busy"] = "Feature.BetterGlamourManagement.PlateImport.Busy",
+            ["Feature.BetterGlamourManagement.PlateImport.Completed"] = "Feature.BetterGlamourManagement.PlateImport.Completed",
+            ["Feature.BetterGlamourManagement.PlateImport.Failed"] = "Feature.BetterGlamourManagement.PlateImport.Failed",
+            ["Feature.BetterGlamourManagement.PlateImport.Help"] = "Feature.BetterGlamourManagement.PlateImport.Help",
+            ["Feature.BetterGlamourManagement.PlateImport.Interrupted"] = "Feature.BetterGlamourManagement.PlateImport.Interrupted",
+            ["Feature.BetterGlamourManagement.PlateImport.MissingDyes"] = "Feature.BetterGlamourManagement.PlateImport.MissingDyes",
+            ["Feature.BetterGlamourManagement.PlateImport.NoPresets"] = "Feature.BetterGlamourManagement.PlateImport.NoPresets",
+            ["Feature.BetterGlamourManagement.PlateImport.Preset"] = "Feature.BetterGlamourManagement.PlateImport.Preset",
+            ["Feature.BetterGlamourManagement.PlateImport.SourceChanged"] = "Feature.BetterGlamourManagement.PlateImport.SourceChanged",
+            ["Feature.BetterGlamourManagement.PlateImport.Timeout"] = "Feature.BetterGlamourManagement.PlateImport.Timeout",
+            ["Feature.BetterGlamourManagement.PlateImport.Unavailable"] = "Feature.BetterGlamourManagement.PlateImport.Unavailable",
+            ["Feature.BetterGlamourManagement.PresetLimitReached"] = "Feature.BetterGlamourManagement.PresetLimitReached",
+            ["Feature.BetterGlamourManagement.PresetList.Bound"] = "Feature.BetterGlamourManagement.PresetList.Bound",
+            ["Feature.BetterGlamourManagement.PresetList.Unbound"] = "Feature.BetterGlamourManagement.PresetList.Unbound",
+            ["Feature.BetterGlamourManagement.PresetName"] = "Feature.BetterGlamourManagement.PresetName",
+            ["Feature.BetterGlamourManagement.Preview.ButtonUnavailable"] = "Feature.BetterGlamourManagement.Preview.ButtonUnavailable",
+            ["Feature.BetterGlamourManagement.Preview.CustomizationMismatch"] = "Feature.BetterGlamourManagement.Preview.CustomizationMismatch",
+            ["Feature.BetterGlamourManagement.Preview.EnvironmentChanged"] = "Feature.BetterGlamourManagement.Preview.EnvironmentChanged",
+            ["Feature.BetterGlamourManagement.Preview.EquipmentUnavailable"] = "Feature.BetterGlamourManagement.Preview.EquipmentUnavailable",
+            ["Feature.BetterGlamourManagement.Preview.HairAppearanceUnavailable"] = "Feature.BetterGlamourManagement.Preview.HairAppearanceUnavailable",
+            ["Feature.BetterGlamourManagement.Preview.Hint"] = "Feature.BetterGlamourManagement.Preview.Hint",
+            ["Feature.BetterGlamourManagement.Preview.Loaded"] = "Feature.BetterGlamourManagement.Preview.Loaded",
+            ["Feature.BetterGlamourManagement.Preview.Loading"] = "Feature.BetterGlamourManagement.Preview.Loading",
+            ["Feature.BetterGlamourManagement.Preview.NativeClosed"] = "Feature.BetterGlamourManagement.Preview.NativeClosed",
+            ["Feature.BetterGlamourManagement.Preview.OutfitMismatch"] = "Feature.BetterGlamourManagement.Preview.OutfitMismatch",
+            ["Feature.BetterGlamourManagement.Preview.Ready"] = "Feature.BetterGlamourManagement.Preview.Ready",
+            ["Feature.BetterGlamourManagement.Preview.SelectPreset"] = "Feature.BetterGlamourManagement.Preview.SelectPreset",
+            ["Feature.BetterGlamourManagement.Save"] = "Feature.BetterGlamourManagement.Save",
+            ["Feature.BetterGlamourManagement.Saved"] = "Feature.BetterGlamourManagement.Saved",
+            ["Feature.BetterGlamourManagement.SharePreset"] = "Feature.BetterGlamourManagement.SharePreset",
+            ["Feature.BetterGlamourManagement.TryOnAll"] = "Feature.BetterGlamourManagement.TryOnAll",
+            ["Feature.BetterGlamourManagement.Unbound"] = "Feature.BetterGlamourManagement.Unbound",
+            ["Feature.BetterGlamourManagement.UnknownGlasses"] = "Feature.BetterGlamourManagement.UnknownGlasses",
+            ["Feature.BetterGlamourManagement.UnknownHairstyle"] = "Feature.BetterGlamourManagement.UnknownHairstyle",
+            ["Feature.BetterGlamourManagement.UnknownItem"] = "Feature.BetterGlamourManagement.UnknownItem",
+            ["Feature.BetterGlamourManagement.WindowTitle"] = "Feature.BetterGlamourManagement.WindowTitle"
+        });
 
     public override bool HasSettings => true;
 
@@ -61,77 +189,81 @@ public sealed unsafe partial class BetterGlamourManagement(
     private bool pendingTryOnRestore;
     private int selectedPresetIndex = -1;
     private int lastGearsetIndex = int.MinValue;
+    private ulong lastCharacterContentID;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        try
+        Activation.Add(DisposePlateExport);
+        EnablePlateExport();
+        taskHelper = new()
         {
-            EnablePlateExport();
-            taskHelper = new()
-            {
-                TimeoutMS = 10_000
-            };
-            actionsNativeUI = new(TryOnInspect, SaveInspect, ExportInspect, OpenManager, ClearTryOn);
-            portraitPreview = new();
-            var services = DService.Instance();
-            portraitPreview.Initialize(new()
-            {
-                PluginInterface = DalamudServices.PluginInterface,
-                AddonLifecycle = services.AddonLifecycle,
-                TextureReadback = services.TextureReadback,
-                Framework = services.Framework,
-                ClientState = services.ClientState,
-                ObjectTable = services.ObjectTable,
-                Condition = services.Condition,
-                GameGUI = services.GameGUI,
-                DataManager = services.Data
-            }, () => config.Presets, () => itemPreviewService.TryGetOriginalHairAppearance(out var customize) ? customize : null);
-            portraitPreview.Enable();
-            EnableRemote();
-            managerNativeUI = new(
-                SelectPreset,
-                PresetChanged,
-                ChangePresetGearset,
-                ToggleTryOn,
-                IsTryingOnPreset,
-                CopyPreset,
-                DeletePreset,
-                ImportClipboard,
-                CreatePreset,
-                portraitPreview,
-                itemPatchMap,
-                collectionSourceService);
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 250))
-            {
-                throw new InvalidOperationException("Better glamour management update registration failed.");
-            }
+            TimeoutMS = 10_000
+        };
+        activation.Add(taskHelper);
+        var tasks = taskHelper;
+        Activation.OnStopping(tasks.Abort);
+        Activation.Add(() =>
+        {
+            taskHelper = null;
+        });
+        actionsNativeUI = new(TryOnInspect, SaveInspect, ExportInspect, OpenManager, ClearTryOn);
+        Activation.Add(DisposeActionsNativeUI);
+        portraitPreview = new(Activation);
+        var preview = portraitPreview;
+        Activation.Add(() => portraitPreview = null);
+        Activation.AddAsync(preview.DisposeAsync);
+        Activation.OnStopping(preview.Disable);
+        var services = DService.Instance();
+        portraitPreview.Initialize(new()
+        {
+            PluginInterface = DalamudServices.PluginInterface,
+            AddonLifecycle = services.AddonLifecycle,
+            TextureReadback = services.TextureReadback,
+            Framework = services.Framework,
+            ClientState = services.ClientState,
+            ObjectTable = services.ObjectTable,
+            Condition = services.Condition,
+            GameGUI = services.GameGUI,
+            DataManager = services.Data
+        }, () => config.Presets, () => itemPreviewService.TryGetOriginalHairAppearance(out var customize) ? customize : null);
+        portraitPreview.Enable();
+        Activation.OnStopping(DisableRemote);
+        EnableRemote();
+        managerNativeUI = new(
+            SelectPreset,
+            PresetChanged,
+            ChangePresetGearset,
+            ToggleTryOn,
+            IsTryingOnPreset,
+            CopyPreset,
+            DeletePreset,
+            ImportClipboard,
+            CreatePreset,
+            portraitPreview,
+            itemPatchMap,
+            collectionSourceService,
+            isInGlamourDresser,
+            isInArmoire,
+            getInventoryRevision);
+        Activation.Add(DisposeManagerNativeUI);
+        Activation.OnStopping(() => managerNativeUI?.ClearPreviewTexture());
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 250))
+        {
+            throw new InvalidOperationException("Better glamour management update registration failed.");
+        }
 
-            DalamudServices.PluginInterface.UiBuilder.Draw += Draw;
-        }
-        catch
-        {
-            OnDisable();
-            throw;
-        }
+        Activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+        Activation.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= Draw);
+        DalamudServices.PluginInterface.UiBuilder.Draw += Draw;
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        DisableRemote();
-        DalamudServices.PluginInterface.UiBuilder.Draw -= Draw;
-        FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
-        managerNativeUI?.ClearPreviewTexture();
-        portraitPreview?.Dispose();
-        portraitPreview = null;
         ClearTryOn();
-        taskHelper?.Dispose();
-        taskHelper = null;
-        DisposePlateExport();
-        DisposeActionsNativeUI();
-        DisposeManagerNativeUI();
         boundTryOnPreset = null;
         selectedPresetIndex = -1;
         lastGearsetIndex = int.MinValue;
+        lastCharacterContentID = 0;
     }
 
     private void Draw()
@@ -187,13 +319,24 @@ public sealed unsafe partial class BetterGlamourManagement(
         RemoteTick();
         if (!DService.Instance().ClientState.IsLoggedIn)
         {
+            taskHelper?.Abort();
             activeTryOnPreset = null;
             boundTryOnPreset = null;
             managerNativeUI?.UpdateTryOnButton();
             previewPlayerAddress = nint.Zero;
             pendingTryOnRestore = false;
             lastGearsetIndex = int.MinValue;
+            lastCharacterContentID = 0;
             return;
+        }
+
+        var contentID = DService.Instance().PlayerState.ContentId;
+        if (contentID != lastCharacterContentID)
+        {
+            ClearTryOn();
+            lastCharacterContentID = contentID;
+            lastGearsetIndex = int.MinValue;
+            managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
         }
 
         var gearsetModule = RaptureGearsetModule.Instance();
@@ -261,8 +404,8 @@ public sealed unsafe partial class BetterGlamourManagement(
         if (config.Presets.Count >= MAX_PRESET_COUNT)
         {
             OmniNotifier.Popup(
-                Info.Title,
-                string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.PresetLimitReached"), MAX_PRESET_COUNT),
+                Title,
+                string.Format(OmniLoc.Get(this, "Feature.BetterGlamourManagement.PresetLimitReached"), MAX_PRESET_COUNT),
                 NotificationType.Warning);
             return;
         }
@@ -275,15 +418,15 @@ public sealed unsafe partial class BetterGlamourManagement(
         }
 
         preset.Name = string.Format(
-            OmniLoc.Get("Feature.BetterGlamourManagement.DefaultName"),
+            OmniLoc.Get(this, "Feature.BetterGlamourManagement.DefaultName"),
             DateTime.Now.ToString("yyyy-MM-dd HH:mm"));
         config.Presets.Add(preset);
         selectedPresetIndex = config.Presets.Count - 1;
         saveConfig();
         managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
         OmniNotifier.Popup(
-            Info.Title,
-            string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.Saved"), preset.Name),
+            Title,
+            string.Format(OmniLoc.Get(this, "Feature.BetterGlamourManagement.Saved"), preset.Name),
             NotificationType.Success);
     }
 
@@ -470,26 +613,69 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     private void ChangePresetGearset(BetterGlamourPreset preset, int gearsetIndex)
     {
+        var gearsetIndices = preset.GetGearsetIndices(DService.Instance().PlayerState.ContentId).ToList();
+        if (gearsetIndex < 0)
+            gearsetIndices.Clear();
+        else if (!gearsetIndices.Remove(gearsetIndex))
+            gearsetIndices.Add(gearsetIndex);
+        ChangePresetGearsets(preset, gearsetIndices);
+    }
+
+    private void ChangePresetGearsets(BetterGlamourPreset preset, List<int> gearsetIndices)
+    {
+        var contentID = DService.Instance().PlayerState.ContentId;
+        if (!DService.Instance().ClientState.IsLoggedIn || contentID == 0)
+            throw new InvalidOperationException("请登录角色后设置职业套装绑定。");
+        if (gearsetIndices.Any(index => index is < 0 or >= 100 || !TryGetGearsetName(index, out _)))
+            throw new InvalidOperationException("职业套装无效。");
+
+        var previousBindings = new Dictionary<BetterGlamourPreset, List<int>?>();
         var previousGearsetIndex = preset.GearsetIndex;
-        if (gearsetIndex >= 0)
+        foreach (var other in config.Presets)
         {
-            foreach (var other in config.Presets)
+            other.GearsetBindings.TryGetValue(contentID, out var previousIndices);
+            if (ReferenceEquals(other, preset))
             {
-                if (!ReferenceEquals(other, preset) && other.GearsetIndex == gearsetIndex)
-                {
-                    other.GearsetIndex = -1;
-                }
+                previousBindings.Add(other, previousIndices);
+                if (gearsetIndices.Count == 0)
+                    other.GearsetBindings.Remove(contentID);
+                else
+                    other.GearsetBindings[contentID] = gearsetIndices;
+            }
+            else if (previousIndices is not null && previousIndices.Any(gearsetIndices.Contains))
+            {
+                previousBindings.Add(other, previousIndices);
+                var remainingIndices = previousIndices.Except(gearsetIndices).ToList();
+                if (remainingIndices.Count == 0)
+                    other.GearsetBindings.Remove(contentID);
+                else
+                    other.GearsetBindings[contentID] = remainingIndices;
             }
         }
 
-        preset.GearsetIndex = gearsetIndex;
-        saveConfig();
+        preset.GearsetIndex = -1;
+        try
+        {
+            saveConfig();
+        }
+        catch
+        {
+            preset.GearsetIndex = previousGearsetIndex;
+            foreach (var (other, previousIndices) in previousBindings)
+            {
+                if (previousIndices is null)
+                    other.GearsetBindings.Remove(contentID);
+                else
+                    other.GearsetBindings[contentID] = previousIndices;
+            }
+            throw;
+        }
 
         var gearsetModule = RaptureGearsetModule.Instance();
         if (gearsetModule != null)
         {
             var currentGearsetIndex = gearsetModule->CurrentGearsetIndex;
-            if (currentGearsetIndex == previousGearsetIndex || currentGearsetIndex == gearsetIndex)
+            if (previousBindings[preset]?.Contains(currentGearsetIndex) == true || gearsetIndices.Contains(currentGearsetIndex))
             {
                 lastGearsetIndex = currentGearsetIndex;
                 SynchronizeBoundTryOn(currentGearsetIndex);
@@ -499,7 +685,8 @@ public sealed unsafe partial class BetterGlamourManagement(
 
     private void SynchronizeBoundTryOn(int gearsetIndex)
     {
-        boundTryOnPreset = config.Presets.Find(item => item.GearsetIndex == gearsetIndex);
+        var contentID = DService.Instance().PlayerState.ContentId;
+        boundTryOnPreset = contentID == 0 ? null : config.Presets.Find(item => item.GetGearsetIndices(contentID).Contains(gearsetIndex));
         if (boundTryOnPreset is not null)
         {
             if (!ReferenceEquals(activeTryOnPreset, boundTryOnPreset))
@@ -548,8 +735,8 @@ public sealed unsafe partial class BetterGlamourManagement(
     }
 
     private void NotifyNoInspectData() => OmniNotifier.Popup(
-        Info.Title,
-        OmniLoc.Get("Feature.BetterGlamourManagement.NoInspectData"),
+        Title,
+        OmniLoc.Get(this, "Feature.BetterGlamourManagement.NoInspectData"),
         NotificationType.Warning);
 
     private void DisposeActionsNativeUI()

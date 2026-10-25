@@ -1,3 +1,5 @@
+using TreeTools.Lifecycle;
+using OmniToolbox.UI;
 using System.Linq;
 using Dalamud.Game;
 using Dalamud.Game.Addon.Lifecycle;
@@ -11,20 +13,29 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class WondrousTailsProbabilityDisplay : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class WondrousTailsProbabilityDisplay : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = "天书概率助手",
-        Description = "在天书界面显示至少 1 / 2 / 3 线的概率和重排平均参考。",
         Category = ModuleCategory.Interface,
         Author = "小朱诺诺的",
         SupportUrls = ["https://github.com/xiaozhunuonuode"]
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "WondrousTailsProbabilityDisplayTitle",
+            ["Description"] = "WondrousTailsProbabilityDisplayDescription",
+            ["Feature.WondrousTailsProbabilityDisplay.ProbabilityPrefix"] = "Feature.WondrousTailsProbabilityDisplay.ProbabilityPrefix",
+            ["Feature.WondrousTailsProbabilityDisplay.AveragePrefix"] = "Feature.WondrousTailsProbabilityDisplay.AveragePrefix",
+            ["Feature.WondrousTailsProbabilityDisplay.ReadFailed"] = "Feature.WondrousTailsProbabilityDisplay.ReadFailed",
+            ["Feature.WondrousTailsProbabilityDisplay.ProbabilityValue"] = "Feature.WondrousTailsProbabilityDisplay.ProbabilityValue"
+        });
 
     private static readonly AddonEvent[] Events =
     [
@@ -32,7 +43,6 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : ModuleBase
         AddonEvent.PostRequestedUpdate, AddonEvent.PostUpdate
     ];
 
-    private FeatureLifetime? runtimeLifetime;
     private Calculator? calculator;
     private readonly bool[] cells = new bool[16];
     private readonly Dictionary<uint, InstructionSnapshot> snapshots = [];
@@ -40,74 +50,48 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : ModuleBase
     private string rewardInstruction = string.Empty;
     private nint addonAddress;
     private int lastMask = -1;
+    private long localizationRevision = -1;
     private (SeString ProbabilityLine, string AverageLine) displayLines;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
         calculator ??= new Calculator();
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            instructionTexts.Clear();
-            rewardInstruction = string.Empty;
-            var data = DalamudServices.DataManager;
-            var sheet = data.GetExcelSheet<Addon>();
-            foreach (var rowID in new uint[] { 5604, 5605, 5607, 5608 })
-            {
-                if (!sheet.TryGetRow(rowID, out var row))
-                {
-                    continue;
-                }
-                var text = InstructionText.Normalize(row.Text.ExtractText());
-                if (text.Length != 0)
-                {
-                    instructionTexts[text] = InstructionText.Prepare(text, rowID, data.Language);
-                    if (rowID == 5605)
-                    {
-                        rewardInstruction = text;
-                    }
-                }
-            }
-
-            lifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(OnAddonEvent));
-            foreach (var addonEvent in Events)
-            {
-                DalamudServices.AddonLifecycle.RegisterListener(addonEvent, ADDON_NAME, OnAddonEvent);
-            }
-
-            var addon = AddonHelper.GetByName(ADDON_NAME);
-            if (addon != null)
-            {
-                Refresh(addon);
-            }
-
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            try
-            {
-                lifetime.Dispose();
-            }
-            finally
-            {
-                RestoreAndClear();
-            }
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             RestoreAndClear();
+        });
+        instructionTexts.Clear();
+        rewardInstruction = string.Empty;
+        var data = DalamudServices.DataManager;
+        var sheet = data.GetExcelSheet<Addon>();
+        foreach (var rowID in new uint[] { 5604, 5605, 5607, 5608 })
+        {
+            if (!sheet.TryGetRow(rowID, out var row))
+            {
+                continue;
+            }
+            var text = InstructionText.Normalize(row.Text.ExtractText());
+            if (text.Length != 0)
+            {
+                instructionTexts[text] = InstructionText.Prepare(text, rowID, data.Language);
+                if (rowID == 5605)
+                {
+                    rewardInstruction = text;
+                }
+            }
+        }
+
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(OnAddonEvent));
+        foreach (var addonEvent in Events)
+        {
+            DalamudServices.AddonLifecycle.RegisterListener(addonEvent, ADDON_NAME, OnAddonEvent);
+        }
+
+        var addon = AddonHelper.GetByName(ADDON_NAME);
+        if (addon != null)
+        {
+            Refresh(addon);
         }
     }
 
@@ -141,6 +125,12 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : ModuleBase
 
     private void Refresh(AtkUnitBase* addon)
     {
+        if (localizationRevision != OmniLoc.Revision)
+        {
+            RestoreAndClear();
+            localizationRevision = OmniLoc.Revision;
+        }
+
         if (addonAddress != (nint)addon)
         {
             ClearState();
@@ -173,7 +163,7 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : ModuleBase
 
         if (lastMask != mask)
         {
-            displayLines = InstructionText.Format(calculator.Solve(cells), Calculator.GetShuffleAverage(stickerCount));
+            displayLines = InstructionText.Format(this, calculator.Solve(cells), Calculator.GetShuffleAverage(stickerCount));
             lastMask = mask;
         }
 

@@ -19,13 +19,13 @@ using OmenTools.Interop.Game.Models;
 using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
 using TerritoryIntendedUse = FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse;
 using ClientObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
-using ModuleBase = OmniToolbox.Common.Module.Abstractions.ModuleBase;
+using OmniModuleBase = OmniToolbox.Common.Module.Abstractions.OmniModuleBase;
 
 namespace OmniToolbox.TreePublic;
 

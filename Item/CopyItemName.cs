@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
 using Lumina.Excel.Sheets;
@@ -12,28 +13,35 @@ using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed class CopyItemName : ModuleBase
+[ModuleApiVersion(1)]
+public sealed class CopyItemName : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("CopyItemNameTitle"),
-        Description = OmniLoc.Get("CopyItemNameDescription"),
         Category = ModuleCategory.Item
     };
 
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "CopyItemNameTitle",
+            ["Description"] = "CopyItemNameDescription"
+        });
+
     private bool hotkeyHeld;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnUpdate));
+
         if (!FrameworkManager.Instance().Reg(OnUpdate))
         {
             throw new InvalidOperationException("Copy item name update registration failed.");
         }
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        FrameworkManager.Instance().Unreg(OnUpdate);
         hotkeyHeld = false;
     }
 

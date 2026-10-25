@@ -11,7 +11,9 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
+using OmniToolbox.Config;
+using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
@@ -20,23 +22,24 @@ public sealed partial class WondrousTailsProbabilityDisplay
     internal static class InstructionText
     {
         internal static bool HasProbabilityLines(string text) =>
-            text.Contains(PROBABILITY_PREFIX, StringComparison.Ordinal) ||
-            text.Contains(AVERAGE_PREFIX, StringComparison.Ordinal);
+            text.Split('\r', '\n').Any(IsGeneratedLine);
 
-        internal static (SeString ProbabilityLine, string AverageLine) Format(double[] values, double[] samples)
+        internal static (SeString ProbabilityLine, string AverageLine) Format(OmniModuleBase module, double[] values, double[] samples)
         {
+            var probabilityPrefix = OmniLoc.Get(module, "Feature.WondrousTailsProbabilityDisplay.ProbabilityPrefix");
+            var averagePrefix = OmniLoc.Get(module, "Feature.WondrousTailsProbabilityDisplay.AveragePrefix");
             if (values[0] < 0)
             {
-                return (PROBABILITY_PREFIX + "读取失败", AVERAGE_PREFIX + "-");
+                return (probabilityPrefix + OmniLoc.Get(module, "Feature.WondrousTailsProbabilityDisplay.ReadFailed"), averagePrefix + "-");
             }
-            var probability = new SeStringBuilder().Append(PROBABILITY_PREFIX);
+            var probability = new SeStringBuilder().Append(probabilityPrefix);
             for (var index = 0; index < values.Length; index++)
             {
                 if (index > 0)
                 {
                     probability.Append("  ");
                 }
-                var text = $"{index + 1}线 {values[index] * 100:F2}%";
+                var text = FormatValue(module, index + 1, values[index]);
                 var comparison = samples[0] < 0 ? 0 : Math.Round(values[index] * 100, 2).CompareTo(Math.Round(samples[index] * 100, 2));
                 if (comparison == 0)
                 {
@@ -47,17 +50,25 @@ public sealed partial class WondrousTailsProbabilityDisplay
                     probability.AddUiForeground(text, comparison > 0 ? ABOVE_AVERAGE_COLOR : BELOW_AVERAGE_COLOR);
                 }
             }
-            var average = AVERAGE_PREFIX + (samples[0] < 0 ? "-" : FormatValues(samples));
+            var average = averagePrefix + (samples[0] < 0 ? "-" : FormatValues(module, samples));
             return (probability.Build(), average);
         }
 
-        private static string FormatValues(double[] values) =>
-            string.Join("  ", values.Select((value, index) => $"{index + 1}线 {value * 100:F2}%"));
+        private static string FormatValues(OmniModuleBase module, double[] values) =>
+            string.Join("  ", values.Select((value, index) => FormatValue(module, index + 1, value)));
+
+        private static string FormatValue(OmniModuleBase module, int lines, double probability) =>
+            string.Format(OmniLoc.Get(module, "Feature.WondrousTailsProbabilityDisplay.ProbabilityValue"), lines, probability * 100);
 
         internal static string Normalize(string text) =>
             string.Join("\r", text.Replace("\r\n", "\r", StringComparison.Ordinal).Replace('\n', '\r').Split('\r')
-                .Where(line => !line.StartsWith(PROBABILITY_PREFIX, StringComparison.Ordinal) &&
-                               !line.StartsWith(AVERAGE_PREFIX, StringComparison.Ordinal))).TrimEnd('\r');
+                .Where(line => !IsGeneratedLine(line))).TrimEnd('\r');
+
+        private static bool IsGeneratedLine(string text) =>
+            text.StartsWith(OmniLoc.Get("Feature.WondrousTailsProbabilityDisplay.ProbabilityPrefix", UILanguage.SimplifiedChinese), StringComparison.Ordinal) ||
+            text.StartsWith(OmniLoc.Get("Feature.WondrousTailsProbabilityDisplay.ProbabilityPrefix", UILanguage.TraditionalChinese), StringComparison.Ordinal) ||
+            text.StartsWith(OmniLoc.Get("Feature.WondrousTailsProbabilityDisplay.AveragePrefix", UILanguage.SimplifiedChinese), StringComparison.Ordinal) ||
+            text.StartsWith(OmniLoc.Get("Feature.WondrousTailsProbabilityDisplay.AveragePrefix", UILanguage.TraditionalChinese), StringComparison.Ordinal);
 
         internal static (string Text, bool Separate) Prepare(string text, uint rowID, ClientLanguage language)
         {
@@ -127,10 +138,6 @@ public sealed partial class WondrousTailsProbabilityDisplay
                 .Append(probabilityLine).Append("\r").Append(averageLine).Build();
 
         #region 常量
-
-        private const string PROBABILITY_PREFIX = "连线概率：";
-
-        private const string AVERAGE_PREFIX = "重排平均：";
 
         private const ushort ABOVE_AVERAGE_COLOR = 45;
 

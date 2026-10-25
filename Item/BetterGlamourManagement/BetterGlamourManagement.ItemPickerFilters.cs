@@ -1,3 +1,4 @@
+using TreeToolKit;
 using System.Linq;
 using Lumina.Excel.Sheets;
 using OmenTools.Interop.Game.Lumina;
@@ -16,6 +17,11 @@ public sealed partial class BetterGlamourManagement
         private static Dictionary<uint, uint>? GlassesUnlockItems;
         private readonly Dictionary<uint, CandidateMetadata> candidateMetadata = [];
         private long sourceRevision;
+        private long inventoryRevision;
+
+        private bool IsSortModeAvailable(ItemSortMode mode) =>
+            kind == BetterGlamourEditorItemKind.Item ||
+            mode is not (ItemSortMode.Level or ItemSortMode.GlamourDresser or ItemSortMode.Armoire);
 
         private void BuildCandidateMetadata()
         {
@@ -88,6 +94,7 @@ public sealed partial class BetterGlamourManagement
         private void FilterResults()
         {
             sourceRevision = collectionSourceService.Revision;
+            inventoryRevision = getInventoryRevision();
             if (sortMode == ItemSortMode.Patch)
             {
                 results.RemoveAll(result =>
@@ -102,6 +109,14 @@ public sealed partial class BetterGlamourManagement
                     return !collectionSourceService.GetItemCategories(itemID).Contains(LastSource) &&
                            !collectionSourceService.GetItemSources(itemID).Any(source => source.Category == LastSource);
                 });
+            }
+            else if (sortMode == ItemSortMode.GlamourDresser)
+            {
+                results.RemoveAll(result => !isInGlamourDresser(result.ItemID));
+            }
+            else if (sortMode == ItemSortMode.Armoire)
+            {
+                results.RemoveAll(result => !isInArmoire(result.ItemID));
             }
         }
 

@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net.WebSockets;
@@ -23,14 +24,29 @@ using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed partial class ObsAutoRecording : ModuleBase
+[ModuleApiVersion(1)]
+public sealed partial class ObsAutoRecording : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("ObsAutoRecordingTitle"),
-        Description = OmniLoc.Get("ObsAutoRecordingDescription"),
         Category = ModuleCategory.Combat
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "ObsAutoRecordingTitle",
+            ["Description"] = "ObsAutoRecordingDescription",
+            ["Feature.ObsAutoRecording.Endpoint"] = "Feature.ObsAutoRecording.Endpoint",
+            ["Feature.ObsAutoRecording.EndpointHelp"] = "Feature.ObsAutoRecording.EndpointHelp",
+            ["Feature.ObsAutoRecording.PasswordEnvironmentVariable"] = "Feature.ObsAutoRecording.PasswordEnvironmentVariable",
+            ["Feature.ObsAutoRecording.PasswordEnvironmentVariableHelp"] = "Feature.ObsAutoRecording.PasswordEnvironmentVariableHelp",
+            ["Feature.ObsAutoRecording.PopupNotification"] = "Feature.ObsAutoRecording.PopupNotification",
+            ["Feature.ObsAutoRecording.StartFailed"] = "Feature.ObsAutoRecording.StartFailed",
+            ["Feature.ObsAutoRecording.Started"] = "Feature.ObsAutoRecording.Started",
+            ["Feature.ObsAutoRecording.StopFailed"] = "Feature.ObsAutoRecording.StopFailed",
+            ["Feature.ObsAutoRecording.Stopped"] = "Feature.ObsAutoRecording.Stopped"
+        });
 
     public override bool HasSettings => true;
 
@@ -47,9 +63,18 @@ public sealed partial class ObsAutoRecording : ModuleBase
         }
     }
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        session = new();
+        var current = new RecordingSession();
+        session = current;
+        Activation.OnStopping(() =>
+        {
+            FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
+            DService.Instance().DutyState.DutyWiped -= OnDutyWiped;
+            current.Closing = true;
+            current.Cancellation.Cancel();
+        });
+        Activation.AddAsync(() => new(CleanupSessionAsync(current)));
         countdownActive = false;
         if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
         {
@@ -60,22 +85,10 @@ public sealed partial class ObsAutoRecording : ModuleBase
         DService.Instance().DutyState.DutyWiped += OnDutyWiped;
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
-        DService.Instance().DutyState.DutyWiped -= OnDutyWiped;
         countdownActive = false;
-
-        var current = session;
         session = null;
-        if (current is null)
-        {
-            return;
-        }
-
-        current.Closing = true;
-        current.Cancellation.Cancel();
-        _ = CleanupSessionAsync(current);
     }
 
     public override bool DrawSettings()
@@ -85,17 +98,17 @@ public sealed partial class ObsAutoRecording : ModuleBase
 
         var popupNotification = config.PopupNotification;
         if (OmniControls.Checkbox(
-                OmniLoc.Get("Feature.ObsAutoRecording.PopupNotification"),
+                OmniLoc.Get(this, "Feature.ObsAutoRecording.PopupNotification"),
                 ref popupNotification))
         {
             config.PopupNotification = popupNotification;
             changed = true;
         }
 
-        OmniControls.SameLineOrWrap(inputWidth + ImGui.CalcTextSize(OmniLoc.Get("Feature.ObsAutoRecording.Endpoint")).X +
+        OmniControls.SameLineOrWrap(inputWidth + ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.ObsAutoRecording.Endpoint")).X +
             ImGui.GetStyle().ItemSpacing.X + OmniControls.HelpIconSize().X, OmniTheme.Scale(14f));
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.ObsAutoRecording.Endpoint"));
+        ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.ObsAutoRecording.Endpoint"));
         OmniControls.SameLineOrWrap(inputWidth);
         ImGui.SetNextItemWidth(inputWidth);
         var endpoint = config.Endpoint;
@@ -107,12 +120,12 @@ public sealed partial class ObsAutoRecording : ModuleBase
         config.Endpoint = endpoint;
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         ImGui.SameLine(0f, OmniTheme.Scale(6f));
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.ObsAutoRecording.EndpointHelp"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.ObsAutoRecording.EndpointHelp"));
 
-        OmniControls.SameLineOrWrap(inputWidth + ImGui.CalcTextSize(OmniLoc.Get("Feature.ObsAutoRecording.PasswordEnvironmentVariable")).X +
+        OmniControls.SameLineOrWrap(inputWidth + ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.ObsAutoRecording.PasswordEnvironmentVariable")).X +
             ImGui.GetStyle().ItemSpacing.X + OmniControls.HelpIconSize().X, OmniTheme.Scale(14f));
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.ObsAutoRecording.PasswordEnvironmentVariable"));
+        ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.ObsAutoRecording.PasswordEnvironmentVariable"));
         OmniControls.SameLineOrWrap(inputWidth);
         ImGui.SetNextItemWidth(inputWidth);
         var passwordVariable = config.PasswordEnvironmentVariable;
@@ -123,7 +136,7 @@ public sealed partial class ObsAutoRecording : ModuleBase
         config.PasswordEnvironmentVariable = passwordVariable;
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         ImGui.SameLine(0f, OmniTheme.Scale(6f));
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.ObsAutoRecording.PasswordEnvironmentVariableHelp"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.ObsAutoRecording.PasswordEnvironmentVariableHelp"));
         return changed;
     }
 
@@ -152,14 +165,14 @@ public sealed partial class ObsAutoRecording : ModuleBase
         }
 
         countdownActive = true;
-        _ = StartRecordingAsync(current);
+        Activation.Track(StartRecordingAsync(current));
     }
 
     private void OnDutyWiped(IDutyStateEventArgs args)
     {
         if (session is { } current)
         {
-            _ = StopRecordingAsync(current, true);
+            Activation.Track(StopRecordingAsync(current, true));
         }
     }
 
@@ -288,7 +301,7 @@ public sealed partial class ObsAutoRecording : ModuleBase
         _ = DalamudServices.Framework.RunOnFrameworkThread(() =>
         {
             if (IsEnabled && !DalamudServices.IsUnloading)
-                OmniNotifier.Popup(Info.Title, OmniLoc.Get(key), NotificationType.Error, true, false);
+                OmniNotifier.Popup(Title, OmniLoc.Get(key), NotificationType.Error, true, false);
         });
 
     private void NotifyRecordingState(string key)
@@ -301,7 +314,7 @@ public sealed partial class ObsAutoRecording : ModuleBase
         _ = DalamudServices.Framework.RunOnFrameworkThread(() =>
         {
             if (IsEnabled && !DalamudServices.IsUnloading)
-                OmniNotifier.Popup(Info.Title, OmniLoc.Get(key), NotificationType.Info, true, false);
+                OmniNotifier.Popup(Title, OmniLoc.Get(key), NotificationType.Info, true, false);
         });
     }
 

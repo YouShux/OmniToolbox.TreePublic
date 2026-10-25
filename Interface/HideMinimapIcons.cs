@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Linq;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
@@ -9,20 +10,29 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class HideMinimapIcons : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("HideMinimapIconsTitle"),
-        Description = OmniLoc.Get("HideMinimapIconsDescription"),
         Category = ModuleCategory.Interface
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "HideMinimapIconsTitle",
+            ["Description"] = "HideMinimapIconsDescription",
+            ["Feature.HideMinimapIcons.HideOnAreaMap"] = "Feature.HideMinimapIcons.HideOnAreaMap",
+            ["Feature.HideMinimapIcons.HideOnMinimap"] = "Feature.HideMinimapIcons.HideOnMinimap",
+            ["Feature.HideMinimapIcons.IconScale"] = "Feature.HideMinimapIcons.IconScale",
+            ["Feature.HideMinimapIcons.IconTooltip"] = "Feature.HideMinimapIcons.IconTooltip"
+        });
 
     public override bool HasSettings => true;
 
@@ -57,7 +67,6 @@ public sealed unsafe partial class HideMinimapIcons : ModuleBase
     private readonly List<uint> displayIconIDs = [];
     private readonly Dictionary<nint, (uint IconID, byte Alpha, nint Addon)> hiddenNodes = [];
     private readonly Dictionary<nint, (uint IconID, Vector2 Scale, nint Addon)> originalIconScales = [];
-    private FeatureLifetime? runtimeLifetime;
 
     public HideMinimapIcons(Settings config)
     {
@@ -65,9 +74,21 @@ public sealed unsafe partial class HideMinimapIcons : ModuleBase
         RefreshDisplayIconIDs();
     }
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        runtimeLifetime = new();
+        var lifetime = Activation;
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostUpdate,
+            NAVI_MAP_ADDON_NAME,
+            OnNaviMapUpdate));
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostUpdate,
+            AREA_MAP_ADDON_NAME,
+            OnAreaMapUpdate));
+        lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PostUpdate,
+            TELEPORT_TOWN_ADDON_NAME,
+            OnTeleportTownUpdate));
         DalamudServices.AddonLifecycle.RegisterListener(
             AddonEvent.PostUpdate,
             NAVI_MAP_ADDON_NAME,
@@ -80,31 +101,17 @@ public sealed unsafe partial class HideMinimapIcons : ModuleBase
             AddonEvent.PostUpdate,
             TELEPORT_TOWN_ADDON_NAME,
             OnTeleportTownUpdate);
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PostUpdate,
-            NAVI_MAP_ADDON_NAME,
-            OnNaviMapUpdate));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PostUpdate,
-            AREA_MAP_ADDON_NAME,
-            OnAreaMapUpdate));
-        runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PostUpdate,
-            TELEPORT_TOWN_ADDON_NAME,
-            OnTeleportTownUpdate));
         foreach (var addonName in new[] { NAVI_MAP_ADDON_NAME, AREA_MAP_ADDON_NAME, TELEPORT_TOWN_ADDON_NAME })
         {
-            DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreFinalize, addonName, OnMapFinalize);
-            runtimeLifetime.Add(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
                 AddonEvent.PreFinalize, addonName, OnMapFinalize));
+            DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreFinalize, addonName, OnMapFinalize);
         }
         ApplyCurrentMaps(false);
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        runtimeLifetime?.Dispose();
-        runtimeLifetime = null;
         ApplyCurrentMaps(true);
         hiddenNodes.Clear();
         originalIconScales.Clear();
@@ -117,9 +124,9 @@ public sealed unsafe partial class HideMinimapIcons : ModuleBase
         {
             using var settingsTable = OmniControls.SettingsTable(
                 "##hideMinimapIconsSettings",
-                [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HideMinimapIcons.HideOnMinimap")),
-                    OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HideMinimapIcons.HideOnAreaMap")),
-                    OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.HideMinimapIcons.IconScale")),
+                [OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.HideMinimapIcons.HideOnMinimap")),
+                    OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.HideMinimapIcons.HideOnAreaMap")),
+                    OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.HideMinimapIcons.IconScale")),
                         OmniControls.MeasureFloatInput(config.IconScale, "%.1f", OmniTheme.Scale(64f))])],
                 ["##hideMinimapIconsMinimap", "##hideMinimapIconsAreaMap", "##hideMinimapIconsIconScale"],
                 flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
@@ -132,7 +139,7 @@ public sealed unsafe partial class HideMinimapIcons : ModuleBase
             ImGui.TableNextColumn();
             var hideOnMinimap = config.HideOnMinimap;
             if (OmniControls.Checkbox(
-                    OmniLoc.Get("Feature.HideMinimapIcons.HideOnMinimap"),
+                    OmniLoc.Get(this, "Feature.HideMinimapIcons.HideOnMinimap"),
                     ref hideOnMinimap))
             {
                 config.HideOnMinimap = hideOnMinimap;
@@ -143,7 +150,7 @@ public sealed unsafe partial class HideMinimapIcons : ModuleBase
             ImGui.TableNextColumn();
             var hideOnAreaMap = config.HideOnAreaMap;
             if (OmniControls.Checkbox(
-                    OmniLoc.Get("Feature.HideMinimapIcons.HideOnAreaMap"),
+                    OmniLoc.Get(this, "Feature.HideMinimapIcons.HideOnAreaMap"),
                     ref hideOnAreaMap))
             {
                 config.HideOnAreaMap = hideOnAreaMap;
@@ -152,7 +159,7 @@ public sealed unsafe partial class HideMinimapIcons : ModuleBase
             }
 
             ImGui.TableNextColumn();
-            var iconScaleLabel = OmniLoc.Get("Feature.HideMinimapIcons.IconScale");
+            var iconScaleLabel = OmniLoc.Get(this, "Feature.HideMinimapIcons.IconScale");
             var iconScale = Math.Clamp(config.IconScale, 0f, 3f);
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted(iconScaleLabel);
@@ -274,7 +281,7 @@ public sealed unsafe partial class HideMinimapIcons : ModuleBase
 
         if (ImGui.IsItemHovered())
         {
-            OmniControls.HelpTooltip(string.Format(OmniLoc.Get("Feature.HideMinimapIcons.IconTooltip"), iconID));
+            OmniControls.HelpTooltip(string.Format(OmniLoc.Get(this, "Feature.HideMinimapIcons.IconTooltip"), iconID));
         }
 
         if (ImGui.IsItemClicked(ImGuiMouseButton.Left))

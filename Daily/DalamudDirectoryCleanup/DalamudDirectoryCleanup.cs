@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -15,14 +16,38 @@ using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed partial class DalamudDirectoryCleanup : ModuleBase
+[ModuleApiVersion(1)]
+public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("DalamudDirectoryCleanupTitle"),
-        Description = OmniLoc.Get("DalamudDirectoryCleanupDescription"),
         Category = ModuleCategory.Daily
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "DalamudDirectoryCleanupTitle",
+            ["Description"] = "DalamudDirectoryCleanupDescription",
+            ["Feature.DalamudDirectoryCleanup.Backups"] = "Feature.DalamudDirectoryCleanup.Backups",
+            ["Feature.DalamudDirectoryCleanup.Cancel"] = "Feature.DalamudDirectoryCleanup.Cancel",
+            ["Feature.DalamudDirectoryCleanup.Cancelled"] = "Feature.DalamudDirectoryCleanup.Cancelled",
+            ["Feature.DalamudDirectoryCleanup.Category"] = "Feature.DalamudDirectoryCleanup.Category",
+            ["Feature.DalamudDirectoryCleanup.Delete"] = "Feature.DalamudDirectoryCleanup.Delete",
+            ["Feature.DalamudDirectoryCleanup.Deleting"] = "Feature.DalamudDirectoryCleanup.Deleting",
+            ["Feature.DalamudDirectoryCleanup.DirectoryMissing"] = "Feature.DalamudDirectoryCleanup.DirectoryMissing",
+            ["Feature.DalamudDirectoryCleanup.Failed"] = "Feature.DalamudDirectoryCleanup.Failed",
+            ["Feature.DalamudDirectoryCleanup.Logs"] = "Feature.DalamudDirectoryCleanup.Logs",
+            ["Feature.DalamudDirectoryCleanup.Modified"] = "Feature.DalamudDirectoryCleanup.Modified",
+            ["Feature.DalamudDirectoryCleanup.Path"] = "Feature.DalamudDirectoryCleanup.Path",
+            ["Feature.DalamudDirectoryCleanup.PluginConfigs"] = "Feature.DalamudDirectoryCleanup.PluginConfigs",
+            ["Feature.DalamudDirectoryCleanup.Preview"] = "Feature.DalamudDirectoryCleanup.Preview",
+            ["Feature.DalamudDirectoryCleanup.Result"] = "Feature.DalamudDirectoryCleanup.Result",
+            ["Feature.DalamudDirectoryCleanup.ScanErrors"] = "Feature.DalamudDirectoryCleanup.ScanErrors",
+            ["Feature.DalamudDirectoryCleanup.Scanning"] = "Feature.DalamudDirectoryCleanup.Scanning",
+            ["Feature.DalamudDirectoryCleanup.Size"] = "Feature.DalamudDirectoryCleanup.Size",
+            ["Feature.DalamudDirectoryCleanup.Summary"] = "Feature.DalamudDirectoryCleanup.Summary"
+        });
 
     private Task<ScanResult>? scanTask;
     private Task<CleanupResult>? cleanupTask;
@@ -33,17 +58,18 @@ public sealed partial class DalamudDirectoryCleanup : ModuleBase
 
     public override bool HasSettings => true;
 
-    protected override void OnDisable()
+    protected override void OnStart(FeatureLifetime activation) => Activation.OnStopping(() =>
     {
         FrameworkManager.Instance().Unreg(CollectResults);
         cancellation?.Cancel();
-    }
+    });
 
-    protected override void OnDispose()
+    protected override void OnStop()
     {
-        FrameworkManager.Instance().Unreg(CollectResults);
-        cancellation?.Cancel();
         cancellation?.Dispose();
+        cancellation = null;
+        scanTask = null;
+        cleanupTask = null;
     }
 
     public override bool DrawSettings()
@@ -180,6 +206,7 @@ public sealed partial class DalamudDirectoryCleanup : ModuleBase
         status = Text("Scanning");
         scanTask = Task.Run(() => Scan(operation.Root, DateTime.UtcNow, operation.Token,
             operation.ProtectedPluginNames), operation.Token);
+        Activation.Track(scanTask);
     }
 
     private void BeginCleanup()
@@ -211,6 +238,7 @@ public sealed partial class DalamudDirectoryCleanup : ModuleBase
             result.Errors.AddRange(current.Errors);
             return result;
         }, operation.Token);
+        Activation.Track(cleanupTask);
     }
 
     private (string Root, IReadOnlySet<string> ProtectedPluginNames, CancellationToken Token)? CreateOperation()
@@ -312,7 +340,7 @@ public sealed partial class DalamudDirectoryCleanup : ModuleBase
     }
 
     private void NotifyStatus(NotificationType type) =>
-        OmniNotifier.Popup(Info.Title, string.Join("\n", errors.Take(5).Prepend(status)), type);
+        OmniNotifier.Popup(Title, string.Join("\n", errors.Take(5).Prepend(status)), type);
 
     private static string Text(string key) => OmniLoc.Get($"Feature.DalamudDirectoryCleanup.{key}");
 

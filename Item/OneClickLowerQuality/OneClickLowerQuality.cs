@@ -1,3 +1,4 @@
+using TreeToolKit;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Utility;
@@ -9,27 +10,36 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Data;
 using OmenTools.OmenService;
-using OmenTools.Threading.TaskHelper;
+using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Items;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Settings config) : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Settings config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("OneClickLowerQualityTitle"),
-        Description = OmniLoc.Get("OneClickLowerQualityDescription"),
         Category = ModuleCategory.Item,
         RequiresPrivateProvider = true
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "OneClickLowerQualityTitle",
+            ["Description"] = "OneClickLowerQualityDescription",
+            ["Feature.OneClickLowerQuality.Add"] = "Feature.OneClickLowerQuality.Add",
+            ["Feature.OneClickLowerQuality.ItemId"] = "Feature.OneClickLowerQuality.ItemId",
+            ["Feature.OneClickLowerQuality.Menu"] = "Feature.OneClickLowerQuality.Menu"
+        });
 
     public override bool HasSettings => true;
 
@@ -83,13 +93,17 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
     private bool checkboxSent;
     private bool confirmationClosed;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => addonEvents?.Dispose());
+
         taskHelper = new()
         {
             RetryIntervalMS = 100,
             TimeoutMS = 15_000
         };
+        activation.Add(taskHelper);
+        activation.OnStopping(taskHelper.Abort);
         taskHelper.TaskTimeout += _ => StopPending();
         taskHelper.TaskGetException += _ => StopPending();
         addonEvents = new(DalamudServices.AddonLifecycle);
@@ -99,17 +113,15 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
         ContextMenuManager.Instance().Reg(menuEntry);
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
         if (menuEntry != null)
             ContextMenuManager.Instance().Unreg(menuEntry);
         menuEntry = null;
-        addonEvents?.Dispose();
         addonEvents = null;
         awaitingWindow = false;
         pendingSlots.Clear();
         taskHelper?.Abort();
-        taskHelper?.Dispose();
         taskHelper = null;
     }
 

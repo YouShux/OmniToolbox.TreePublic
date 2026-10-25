@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Globalization;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Plugin.Services;
@@ -13,33 +14,64 @@ using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
+[ModuleApiVersion(1)]
 public sealed unsafe partial class HouseExpirationReminder(
     HouseExpirationReminderConfig config,
-    Action saveConfig) : ModuleBase
+    Action saveConfig) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("HouseExpirationReminderTitle"),
-        Description = OmniLoc.Get("HouseExpirationReminderDescription"),
         Category = ModuleCategory.Daily
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "HouseExpirationReminderTitle",
+            ["Description"] = "HouseExpirationReminderDescription",
+            ["Feature.HouseExpirationReminder.Character"] = "Feature.HouseExpirationReminder.Character",
+            ["Feature.HouseExpirationReminder.ChatNotify"] = "Feature.HouseExpirationReminder.ChatNotify",
+            ["Feature.HouseExpirationReminder.Clear"] = "Feature.HouseExpirationReminder.Clear",
+            ["Feature.HouseExpirationReminder.CurrentCharacterMissing"] = "Feature.HouseExpirationReminder.CurrentCharacterMissing",
+            ["Feature.HouseExpirationReminder.EstimatedRemaining"] = "Feature.HouseExpirationReminder.EstimatedRemaining",
+            ["Feature.HouseExpirationReminder.FreeCompanyHouse"] = "Feature.HouseExpirationReminder.FreeCompanyHouse",
+            ["Feature.HouseExpirationReminder.FreeCompanyInfo"] = "Feature.HouseExpirationReminder.FreeCompanyInfo",
+            ["Feature.HouseExpirationReminder.FreeCompanyNotify"] = "Feature.HouseExpirationReminder.FreeCompanyNotify",
+            ["Feature.HouseExpirationReminder.HouseExpired"] = "Feature.HouseExpirationReminder.HouseExpired",
+            ["Feature.HouseExpirationReminder.HouseMissing"] = "Feature.HouseExpirationReminder.HouseMissing",
+            ["Feature.HouseExpirationReminder.LastVisit"] = "Feature.HouseExpirationReminder.LastVisit",
+            ["Feature.HouseExpirationReminder.NoCharacters"] = "Feature.HouseExpirationReminder.NoCharacters",
+            ["Feature.HouseExpirationReminder.NotRecorded"] = "Feature.HouseExpirationReminder.NotRecorded",
+            ["Feature.HouseExpirationReminder.NotRecordedShort"] = "Feature.HouseExpirationReminder.NotRecordedShort",
+            ["Feature.HouseExpirationReminder.PersonalHouse"] = "Feature.HouseExpirationReminder.PersonalHouse",
+            ["Feature.HouseExpirationReminder.PersonalInfo"] = "Feature.HouseExpirationReminder.PersonalInfo",
+            ["Feature.HouseExpirationReminder.PersonalNotify"] = "Feature.HouseExpirationReminder.PersonalNotify",
+            ["Feature.HouseExpirationReminder.PopupNotify"] = "Feature.HouseExpirationReminder.PopupNotify",
+            ["Feature.HouseExpirationReminder.Preview"] = "Feature.HouseExpirationReminder.Preview",
+            ["Feature.HouseExpirationReminder.RecordSummary"] = "Feature.HouseExpirationReminder.RecordSummary",
+            ["Feature.HouseExpirationReminder.RemainingMessage"] = "Feature.HouseExpirationReminder.RemainingMessage",
+            ["Feature.HouseExpirationReminder.Title"] = "Feature.HouseExpirationReminder.Title",
+            ["Feature.HouseExpirationReminder.UnknownCharacter"] = "Feature.HouseExpirationReminder.UnknownCharacter",
+            ["Feature.HouseExpirationReminder.WarnDays"] = "Feature.HouseExpirationReminder.WarnDays"
+        });
 
     public override bool HasSettings => true;
 
     private ulong lastDetectedHouseID;
     private bool lastInsideOwnedHouse;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+
         if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 1_000))
         {
             throw new InvalidOperationException("House expiration reminder update registration failed.");
         }
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
         lastInsideOwnedHouse = false;
         lastDetectedHouseID = 0;
     }
@@ -53,11 +85,11 @@ public sealed unsafe partial class HouseExpirationReminder(
         (int)Math.Ceiling((AsUTC(lastVisitUTC).AddDays(AutoDemolitionDays) - DateTime.UtcNow).TotalDays);
 
     internal void Preview() => SendReminder(
-            OmniLoc.Get("Feature.HouseExpirationReminder.Title"),
+            OmniLoc.Get(this, "Feature.HouseExpirationReminder.Title"),
             string.Format(
                 CultureInfo.CurrentCulture,
-                OmniLoc.Get("Feature.HouseExpirationReminder.RemainingMessage"),
-                OmniLoc.Get("Feature.HouseExpirationReminder.PersonalHouse"),
+                OmniLoc.Get(this, "Feature.HouseExpirationReminder.RemainingMessage"),
+                OmniLoc.Get(this, "Feature.HouseExpirationReminder.PersonalHouse"),
                 NormalizeWarnDays(config.WarnDays)));
 
     internal bool ClearCharacterRecord(HouseExpirationReminderCharacterRecord record)
@@ -179,7 +211,7 @@ public sealed unsafe partial class HouseExpirationReminder(
             {
                 TrySendDataRefreshReminder(
                     "current:missing",
-                    OmniLoc.Get("Feature.HouseExpirationReminder.CurrentCharacterMissing"));
+                    OmniLoc.Get(this, "Feature.HouseExpirationReminder.CurrentCharacterMissing"));
             }
 
             return;
@@ -191,7 +223,7 @@ public sealed unsafe partial class HouseExpirationReminder(
             CheckHouseReminder(
                 record,
                 "personal",
-                OmniLoc.Get("Feature.HouseExpirationReminder.PersonalHouse"),
+                OmniLoc.Get(this, "Feature.HouseExpirationReminder.PersonalHouse"),
                 record.PersonalLastVisitUTC,
                 warnDays);
         }
@@ -201,7 +233,7 @@ public sealed unsafe partial class HouseExpirationReminder(
             CheckHouseReminder(
                 record,
                 "freecompany",
-                OmniLoc.Get("Feature.HouseExpirationReminder.FreeCompanyHouse"),
+                OmniLoc.Get(this, "Feature.HouseExpirationReminder.FreeCompanyHouse"),
                 record.FreeCompanyLastVisitUTC,
                 warnDays);
         }
@@ -222,7 +254,7 @@ public sealed unsafe partial class HouseExpirationReminder(
                 $"{reminderPrefix}missing",
                 string.Format(
                     CultureInfo.CurrentCulture,
-                    OmniLoc.Get("Feature.HouseExpirationReminder.HouseMissing"),
+                    OmniLoc.Get(this, "Feature.HouseExpirationReminder.HouseMissing"),
                     houseName));
             return;
         }
@@ -234,7 +266,7 @@ public sealed unsafe partial class HouseExpirationReminder(
                 $"{reminderPrefix}expired",
                 string.Format(
                     CultureInfo.CurrentCulture,
-                    OmniLoc.Get("Feature.HouseExpirationReminder.HouseExpired"),
+                    OmniLoc.Get(this, "Feature.HouseExpirationReminder.HouseExpired"),
                     houseName,
                     AutoDemolitionDays));
             return;
@@ -246,10 +278,10 @@ public sealed unsafe partial class HouseExpirationReminder(
         }
 
         SendReminder(
-            OmniLoc.Get("Feature.HouseExpirationReminder.Title"),
+            OmniLoc.Get(this, "Feature.HouseExpirationReminder.Title"),
             string.Format(
                 CultureInfo.CurrentCulture,
-                OmniLoc.Get("Feature.HouseExpirationReminder.RemainingMessage"),
+                OmniLoc.Get(this, "Feature.HouseExpirationReminder.RemainingMessage"),
                 houseName,
                 remaining));
     }
@@ -258,7 +290,7 @@ public sealed unsafe partial class HouseExpirationReminder(
     {
         if (AddReminderKey(key))
         {
-            SendReminder(OmniLoc.Get("Feature.HouseExpirationReminder.Title"), details);
+            SendReminder(OmniLoc.Get(this, "Feature.HouseExpirationReminder.Title"), details);
         }
     }
 

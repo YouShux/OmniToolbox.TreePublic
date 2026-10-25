@@ -1,3 +1,5 @@
+using TreeToolKit;
+using TreeTools.Lifecycle;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -18,23 +20,40 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Items;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using ContentFinderConditionSheet = Lumina.Excel.Sheets.ContentFinderCondition;
 using InstanceContentSheet = Lumina.Excel.Sheets.InstanceContent;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class DutyLootPreview : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class DutyLootPreview : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("DutyLootPreviewTitle"),
-        Description = OmniLoc.Get("DutyLootPreviewDescription"),
         Category = ModuleCategory.Item,
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/DutyLootPreview-1.png"
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "DutyLootPreviewTitle",
+            ["Description"] = "DutyLootPreviewDescription",
+            ["Feature.DutyLootPreview.Boss"] = "Feature.DutyLootPreview.Boss",
+            ["Feature.DutyLootPreview.Button"] = "Feature.DutyLootPreview.Button",
+            ["Feature.DutyLootPreview.ButtonTooltip"] = "Feature.DutyLootPreview.ButtonTooltip",
+            ["Feature.DutyLootPreview.Chest"] = "Feature.DutyLootPreview.Chest",
+            ["Feature.DutyLootPreview.Empty"] = "Feature.DutyLootPreview.Empty",
+            ["Feature.DutyLootPreview.Exchange"] = "Feature.DutyLootPreview.Exchange",
+            ["Feature.DutyLootPreview.Favorite"] = "Feature.DutyLootPreview.Favorite",
+            ["Feature.DutyLootPreview.Link"] = "Feature.DutyLootPreview.Link",
+            ["Feature.DutyLootPreview.Recipes"] = "Feature.DutyLootPreview.Recipes",
+            ["Feature.DutyLootPreview.Search"] = "Feature.DutyLootPreview.Search",
+            ["Feature.DutyLootPreview.TryOn"] = "Feature.DutyLootPreview.TryOn",
+            ["Feature.DutyLootPreview.Unfavorite"] = "Feature.DutyLootPreview.Unfavorite"
+        });
 
     private readonly Config config;
     private readonly System.Action saveConfig;
@@ -50,7 +69,6 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
         this.itemPreviewService = itemPreviewService;
     }
 
-    private FeatureLifetime? runtimeLifetime;
     private LootWindow? window;
     private NativeOverlayController? overlayController;
     private DutyLootTodoOverlayNode? todoOverlayNode;
@@ -59,60 +77,10 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
     private bool exchangeDataPending;
     private long nextExchangeRetryAt;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            BeginLoadDrops();
-            window = new(this);
-            lifetime.Add(() =>
-            {
-                window?.Dispose();
-                window = null;
-            });
-
-            overlayController = new();
-            todoOverlayNode = new(this);
-            overlayController.AddNode(todoOverlayNode);
-            overlayNode = new DutyLootOverlayNode(this);
-            overlayController.AddNode(overlayNode);
-            lifetime.Add(() =>
-            {
-                todoOverlayNode?.HideButtonNow();
-                todoOverlayNode = null;
-                overlayNode?.HideButtonsNow();
-                overlayNode = null;
-                overlayController?.Dispose();
-                overlayController = null;
-            });
-
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
-            {
-                throw new InvalidOperationException("Duty loot preview update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            runtimeLifetime = lifetime;
-            RefreshDuty();
-        }
-        catch
-        {
-            lifetime.Dispose();
-            runtimeLifetime = null;
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             activeDutyID = 0;
             exchangeDataPending = false;
@@ -124,7 +92,37 @@ public sealed unsafe partial class DutyLootPreview : ModuleBase
             chestRows.Clear();
             pendingChestItems = null;
             pendingChestItemIndex = 0;
+        });
+        BeginLoadDrops();
+        window = new(this);
+        lifetime.Add(() =>
+        {
+            window?.Dispose();
+            window = null;
+        });
+
+        overlayController = new();
+        todoOverlayNode = new(this);
+        overlayController.AddNode(todoOverlayNode);
+        overlayNode = new DutyLootOverlayNode(this);
+        overlayController.AddNode(overlayNode);
+        lifetime.Add(() =>
+        {
+            todoOverlayNode?.HideButtonNow();
+            todoOverlayNode = null;
+            overlayNode?.HideButtonsNow();
+            overlayNode = null;
+            overlayController?.Dispose();
+            overlayController = null;
+        });
+
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
+        {
+            throw new InvalidOperationException("Duty loot preview update registration failed.");
         }
+
+        lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+        RefreshDuty();
     }
 
     private void OnFrameworkUpdate(IFramework _)

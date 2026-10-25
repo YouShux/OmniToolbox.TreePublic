@@ -12,42 +12,49 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
+[ModuleApiVersion(1)]
 public sealed unsafe partial class RetainerEntrustMemory(
     RetainerEntrustMemory.Settings config,
-    System.Action saveConfig) : ModuleBase
+    System.Action saveConfig) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("RetainerEntrustMemoryTitle"),
-        Description = OmniLoc.Get("RetainerEntrustMemoryDescription"),
         Category = ModuleCategory.Item,
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Item/RetainerEntrustMemory-1.png"
     };
 
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "RetainerEntrustMemoryTitle",
+            ["Description"] = "RetainerEntrustMemoryDescription"
+        });
+
     private readonly Dictionary<uint, bool> itemStates = [];
     private AddonEventRegistry? addonEvents;
     private Dictionary<string, uint>? itemIDsByName;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => addonEvents?.Dispose());
+
         var events = new AddonEventRegistry(DalamudServices.AddonLifecycle);
+        addonEvents = events;
         events.Register(AddonEvent.PostSetup, ADDON_NAME, OnPostSetup);
         events.Register(AddonEvent.PostUpdate, ADDON_NAME, OnPostUpdate);
         events.Register(AddonEvent.PreFinalize, ADDON_NAME, OnPreFinalize);
-        addonEvents = events;
         if (AddonHelper.TryGetByName(ADDON_NAME, out var addon) && addon->IsAddonAndNodesReady())
             ApplyExcludedItems((AddonRetainerItemTransferList*)addon);
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        addonEvents?.Dispose();
         addonEvents = null;
         itemStates.Clear();
     }

@@ -80,8 +80,8 @@ public sealed unsafe partial class BetterGlamourManagement
     {
         ImGui.SetClipboardText(GlamourClipboard.Export(preset));
         OmniNotifier.Popup(
-            Info.Title,
-            OmniLoc.Get("Feature.BetterGlamourManagement.Copied"),
+            Title,
+            OmniLoc.Get(this, "Feature.BetterGlamourManagement.Copied"),
             NotificationType.Success);
     }
 
@@ -90,8 +90,8 @@ public sealed unsafe partial class BetterGlamourManagement
         if (config.Presets.Count >= MAX_PRESET_COUNT)
         {
             OmniNotifier.Popup(
-                Info.Title,
-                string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.PresetLimitReached"), MAX_PRESET_COUNT),
+                Title,
+                string.Format(OmniLoc.Get(this, "Feature.BetterGlamourManagement.PresetLimitReached"), MAX_PRESET_COUNT),
                 NotificationType.Warning);
             return;
         }
@@ -99,7 +99,7 @@ public sealed unsafe partial class BetterGlamourManagement
         var preset = new BetterGlamourPreset
         {
             Name = string.Format(
-                OmniLoc.Get("Feature.BetterGlamourManagement.DefaultName"),
+                OmniLoc.Get(this, "Feature.BetterGlamourManagement.DefaultName"),
                 DateTime.Now.ToString("yyyy-MM-dd HH:mm"))
         };
         foreach (var slot in InspectSlots)
@@ -131,8 +131,8 @@ public sealed unsafe partial class BetterGlamourManagement
             config.Presets.Remove(preset);
             selectedPresetIndex = oldSelection;
             OmniNotifier.Popup(
-                Info.Title,
-                string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.CreateFailed"), error.Message),
+                Title,
+                string.Format(OmniLoc.Get(this, "Feature.BetterGlamourManagement.CreateFailed"), error.Message),
                 NotificationType.Error);
             return;
         }
@@ -146,7 +146,7 @@ public sealed unsafe partial class BetterGlamourManagement
         try
         {
             if (config.Presets.Count >= MAX_PRESET_COUNT)
-                throw new InvalidOperationException(string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.PresetLimitReached"), MAX_PRESET_COUNT));
+                throw new InvalidOperationException(string.Format(OmniLoc.Get(this, "Feature.BetterGlamourManagement.PresetLimitReached"), MAX_PRESET_COUNT));
             var preset = GlamourClipboard.Import(ImGui.GetClipboardText());
             ValidateRemotePreset(preset);
             var oldSelection = selectedPresetIndex;
@@ -164,11 +164,11 @@ public sealed unsafe partial class BetterGlamourManagement
             }
             managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
             QueuePortraitPreview(preset);
-            OmniNotifier.Popup(Info.Title, string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.Imported"), preset.Name), NotificationType.Success);
+            OmniNotifier.Popup(Title, string.Format(OmniLoc.Get(this, "Feature.BetterGlamourManagement.Imported"), preset.Name), NotificationType.Success);
         }
         catch (Exception error)
         {
-            OmniNotifier.Popup(Info.Title, string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.ImportFailed"), error.Message), NotificationType.Error);
+            OmniNotifier.Popup(Title, string.Format(OmniLoc.Get(this, "Feature.BetterGlamourManagement.ImportFailed"), error.Message), NotificationType.Error);
         }
     }
 
@@ -278,7 +278,7 @@ public sealed unsafe partial class BetterGlamourManagement
                 continue;
             }
 
-            hairstyles.Add(new(hairstyle.RowId, name, (uint)hairstyle.Icon));
+            hairstyles.Add(new(hairstyle.RowId, name, (uint)hairstyle.Icon, Kind: BetterGlamourEditorItemKind.Hairstyle));
         }
 
         return [.. hairstyles];
@@ -297,7 +297,7 @@ public sealed unsafe partial class BetterGlamourManagement
                 continue;
             }
 
-            glasses.Add(new(row.RowId, row.Name.ExtractText(), (uint)row.Icon));
+            glasses.Add(new(row.RowId, row.Name.ExtractText(), (uint)row.Icon, Kind: BetterGlamourEditorItemKind.Glasses));
         }
 
         return [.. glasses];

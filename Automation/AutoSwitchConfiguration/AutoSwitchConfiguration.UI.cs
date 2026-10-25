@@ -54,17 +54,17 @@ public sealed partial class AutoSwitchConfiguration
         var rowHeight = MathF.Max(OmniTheme.SmallButtonSize().Y, ImGui.GetFrameHeight());
         using var framePadding = ImRaii.PushStyle(ImGuiStyleVar.FramePadding,
             new Vector2(ImGui.GetStyle().FramePadding.X, MathF.Max(0f, (rowHeight - ImGui.GetTextLineHeight()) * 0.5f)));
-        var nameLabel = OmniLoc.Get("Feature.AutoSwitchConfiguration.Name");
-        var anyTerritoryLabel = OmniLoc.Get("Feature.AutoSwitchConfiguration.AnyTerritory");
-        var noJobLabel = OmniLoc.Get("Feature.AutoSwitchConfiguration.NoClassJob");
-        var gearsetLabel = OmniLoc.Get("Feature.AutoSwitchConfiguration.Gearset");
+        var nameLabel = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Name");
+        var anyTerritoryLabel = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.AnyTerritory");
+        var noJobLabel = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.NoClassJob");
+        var gearsetLabel = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Gearset");
         var job = LuminaGetter.GetRow<ClassJob>(editor.ClassJobID).GetValueOrDefault();
         var jobPreview = job.Name.ToString();
         if (editor.ClassJobID == 0 || string.IsNullOrWhiteSpace(jobPreview))
-            jobPreview = OmniLoc.Get("Feature.AutoSwitchConfiguration.SelectJob");
+            jobPreview = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.SelectJob");
         var territoryPreview = editor.TerritoryID == 0 ? string.Empty : GetTerritoryName(editor.TerritoryID);
         if (string.IsNullOrWhiteSpace(territoryPreview))
-            territoryPreview = OmniLoc.Get("Feature.AutoSwitchConfiguration.SelectTerritory");
+            territoryPreview = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.SelectTerritory");
         var gearsetPreview = GetGearsetName(editor.GearsetID);
         var territorySize = OmniControls.CompactButtonSize(territoryPreview);
         var nameWidth = MathF.Max(1f,
@@ -72,10 +72,10 @@ public sealed partial class AutoSwitchConfiguration
         var jobSize = OmniControls.CompactButtonSize(jobPreview);
         var noJobSize = OmniControls.MeasureCheckbox(noJobLabel, rowHeight);
         var gearsetSize = OmniControls.MeasureCombo(gearsetPreview);
-        var saveSize = OmniControls.CompactButtonSize(OmniLoc.Get(editingRule is null
+        var saveSize = OmniControls.CompactButtonSize(OmniLoc.Get(this, editingRule is null
             ? "Feature.AutoSwitchConfiguration.Add" : "Feature.AutoSwitchConfiguration.Save"));
         var cancelSize = editingRule is null ? Vector2.Zero :
-            OmniControls.CompactButtonSize(OmniLoc.Get("Feature.AutoSwitchConfiguration.Cancel"));
+            OmniControls.CompactButtonSize(OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Cancel"));
 
         using (ImRaii.Group())
         {
@@ -161,12 +161,12 @@ public sealed partial class AutoSwitchConfiguration
 
     private void DrawEditorButtons()
     {
-        if (OmniControls.SmallButton(OmniLoc.Get(editingRule is null
+        if (OmniControls.SmallButton(OmniLoc.Get(this, editingRule is null
                 ? "Feature.AutoSwitchConfiguration.Add" : "Feature.AutoSwitchConfiguration.Save"), false))
         {
             var editor = draft!;
             if (string.IsNullOrWhiteSpace(editor.Name))
-                editor.Name = string.Format(OmniLoc.Get("Feature.AutoSwitchConfiguration.RuleNameDefault"), config.Rules.Count + 1);
+                editor.Name = string.Format(OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.RuleNameDefault"), config.Rules.Count + 1);
             if (editingRule is null)
                 config.Rules.Add(editor);
             else
@@ -183,7 +183,7 @@ public sealed partial class AutoSwitchConfiguration
         if (editingRule is null)
             return;
 
-        var cancelLabel = OmniLoc.Get("Feature.AutoSwitchConfiguration.Cancel");
+        var cancelLabel = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Cancel");
         OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(cancelLabel).X);
         if (OmniControls.SmallButton(cancelLabel, false))
         {
@@ -197,14 +197,14 @@ public sealed partial class AutoSwitchConfiguration
         if (config.Rules.Count == 0)
             return;
 
-        var editLabel = OmniLoc.Get("Feature.AutoSwitchConfiguration.Edit");
-        var deleteLabel = OmniLoc.Get("Feature.AutoSwitchConfiguration.Delete");
+        var editLabel = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Edit");
+        var deleteLabel = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Delete");
         var editSize = OmniControls.CompactButtonSize(editLabel);
         var deleteSize = OmniControls.CompactButtonSize(deleteLabel);
         var enabledSize = OmniControls.MeasureCheckbox(string.Empty);
         var actionWidth = editSize.X + deleteSize.X + ImGui.GetStyle().ItemSpacing.X;
-        string[] labels = [OmniLoc.Get("Feature.AutoSwitchConfiguration.Enabled"),
-            OmniLoc.Get("Feature.AutoSwitchConfiguration.Rule"), OmniLoc.Get("Feature.AutoSwitchConfiguration.Actions")];
+        string[] labels = [OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Enabled"),
+            OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Rule"), OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Actions")];
         using var table = OmniControls.DataTable("##autoSwitchRules", labels,
             [enabledSize.X, ImGui.GetFontSize() * 8f, actionWidth],
             [enabledSize.X, ImGui.GetFontSize() * 24f, actionWidth], out var detailLayout,
@@ -225,7 +225,7 @@ public sealed partial class AutoSwitchConfiguration
                 rule.Enabled = allEnabled;
             SaveChanges();
         }
-        OmniControls.HelpTooltip(OmniLoc.Get("Feature.AutoSwitchConfiguration.EnableAll"));
+        OmniControls.HelpTooltip(OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.EnableAll"));
         if (!detailLayout)
         {
             OmniControls.TableHeader(labels[1]);
@@ -293,9 +293,9 @@ public sealed partial class AutoSwitchConfiguration
 
     private void DrawActionsTable(Rule rule)
     {
-        var addLabel = OmniLoc.Get("Feature.AutoSwitchConfiguration.AddAction");
+        var addLabel = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.AddAction");
         var addSize = OmniControls.CompactButtonSize(addLabel);
-        var deleteLabel = OmniLoc.Get("Feature.AutoSwitchConfiguration.Delete");
+        var deleteLabel = OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Delete");
         var deleteSize = OmniControls.CompactButtonSize(deleteLabel);
         var arrowSize = new Vector2(OmniTheme.CheckboxSize());
         var controlHeight = MathF.Max(OmniTheme.SmallButtonSize().Y, ImGui.GetFrameHeight());
@@ -303,8 +303,8 @@ public sealed partial class AutoSwitchConfiguration
         var typeWidth = 0f;
         foreach (var type in ActionKinds)
             typeWidth = MathF.Max(typeWidth, OmniControls.MeasureCombo(GetActionKindName(type)).X);
-        string[] labels = [OmniLoc.Get("Feature.AutoSwitchConfiguration.ActionType"),
-            OmniLoc.Get("Feature.AutoSwitchConfiguration.ActionContent"), OmniLoc.Get("Feature.AutoSwitchConfiguration.Actions")];
+        string[] labels = [OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.ActionType"),
+            OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.ActionContent"), OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.Actions")];
         var contentWidth = MathF.Max(ImGui.GetFontSize() * 6f, OmniControls.MeasureTableHeader(labels[1], true).X);
         using var table = OmniControls.DataTable("##actions", labels,
             [typeWidth, contentWidth, actionWidth],
@@ -317,7 +317,7 @@ public sealed partial class AutoSwitchConfiguration
         {
             OmniControls.BeginTableHeaderRow();
             OmniControls.TableHeader(labels[0]);
-            OmniControls.TableHeader(labels[1], OmniLoc.Get("Feature.AutoSwitchConfiguration.CommandsHelp"));
+            OmniControls.TableHeader(labels[1], OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.CommandsHelp"));
             OmniControls.TableHeader(labels[2]);
         }
         for (var index = 0; index < rule.Actions.Count; index++)
@@ -357,7 +357,7 @@ public sealed partial class AutoSwitchConfiguration
             if (detailLayout)
             {
                 OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                OmniControls.HelpIcon(OmniLoc.Get("Feature.AutoSwitchConfiguration.CommandsHelp"));
+                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.CommandsHelp"));
             }
             if (step.Type == ActionKind.SendCommand)
             {
@@ -381,7 +381,7 @@ public sealed partial class AutoSwitchConfiguration
             using (ImRaii.Disabled(index == 0))
             {
                 if (OmniControls.IconButton("##up", FontAwesomeIcon.ArrowUp, false,
-                        OmniLoc.Get("Feature.AutoSwitchConfiguration.MoveUp")))
+                        OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.MoveUp")))
                 {
                     (rule.Actions[index - 1], rule.Actions[index]) = (step, rule.Actions[index - 1]);
                     SaveChanges();
@@ -392,7 +392,7 @@ public sealed partial class AutoSwitchConfiguration
             using (ImRaii.Disabled(index == rule.Actions.Count - 1))
             {
                 if (OmniControls.IconButton("##down", FontAwesomeIcon.ArrowDown, false,
-                        OmniLoc.Get("Feature.AutoSwitchConfiguration.MoveDown")))
+                        OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.MoveDown")))
                 {
                     (rule.Actions[index + 1], rule.Actions[index]) = (step, rule.Actions[index + 1]);
                     SaveChanges();
@@ -431,12 +431,12 @@ public sealed partial class AutoSwitchConfiguration
 
     private void DrawToolbarCommandCombo(ActionStep step)
     {
-        if (!OmniControls.BeginCombo("##toolbarCommand", OmniLoc.Get("Feature.AutoSwitchConfiguration.SelectToolbarCommand"),
+        if (!OmniControls.BeginCombo("##toolbarCommand", OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.SelectToolbarCommand"),
                 ImGui.GetContentRegionAvail().X))
             return;
 
         if (toolbarCommands.Count == 0)
-            ImGui.TextDisabled(OmniLoc.Get("Feature.AutoSwitchConfiguration.NoToolbarCommands"));
+            ImGui.TextDisabled(OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.NoToolbarCommands"));
         for (var index = 0; index < toolbarCommands.Count; index++)
         {
             var command = toolbarCommands[index];
@@ -451,7 +451,7 @@ public sealed partial class AutoSwitchConfiguration
 
     private void DrawCollectionCombo(ActionStep step)
     {
-        var preview = OmniLoc.Get(step.CollectionID == Guid.Empty
+        var preview = OmniLoc.Get(this, step.CollectionID == Guid.Empty
             ? "Feature.AutoSwitchConfiguration.SelectCollection" : "Feature.AutoSwitchConfiguration.CollectionUnavailable");
         foreach (var collection in collections)
         {
@@ -465,7 +465,7 @@ public sealed partial class AutoSwitchConfiguration
             return;
 
         if (collections.Count == 0)
-            ImGui.TextDisabled(OmniLoc.Get("Feature.AutoSwitchConfiguration.NoCollections"));
+            ImGui.TextDisabled(OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.NoCollections"));
         foreach (var collection in collections)
         {
             if (!OmniControls.WrappedSelectable($"{collection.Name}##{collection.ID}", step.CollectionID == collection.ID))

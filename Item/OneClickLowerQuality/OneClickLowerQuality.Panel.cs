@@ -9,13 +9,13 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Data;
 using OmenTools.OmenService;
-using OmenTools.Threading.TaskHelper;
+using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
 using OmniToolbox.Items;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 

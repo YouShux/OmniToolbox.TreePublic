@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using Dalamud.Hooking;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -6,20 +7,27 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class LargeCooldownCounter(LargeCooldownCounter.Settings config) : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class LargeCooldownCounter(LargeCooldownCounter.Settings config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("LargeCooldownCounterTitle"),
-        Description = OmniLoc.Get("LargeCooldownCounterDescription"),
         Category = ModuleCategory.Interface
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "LargeCooldownCounterTitle",
+            ["Description"] = "LargeCooldownCounterDescription",
+            ["Feature.LargeCooldownCounter.Font"] = "Feature.LargeCooldownCounter.Font",
+            ["Feature.LargeCooldownCounter.FontSizeAdjust"] = "Feature.LargeCooldownCounter.FontSizeAdjust"
+        });
 
     public override bool HasSettings => true;
 
@@ -35,48 +43,28 @@ public sealed unsafe partial class LargeCooldownCounter(LargeCooldownCounter.Set
     private static readonly Vector4 InvalidTextColor = new(0.85f, 0.25f, 0.25f, 1f);
     private static readonly Vector4 InvalidEdgeColor = new(0.34f, 0f, 0f, 1f);
 
-    private FeatureLifetime? runtimeLifetime;
     private Hook<AddonActionBarBase.Delegates.UpdateHotbarSlot>? updateHotbarSlotHook;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            updateHotbarSlotHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.UpdateHotbarSlot>(
-                AddonActionBarBase.MemberFunctionPointers.UpdateHotbarSlot,
-                OnUpdateHotbarSlot);
-            lifetime.Add(updateHotbarSlotHook.Dispose);
-            updateHotbarSlotHook.Enable();
-            runtimeLifetime = lifetime;
-        }
-        catch
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             updateHotbarSlotHook = null;
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
-        {
-            updateHotbarSlotHook = null;
-        }
+        });
+        updateHotbarSlotHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.UpdateHotbarSlot>(
+            AddonActionBarBase.MemberFunctionPointers.UpdateHotbarSlot,
+            OnUpdateHotbarSlot);
+        lifetime.Add(updateHotbarSlotHook.Dispose);
+        lifetime.OnStopping(updateHotbarSlotHook.Disable);
+        updateHotbarSlotHook.Enable();
     }
 
     public override bool DrawSettings()
     {
         var changed = false;
-        var fontLabel = OmniLoc.Get("Feature.LargeCooldownCounter.Font");
-        var sizeLabel = OmniLoc.Get("Feature.LargeCooldownCounter.FontSizeAdjust");
+        var fontLabel = OmniLoc.Get(this, "Feature.LargeCooldownCounter.Font");
+        var sizeLabel = OmniLoc.Get(this, "Feature.LargeCooldownCounter.FontSizeAdjust");
         var controlWidth = OmniControls.MeasureCombo(GetFontName(config.Font), OmniTheme.Scale(120f)).X;
         var controlSize = new Vector2(controlWidth, ImGui.GetFrameHeight());
         using var table = OmniControls.SettingsTable(
@@ -214,7 +202,6 @@ public sealed unsafe partial class LargeCooldownCounter(LargeCooldownCounter.Set
         FontType.Miedinger => "Miedinger",
         _ => "Trump Gothic"
     };
-
 
     public sealed class Settings
     {

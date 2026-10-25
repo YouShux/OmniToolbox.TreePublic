@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
@@ -8,22 +9,61 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed partial class SkillMonitor : ModuleBase
+[ModuleApiVersion(1)]
+public sealed partial class SkillMonitor : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("SkillMonitorTitle"),
-        Description = OmniLoc.Get("SkillMonitorDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/SkillMonitor-1.png"
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "SkillMonitorTitle",
+            ["Description"] = "SkillMonitorDescription",
+            ["Feature.LargeCooldownCounter.Font"] = "Feature.LargeCooldownCounter.Font",
+            ["Feature.SkillMonitor.Active"] = "Feature.SkillMonitor.Active",
+            ["Feature.SkillMonitor.Alignment"] = "Feature.SkillMonitor.Alignment",
+            ["Feature.SkillMonitor.Alignment.Mirror"] = "Feature.SkillMonitor.Alignment.Mirror",
+            ["Feature.SkillMonitor.Alignment.Right"] = "Feature.SkillMonitor.Alignment.Right",
+            ["Feature.SkillMonitor.Column.Action"] = "Feature.SkillMonitor.Column.Action",
+            ["Feature.SkillMonitor.Column.Enabled"] = "Feature.SkillMonitor.Column.Enabled",
+            ["Feature.SkillMonitor.Column.Operation"] = "Feature.SkillMonitor.Column.Operation",
+            ["Feature.SkillMonitor.Column.Order"] = "Feature.SkillMonitor.Column.Order",
+            ["Feature.SkillMonitor.Custom.ActionID"] = "Feature.SkillMonitor.Custom.ActionID",
+            ["Feature.SkillMonitor.Custom.Add"] = "Feature.SkillMonitor.Custom.Add",
+            ["Feature.SkillMonitor.Custom.Delete"] = "Feature.SkillMonitor.Custom.Delete",
+            ["Feature.SkillMonitor.Custom.Duplicate"] = "Feature.SkillMonitor.Custom.Duplicate",
+            ["Feature.SkillMonitor.Custom.Invalid"] = "Feature.SkillMonitor.Custom.Invalid",
+            ["Feature.SkillMonitor.Duration.Minutes"] = "Feature.SkillMonitor.Duration.Minutes",
+            ["Feature.SkillMonitor.Duration.Seconds"] = "Feature.SkillMonitor.Duration.Seconds",
+            ["Feature.SkillMonitor.GeneralPosition"] = "Feature.SkillMonitor.GeneralPosition",
+            ["Feature.SkillMonitor.GeneralPosition.First"] = "Feature.SkillMonitor.GeneralPosition.First",
+            ["Feature.SkillMonitor.GeneralPosition.Last"] = "Feature.SkillMonitor.GeneralPosition.Last",
+            ["Feature.SkillMonitor.Group.Dps"] = "Feature.SkillMonitor.Group.Dps",
+            ["Feature.SkillMonitor.Group.General"] = "Feature.SkillMonitor.Group.General",
+            ["Feature.SkillMonitor.Group.Healer"] = "Feature.SkillMonitor.Group.Healer",
+            ["Feature.SkillMonitor.Group.Tank"] = "Feature.SkillMonitor.Group.Tank",
+            ["Feature.SkillMonitor.HideWhen"] = "Feature.SkillMonitor.HideWhen",
+            ["Feature.SkillMonitor.IconScale"] = "Feature.SkillMonitor.IconScale",
+            ["Feature.SkillMonitor.IconSpacing"] = "Feature.SkillMonitor.IconSpacing",
+            ["Feature.SkillMonitor.IconsPerRow"] = "Feature.SkillMonitor.IconsPerRow",
+            ["Feature.SkillMonitor.OffCooldown"] = "Feature.SkillMonitor.OffCooldown",
+            ["Feature.SkillMonitor.Offset"] = "Feature.SkillMonitor.Offset",
+            ["Feature.SkillMonitor.OnCooldown"] = "Feature.SkillMonitor.OnCooldown",
+            ["Feature.SkillMonitor.OutOfCombat"] = "Feature.SkillMonitor.OutOfCombat",
+            ["Feature.SkillMonitor.Reorder"] = "Feature.SkillMonitor.Reorder",
+            ["Feature.SkillMonitor.ShowWhen"] = "Feature.SkillMonitor.ShowWhen",
+            ["Feature.SkillMonitor.WeaponSheathed"] = "Feature.SkillMonitor.WeaponSheathed"
+        });
 
     public override bool HasSettings => true;
 
@@ -44,48 +84,26 @@ public sealed partial class SkillMonitor : ModuleBase
         overlay = new(config, definitions, tracker, CreateDefinitionIndexesByJob());
     }
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
         NormalizeConfig();
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            tracker.Register(lifetime);
-            lifetime.Add(overlay.Dispose);
-            var windowManager = WindowManager.Instance();
-            _ = windowManager.WindowSystem;
-            windowManager.PostDraw += overlay.Draw;
-            lifetime.Add(() => windowManager.PostDraw -= overlay.Draw);
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            try
-            {
-                lifetime.Dispose();
-            }
-            finally
-            {
-                runtimeLifetime = null;
-                tracker.Clear();
-            }
-
-            throw;
-        }
+        runtimeLifetime = new();
+        activation.Add(runtimeLifetime.Dispose);
+        RegisterRuntime(runtimeLifetime);
     }
 
-    protected override void OnDisable()
+    private void RegisterRuntime(FeatureLifetime lifetime)
     {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        lifetime.Add(() =>
         {
             tracker.Clear();
-        }
+        });
+        tracker.Register(lifetime);
+        lifetime.Add(overlay.Dispose);
+        var windowManager = WindowManager.Instance();
+        _ = windowManager.WindowSystem;
+        windowManager.PostDraw += overlay.Draw;
+        lifetime.OnStopping(() => windowManager.PostDraw -= overlay.Draw);
     }
 
     public override bool DrawSettings()
@@ -159,7 +177,6 @@ public sealed partial class SkillMonitor : ModuleBase
                 NormalizeScope(group.JobIDs[jobIndex], group.Group);
             }
         }
-
     }
 
     private void NormalizeScope(uint scopeID, SkillMonitorGroup group)
@@ -222,7 +239,6 @@ public sealed partial class SkillMonitor : ModuleBase
                 disabled.RemoveAt(index);
             }
         }
-
     }
 
     private int[][] CreateDefinitionIndexesByJob()
@@ -290,7 +306,7 @@ public sealed partial class SkillMonitor : ModuleBase
         var wasEnabled = IsEnabled;
         if (wasEnabled)
         {
-            OnDisable();
+            runtimeLifetime?.Dispose();
         }
 
         definitions = SkillMonitorDefinitions.Create(config.CustomActions);
@@ -299,7 +315,9 @@ public sealed partial class SkillMonitor : ModuleBase
         overlay = new(config, definitions, tracker, CreateDefinitionIndexesByJob());
         if (wasEnabled)
         {
-            OnEnable();
+            runtimeLifetime = new();
+            Activation.Add(runtimeLifetime.Dispose);
+            RegisterRuntime(runtimeLifetime);
         }
     }
 }

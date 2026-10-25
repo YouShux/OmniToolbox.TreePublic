@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using Dalamud.Plugin.Services;
 using OmenTools;
 using OmenTools.OmenService;
@@ -5,20 +6,18 @@ using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
+[ModuleApiVersion(1)]
 public sealed partial class DisplayIDInformation(
     DisplayIDInformationConfig config,
-    IconBrowser iconBrowser) : ModuleBase
+    IconBrowser iconBrowser) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("DisplayIdInformationTitle"),
-        Description = OmniLoc.Get("DisplayIdInformationDescription"),
         Category = ModuleCategory.Debug,
         Commands =
         [
@@ -26,52 +25,48 @@ public sealed partial class DisplayIDInformation(
         ]
     };
 
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "DisplayIdInformationTitle",
+            ["Description"] = "DisplayIdInformationDescription",
+            ["Feature.DisplayIdInformation.CommandDescription"] = "Feature.DisplayIdInformation.CommandDescription",
+            ["Feature.DisplayIdInformation.ActionFlyText.Help"] = "Feature.DisplayIdInformation.ActionFlyText.Help",
+            ["Feature.DisplayIdInformation.CastBar.Help"] = "Feature.DisplayIdInformation.CastBar.Help",
+            ["Feature.DisplayIdInformation.Icon"] = "Feature.DisplayIdInformation.Icon",
+            ["Feature.DisplayIdInformation.IconBrowser.Help"] = "Feature.DisplayIdInformation.IconBrowser.Help",
+            ["Feature.DisplayIdInformation.Item"] = "Feature.DisplayIdInformation.Item",
+            ["Feature.DisplayIdInformation.Others.Help"] = "Feature.DisplayIdInformation.Others.Help",
+            ["Feature.DisplayIdInformation.StatusFlyText.Help"] = "Feature.DisplayIdInformation.StatusFlyText.Help",
+            ["Feature.DisplayIdInformation.Weather"] = "Feature.DisplayIdInformation.Weather",
+            ["Feature.DisplayIdInformation.Zone"] = "Feature.DisplayIdInformation.Zone",
+            ["IconBrowser.Title"] = "IconBrowser.Title"
+        });
+
     public override bool HasSettings => true;
 
-    private FeatureLifetime? runtimeLifetime;
     private DisplayIDInformationNativeUI? nativeUI;
     private DisplayIDInformationCombat? combat;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        var lifetime = new FeatureLifetime();
-        try
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
-            nativeUI = new(config);
-            lifetime.Add(nativeUI.Dispose);
-            combat = new(config);
-            lifetime.Add(combat.Dispose);
-            if (!FrameworkManager.Instance().Reg(OnUpdate, 100))
-            {
-                throw new InvalidOperationException("Display ID information update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnUpdate));
-            runtimeLifetime = lifetime;
-            OnUpdate(DService.Instance().Framework);
-        }
-        catch
-        {
-            runtimeLifetime = null;
             nativeUI = null;
             combat = null;
-            lifetime.Dispose();
-            throw;
+        });
+        nativeUI = new(config);
+        lifetime.Add(nativeUI.Dispose);
+        combat = new(config);
+        lifetime.Add(combat.Dispose);
+        if (!FrameworkManager.Instance().Reg(OnUpdate, 100))
+        {
+            throw new InvalidOperationException("Display ID information update registration failed.");
         }
-    }
 
-    protected override void OnDisable()
-    {
-        try
-        {
-            runtimeLifetime?.Dispose();
-        }
-        finally
-        {
-            runtimeLifetime = null;
-            nativeUI = null;
-            combat = null;
-        }
+        lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnUpdate));
+        OnUpdate(DService.Instance().Framework);
     }
 
     public override bool DrawSettings() => DisplayIDInformationPanel.Draw(config, iconBrowser);

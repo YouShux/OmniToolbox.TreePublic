@@ -165,7 +165,7 @@ public sealed unsafe partial class DutyLootPreview
             icon.Size = new(iconSize, iconSize);
             icon.Position = new(2f, (Height - iconSize) / 2f);
             favorite.Size = new(28f * 20f / 44f, 28f * 20f / 44f);
-            favorite.Position = new(icon.Position.X + iconSize - favorite.Width, -2f);
+            favorite.Position = new(icon.Position.X, -2f);
             checkmark.Size = new(28f, 24f);
             checkmark.Position = new Vector2(icon.Position.X + iconSize, icon.Position.Y + iconSize) -
                                  checkmark.Size * 0.8f;
@@ -175,7 +175,7 @@ public sealed unsafe partial class DutyLootPreview
 
         protected override void SetNodeData(LootItem item)
         {
-            icon.SetIcon(item.Row.Icon);
+            icon.SetIcon(item.Row.Icon, item.Row.RowId);
             name.String = item.Name;
             ItemTooltip = item.Row.RowId;
             favorite.IsVisible = item.IsFavorite;
@@ -269,7 +269,11 @@ public sealed unsafe partial class DutyLootPreview
                 iconNode.AttachNode(this);
             }
 
-            public void SetIcon(uint iconID) => iconNode.IconId = iconID;
+            public void SetIcon(uint iconID, uint itemID)
+            {
+                iconNode.IconId = iconID;
+                ItemIconDyeIndicators.Apply(iconNode, itemID);
+            }
 
             protected override void OnSizeChanged()
             {

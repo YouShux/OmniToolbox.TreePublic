@@ -71,7 +71,7 @@ public sealed unsafe partial class DutyLootPreview
                 dropsLoadStep = 5;
                 return false;
             case 5:
-                var chestSource = OmniLoc.Get("Feature.DutyLootPreview.Chest");
+                var chestSource = OmniLoc.Get(this, "Feature.DutyLootPreview.Chest");
                 while (pendingChestItems is not null && pendingChestItemIndex < pendingChestItems.Count)
                 {
                     var drop = pendingChestItems[pendingChestItemIndex++];
@@ -101,7 +101,7 @@ public sealed unsafe partial class DutyLootPreview
             source = bossRows.TryGetValue((dutyID, fight), out var boss) &&
                      LuminaGetter.TryGetRow<BNpcName>(boss.BNpcNameId, out var name)
                 ? name.Singular.ExtractText()
-                : string.Format(OmniLoc.Get("Feature.DutyLootPreview.Boss"), fight);
+                : string.Format(OmniLoc.Get(this, "Feature.DutyLootPreview.Boss"), fight);
             bossSources.Add((dutyID, fight), source);
         }
 
@@ -179,7 +179,7 @@ public sealed unsafe partial class DutyLootPreview
                 }
 
                 exchangedSources.Add(
-                    string.Format(OmniLoc.Get("Feature.DutyLootPreview.Exchange"), currencyName));
+                    string.Format(OmniLoc.Get(this, "Feature.DutyLootPreview.Exchange"), currencyName));
             }
         }
 

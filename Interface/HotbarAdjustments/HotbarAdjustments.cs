@@ -3,59 +3,57 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class HotbarAdjustments(HotbarAdjustments.Settings config) : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class HotbarAdjustments(HotbarAdjustments.Settings config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("HotbarAdjustmentsTitle"),
-        Description = OmniLoc.Get("HotbarAdjustmentsDescription"),
         Category = ModuleCategory.Interface
     };
 
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "HotbarAdjustmentsTitle",
+            ["Description"] = "HotbarAdjustmentsDescription",
+            ["Feature.HotbarAdjustments.BackgroundOpacity"] = "Feature.HotbarAdjustments.BackgroundOpacity",
+            ["Feature.HotbarAdjustments.HideBackground"] = "Feature.HotbarAdjustments.HideBackground",
+            ["Feature.HotbarAdjustments.HideBackground.Help"] = "Feature.HotbarAdjustments.HideBackground.Help",
+            ["Feature.HotbarAdjustments.HideLocks"] = "Feature.HotbarAdjustments.HideLocks",
+            ["Feature.HotbarAdjustments.Modifier"] = "Feature.HotbarAdjustments.Modifier",
+            ["Feature.HotbarAdjustments.Modifier.Alt"] = "Feature.HotbarAdjustments.Modifier.Alt",
+            ["Feature.HotbarAdjustments.Modifier.Control"] = "Feature.HotbarAdjustments.Modifier.Control",
+            ["Feature.HotbarAdjustments.Modifier.Help"] = "Feature.HotbarAdjustments.Modifier.Help",
+            ["Feature.HotbarAdjustments.Modifier.Shift"] = "Feature.HotbarAdjustments.Modifier.Shift",
+            ["Feature.HotbarAdjustments.UnlockActions"] = "Feature.HotbarAdjustments.UnlockActions",
+            ["Feature.HotbarAdjustments.UnlockActions.Help"] = "Feature.HotbarAdjustments.UnlockActions.Help"
+        });
+
     public override bool HasSettings => true;
 
-    private FeatureLifetime? runtimeLifetime;
     private readonly Dictionary<(string AddonName, int SlotIndex), BackgroundState> slotBackgrounds = [];
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        var lifetime = new FeatureLifetime();
-        try
+        var lifetime = Activation;
+        lifetime.Add(() => UpdateAllHotbars(true));
+        InitializeActionDragDrop(lifetime);
+        var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
+        lifetime.OnStopping(addonEvents.Dispose);
+        foreach (var addonName in AddonNames)
         {
-            lifetime.Add(() => UpdateAllHotbars(true));
-            InitializeActionDragDrop(lifetime);
-            var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
-            lifetime.Add(addonEvents.Dispose);
-            foreach (var addonName in AddonNames)
-            {
-                addonEvents.Register(AddonEvent.PostSetup, addonName, OnActionBarAddon);
-                addonEvents.Register(AddonEvent.PostRequestedUpdate, addonName, OnActionBarAddon);
-                addonEvents.Register(AddonEvent.PreDraw, addonName, OnActionBarAddon);
-                addonEvents.Register(AddonEvent.PreFinalize, addonName, OnActionBarFinalize);
-            }
-
-            runtimeLifetime = lifetime;
-            UpdateAllHotbars(false);
-            UpdateActionDragDropRestrictions();
+            addonEvents.Register(AddonEvent.PostSetup, addonName, OnActionBarAddon);
+            addonEvents.Register(AddonEvent.PostRequestedUpdate, addonName, OnActionBarAddon);
+            addonEvents.Register(AddonEvent.PreDraw, addonName, OnActionBarAddon);
+            addonEvents.Register(AddonEvent.PreFinalize, addonName, OnActionBarFinalize);
         }
-        catch
-        {
-            runtimeLifetime = null;
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        lifetime?.Dispose();
+        UpdateAllHotbars(false);
+        UpdateActionDragDropRestrictions();
     }
 
     public sealed class Settings

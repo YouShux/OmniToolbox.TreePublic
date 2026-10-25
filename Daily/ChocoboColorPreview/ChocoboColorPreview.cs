@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Linq;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
@@ -20,19 +21,41 @@ using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
+[ModuleApiVersion(1)]
 public sealed unsafe partial class ChocoboColorPreview(
     ChocoboColorPreview.Settings config,
-    System.Action saveConfig) : ModuleBase
+    System.Action saveConfig) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("ChocoboColorPreviewTitle"),
-        Description = OmniLoc.Get("ChocoboColorPreviewDescription"),
         Category = ModuleCategory.Daily,
         RequiresPrivateProvider = true,
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Daily/ChocoboColorPreview-1.png"
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "ChocoboColorPreviewTitle",
+            ["Description"] = "ChocoboColorPreviewDescription",
+            ["Feature.ChocoboColorPreview.Clear"] = "Feature.ChocoboColorPreview.Clear",
+            ["Feature.ChocoboColorPreview.CurrentColor"] = "Feature.ChocoboColorPreview.CurrentColor",
+            ["Feature.ChocoboColorPreview.DefaultColor"] = "Feature.ChocoboColorPreview.DefaultColor",
+            ["Feature.ChocoboColorPreview.FeedOrder"] = "Feature.ChocoboColorPreview.FeedOrder",
+            ["Feature.ChocoboColorPreview.Fruit.CieldalaesPineapple"] = "Feature.ChocoboColorPreview.Fruit.CieldalaesPineapple",
+            ["Feature.ChocoboColorPreview.Fruit.DomanPlum"] = "Feature.ChocoboColorPreview.Fruit.DomanPlum",
+            ["Feature.ChocoboColorPreview.Fruit.HanLemon"] = "Feature.ChocoboColorPreview.Fruit.HanLemon",
+            ["Feature.ChocoboColorPreview.Fruit.MamookPear"] = "Feature.ChocoboColorPreview.Fruit.MamookPear",
+            ["Feature.ChocoboColorPreview.Fruit.OGhomoroBerries"] = "Feature.ChocoboColorPreview.Fruit.OGhomoroBerries",
+            ["Feature.ChocoboColorPreview.Fruit.Valfruit"] = "Feature.ChocoboColorPreview.Fruit.Valfruit",
+            ["Feature.ChocoboColorPreview.Fruit.XelphatolApple"] = "Feature.ChocoboColorPreview.Fruit.XelphatolApple",
+            ["Feature.ChocoboColorPreview.FruitRequirements"] = "Feature.ChocoboColorPreview.FruitRequirements",
+            ["Feature.ChocoboColorPreview.NoFruit"] = "Feature.ChocoboColorPreview.NoFruit",
+            ["Feature.ChocoboColorPreview.Preview"] = "Feature.ChocoboColorPreview.Preview",
+            ["Feature.ChocoboColorPreview.TargetColor"] = "Feature.ChocoboColorPreview.TargetColor",
+            ["Feature.ChocoboColorPreview.UnknownColor"] = "Feature.ChocoboColorPreview.UnknownColor"
+        });
 
     private static readonly Vector3 DefaultChocoboColor = new(219f, 180f, 87f);
     private static readonly ChocoboFruit[] Fruits =
@@ -55,17 +78,17 @@ public sealed unsafe partial class ChocoboColorPreview(
     private byte displayedCurrentStainID = byte.MaxValue;
     private byte displayedTargetStainID = byte.MaxValue;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
         nativeUI = new(OnTargetColorSelected, PreviewTargetColor, ClearPreview);
+        activation.Add(nativeUI);
+        Activation.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
         DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay;
         nativeUI?.Close();
-        nativeUI?.Dispose();
         nativeUI = null;
         displayedCurrentStainID = byte.MaxValue;
         displayedTargetStainID = byte.MaxValue;
@@ -270,14 +293,14 @@ public sealed unsafe partial class ChocoboColorPreview(
         {
             color = new(
                 0,
-                OmniLoc.Get("Feature.ChocoboColorPreview.DefaultColor"),
+                OmniLoc.Get(this, "Feature.ChocoboColorPreview.DefaultColor"),
                 new(DefaultChocoboColor / 255f, 1f));
             return true;
         }
 
         color = new(
             rowID,
-            string.Format(OmniLoc.Get("Feature.ChocoboColorPreview.UnknownColor"), rowID),
+            string.Format(OmniLoc.Get(this, "Feature.ChocoboColorPreview.UnknownColor"), rowID),
             Vector4.One);
         return false;
     }

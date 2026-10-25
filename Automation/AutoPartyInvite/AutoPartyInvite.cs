@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Diagnostics;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.Text;
@@ -20,15 +21,51 @@ using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class AutoPartyInvite : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class AutoPartyInvite : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("AutoPartyInviteTitle"),
-        Description = OmniLoc.Get("AutoPartyInviteDescription"),
         Category = ModuleCategory.Automation,
         RequiresPrivateProvider = true
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "AutoPartyInviteTitle",
+            ["Description"] = "AutoPartyInviteDescription",
+            ["Feature.AutoPartyInvite.Channel.Alliance"] = "Feature.AutoPartyInvite.Channel.Alliance",
+            ["Feature.AutoPartyInvite.Channel.Clear"] = "Feature.AutoPartyInvite.Channel.Clear",
+            ["Feature.AutoPartyInvite.Channel.CrossLinkshell"] = "Feature.AutoPartyInvite.Channel.CrossLinkshell",
+            ["Feature.AutoPartyInvite.Channel.CrossParty"] = "Feature.AutoPartyInvite.Channel.CrossParty",
+            ["Feature.AutoPartyInvite.Channel.FreeCompany"] = "Feature.AutoPartyInvite.Channel.FreeCompany",
+            ["Feature.AutoPartyInvite.Channel.Linkshell"] = "Feature.AutoPartyInvite.Channel.Linkshell",
+            ["Feature.AutoPartyInvite.Channel.NoviceNetwork"] = "Feature.AutoPartyInvite.Channel.NoviceNetwork",
+            ["Feature.AutoPartyInvite.Channel.Party"] = "Feature.AutoPartyInvite.Channel.Party",
+            ["Feature.AutoPartyInvite.Channel.PvPTeam"] = "Feature.AutoPartyInvite.Channel.PvPTeam",
+            ["Feature.AutoPartyInvite.Channel.Say"] = "Feature.AutoPartyInvite.Channel.Say",
+            ["Feature.AutoPartyInvite.Channel.SelectAll"] = "Feature.AutoPartyInvite.Channel.SelectAll",
+            ["Feature.AutoPartyInvite.Channel.Shout"] = "Feature.AutoPartyInvite.Channel.Shout",
+            ["Feature.AutoPartyInvite.Channel.TellIncoming"] = "Feature.AutoPartyInvite.Channel.TellIncoming",
+            ["Feature.AutoPartyInvite.Channel.Title"] = "Feature.AutoPartyInvite.Channel.Title",
+            ["Feature.AutoPartyInvite.Channel.Yell"] = "Feature.AutoPartyInvite.Channel.Yell",
+            ["Feature.AutoPartyInvite.Territory.Blacklist"] = "Feature.AutoPartyInvite.Territory.Blacklist",
+            ["Feature.AutoPartyInvite.Territory.Whitelist"] = "Feature.AutoPartyInvite.Territory.Whitelist",
+            ["Feature.AutoPartyInvite.Territory.WorkMode"] = "Feature.AutoPartyInvite.Territory.WorkMode",
+            ["Feature.AutoPartyInvite.Territory.WorkMode.Help"] = "Feature.AutoPartyInvite.Territory.WorkMode.Help",
+            ["Feature.AutoPartyInvite.Trigger.Action"] = "Feature.AutoPartyInvite.Trigger.Action",
+            ["Feature.AutoPartyInvite.Trigger.Add"] = "Feature.AutoPartyInvite.Trigger.Add",
+            ["Feature.AutoPartyInvite.Trigger.Content"] = "Feature.AutoPartyInvite.Trigger.Content",
+            ["Feature.AutoPartyInvite.Trigger.Delete"] = "Feature.AutoPartyInvite.Trigger.Delete",
+            ["Feature.AutoPartyInvite.Trigger.DigitFormat"] = "Feature.AutoPartyInvite.Trigger.DigitFormat",
+            ["Feature.AutoPartyInvite.Trigger.Enabled"] = "Feature.AutoPartyInvite.Trigger.Enabled",
+            ["Feature.AutoPartyInvite.Trigger.Fixed"] = "Feature.AutoPartyInvite.Trigger.Fixed",
+            ["Feature.AutoPartyInvite.Trigger.Hint"] = "Feature.AutoPartyInvite.Trigger.Hint",
+            ["Feature.AutoPartyInvite.Trigger.Type"] = "Feature.AutoPartyInvite.Trigger.Type",
+            ["Feature.AutoPartyInvite.Trigger.Type.Digit"] = "Feature.AutoPartyInvite.Trigger.Type.Digit",
+            ["Feature.AutoPartyInvite.Trigger.Type.Exact"] = "Feature.AutoPartyInvite.Trigger.Type.Exact"
+        });
 
     public override bool HasSettings => true;
 
@@ -103,44 +140,26 @@ public sealed unsafe partial class AutoPartyInvite : ModuleBase
         ushort worldID,
         ushort chatType);
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        Hook<AddMsgSourceEntryDelegate>? hook = null;
-        try
+        activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnUpdate));
+        messageSourceHook = DService.Instance().Hook.HookFromMemberFunction(
+            typeof(RaptureLogModule.MemberFunctionPointers),
+            nameof(RaptureLogModule.MemberFunctionPointers.AddMsgSourceEntry),
+            (AddMsgSourceEntryDelegate)OnAddMsgSourceEntry);
+        activation.Add(messageSourceHook);
+        activation.OnStopping(messageSourceHook.Disable);
+        if (!FrameworkManager.Instance().Reg(OnUpdate))
         {
-            hook = DService.Instance().Hook.HookFromMemberFunction(
-                typeof(RaptureLogModule.MemberFunctionPointers),
-                nameof(RaptureLogModule.MemberFunctionPointers.AddMsgSourceEntry),
-                (AddMsgSourceEntryDelegate)OnAddMsgSourceEntry);
-            if (!FrameworkManager.Instance().Reg(OnUpdate))
-            {
-                throw new InvalidOperationException("Auto party invite framework registration failed.");
-            }
-
-            messageSourceHook = hook;
-            hook.Enable();
+            throw new InvalidOperationException("Auto party invite framework registration failed.");
         }
-        catch
-        {
-            messageSourceHook = null;
-            FrameworkManager.Instance().Unreg(OnUpdate);
-            hook?.Dispose();
-            throw;
-        }
+        messageSourceHook.Enable();
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        try
-        {
-            messageSourceHook?.Dispose();
-        }
-        finally
-        {
-            messageSourceHook = null;
-            FrameworkManager.Instance().Unreg(OnUpdate);
-            pendingInvites.Clear();
-        }
+        messageSourceHook = null;
+        pendingInvites.Clear();
     }
 
     protected override bool OnInterruptAutomation()

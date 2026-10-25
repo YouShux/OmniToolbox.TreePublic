@@ -7,51 +7,45 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class LockedPortraitPreview : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe class LockedPortraitPreview : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("LockedPortraitPreviewTitle"),
-        Description = OmniLoc.Get("LockedPortraitPreviewDescription"),
         Category = ModuleCategory.Interface
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "LockedPortraitPreviewTitle",
+            ["Description"] = "LockedPortraitPreviewDescription"
+        });
 
     private readonly Dictionary<(byte DatasetIndex, ushort RowID), byte> originalUnlockStates = [];
     private AddonEventRegistry? addonEvents;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
         addonEvents = new(DalamudServices.AddonLifecycle);
-        try
-        {
-            addonEvents.Register(AddonEvent.PostSetup, "BannerEditor", OnEditorEvent);
-            addonEvents.Register(AddonEvent.PreFinalize, "BannerEditor", OnEditorEvent);
-            UpdateEntries(false);
-        }
-        catch
-        {
-            OnDisable();
-            throw;
-        }
+        activation.OnStopping(addonEvents.Dispose);
+        addonEvents.Register(AddonEvent.PostSetup, "BannerEditor", OnEditorEvent);
+        addonEvents.Register(AddonEvent.PreFinalize, "BannerEditor", OnEditorEvent);
+        UpdateEntries(false);
+
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        try
-        {
-            addonEvents?.Dispose();
-        }
-        finally
-        {
-            addonEvents = null;
-            UpdateEntries(true);
-            originalUnlockStates.Clear();
-        }
+        addonEvents = null;
+        UpdateEntries(true);
+        originalUnlockStates.Clear();
+
     }
 
     private void OnEditorEvent(AddonEvent eventType, AddonArgs args)

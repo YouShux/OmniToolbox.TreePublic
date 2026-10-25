@@ -3,7 +3,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Models;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 
 namespace OmniToolbox.TreePublic;
 
