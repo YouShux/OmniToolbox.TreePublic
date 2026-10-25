@@ -1,3 +1,4 @@
+using TreeToolKit;
 using Dalamud.Game;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
@@ -18,7 +19,7 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;

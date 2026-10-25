@@ -8,34 +8,42 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class DutyReadyClassSwitching : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe class DutyReadyClassSwitching : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("DutyReadyClassSwitchingTitle"),
-        Description = OmniLoc.Get("DutyReadyClassSwitchingDescription"),
         Category = ModuleCategory.Combat
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "DutyReadyClassSwitchingTitle",
+            ["Description"] = "DutyReadyClassSwitchingDescription"
+        });
 
     private AddonEventRegistry? addonEvents;
     private nint addonAddress;
     private bool switchAttempted;
     private bool addonVisible;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => addonEvents?.Dispose());
+
         var events = new AddonEventRegistry(DalamudServices.AddonLifecycle);
+        addonEvents = events;
         try
         {
             events.Register(AddonEvent.PostSetup, ADDON_NAME, OnAddonEvent);
             events.Register(AddonEvent.PostUpdate, ADDON_NAME, OnAddonEvent);
             events.Register(AddonEvent.PreFinalize, ADDON_NAME, OnAddonEvent);
-            addonEvents = events;
 
             if (AddonHelper.TryGetByName<AtkUnitBase>(ADDON_NAME, out var addon))
             {
@@ -53,9 +61,8 @@ public sealed unsafe class DutyReadyClassSwitching : ModuleBase
         }
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        addonEvents?.Dispose();
         addonEvents = null;
         ClearState();
     }

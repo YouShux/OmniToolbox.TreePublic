@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Plugin.Services;
@@ -11,19 +12,17 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmenObjectTable = OmenTools.Dalamud.Services.Game.Object.Abstractions.IObjectTable;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed partial class FoodReminder : ModuleBase
+[ModuleApiVersion(1)]
+public sealed partial class FoodReminder : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("FoodReminderTitle"),
-        Description = OmniLoc.Get("FoodReminderDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/FoodReminder-1.png",
@@ -33,13 +32,38 @@ public sealed partial class FoodReminder : ModuleBase
         ]
     };
 
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "FoodReminderTitle",
+            ["Description"] = "FoodReminderDescription",
+            ["Feature.FoodReminder.CommandDescription"] = "Feature.FoodReminder.CommandDescription",
+            ["Feature.FoodReminder.DefaultPartyMessage"] = "Feature.FoodReminder.DefaultPartyMessage",
+            ["Feature.FoodReminder.MissingFood"] = "Feature.FoodReminder.MissingFood",
+            ["Feature.FoodReminder.PartyMessage"] = "Feature.FoodReminder.PartyMessage",
+            ["Feature.FoodReminder.ReminderTag"] = "Feature.FoodReminder.ReminderTag",
+            ["Feature.FoodReminder.Reset"] = "Feature.FoodReminder.Reset",
+            ["Feature.FoodReminder.Seconds"] = "Feature.FoodReminder.Seconds",
+            ["Feature.FoodReminder.TargetNameMode"] = "Feature.FoodReminder.TargetNameMode",
+            ["Feature.FoodReminder.TargetNameMode.CharacterName"] = "Feature.FoodReminder.TargetNameMode.CharacterName",
+            ["Feature.FoodReminder.TargetNameMode.Help"] = "Feature.FoodReminder.TargetNameMode.Help",
+            ["Feature.FoodReminder.TargetNameMode.JobName"] = "Feature.FoodReminder.TargetNameMode.JobName",
+            ["Feature.FoodReminder.Territory.Blacklist"] = "Feature.FoodReminder.Territory.Blacklist",
+            ["Feature.FoodReminder.Territory.Whitelist"] = "Feature.FoodReminder.Territory.Whitelist",
+            ["Feature.FoodReminder.Territory.WorkMode"] = "Feature.FoodReminder.Territory.WorkMode",
+            ["Feature.FoodReminder.Territory.WorkMode.Help"] = "Feature.FoodReminder.Territory.WorkMode.Help",
+            ["Feature.FoodReminder.Test"] = "Feature.FoodReminder.Test",
+            ["Feature.FoodReminder.TestTarget"] = "Feature.FoodReminder.TestTarget",
+            ["Feature.FoodReminder.Threshold"] = "Feature.FoodReminder.Threshold",
+            ["Feature.FoodReminder.Threshold.Help"] = "Feature.FoodReminder.Threshold.Help"
+        });
+
     public override bool HasSettings => true;
 
     private readonly FoodReminderConfig config;
     private readonly System.Action saveConfig;
     private readonly Dictionary<uint, string> reminderTargetNames = [];
     private readonly HashSet<ReminderTargetKey> seenTargets = [];
-    private FeatureLifetime? runtimeLifetime;
     private bool countdownProcessed;
 
     public FoodReminder(FoodReminderConfig config, System.Action saveConfig)
@@ -52,40 +76,21 @@ public sealed partial class FoodReminder : ModuleBase
         }
     }
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
-            {
-                throw new InvalidOperationException("Food reminder update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             countdownProcessed = false;
             seenTargets.Clear();
             ClearReminderLinks();
+        });
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
+        {
+            throw new InvalidOperationException("Food reminder update registration failed.");
         }
+
+        lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
     }
 
     public override bool DrawSettings() => Panel.Draw(config, SendTestReminder);
@@ -201,12 +206,12 @@ public sealed partial class FoodReminder : ModuleBase
             .AddUiForeground(1)
             .Append(target.Name)
             .Append(" ")
-            .Append(OmniLoc.Get("Feature.FoodReminder.MissingFood"))
+            .Append(OmniLoc.Get(this, "Feature.FoodReminder.MissingFood"))
             .AddUiForegroundOff()
             .Add(RawPayload.LinkTerminator)
             .Add(payload)
             .Add(new UIForegroundPayload(34))
-            .Append(OmniLoc.Get("Feature.FoodReminder.ReminderTag"))
+            .Append(OmniLoc.Get(this, "Feature.FoodReminder.ReminderTag"))
             .Add(UIForegroundPayload.UIForegroundOff)
             .Add(RawPayload.LinkTerminator)
             .Build();
@@ -255,7 +260,7 @@ public sealed partial class FoodReminder : ModuleBase
             ? GetJobName(local.ClassJob)
             : local?.Name;
         displayName = string.IsNullOrWhiteSpace(displayName)
-            ? OmniLoc.Get("Feature.FoodReminder.TestTarget")
+            ? OmniLoc.Get(this, "Feature.FoodReminder.TestTarget")
             : displayName;
 
         _ = DalamudServices.Framework.RunOnFrameworkThread(() =>
@@ -270,7 +275,7 @@ public sealed partial class FoodReminder : ModuleBase
             return value;
         }
 
-        value = OmniLoc.Get("Feature.FoodReminder.DefaultPartyMessage");
+        value = OmniLoc.Get(this, "Feature.FoodReminder.DefaultPartyMessage");
         config.PartyMessage = value;
         saveConfig();
         return value;

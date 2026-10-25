@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using System;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Addon.Lifecycle;
@@ -24,6 +25,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Classes;
 using OmenTools.Interop.Game.Helpers;
 using OmniToolbox.Items;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 using CharaMakeCustomize = Lumina.Excel.Sheets.CharaMakeCustomize;
 using Glasses = Lumina.Excel.Sheets.Glasses;
@@ -34,11 +36,12 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class BetterGlamourManagement
 {
-    internal sealed unsafe class BetterGlamourPortraitPreview : IDisposable
+    internal sealed unsafe class BetterGlamourPortraitPreview(FeatureLifetime lifetime) : IAsyncDisposable
     {
         private OmniPreviewContext? context;
         private bool currentTextureValid;
-        private readonly RemotePreviewFrames phoneFrames = new();
+        private Task nativeStop = Task.CompletedTask;
+        private readonly RemotePreviewFrames phoneFrames = new(lifetime);
         private string cachedPhoneStatus = "{\"ready\":false}";
         private volatile bool enabled;
         private Func<IReadOnlyList<BetterGlamourPreset>> getPresets = null!;
@@ -196,10 +199,14 @@ public sealed partial class BetterGlamourManagement
             if (context.Framework.IsInFrameworkUpdateThread)
                 StopAndUnregister();
             else
-                _ = context.Framework.RunOnFrameworkThread(StopAndUnregister);
+                nativeStop = context.Framework.RunOnFrameworkThread(StopAndUnregister);
         }
 
-        public void Dispose() => Disable();
+        public ValueTask DisposeAsync()
+        {
+            Disable();
+            return new(Task.WhenAll(nativeStop, phoneFrames.DisposeAsync().AsTask()));
+        }
         public string PhoneFrame() => phoneFrames.Read(Status());
         public string CachedPhoneFrame() => phoneFrames.Read(Volatile.Read(ref cachedPhoneStatus));
         public string Status() => JsonSerializer.Serialize(new
@@ -318,33 +325,40 @@ public sealed partial class BetterGlamourManagement
         public bool NativeButtonChecked(uint nodeID)
         {
             var button = GetNativeButton(nodeID);
-            return nodeID != 39 && button != null && button->IsChecked;
+            return button != null && button->GetComponentType() == ComponentType.CheckBox && button->IsChecked;
         }
 
         public void ClickNativeButton(uint nodeID)
         {
             var button = GetNativeButton(nodeID);
-            if (button == null || !button->IsEnabled || button->OwnerNode == null)
+            if (button == null || !button->IsEnabled)
                 return;
-            var ev = button->OwnerNode->AtkResNode.AtkEventManager.Event;
-            for (var limit = 0; ev != null && limit < 32; limit++, ev = ev->NextEvent)
+            var owner = &button->OwnerNode->AtkResNode;
+            if (!owner->IsEventRegistered(AtkEventType.ButtonClick))
             {
-                if (ev->State.EventType != AtkEventType.ButtonClick || ev->Listener == null)
-                    continue;
-                if (nodeID != 39)
-                    button->SetChecked(!button->IsChecked);
-                AtkEventData data = default;
-                customizationAttempts = 0;
-                customizationRetryAt = loadingSeconds + 0.25;
-                ev->Listener->ReceiveEvent(AtkEventType.ButtonClick, (int)ev->Param, ev, &data);
+                message = OmniLoc.Get("Feature.BetterGlamourManagement.Preview.ButtonUnavailable");
                 return;
             }
 
-            message = OmniLoc.Get("Feature.BetterGlamourManagement.Preview.ButtonUnavailable");
+            if (button->GetComponentType() == ComponentType.CheckBox)
+                button->SetChecked(!button->IsChecked);
+            if (nodeID == 39)
+                yaw = pitch = zoom = panX = panY = 0;
+            AtkEventDispatcher.Event nativeEvent = new()
+            {
+                State = new()
+                {
+                    EventType = AtkEventType.ButtonClick
+                }
+            };
+            customizationAttempts = 0;
+            customizationRetryAt = loadingSeconds + 0.25;
+            owner->DispatchEvent(&nativeEvent);
         }
 
         public void ResetCamera()
         {
+            yaw = pitch = zoom = panX = panY = 0;
             var view = View;
             if (view != null && shown)
                 view->ResetPositions();
@@ -861,7 +875,10 @@ public sealed partial class BetterGlamourManagement
             if (tryon == null || !tryon->IsAgentActive())
                 return null;
             var addon = GetTryonAddon();
-            return addon == null ? null : addon->GetComponentButtonById(nodeID);
+            if (addon == null || addon->Id != tryon->GetAddonId())
+                return null;
+            var button = addon->GetComponentButtonById(nodeID);
+            return button != null && button->OwnerNode != null && button->OwnerNode->AtkResNode.NodeId == nodeID ? button : null;
         }
 
         private static AtkUnitBase* GetTryonAddon()

@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using Dalamud.Interface.Textures;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Group;
@@ -15,23 +16,59 @@ using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Game;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig config) : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("RaiseDispelEnhancementTitle"),
-        Description = OmniLoc.Get("RaiseDispelEnhancementDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/RaiseDispelEnhancement-1.png"
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "RaiseDispelEnhancementTitle",
+            ["Description"] = "RaiseDispelEnhancementDescription",
+            ["Feature.RaiseDispelEnhancement.Alliance"] = "Feature.RaiseDispelEnhancement.Alliance",
+            ["Feature.RaiseDispelEnhancement.CastProgress"] = "Feature.RaiseDispelEnhancement.CastProgress",
+            ["Feature.RaiseDispelEnhancement.CasterName"] = "Feature.RaiseDispelEnhancement.CasterName",
+            ["Feature.RaiseDispelEnhancement.CastingDispel"] = "Feature.RaiseDispelEnhancement.CastingDispel",
+            ["Feature.RaiseDispelEnhancement.CastingDispelWithCaster"] = "Feature.RaiseDispelEnhancement.CastingDispelWithCaster",
+            ["Feature.RaiseDispelEnhancement.CastingRaise"] = "Feature.RaiseDispelEnhancement.CastingRaise",
+            ["Feature.RaiseDispelEnhancement.CastingRaiseWithCaster"] = "Feature.RaiseDispelEnhancement.CastingRaiseWithCaster",
+            ["Feature.RaiseDispelEnhancement.Dispel"] = "Feature.RaiseDispelEnhancement.Dispel",
+            ["Feature.RaiseDispelEnhancement.DispelListColor"] = "Feature.RaiseDispelEnhancement.DispelListColor",
+            ["Feature.RaiseDispelEnhancement.DisplayRange"] = "Feature.RaiseDispelEnhancement.DisplayRange",
+            ["Feature.RaiseDispelEnhancement.DisplayRange.All"] = "Feature.RaiseDispelEnhancement.DisplayRange.All",
+            ["Feature.RaiseDispelEnhancement.DisplayRange.Partial"] = "Feature.RaiseDispelEnhancement.DisplayRange.Partial",
+            ["Feature.RaiseDispelEnhancement.DisplayRangeHelp"] = "Feature.RaiseDispelEnhancement.DisplayRangeHelp",
+            ["Feature.RaiseDispelEnhancement.IconScale"] = "Feature.RaiseDispelEnhancement.IconScale",
+            ["Feature.RaiseDispelEnhancement.List"] = "Feature.RaiseDispelEnhancement.List",
+            ["Feature.RaiseDispelEnhancement.NeedDispel"] = "Feature.RaiseDispelEnhancement.NeedDispel",
+            ["Feature.RaiseDispelEnhancement.OtherRaiseWorldColor"] = "Feature.RaiseDispelEnhancement.OtherRaiseWorldColor",
+            ["Feature.RaiseDispelEnhancement.Party"] = "Feature.RaiseDispelEnhancement.Party",
+            ["Feature.RaiseDispelEnhancement.Raise"] = "Feature.RaiseDispelEnhancement.Raise",
+            ["Feature.RaiseDispelEnhancement.RaiseListColor"] = "Feature.RaiseDispelEnhancement.RaiseListColor",
+            ["Feature.RaiseDispelEnhancement.Raised"] = "Feature.RaiseDispelEnhancement.Raised",
+            ["Feature.RaiseDispelEnhancement.SelfRaiseWorldColor"] = "Feature.RaiseDispelEnhancement.SelfRaiseWorldColor",
+            ["Feature.RaiseDispelEnhancement.ShowCastProgress"] = "Feature.RaiseDispelEnhancement.ShowCastProgress",
+            ["Feature.RaiseDispelEnhancement.ShowCasterName"] = "Feature.RaiseDispelEnhancement.ShowCasterName",
+            ["Feature.RaiseDispelEnhancement.ShowDispel"] = "Feature.RaiseDispelEnhancement.ShowDispel",
+            ["Feature.RaiseDispelEnhancement.ShowDispelOnList"] = "Feature.RaiseDispelEnhancement.ShowDispelOnList",
+            ["Feature.RaiseDispelEnhancement.ShowRaise"] = "Feature.RaiseDispelEnhancement.ShowRaise",
+            ["Feature.RaiseDispelEnhancement.ShowRaiseOnList"] = "Feature.RaiseDispelEnhancement.ShowRaiseOnList",
+            ["Feature.RaiseDispelEnhancement.ShowWorldIcon"] = "Feature.RaiseDispelEnhancement.ShowWorldIcon",
+            ["Feature.RaiseDispelEnhancement.ShowWorldText"] = "Feature.RaiseDispelEnhancement.ShowWorldText",
+            ["Feature.RaiseDispelEnhancement.WorldTextScale"] = "Feature.RaiseDispelEnhancement.WorldTextScale"
+        });
 
     public override bool HasSettings => true;
 
@@ -43,48 +80,27 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     private readonly Dictionary<ulong, string> names = [];
     private readonly Dictionary<ulong, (int Index, ulong ObjectID)> actorObjects = [];
     private readonly Dictionary<uint, ISharedImmediateTexture> statusIconTextures = [];
-    private FeatureLifetime? runtimeLifetime;
     private ISharedImmediateTexture? dispelIcon;
     private uint defaultRaiseIconID;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
         dispelIcon ??= DService.Instance().Texture.GetFromGameIcon(new GameIconLookup(DISPEL_ICON_ID));
         defaultRaiseIconID = LuminaGetter.TryGetRow<LuminaStatus>(RAISE_STATUS_ID, out var status) ? status.Icon : 0;
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 80))
-            {
-                throw new InvalidOperationException("Raise/dispel enhancement update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
-            lifetime.Add(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            runtimeLifetime = null;
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             Clear();
             CombatCharacterSnapshot.Clear();
+        });
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 80))
+        {
+            throw new InvalidOperationException("Raise/dispel enhancement update registration failed.");
         }
+
+        lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+        lifetime.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
+        DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
     }
 
     public override bool DrawSettings()
@@ -92,7 +108,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         var changed = false;
         var matrixWidth = ImGui.GetFontSize() * 5f;
         foreach (var key in DisplayColumns)
-            matrixWidth = MathF.Max(matrixWidth, ImGui.CalcTextSize(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}")).X);
+            matrixWidth = MathF.Max(matrixWidth, ImGui.CalcTextSize(OmniLoc.Get(this, $"Feature.RaiseDispelEnhancement.{key}")).X);
         var detailLayout = ImGui.GetContentRegionAvail().X < (matrixWidth + ImGui.GetStyle().CellPadding.X * 2f) * 8f;
         using (var table = ImRaii.Table("##raiseDispelMatrix", detailLayout ? 1 : 8,
                    ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchSame,
@@ -105,13 +121,13 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                 {
                     foreach (var key in DisplayColumns)
                     {
-                        ImGui.TableSetupColumn(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}"));
+                        ImGui.TableSetupColumn(OmniLoc.Get(this, $"Feature.RaiseDispelEnhancement.{key}"));
                     }
                     ImGui.TableNextRow(ImGuiTableRowFlags.Headers);
                     DrawMatrixLabel(string.Empty);
                     foreach (var key in DisplayColumns)
                     {
-                        DrawMatrixLabel(OmniLoc.Get($"Feature.RaiseDispelEnhancement.{key}"));
+                        DrawMatrixLabel(OmniLoc.Get(this, $"Feature.RaiseDispelEnhancement.{key}"));
                     }
                 }
                 changed |= DrawReminderRow("Raise", config.GetRaiseOptions());
@@ -130,18 +146,18 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                 ImGui.TableNextRow();
                 ImGui.TableNextColumn();
                 ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted(OmniLoc.Get("Feature.RaiseDispelEnhancement.DisplayRange"));
-                OmniControls.SameLineOrWrap(OmniControls.MeasureCombo(OmniLoc.Get($"Feature.RaiseDispelEnhancement.DisplayRange.{config.DisplayRange}")).X, OmniTheme.Scale(8f));
+                ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.DisplayRange"));
+                OmniControls.SameLineOrWrap(OmniControls.MeasureCombo(OmniLoc.Get(this, $"Feature.RaiseDispelEnhancement.DisplayRange.{config.DisplayRange}")).X, OmniTheme.Scale(8f));
                 var range = config.DisplayRange;
                 if (OmniControls.BeginCombo("##raiseDispelDisplayRange",
-                        OmniLoc.Get($"Feature.RaiseDispelEnhancement.DisplayRange.{range}"),
+                        OmniLoc.Get(this, $"Feature.RaiseDispelEnhancement.DisplayRange.{range}"),
                         MathF.Max(1f, ImGui.GetContentRegionAvail().X - OmniControls.HelpIconSize().X - OmniTheme.Scale(4f))))
                 {
                     foreach (var option in Enum.GetValues<RaiseDispelDisplayRange>())
                     {
                         var selected = range == option;
                         if (ImGui.Selectable(
-                                OmniLoc.Get($"Feature.RaiseDispelEnhancement.DisplayRange.{option}"), selected))
+                                OmniLoc.Get(this, $"Feature.RaiseDispelEnhancement.DisplayRange.{option}"), selected))
                         {
                             config.DisplayRange = option;
                             changed = true;
@@ -156,7 +172,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                     ImGui.EndCombo();
                 }
                 ImGui.SameLine(0f, OmniTheme.Scale(4f));
-                OmniControls.HelpIcon(OmniLoc.Get("Feature.RaiseDispelEnhancement.DisplayRangeHelp"));
+                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.DisplayRangeHelp"));
                 ImGui.TableNextColumn();
                 changed |= DrawScaleSlider(config.IconScale, "Feature.RaiseDispelEnhancement.IconScale", "IconScale",
                     value => config.IconScale = value);
@@ -165,10 +181,10 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                     value => config.WorldTextScale = value);
             }
         }
-        ReadOnlySpan<string> colorLabels = [OmniLoc.Get("Feature.RaiseDispelEnhancement.RaiseListColor"),
-            OmniLoc.Get("Feature.RaiseDispelEnhancement.DispelListColor"),
-            OmniLoc.Get("Feature.RaiseDispelEnhancement.SelfRaiseWorldColor"),
-            OmniLoc.Get("Feature.RaiseDispelEnhancement.OtherRaiseWorldColor")];
+        ReadOnlySpan<string> colorLabels = [OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.RaiseListColor"),
+            OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.DispelListColor"),
+            OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.SelfRaiseWorldColor"),
+            OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.OtherRaiseWorldColor")];
         var colorSize = new Vector2(ImGui.GetFrameHeight());
         Span<Vector2> colorGroups = stackalloc Vector2[colorLabels.Length];
         for (var index = 0; index < colorLabels.Length; index++)
@@ -802,9 +818,9 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                 return (
                     CastType.Raise,
                     string.IsNullOrWhiteSpace(casterName)
-                        ? OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingRaise")
+                        ? OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.CastingRaise")
                         : string.Format(
-                            OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingRaiseWithCaster"),
+                            OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.CastingRaiseWithCaster"),
                             casterName));
             }
 
@@ -813,21 +829,21 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                 return (
                     CastType.Dispel,
                     string.IsNullOrWhiteSpace(casterName)
-                        ? OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingDispel")
+                        ? OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.CastingDispel")
                         : string.Format(
-                            OmniLoc.Get("Feature.RaiseDispelEnhancement.CastingDispelWithCaster"),
+                            OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.CastingDispelWithCaster"),
                             casterName));
             }
         }
 
         if (state.HasDispellableStatus && (config.GetDispelOptions().ShowWorldIcon || config.GetDispelOptions().ShowWorldText))
         {
-            return (CastType.Dispel, OmniLoc.Get("Feature.RaiseDispelEnhancement.NeedDispel"));
+            return (CastType.Dispel, OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.NeedDispel"));
         }
 
         if (state.HasRaisedStatus && (config.GetRaiseOptions().ShowWorldIcon || config.GetRaiseOptions().ShowWorldText))
         {
-            return (CastType.Raise, OmniLoc.Get("Feature.RaiseDispelEnhancement.Raised"));
+            return (CastType.Raise, OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.Raised"));
         }
 
         return (CastType.None, string.Empty);

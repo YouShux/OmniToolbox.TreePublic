@@ -20,6 +20,8 @@
     <ProjectReference Include="..\OmniToolbox.Common\OmniToolbox.Common.csproj" />
     <ProjectReference Include="..\lib\KamiToolKit\KamiToolKit.csproj" />
     <ProjectReference Include="..\lib\OmenTools\OmenTools.csproj" />
+    <ProjectReference Include="..\lib\TreeTools\TreeTools.csproj" />
+    <ProjectReference Include="..\lib\TreeToolKit\TreeToolKit.csproj" />
   </ItemGroup>
 
   <ItemGroup>

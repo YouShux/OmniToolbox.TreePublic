@@ -1,3 +1,4 @@
+using TreeToolKit;
 using System.Drawing;
 using Dalamud.Interface;
 using OmenTools;
@@ -47,7 +48,7 @@ public sealed partial class MitigationMonitor
                 return;
             }
 
-            using var font = OmniFonts.GetUIFont().Push();
+            using var font = Fonts.GetUIFont().Push();
             if (config.Collapsed)
             {
                 DrawCollapsedIcon();

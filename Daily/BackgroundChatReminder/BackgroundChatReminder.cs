@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Dalamud.Game.Chat;
@@ -12,14 +13,22 @@ using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class BackgroundChatReminder : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class BackgroundChatReminder : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("BackgroundChatReminderTitle"),
-        Description = OmniLoc.Get("BackgroundChatReminderDescription"),
         Category = ModuleCategory.Daily
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "BackgroundChatReminderTitle",
+            ["Description"] = "BackgroundChatReminderDescription",
+            ["Feature.BackgroundChatReminder.Party"] = "Feature.BackgroundChatReminder.Party",
+            ["Feature.BackgroundChatReminder.Tell"] = "Feature.BackgroundChatReminder.Tell"
+        });
 
     public override bool HasSettings => true;
 
@@ -31,9 +40,9 @@ public sealed unsafe partial class BackgroundChatReminder : ModuleBase
         this.config = config;
     }
 
-    protected override void OnEnable() => UpdateSubscription();
+    protected override void OnStart(FeatureLifetime activation) => UpdateSubscription();
 
-    protected override void OnDisable() => DisableSubscription();
+    protected override void OnStop() => DisableSubscription();
 
     public override bool DrawSettings()
     {

@@ -42,7 +42,7 @@ public sealed partial class AutoIshgardRestoration
         var playerState = DalamudServices.PlayerState;
         if (!playerState.IsLoaded)
         {
-            Fail(OmniLoc.Get("Feature.AutoIshgardRestoration.PlayerNotLoggedIn"));
+            Fail(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.PlayerNotLoggedIn"));
             return;
         }
 
@@ -51,32 +51,32 @@ public sealed partial class AutoIshgardRestoration
         var currentJobID = playerState.ClassJob.RowId;
         if (currentJobID is < 8 or > 15)
         {
-            Fail(OmniLoc.Get("Feature.AutoIshgardRestoration.CraftingJobRequired"));
+            Fail(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.CraftingJobRequired"));
             return;
         }
 
         var recipe = FindRecipe(config.SelectedRecipeID);
         if (recipe is null || recipe.Value.JobID != currentJobID)
         {
-            Fail(OmniLoc.Get("Feature.AutoIshgardRestoration.RecipeSelectionRequired"));
+            Fail(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.RecipeSelectionRequired"));
             return;
         }
 
         if (playerState.Level < recipe.Value.Level)
         {
-            Fail(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.JobLevelRequired"), recipe.Value.Level));
+            Fail(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.JobLevelRequired"), recipe.Value.Level));
             return;
         }
 
         if (!DalamudServices.PluginInterface.IsPluginEnabled("Artisan"))
         {
-            Fail(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ArtisanUnavailable"));
+            Fail(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ArtisanUnavailable"));
             return;
         }
 
         if (artisanIsBusy?.InvokeFunc() == true)
         {
-            Fail(OmniLoc.Get("Feature.AutoIshgardRestoration.ArtisanBusy"));
+            Fail(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ArtisanBusy"));
             return;
         }
 
@@ -92,17 +92,17 @@ public sealed partial class AutoIshgardRestoration
             firmamentTravelStartedByModule = tryTeleport(FIRMAMENT_TELEPORT_DESTINATION);
             if (!firmamentTravelStartedByModule)
             {
-                FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.TeleportCommandFailed"));
+                FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.TeleportCommandFailed"));
                 return;
             }
 
             EnterPhase(AutomationPhase.WaitForFirmament);
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.TeleportingToFirmament");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.TeleportingToFirmament");
             return;
         }
 
         EnterPhase(AutomationPhase.WaitForPlayerMovable);
-        status = OmniLoc.Get("Feature.AutoIshgardRestoration.AlreadyInFirmament");
+        status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.AlreadyInFirmament");
     }
 
     private void StopProduction(string reason)
@@ -160,7 +160,7 @@ public sealed partial class AutoIshgardRestoration
         var activeRecipe = FindRecipe(activeRecipeID);
         if (activeRecipe is null || activeRecipe.Value.ItemID != activeItemID)
         {
-            StopProduction(OmniLoc.Get("Feature.AutoIshgardRestoration.InvalidRunData"));
+            StopProduction(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.InvalidRunData"));
             return;
         }
 
@@ -179,7 +179,7 @@ public sealed partial class AutoIshgardRestoration
             [AutomationPhase.Crafting] = DriveCrafting,
             [AutomationPhase.WaitArtisanStop] = _ => DriveWaitArtisanStop(),
             [AutomationPhase.MoveToAppraiser] = _ => DriveStartNPCEvent(
-                [APPRAISER_NPC_ID_1, APPRAISER_NPC_ID_2], AutomationPhase.OpenAppraiser, OmniLoc.Get("Feature.AutoIshgardRestoration.AppraiserNPC")),
+                [APPRAISER_NPC_ID_1, APPRAISER_NPC_ID_2], AutomationPhase.OpenAppraiser, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.AppraiserNPC")),
             [AutomationPhase.OpenAppraiser] = _ => DriveOpenAppraiser(),
             [AutomationPhase.SelectJob] = DriveSelectJob,
             [AutomationPhase.SelectItem] = DriveSelectItem,
@@ -187,7 +187,7 @@ public sealed partial class AutoIshgardRestoration
             [AutomationPhase.WaitTurnIn] = DriveWaitTurnIn,
             [AutomationPhase.WaitSupplyRefresh] = DriveWaitSupplyRefresh,
             [AutomationPhase.MoveToLottery] = _ => DriveStartNPCEvent(
-                [LOTTERY_NPC_ID], AutomationPhase.OpenLottery, OmniLoc.Get("Feature.AutoIshgardRestoration.LotteryNPC")),
+                [LOTTERY_NPC_ID], AutomationPhase.OpenLottery, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.LotteryNPC")),
             [AutomationPhase.OpenLottery] = _ => DriveOpenLottery(),
             [AutomationPhase.PlayLottery] = _ => DrivePlayLottery(),
             [AutomationPhase.PostLottery] = DrivePostLottery,
@@ -211,20 +211,20 @@ public sealed partial class AutoIshgardRestoration
         {
             RequestArtisanStop();
             EnterPhase(AutomationPhase.WaitArtisanStop);
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForArtisanStop"), reason);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForArtisanStop"), reason);
         }
         else if (artisanIsBusy?.InvokeFunc() == true)
         {
             EnterPhase(AutomationPhase.Crafting);
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.ArtisanCrafting"), recipe.ItemName);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ArtisanCrafting"), recipe.ItemName);
         }
         else if (PhaseTimedOut(TimeSpan.FromSeconds(15)))
         {
             artisanStartedByModule = false;
             if (snapshot.ItemCount > craftCycleStartingItemCount)
-                BeginSubmission(OmniLoc.Get("Feature.AutoIshgardRestoration.ArtisanCycleCompleted"));
+                BeginSubmission(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ArtisanCycleCompleted"));
             else
-                CompleteAutomation(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.CannotContinueCrafting"), recipe.ItemName));
+                CompleteAutomation(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.CannotContinueCrafting"), recipe.ItemName));
         }
     }
 
@@ -235,15 +235,15 @@ public sealed partial class AutoIshgardRestoration
         {
             RequestArtisanStop();
             EnterPhase(AutomationPhase.WaitArtisanStop);
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForArtisanStop"), reason);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForArtisanStop"), reason);
         }
         else if (artisanIsBusy?.InvokeFunc() == false)
         {
             artisanStartedByModule = false;
             if (snapshot.ItemCount > craftCycleStartingItemCount)
-                BeginSubmission(OmniLoc.Get("Feature.AutoIshgardRestoration.ArtisanCycleEnded"));
+                BeginSubmission(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ArtisanCycleEnded"));
             else
-                CompleteAutomation(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.CannotContinueCrafting"), recipe.ItemName));
+                CompleteAutomation(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.CannotContinueCrafting"), recipe.ItemName));
         }
     }
 
@@ -252,11 +252,11 @@ public sealed partial class AutoIshgardRestoration
         if (artisanIsBusy?.InvokeFunc() == false)
         {
             artisanStartedByModule = false;
-            BeginSubmission(OmniLoc.Get("Feature.AutoIshgardRestoration.ArtisanStopped"));
+            BeginSubmission(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ArtisanStopped"));
         }
         else if (PhaseTimedOut(TimeSpan.FromSeconds(30)))
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.ArtisanStopTimedOut"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ArtisanStopTimedOut"));
         }
     }
 
@@ -266,7 +266,7 @@ public sealed partial class AutoIshgardRestoration
         CloseAddon("HWDSupply");
         EnterPhase(AutomationPhase.PrepareNextCycle);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(800);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.PreparingNextCraftingCycle"), reason);
+        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.PreparingNextCraftingCycle"), reason);
     }
 
     private unsafe void DrivePrepareNextCycle(RecipeOption recipe)
@@ -281,21 +281,21 @@ public sealed partial class AutoIshgardRestoration
             CloseAddon("Request");
             CloseAddon("HWDSupply");
             nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.ClosingSupplyForCrafting");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ClosingSupplyForCrafting");
             return;
         }
 
         if (IsOccupied())
         {
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForInteractionBeforeCrafting");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForInteractionBeforeCrafting");
             if (PhaseTimedOut(TimeSpan.FromSeconds(20)))
             {
-                FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.PlayerOccupiedBeforeCrafting"));
+                FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.PlayerOccupiedBeforeCrafting"));
             }
             return;
         }
 
-        StartCraftingCycle(recipe, OmniLoc.Get("Feature.AutoIshgardRestoration.StartingNextCycle"));
+        StartCraftingCycle(recipe, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.StartingNextCycle"));
     }
 
     private void EnterPhase(AutomationPhase next)
@@ -332,14 +332,14 @@ public sealed partial class AutoIshgardRestoration
         running = false;
         phase = AutomationPhase.Idle;
         lastError = message;
-        status = OmniLoc.Get("Feature.AutoIshgardRestoration.AutomationStopped");
+        status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.AutomationStopped");
     }
 
     private bool ShouldStop(InventorySnapshot snapshot, uint balance, out string reason)
     {
         if (snapshot.FreeSlots <= 5)
         {
-            reason = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.StoppedForFreeSlots"), snapshot.FreeSlots);
+            reason = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.StoppedForFreeSlots"), snapshot.FreeSlots);
             return true;
         }
 
@@ -347,7 +347,7 @@ public sealed partial class AutoIshgardRestoration
         if (snapshot.PendingScrips > 0 && (long)balance + snapshot.PendingScrips >= threshold)
         {
             reason = string.Format(CultureInfo.InvariantCulture,
-                OmniLoc.Get("Feature.AutoIshgardRestoration.StoppedForScrips"), balance, snapshot.PendingScrips, threshold);
+                OmniLoc.Get(this, "Feature.AutoIshgardRestoration.StoppedForScrips"), balance, snapshot.PendingScrips, threshold);
             return true;
         }
 
@@ -364,14 +364,14 @@ public sealed partial class AutoIshgardRestoration
         if (balance < threshold) return false;
 
         StopProduction(string.Format(CultureInfo.InvariantCulture,
-            OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ScripStopReached"), balance, threshold));
+            OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripStopReached"), balance, threshold));
         return true;
     }
 
     private void Fail(string message)
     {
         lastError = message;
-        status = OmniLoc.Get("Feature.AutoIshgardRestoration.CannotStart");
+        status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.CannotStart");
     }
 
     private enum AutomationPhase

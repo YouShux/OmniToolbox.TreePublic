@@ -6,19 +6,25 @@ using OmenTools.Interop.Game.Models;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class WidescreenCutscene : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe class WidescreenCutscene : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("WidescreenCutsceneTitle"),
-        Description = OmniLoc.Get("WidescreenCutsceneDescription"),
         Category = ModuleCategory.Interface
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "WidescreenCutsceneTitle",
+            ["Description"] = "WidescreenCutsceneDescription"
+        });
 
     private static readonly CompSig UpdateLetterboxingSignature = new(
         "E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 8B ?? ?? ?? ??");
@@ -33,9 +39,9 @@ public sealed unsafe class WidescreenCutscene : ModuleBase
         this.hookRegistry = hookRegistry;
     }
 
-    protected override void OnEnable() => hook = hookRegistry.Register(UpdateLetterboxingSignature, (UpdateLetterboxingDelegate)Detour);
+    protected override void OnStart(FeatureLifetime activation) => hook = hookRegistry.Register(UpdateLetterboxingSignature, (UpdateLetterboxingDelegate)Detour);
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
         hookRegistry.Release(hook);
         hook = null;

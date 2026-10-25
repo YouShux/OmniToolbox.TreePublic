@@ -12,75 +12,62 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using Control = FFXIVClientStructs.FFXIV.Client.Game.Control.Control;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("ShieldOnHPTitle"),
-        Description = OmniLoc.Get("ShieldOnHPDescription"),
         Category = ModuleCategory.Combat
     };
 
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "ShieldOnHPTitle",
+            ["Description"] = "ShieldOnHPDescription",
+            ["Feature.ShieldOnHP.Color"] = "Feature.ShieldOnHP.Color",
+            ["Feature.ShieldOnHP.ShowBar"] = "Feature.ShieldOnHP.ShowBar",
+            ["Feature.ShieldOnHP.ShowBar.Help"] = "Feature.ShieldOnHP.ShowBar.Help"
+        });
+
     public override bool HasSettings => true;
 
-    private FeatureLifetime? runtimeLifetime;
-
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
-            lifetime.Add(addonEvents.Dispose);
-            addonEvents.Register(
-                AddonEvent.PreFinalize,
-                PARAMETER_WIDGET_ADDON_NAME,
-                OnParameterWidgetFinalize);
-
-            if (!FrameworkManager.Instance().Reg(OnUpdate))
-            {
-                throw new InvalidOperationException("Shield-on-HP update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnUpdate));
-            DalamudServices.PluginInterface.UiBuilder.Draw += DrawShieldValue;
-            lifetime.Add(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawShieldValue);
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            runtimeLifetime = null;
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             RemoveNodes(AddonHelper.GetByName(PARAMETER_WIDGET_ADDON_NAME));
+        });
+        var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
+        lifetime.OnStopping(addonEvents.Dispose);
+        addonEvents.Register(
+            AddonEvent.PreFinalize,
+            PARAMETER_WIDGET_ADDON_NAME,
+            OnParameterWidgetFinalize);
+
+        if (!FrameworkManager.Instance().Reg(OnUpdate))
+        {
+            throw new InvalidOperationException("Shield-on-HP update registration failed.");
         }
+
+        lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnUpdate));
+        lifetime.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawShieldValue);
+        DalamudServices.PluginInterface.UiBuilder.Draw += DrawShieldValue;
     }
 
     public override bool DrawSettings()
     {
         var showBar = config.ShowBar;
         var shouldSave = OmniControls.Checkbox(
-            $"{OmniLoc.Get("Feature.ShieldOnHP.ShowBar")}##shieldOnHPShowBar",
+            $"{OmniLoc.Get(this, "Feature.ShieldOnHP.ShowBar")}##shieldOnHPShowBar",
             ref showBar);
         if (shouldSave)
         {
@@ -88,13 +75,13 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Modu
         }
 
         OmniControls.SameLineOrWrap(ImGui.GetTextLineHeight(), OmniTheme.Scale(4f));
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.ShieldOnHP.ShowBar.Help"));
-        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.ShieldOnHP.Color")).X +
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.ShieldOnHP.ShowBar.Help"));
+        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.ShieldOnHP.Color")).X +
             ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.X, OmniTheme.ContentGap());
         using (ImRaii.Disabled(!config.ShowBar))
         {
             ImGui.AlignTextToFramePadding();
-            ImGui.TextUnformatted(OmniLoc.Get("Feature.ShieldOnHP.Color"));
+            ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.ShieldOnHP.Color"));
             OmniControls.SameLineOrWrap(ImGui.GetFrameHeight());
             var color = config.Color;
             if (OmniControls.ColorEdit("##shieldOnHPColor", ref color))

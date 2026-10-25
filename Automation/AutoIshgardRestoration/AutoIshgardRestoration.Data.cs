@@ -64,7 +64,7 @@ public sealed partial class AutoIshgardRestoration
         {
             if (!LuminaGetter.TryGetRow<SpecialShop>(id, out var shop))
             {
-                scripCatalogError = OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ScripCatalogUnavailable");
+                scripCatalogError = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripCatalogUnavailable");
                 return;
             }
 

@@ -10,23 +10,22 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using OmenTools.Threading.TaskHelper;
+using TreeTools.Threading;
 using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("AutoSortItemsTitle"),
-        Description = OmniLoc.Get("AutoSortItemsDescription"),
         Category = ModuleCategory.Item,
         RequiresPrivateProvider = true,
         Commands =
@@ -34,6 +33,67 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             new ModuleCommand("Feature.AutoSortItems.CommandDescription", OmniCommandCatalog.Format("sortitems"))
         ]
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "AutoSortItemsTitle",
+            ["Description"] = "AutoSortItemsDescription",
+            ["Feature.AutoSortItems.AddRule"] = "Feature.AutoSortItems.AddRule",
+            ["Feature.AutoSortItems.AutoMerge"] = "Feature.AutoSortItems.AutoMerge",
+            ["Feature.AutoSortItems.Category.Armoury"] = "Feature.AutoSortItems.Category.Armoury",
+            ["Feature.AutoSortItems.Category.Body"] = "Feature.AutoSortItems.Category.Body",
+            ["Feature.AutoSortItems.Category.Ears"] = "Feature.AutoSortItems.Category.Ears",
+            ["Feature.AutoSortItems.Category.Feet"] = "Feature.AutoSortItems.Category.Feet",
+            ["Feature.AutoSortItems.Category.Hands"] = "Feature.AutoSortItems.Category.Hands",
+            ["Feature.AutoSortItems.Category.Head"] = "Feature.AutoSortItems.Category.Head",
+            ["Feature.AutoSortItems.Category.Inventory"] = "Feature.AutoSortItems.Category.Inventory",
+            ["Feature.AutoSortItems.Category.Legs"] = "Feature.AutoSortItems.Category.Legs",
+            ["Feature.AutoSortItems.Category.MainHand"] = "Feature.AutoSortItems.Category.MainHand",
+            ["Feature.AutoSortItems.Category.Neck"] = "Feature.AutoSortItems.Category.Neck",
+            ["Feature.AutoSortItems.Category.OffHand"] = "Feature.AutoSortItems.Category.OffHand",
+            ["Feature.AutoSortItems.Category.PremiumSaddlebag"] = "Feature.AutoSortItems.Category.PremiumSaddlebag",
+            ["Feature.AutoSortItems.Category.Retainer"] = "Feature.AutoSortItems.Category.Retainer",
+            ["Feature.AutoSortItems.Category.Rings"] = "Feature.AutoSortItems.Category.Rings",
+            ["Feature.AutoSortItems.Category.Saddlebag"] = "Feature.AutoSortItems.Category.Saddlebag",
+            ["Feature.AutoSortItems.Category.Soul"] = "Feature.AutoSortItems.Category.Soul",
+            ["Feature.AutoSortItems.Category.Wrists"] = "Feature.AutoSortItems.Category.Wrists",
+            ["Feature.AutoSortItems.Column.Actions"] = "Feature.AutoSortItems.Column.Actions",
+            ["Feature.AutoSortItems.Column.Category"] = "Feature.AutoSortItems.Column.Category",
+            ["Feature.AutoSortItems.Column.Condition"] = "Feature.AutoSortItems.Column.Condition",
+            ["Feature.AutoSortItems.CommandDescription"] = "Feature.AutoSortItems.CommandDescription",
+            ["Feature.AutoSortItems.Condition.AutoAttack"] = "Feature.AutoSortItems.Condition.AutoAttack",
+            ["Feature.AutoSortItems.Condition.BlockRate"] = "Feature.AutoSortItems.Condition.BlockRate",
+            ["Feature.AutoSortItems.Condition.BlockStrength"] = "Feature.AutoSortItems.Condition.BlockStrength",
+            ["Feature.AutoSortItems.Condition.Category"] = "Feature.AutoSortItems.Condition.Category",
+            ["Feature.AutoSortItems.Condition.Control"] = "Feature.AutoSortItems.Condition.Control",
+            ["Feature.AutoSortItems.Condition.Craftsmanship"] = "Feature.AutoSortItems.Condition.Craftsmanship",
+            ["Feature.AutoSortItems.Condition.Defense"] = "Feature.AutoSortItems.Condition.Defense",
+            ["Feature.AutoSortItems.Condition.Delay"] = "Feature.AutoSortItems.Condition.Delay",
+            ["Feature.AutoSortItems.Condition.Dexterity"] = "Feature.AutoSortItems.Condition.Dexterity",
+            ["Feature.AutoSortItems.Condition.Gathering"] = "Feature.AutoSortItems.Condition.Gathering",
+            ["Feature.AutoSortItems.Condition.HQ"] = "Feature.AutoSortItems.Condition.HQ",
+            ["Feature.AutoSortItems.Condition.ID"] = "Feature.AutoSortItems.Condition.ID",
+            ["Feature.AutoSortItems.Condition.Intelligence"] = "Feature.AutoSortItems.Condition.Intelligence",
+            ["Feature.AutoSortItems.Condition.ItemLevel"] = "Feature.AutoSortItems.Condition.ItemLevel",
+            ["Feature.AutoSortItems.Condition.Level"] = "Feature.AutoSortItems.Condition.Level",
+            ["Feature.AutoSortItems.Condition.MagicalDamage"] = "Feature.AutoSortItems.Condition.MagicalDamage",
+            ["Feature.AutoSortItems.Condition.MagicalDefense"] = "Feature.AutoSortItems.Condition.MagicalDefense",
+            ["Feature.AutoSortItems.Condition.Materia"] = "Feature.AutoSortItems.Condition.Materia",
+            ["Feature.AutoSortItems.Condition.Mind"] = "Feature.AutoSortItems.Condition.Mind",
+            ["Feature.AutoSortItems.Condition.Perception"] = "Feature.AutoSortItems.Condition.Perception",
+            ["Feature.AutoSortItems.Condition.PhysicalDamage"] = "Feature.AutoSortItems.Condition.PhysicalDamage",
+            ["Feature.AutoSortItems.Condition.Spiritbond"] = "Feature.AutoSortItems.Condition.Spiritbond",
+            ["Feature.AutoSortItems.Condition.Stack"] = "Feature.AutoSortItems.Condition.Stack",
+            ["Feature.AutoSortItems.Condition.Strength"] = "Feature.AutoSortItems.Condition.Strength",
+            ["Feature.AutoSortItems.Condition.Vitality"] = "Feature.AutoSortItems.Condition.Vitality",
+            ["Feature.AutoSortItems.DeleteRule"] = "Feature.AutoSortItems.DeleteRule",
+            ["Feature.AutoSortItems.Order.Ascending"] = "Feature.AutoSortItems.Order.Ascending",
+            ["Feature.AutoSortItems.Order.Descending"] = "Feature.AutoSortItems.Order.Descending",
+            ["Feature.AutoSortItems.SortArmouryOnJobChange"] = "Feature.AutoSortItems.SortArmouryOnJobChange",
+            ["Feature.AutoSortItems.Tab"] = "Feature.AutoSortItems.Tab",
+            ["Feature.AutoSortItems.Unset"] = "Feature.AutoSortItems.Unset"
+        });
 
     public override bool HasSettings => true;
 
@@ -122,8 +182,11 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
     private TaskHelper? taskHelper;
     private AddonEventRegistry? addonEvents;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => DService.Instance().ClientState.ClassJobChanged -= OnClassJobChanged);
+        activation.OnStopping(() => addonEvents?.Dispose());
+
         EnsureRules(config);
         EnsureTaskHelper();
         addonEvents = new(DalamudServices.AddonLifecycle);
@@ -138,20 +201,16 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         DService.Instance().ClientState.ClassJobChanged += OnClassJobChanged;
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        DService.Instance().ClientState.ClassJobChanged -= OnClassJobChanged;
-        addonEvents?.Dispose();
         addonEvents = null;
         taskHelper?.Abort();
-        taskHelper?.Dispose();
         taskHelper = null;
         queuedCategories.Clear();
     }
 
-    protected override void OnDispose()
+    protected override void OnDestroy()
     {
-        taskHelper?.Dispose();
         taskHelper = null;
         queuedCategories.Clear();
     }
@@ -194,6 +253,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             RetryIntervalMS = 100,
             TimeoutMS = SORT_TIMEOUT_MS
         };
+        Activation.Add(taskHelper);
         taskHelper.TaskTimeout += _ => queuedCategories.Clear();
         taskHelper.TaskGetException += _ => queuedCategories.Clear();
     }

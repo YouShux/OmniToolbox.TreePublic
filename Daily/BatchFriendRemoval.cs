@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -14,7 +15,7 @@ using OmenTools.Info.Game.Data;
 using OmenTools.Interop.Game.AddonEvent;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
-using OmenTools.Threading.TaskHelper;
+using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -24,14 +25,31 @@ using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class BatchFriendRemoval : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe class BatchFriendRemoval : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("BatchFriendRemovalTitle"),
-        Description = OmniLoc.Get("BatchFriendRemovalDescription"),
         Category = ModuleCategory.Daily
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "BatchFriendRemovalTitle",
+            ["Description"] = "BatchFriendRemovalDescription",
+            ["Feature.BatchFriendRemoval.Cancel"] = "Feature.BatchFriendRemoval.Cancel",
+            ["Feature.BatchFriendRemoval.Column.Name"] = "Feature.BatchFriendRemoval.Column.Name",
+            ["Feature.BatchFriendRemoval.Column.World"] = "Feature.BatchFriendRemoval.Column.World",
+            ["Feature.BatchFriendRemoval.Confirm"] = "Feature.BatchFriendRemoval.Confirm",
+            ["Feature.BatchFriendRemoval.ConfirmDescription"] = "Feature.BatchFriendRemoval.ConfirmDescription",
+            ["Feature.BatchFriendRemoval.ConfirmTitle"] = "Feature.BatchFriendRemoval.ConfirmTitle",
+            ["Feature.BatchFriendRemoval.Refresh"] = "Feature.BatchFriendRemoval.Refresh",
+            ["Feature.BatchFriendRemoval.RemoveSelected"] = "Feature.BatchFriendRemoval.RemoveSelected",
+            ["Feature.BatchFriendRemoval.SelectUnresolved"] = "Feature.BatchFriendRemoval.SelectUnresolved",
+            ["Feature.BatchFriendRemoval.Stop"] = "Feature.BatchFriendRemoval.Stop",
+            ["Feature.BatchFriendRemoval.Unresolved"] = "Feature.BatchFriendRemoval.Unresolved"
+        });
 
     public override bool HasSettings => true;
 
@@ -51,23 +69,25 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
     private uint menuAddonID;
     private string currentStep = string.Empty;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => DService.Instance().ClientState.Logout -= OnLogout);
+
         lastSettingsFrame = -1;
         tasks = new()
         {
             RetryIntervalMS = 100, TimeoutMS = 30_000
         };
+        activation.Add(tasks);
+        activation.OnStopping(tasks.Abort);
         DService.Instance().ClientState.Logout += OnLogout;
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        DService.Instance().ClientState.Logout -= OnLogout;
         StopOperation("Stopped");
         endRequestHook?.Dispose();
         endRequestHook = null;
-        tasks?.Dispose();
         tasks = null;
         snapshot = new(0, [], snapshot.Version + 1);
         confirmationTargets = [];
@@ -111,10 +131,10 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         }
 
         var busy = tasks?.IsBusy == true;
-        var refreshLabel = OmniLoc.Get("Feature.BatchFriendRemoval.Refresh");
-        var selectUnresolvedLabel = OmniLoc.Get("Feature.BatchFriendRemoval.SelectUnresolved");
-        var removeLabel = OmniLoc.Get("Feature.BatchFriendRemoval.RemoveSelected");
-        var stopLabel = OmniLoc.Get("Feature.BatchFriendRemoval.Stop");
+        var refreshLabel = OmniLoc.Get(this, "Feature.BatchFriendRemoval.Refresh");
+        var selectUnresolvedLabel = OmniLoc.Get(this, "Feature.BatchFriendRemoval.SelectUnresolved");
+        var removeLabel = OmniLoc.Get(this, "Feature.BatchFriendRemoval.RemoveSelected");
+        var stopLabel = OmniLoc.Get(this, "Feature.BatchFriendRemoval.Stop");
         var stopSize = OmniControls.CompactButtonSize(stopLabel);
         var openConfirmation = false;
         using (ImRaii.Disabled(!loggedIn || busy))
@@ -160,8 +180,8 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         using var cellPadding = ImRaii.PushStyle(
             ImGuiStyleVar.CellPadding,
             new Vector2(ImGui.GetStyle().CellPadding.X, OmniTheme.Scale(2f)));
-        var nameLabel = OmniLoc.Get("Feature.BatchFriendRemoval.Column.Name");
-        var worldLabel = OmniLoc.Get("Feature.BatchFriendRemoval.Column.World");
+        var nameLabel = OmniLoc.Get(this, "Feature.BatchFriendRemoval.Column.Name");
+        var worldLabel = OmniLoc.Get(this, "Feature.BatchFriendRemoval.Column.World");
         var checkboxSize = new Vector2(OmniTheme.CheckboxSize());
         var checkboxWidth = OmniControls.MeasureCheckbox(string.Empty).X;
         var nameWidth = ImGui.CalcTextSize(nameLabel).X;
@@ -242,11 +262,11 @@ public sealed unsafe class BatchFriendRemoval : ModuleBase
         using var popupStyles = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, OmniTheme.PopupPadding())
             .Push(ImGuiStyleVar.PopupRounding, OmniTheme.Scale(OmniTheme.Tokens.BorderRadius))
             .Push(ImGuiStyleVar.PopupBorderSize, 0f);
-        var title = OmniLoc.Get("Feature.BatchFriendRemoval.ConfirmTitle");
+        var title = OmniLoc.Get(this, "Feature.BatchFriendRemoval.ConfirmTitle");
         var message = string.Format(CultureInfo.CurrentCulture,
-            OmniLoc.Get("Feature.BatchFriendRemoval.ConfirmDescription"), confirmationTargets.Length);
-        var confirmLabel = OmniLoc.Get("Feature.BatchFriendRemoval.Confirm");
-        var cancelLabel = OmniLoc.Get("Feature.BatchFriendRemoval.Cancel");
+            OmniLoc.Get(this, "Feature.BatchFriendRemoval.ConfirmDescription"), confirmationTargets.Length);
+        var confirmLabel = OmniLoc.Get(this, "Feature.BatchFriendRemoval.Confirm");
+        var cancelLabel = OmniLoc.Get(this, "Feature.BatchFriendRemoval.Cancel");
         var confirmSize = OmniControls.CompactButtonSize(confirmLabel);
         var cancelSize = OmniControls.CompactButtonSize(cancelLabel);
         var actionsSize = OmniControls.MeasureGroup([confirmSize, cancelSize]);

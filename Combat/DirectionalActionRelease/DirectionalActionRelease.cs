@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using OmenTools;
@@ -14,15 +15,25 @@ using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class DirectionalActionRelease : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class DirectionalActionRelease : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("DirectionalActionReleaseTitle"),
-        Description = OmniLoc.Get("DirectionalActionReleaseDescription"),
         Category = ModuleCategory.Combat,
         RequiresPrivateProvider = true
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "DirectionalActionReleaseTitle",
+            ["Description"] = "DirectionalActionReleaseDescription",
+            ["Feature.DirectionalActionRelease.Action"] = "Feature.DirectionalActionRelease.Action",
+            ["Feature.DirectionalActionRelease.Camera"] = "Feature.DirectionalActionRelease.Camera",
+            ["Feature.DirectionalActionRelease.Mouse"] = "Feature.DirectionalActionRelease.Mouse",
+            ["Feature.DirectionalActionRelease.Reverse"] = "Feature.DirectionalActionRelease.Reverse"
+        });
 
     public override bool HasSettings => true;
 
@@ -43,8 +54,11 @@ public sealed unsafe partial class DirectionalActionRelease : ModuleBase
 
     internal static ReadOnlySpan<uint> ActionIDs => DefaultActionIDs;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => UseActionManager.Instance().Unreg(OnPreUseAction));
+        activation.OnStopping(() => UseActionManager.Instance().Unreg(OnPreUseActionLocation));
+
         var manager = UseActionManager.Instance();
         if (!manager.RegPreUseAction(OnPreUseAction))
         {
@@ -56,12 +70,6 @@ public sealed unsafe partial class DirectionalActionRelease : ModuleBase
             manager.Unreg(OnPreUseAction);
             throw new InvalidOperationException("Directional location action registration failed.");
         }
-    }
-
-    protected override void OnDisable()
-    {
-        UseActionManager.Instance().Unreg(OnPreUseAction);
-        UseActionManager.Instance().Unreg(OnPreUseActionLocation);
     }
 
     public override bool DrawSettings() => Panel.Draw(config, ActionIDs);

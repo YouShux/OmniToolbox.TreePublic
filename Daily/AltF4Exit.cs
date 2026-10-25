@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Diagnostics;
 using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
@@ -14,39 +15,41 @@ using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class AltF4Exit : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe class AltF4Exit : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("AltF4ExitTitle"),
-        Description = OmniLoc.Get("AltF4ExitDescription"),
         Category = ModuleCategory.Daily
     };
 
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "AltF4ExitTitle",
+            ["Description"] = "AltF4ExitDescription"
+        });
+
     private Hook<Framework.Delegates.ExitFromWindow>? ExitFromWindowHook;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        ExitFromWindowHook ??= DService.Instance().Hook.HookFromMemberFunction(
+        activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+
+        ExitFromWindowHook = DService.Instance().Hook.HookFromMemberFunction(
             typeof(Framework.MemberFunctionPointers),
             nameof(Framework.MemberFunctionPointers.ExitFromWindow),
             (Framework.Delegates.ExitFromWindow)ExitFromWindowDetour);
+        activation.Add(ExitFromWindowHook);
+        activation.OnStopping(ExitFromWindowHook.Disable);
+        activation.Add(() => ExitFromWindowHook = null);
         ExitFromWindowHook.Enable();
 
         if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
         {
-            ExitFromWindowHook.Disable();
             throw new InvalidOperationException("Alt+F4 exit update registration failed.");
         }
     }
-
-    protected override void OnDisable()
-    {
-        FrameworkManager.Instance().Unreg(OnFrameworkUpdate);
-        ExitFromWindowHook?.Disable();
-    }
-
-    protected override void OnDispose() => ExitFromWindowHook?.Dispose();
 
     private static void OnFrameworkUpdate(IFramework _)
     {

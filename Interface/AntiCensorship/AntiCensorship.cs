@@ -13,20 +13,31 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("AntiCensorshipTitle"),
-        Description = OmniLoc.Get("AntiCensorshipDescription"),
         Category = ModuleCategory.Interface
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "AntiCensorshipTitle",
+            ["Description"] = "AntiCensorshipDescription",
+            ["Feature.AntiCensorship.AutoHandle"] = "Feature.AntiCensorship.AutoHandle",
+            ["Feature.AntiCensorship.AutoHandle.Help"] = "Feature.AntiCensorship.AutoHandle.Help",
+            ["Feature.AntiCensorship.Coloring"] = "Feature.AntiCensorship.Coloring",
+            ["Feature.AntiCensorship.Coloring.Help"] = "Feature.AntiCensorship.Coloring.Help",
+            ["Feature.AntiCensorship.Separator"] = "Feature.AntiCensorship.Separator"
+        });
 
     public override bool HasSettings => true;
 
@@ -46,7 +57,6 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
     [ThreadStatic]
     private static bool AllowFilterCall;
 
-    private FeatureLifetime? runtimeLifetime;
     private Processor? processor;
     private Hook<GetFilteredUtf8StringDelegate>? getFilteredUtf8StringHook;
     private Hook<LocalMessageDisplayDelegate>? localMessageDisplayHook;
@@ -70,74 +80,49 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
         AtkEvent* atkEvent,
         AtkEventData* atkEventData);
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            var offsetAddress = VulgarInstanceOffsetSig.ScanText();
-            if (offsetAddress == nint.Zero)
-            {
-                throw new InvalidOperationException("Anti-censorship vulgar instance offset signature was not found.");
-            }
-
-            vulgarInstanceOffset = *(int*)(offsetAddress + 3);
-            getFilteredUtf8StringHook = EnableHook<GetFilteredUtf8StringDelegate>(
-                GetFilteredUtf8StringSig,
-                GetFilteredUtf8StringDetour,
-                lifetime);
-            processor = new(config, GetFilteredString);
-            lifetime.Add(processor.Clear);
-            localMessageDisplayHook = EnableHook<LocalMessageDisplayDelegate>(
-                LocalMessageDisplaySig,
-                LocalMessageDisplayDetour,
-                lifetime);
-            partyFinderMessageDisplayHook = EnableHook<PartyFinderMessageDisplayDelegate>(
-                PartyFinderMessageDisplaySig,
-                PartyFinderMessageDisplayDetour,
-                lifetime);
-            lookingForGroupConditionReceiveEventHook = EnableHook<LookingForGroupConditionReceiveEventDelegate>(
-                LookingForGroupConditionReceiveEventSig,
-                LookingForGroupConditionReceiveEventDetour,
-                lifetime);
-            textInputReceiveEventHook = EnableHook<TextInputReceiveDelegate>(
-                TextInputReceiveEventSig,
-                TextInputReceiveEventDetour,
-                lifetime);
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            try
-            {
-                lifetime.Dispose();
-            }
-            finally
-            {
-                ClearRuntimeReferences();
-            }
-
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        try
-        {
-            runtimeLifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             ClearRuntimeReferences();
+        });
+        var offsetAddress = VulgarInstanceOffsetSig.ScanText();
+        if (offsetAddress == nint.Zero)
+        {
+            throw new InvalidOperationException("Anti-censorship vulgar instance offset signature was not found.");
         }
+
+        vulgarInstanceOffset = *(int*)(offsetAddress + 3);
+        getFilteredUtf8StringHook = EnableHook<GetFilteredUtf8StringDelegate>(
+            GetFilteredUtf8StringSig,
+            GetFilteredUtf8StringDetour,
+            lifetime);
+        processor = new(config, GetFilteredString);
+        lifetime.Add(processor.Clear);
+        localMessageDisplayHook = EnableHook<LocalMessageDisplayDelegate>(
+            LocalMessageDisplaySig,
+            LocalMessageDisplayDetour,
+            lifetime);
+        partyFinderMessageDisplayHook = EnableHook<PartyFinderMessageDisplayDelegate>(
+            PartyFinderMessageDisplaySig,
+            PartyFinderMessageDisplayDetour,
+            lifetime);
+        lookingForGroupConditionReceiveEventHook = EnableHook<LookingForGroupConditionReceiveEventDelegate>(
+            LookingForGroupConditionReceiveEventSig,
+            LookingForGroupConditionReceiveEventDetour,
+            lifetime);
+        textInputReceiveEventHook = EnableHook<TextInputReceiveDelegate>(
+            TextInputReceiveEventSig,
+            TextInputReceiveEventDetour,
+            lifetime);
     }
 
     public override bool DrawSettings()
     {
         var changed = false;
         var autoHandle = config.EnableAutoHandle;
-        if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.AutoHandle")}##antiCensorshipAutoHandle", ref autoHandle))
+        if (OmniControls.Checkbox($"{OmniLoc.Get(this, "Feature.AntiCensorship.AutoHandle")}##antiCensorshipAutoHandle", ref autoHandle))
         {
             config.EnableAutoHandle = autoHandle;
             changed = true;
@@ -147,7 +132,7 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
         ImGui.SetNextItemWidth(OmniTheme.Scale(60f));
         var separator = config.Separator.ToString();
         if (OmniControls.InputText(
-                $"{OmniLoc.Get("Feature.AntiCensorship.Separator")}##antiCensorshipSeparator",
+                $"{OmniLoc.Get(this, "Feature.AntiCensorship.Separator")}##antiCensorshipSeparator",
                 ref separator,
                 8))
         {
@@ -160,10 +145,10 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
         changed |= ImGui.IsItemDeactivatedAfterEdit();
 
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.AntiCensorship.AutoHandle.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AntiCensorship.AutoHandle.Help"));
         ImGui.SameLine(0f, OmniTheme.ContentGap());
         var coloring = config.EnableColoring;
-        if (OmniControls.Checkbox($"{OmniLoc.Get("Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))
+        if (OmniControls.Checkbox($"{OmniLoc.Get(this, "Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))
         {
             config.EnableColoring = coloring;
             changed = true;
@@ -187,7 +172,7 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
 
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
         changed |= ImGui.IsItemDeactivatedAfterEdit();
-        OmniControls.HelpIcon(OmniLoc.Get("Feature.AntiCensorship.Coloring.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AntiCensorship.Coloring.Help"));
         if (!changed)
         {
             return false;
@@ -201,6 +186,7 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
     {
         var hook = signature.GetHook(detour);
         lifetime.Add(hook.Dispose);
+        lifetime.OnStopping(hook.Disable);
         hook.Enable();
         return hook;
     }
@@ -357,7 +343,6 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
 
     private void ClearRuntimeReferences()
     {
-        runtimeLifetime = null;
         processor = null;
         getFilteredUtf8StringHook = null;
         localMessageDisplayHook = null;

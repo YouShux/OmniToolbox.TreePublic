@@ -1,22 +1,14 @@
-using System.Drawing;
-using Dalamud.Interface;
-using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit.BaseTypes;
-using KamiToolKit.Classes;
-using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
-using KamiToolKit.Nodes.Simplified;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed partial class BetterGlamourManagement
 {
-    internal sealed class BetterGlamourDyeGridRowNode : ListItemNode<BetterGlamourDyeGridRow>, IListItemNode
+    internal sealed class BetterGlamourDyeGridRowNode : ResNode
     {
-        public static float ItemHeight => 40f;
+        public static float ItemHeight => 30f;
 
-        private readonly BetterGlamourDyeSwatchNode[] swatches = new BetterGlamourDyeSwatchNode[8];
+        private readonly BetterGlamourDyeSwatchNode[] swatches = new BetterGlamourDyeSwatchNode[12];
 
         public BetterGlamourDyeGridRowNode()
         {
@@ -25,29 +17,37 @@ public sealed partial class BetterGlamourManagement
                 swatches[index] = new(index);
                 swatches[index].AttachNode(this);
             }
-
-            DisableInteractions();
         }
 
         protected override void OnSizeChanged()
         {
             base.OnSizeChanged();
-            var size = MathF.Min(36f, MathF.Max(20f, (Width - (swatches.Length - 1) * 6f) / swatches.Length));
+            if (Width <= 0f || Height <= 0f)
+                return;
+            var start = MathF.Max(0f, (Width - swatches.Length * ItemHeight) / 2f);
             for (var index = 0; index < swatches.Length; index++)
             {
-                swatches[index].Position = new(index * (size + 6f), (Height - size) / 2f);
-                swatches[index].Size = new(size, size);
+                swatches[index].Position = new(start + index * ItemHeight, MathF.Max(0f, (Height - ItemHeight) / 2f));
+                swatches[index].Size = new(ItemHeight, ItemHeight);
             }
         }
 
-        protected override void SetNodeData(BetterGlamourDyeGridRow itemData)
+        public void SetData(BetterGlamourDyeGridRow itemData)
         {
             for (var index = 0; index < swatches.Length; index++)
             {
-                swatches[index].SetOption(index < itemData.Options.Count ? itemData.Options[index] : null, itemData);
+                swatches[index].SetOption(
+                    index < itemData.Options.Count ? itemData.Options[index] : null,
+                    itemData);
             }
 
             OnSizeChanged();
+        }
+
+        public void ClearHover()
+        {
+            foreach (var swatch in swatches)
+                swatch.ClearHover();
         }
     }
 

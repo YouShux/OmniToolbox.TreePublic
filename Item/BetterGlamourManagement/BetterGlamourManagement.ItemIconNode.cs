@@ -39,7 +39,17 @@ public sealed partial class BetterGlamourManagement
         public uint IconID
         {
             get => iconNode.IconId;
-            set => iconNode.IconId = value;
+            set
+            {
+                iconNode.IconId = value;
+                ItemIconDyeIndicators.Apply(iconNode, 0);
+            }
+        }
+
+        public void SetItem(uint itemID, byte stain0 = 0, byte stain1 = 0)
+        {
+            iconNode.IconId = LuminaWrapper.GetItemIconID(itemID);
+            ItemIconDyeIndicators.Apply(iconNode, itemID, stain0, stain1);
         }
 
         protected override void OnSizeChanged()

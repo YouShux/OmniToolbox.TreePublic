@@ -1,3 +1,4 @@
+using TreeToolKit;
 using System;
 using System.Globalization;
 using System.Numerics;
@@ -27,7 +28,7 @@ public sealed partial class AutoIshgardRestoration
 
     public override bool DrawSettings()
     {
-        if (OmniControls.SmallButton(OmniLoc.Get("AutoIshgardRestorationTitle"), false)) OpenConfigurationWindow();
+        if (OmniControls.SmallButton(Title, false)) OpenConfigurationWindow();
         return false;
     }
 
@@ -38,19 +39,19 @@ public sealed partial class AutoIshgardRestoration
             return;
         }
 
-        using var font = OmniFonts.GetUIFont().Push();
+        using var font = Fonts.GetUIFont().Push();
         using var style = new ComicStyleScope();
         var inset = OmniTheme.WindowInset();
         var frameInset = OmniTheme.ChromeFrameInset();
         var buttonSize = Vector2.Max(
-            OmniControls.CompactButtonSize(OmniLoc.Get(running || startPending
+            OmniControls.CompactButtonSize(OmniLoc.Get(this, running || startPending
                 ? "Feature.AutoIshgardRestoration.UI.Stop" : "Feature.AutoIshgardRestoration.UI.Start"), 80f),
-            OmniControls.CompactButtonSize(OmniLoc.Get(windowExpanded
+            OmniControls.CompactButtonSize(OmniLoc.Get(this, windowExpanded
                 ? "Feature.AutoIshgardRestoration.UI.Collapse" : "Feature.AutoIshgardRestoration.UI.Expand"), 80f));
         var compactControlsWidth = buttonSize.X * 2f + OmniTheme.Scale(8f) +
                                    (inset + frameInset) * 2f;
         var compactWidth = MathF.Max(compactControlsWidth,
-            ImGui.CalcTextSize(OmniLoc.Get("AutoIshgardRestorationTitle")).X +
+            ImGui.CalcTextSize(Title).X +
             OmniTheme.TitleExpandIconRight() * 2f + inset * 2f);
         var compactSize = new Vector2(compactWidth,
             OmniTheme.TitleBarHeight() + buttonSize.Y + (inset + frameInset) * 2f);
@@ -58,7 +59,7 @@ public sealed partial class AutoIshgardRestoration
         {
             var errorWidth = MathF.Max(
                 1f, OmniTheme.ClampWindowSize(compactSize).X - (inset + frameInset) * 2f);
-            compactSize.Y += ImGui.CalcTextSize(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.Error"), lastError), false, errorWidth).Y +
+            compactSize.Y += ImGui.CalcTextSize(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Error"), lastError), false, errorWidth).Y +
                              ImGui.GetStyle().ItemSpacing.Y;
         }
 
@@ -120,7 +121,7 @@ public sealed partial class AutoIshgardRestoration
             framePosition,
             frameSize,
             windowCollapsed,
-            OmniLoc.Get("AutoIshgardRestorationTitle"),
+            Title,
             "##collapseAutoIshgardRestoration",
             "##closeAutoIshgardRestoration");
         if (chrome.ToggleCollapse)
@@ -152,7 +153,7 @@ public sealed partial class AutoIshgardRestoration
             if (!string.IsNullOrWhiteSpace(lastError))
             {
                 using var wrap = ImRaii.TextWrapPos(ImGui.GetCursorPosX() + bodySize.X);
-                ImGui.TextUnformatted(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.Error"), lastError));
+                ImGui.TextUnformatted(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Error"), lastError));
             }
 
             return;
@@ -179,9 +180,9 @@ public sealed partial class AutoIshgardRestoration
     private void DrawWindowActionRow(float availableWidth, Vector2 buttonSize)
     {
         var rowPosition = ImGui.GetCursorScreenPos();
-        var primaryLabel = OmniLoc.Get(running || startPending
+        var primaryLabel = OmniLoc.Get(this, running || startPending
             ? "Feature.AutoIshgardRestoration.UI.Stop" : "Feature.AutoIshgardRestoration.UI.Start");
-        var secondaryLabel = OmniLoc.Get(windowExpanded
+        var secondaryLabel = OmniLoc.Get(this, windowExpanded
             ? "Feature.AutoIshgardRestoration.UI.Collapse" : "Feature.AutoIshgardRestoration.UI.Expand");
         var spacing = OmniTheme.Scale(8f);
         var secondaryWidth = MathF.Min(buttonSize.X, MathF.Max(1f, (availableWidth - spacing) * 0.5f));
@@ -216,14 +217,14 @@ public sealed partial class AutoIshgardRestoration
         var jobID = playerState.IsLoaded ? playerState.ClassJob.RowId : 0;
         var level = playerState.IsLoaded ? playerState.Level : (short)0;
         var jobText = playerState.IsLoaded
-            ? string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.CurrentJob"), GetJobName(jobID), level)
-            : OmniLoc.Get("Feature.AutoIshgardRestoration.UI.NotCraftingJob");
+            ? string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.CurrentJob"), GetJobName(jobID), level)
+            : OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.NotCraftingJob");
         var inputWidth = OmniTheme.Scale(72f);
         var spacing = ImGui.GetStyle().ItemSpacing.X;
         using (ImRaii.Disabled(running || startPending))
         {
             var jobWidth = ImGui.CalcTextSize(jobText).X + spacing + ImGui.GetStyle().CellPadding.X * 2f;
-            var ticketLabel = OmniLoc.Get("Feature.AutoIshgardRestoration.UI.TicketThreshold");
+            var ticketLabel = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.TicketThreshold");
             var ticketWidth = ImGui.CalcTextSize(ticketLabel).X + inputWidth + spacing * 2f + ImGui.GetStyle().CellPadding.X * 2f;
             var productionWidth = MathF.Max(ImGui.GetContentRegionAvail().X, jobWidth + ticketWidth + OmniTheme.Scale(180f));
             using (var table = ImRaii.Table("##ishgardProductionSettings", 3, ImGuiTableFlags.SizingStretchSame,
@@ -239,10 +240,10 @@ public sealed partial class AutoIshgardRestoration
                     ImGui.TextUnformatted(jobText);
 
                     ImGui.TableNextColumn();
-                    var preview = OmniLoc.Get("Feature.AutoIshgardRestoration.UI.SwitchCraftingJob");
+                    var preview = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.SwitchCraftingJob");
                     if (jobID is >= 8 and <= 15)
                         preview = selected is { } value && value.JobID == jobID
-                            ? FormatRecipe(value) : OmniLoc.Get("Feature.AutoIshgardRestoration.UI.SelectRecipe");
+                            ? FormatRecipe(value) : OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.SelectRecipe");
                     if (OmniControls.BeginCombo("##ishgardRecipe", preview,
                             MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
                     {
@@ -274,13 +275,13 @@ public sealed partial class AutoIshgardRestoration
                 }
             }
 
-            var stopLabel = OmniLoc.Get("Feature.AutoIshgardRestoration.UI.AutoStopScrips");
-            var buyLabel = OmniLoc.Get("Feature.AutoIshgardRestoration.UI.AutoBuyScrips");
+            var stopLabel = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.AutoStopScrips");
+            var buyLabel = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.AutoBuyScrips");
             var checkboxWidth = MathF.Max(ImGui.CalcTextSize(stopLabel).X, ImGui.CalcTextSize(buyLabel).X) +
                                 OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + spacing;
             var thresholdWidth = MathF.Max(
-                ImGui.CalcTextSize(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.StopThreshold")).X,
-                ImGui.CalcTextSize(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ScripThreshold")).X) +
+                ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.StopThreshold")).X,
+                ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripThreshold")).X) +
                 inputWidth + OmniControls.HelpIconSize().X + spacing * 3f;
             var policyWidth = MathF.Max(ImGui.GetContentRegionAvail().X,
                 (checkboxWidth + thresholdWidth) * 2f + ImGui.GetStyle().CellPadding.X * 8f);
@@ -304,12 +305,12 @@ public sealed partial class AutoIshgardRestoration
                     ImGui.TableNextColumn();
                     using (ImRaii.Disabled(config.AutoBuyScrips))
                     {
-                        if (OmniControls.InputInt($"{OmniLoc.Get("Feature.AutoIshgardRestoration.UI.StopThreshold")}##scripStopThreshold",
+                        if (OmniControls.InputInt($"{OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.StopThreshold")}##scripStopThreshold",
                                 ref config.ScripStopThreshold, inputWidth))
                             config.ScripStopThreshold = Math.Clamp(config.ScripStopThreshold, 1, 10000);
                         if (ImGui.IsItemDeactivatedAfterEdit()) saveConfig();
                         ImGui.SameLine();
-                        OmniControls.HelpIcon(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.StopThresholdHelp"));
+                        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.StopThresholdHelp"));
                     }
 
                     ImGui.TableNextColumn();
@@ -319,12 +320,12 @@ public sealed partial class AutoIshgardRestoration
                     ImGui.TableNextColumn();
                     using (ImRaii.Disabled(!config.AutoBuyScrips))
                     {
-                        if (OmniControls.InputInt($"{OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ScripThreshold")}##scripThreshold",
+                        if (OmniControls.InputInt($"{OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripThreshold")}##scripThreshold",
                                 ref config.ScripThreshold, inputWidth))
                             config.ScripThreshold = Math.Clamp(config.ScripThreshold, 1, 10000);
                         if (ImGui.IsItemDeactivatedAfterEdit()) saveConfig();
                         ImGui.SameLine();
-                        OmniControls.HelpIcon(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ScripThresholdHelp"));
+                        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripThresholdHelp"));
                     }
                 }
             }
@@ -337,21 +338,21 @@ public sealed partial class AutoIshgardRestoration
         var balance = ReadSkybuildersScrips();
         var pendingScrips = selected is { } current ? ReadInventory(current.ItemID).PendingScrips : 0;
         ImGui.TextWrapped(string.Format(CultureInfo.InvariantCulture,
-            OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ScripBalance"), balance,
+            OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripBalance"), balance,
             Math.Min(10000L, balance + (long)pendingScrips)));
 
         UpdateVoucherCount(DateTime.UtcNow);
-        ImGui.TextUnformatted(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.VoucherCount"), FormatVoucherCount(voucherCount, voucherLimit)));
-        ImGui.TextWrapped(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.Status"), status));
+        ImGui.TextUnformatted(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.VoucherCount"), FormatVoucherCount(voucherCount, voucherLimit)));
+        ImGui.TextWrapped(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Status"), status));
         if (!string.IsNullOrWhiteSpace(lastError))
-            ImGui.TextWrapped(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.Error"), lastError));
+            ImGui.TextWrapped(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Error"), lastError));
     }
 
     private void DrawScripPurchaseSettings()
     {
         EnsureScripCatalog();
         var selected = GetSelectedScripProduct();
-        var quantityLabel = OmniLoc.Get("Feature.AutoIshgardRestoration.UI.PurchaseQuantity");
+        var quantityLabel = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseQuantity");
         var quantityWidth = ImGui.CalcTextSize(quantityLabel).X + OmniTheme.Scale(72f) +
                             OmniControls.HelpIconSize().X + ImGui.GetStyle().ItemSpacing.X * 3f +
                             ImGui.GetStyle().CellPadding.X * 2f;
@@ -363,18 +364,18 @@ public sealed partial class AutoIshgardRestoration
         ImGui.TableSetupColumn("##quantity", ImGuiTableColumnFlags.WidthFixed, quantityWidth);
         ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
-        ImGui.TextUnformatted(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.PurchaseItem"));
+        ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseItem"));
         ImGui.SameLine();
         var popupHeight = MathF.Max(1f, MathF.Min(OmniTheme.Scale(360f), ImGui.GetMainViewport().WorkSize.Y * 0.8f));
         ImGui.SetNextWindowSizeConstraints(new Vector2(0f, popupHeight), new Vector2(float.MaxValue, popupHeight));
-        var preview = selected is null ? OmniLoc.Get("Feature.AutoIshgardRestoration.UI.SelectPurchaseItem")
-            : string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ProductPrice"), selected.Name, selected.Price);
+        var preview = selected is null ? OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.SelectPurchaseItem")
+            : string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ProductPrice"), selected.Name, selected.Price);
         if (OmniControls.BeginCombo("##ishgardPurchaseItem", preview, MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
         {
             ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(4f)));
             if (ImGui.IsWindowAppearing()) ImGui.SetKeyboardFocusHere();
             var searchChanged = OmniControls.InputTextWithHint(
-                "##scripProductSearch", OmniLoc.Get("Feature.AutoIshgardRestoration.UI.SearchItem"), ref scripProductSearch, 128,
+                "##scripProductSearch", OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.SearchItem"), ref scripProductSearch, 128,
                 ImGui.GetContentRegionAvail().X);
             ImGui.Separator();
             var productSelected = false;
@@ -391,7 +392,7 @@ public sealed partial class AutoIshgardRestoration
                     {
                         if (!product.Name.Contains(search, StringComparison.OrdinalIgnoreCase)) continue;
                         hasMatches = true;
-                        if (OmniControls.RoundedSelectable(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ProductPrice"), product.Name, product.Price) + $"##{product.ShopID}-{product.ItemID}",
+                        if (OmniControls.RoundedSelectable(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ProductPrice"), product.Name, product.Price) + $"##{product.ShopID}-{product.ItemID}",
                                 selected == product, size: new Vector2(0f, OmniTheme.SmallButtonSize().Y)))
                         {
                             config.ScripShopID = product.ShopID;
@@ -402,7 +403,7 @@ public sealed partial class AutoIshgardRestoration
                             productSelected = true;
                         }
                     }
-                    if (!hasMatches) ImGui.TextDisabled(OmniLoc.Get("Feature.AutoIshgardRestoration.UI.NoMatchingItems"));
+                    if (!hasMatches) ImGui.TextDisabled(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.NoMatchingItems"));
                 }
             }
             if (productSelected) ImGui.CloseCurrentPopup();
@@ -419,10 +420,10 @@ public sealed partial class AutoIshgardRestoration
             if (ImGui.IsItemDeactivatedAfterEdit()) saveConfig();
             ImGui.SameLine();
             var quantityHelp = string.Format(CultureInfo.InvariantCulture,
-                OmniLoc.Get("Feature.AutoIshgardRestoration.UI.PurchaseLimit"), limit);
+                OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseLimit"), limit);
             if (selected is not null)
                 quantityHelp += "\n" + string.Format(CultureInfo.InvariantCulture,
-                    OmniLoc.Get("Feature.AutoIshgardRestoration.UI.PurchaseCost"), (long)quantity * selected.Price);
+                    OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseCost"), (long)quantity * selected.Price);
             OmniControls.HelpIcon(quantityHelp);
         }
         if (!string.IsNullOrEmpty(scripCatalogError)) ImGui.TextWrapped(scripCatalogError);

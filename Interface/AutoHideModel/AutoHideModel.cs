@@ -1,3 +1,5 @@
+using TreeTools.Lifecycle;
+using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Host;
 using System.Diagnostics;
 using Dalamud.Game.ClientState.Conditions;
@@ -20,24 +22,53 @@ using OmenTools.Interop.Game.Models;
 using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
 using TerritoryIntendedUse = FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse;
 using ClientObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
-using ModuleBase = OmniToolbox.Common.Module.Abstractions.ModuleBase;
+using OmniModuleBase = OmniToolbox.Common.Module.Abstractions.OmniModuleBase;
 
 namespace OmniToolbox.TreePublic;
 
-internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleBase
+[ModuleApiVersion(1)]
+internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("AutoHideModelTitle"),
-        Description = OmniLoc.Get("AutoHideModelDescription"),
         Category = ModuleCategory.Interface
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "AutoHideModelTitle",
+            ["Description"] = "AutoHideModelDescription",
+            ["Feature.AutoHideModel.Beasts"] = "Feature.AutoHideModel.Beasts",
+            ["Feature.AutoHideModel.Chocobos"] = "Feature.AutoHideModel.Chocobos",
+            ["Feature.AutoHideModel.HideAll"] = "Feature.AutoHideModel.HideAll",
+            ["Feature.AutoHideModel.HideGroundHealingEffects"] = "Feature.AutoHideModel.HideGroundHealingEffects",
+            ["Feature.AutoHideModel.HideGroundHealingEffects.Help"] = "Feature.AutoHideModel.HideGroundHealingEffects.Help",
+            ["Feature.AutoHideModel.HideInCombat"] = "Feature.AutoHideModel.HideInCombat",
+            ["Feature.AutoHideModel.HideUnimportantNpcs"] = "Feature.AutoHideModel.HideUnimportantNpcs",
+            ["Feature.AutoHideModel.HouseSize.Large"] = "Feature.AutoHideModel.HouseSize.Large",
+            ["Feature.AutoHideModel.HouseSize.Medium"] = "Feature.AutoHideModel.HouseSize.Medium",
+            ["Feature.AutoHideModel.HouseSize.Small"] = "Feature.AutoHideModel.HouseSize.Small",
+            ["Feature.AutoHideModel.Houses"] = "Feature.AutoHideModel.Houses",
+            ["Feature.AutoHideModel.IncludeSelf"] = "Feature.AutoHideModel.IncludeSelf",
+            ["Feature.AutoHideModel.Minions"] = "Feature.AutoHideModel.Minions",
+            ["Feature.AutoHideModel.Pets"] = "Feature.AutoHideModel.Pets",
+            ["Feature.AutoHideModel.Players"] = "Feature.AutoHideModel.Players",
+            ["Feature.AutoHideModel.ReduceOnScreenPlayers"] = "Feature.AutoHideModel.ReduceOnScreenPlayers",
+            ["Feature.AutoHideModel.ShowDead"] = "Feature.AutoHideModel.ShowDead",
+            ["Feature.AutoHideModel.ShowFreeCompany"] = "Feature.AutoHideModel.ShowFreeCompany",
+            ["Feature.AutoHideModel.ShowFriends"] = "Feature.AutoHideModel.ShowFriends",
+            ["Feature.AutoHideModel.ShowParty"] = "Feature.AutoHideModel.ShowParty",
+            ["Feature.AutoHideModel.ShowTargetOfTarget"] = "Feature.AutoHideModel.ShowTargetOfTarget",
+            ["Feature.AutoHideModel.SpecifiedHouses"] = "Feature.AutoHideModel.SpecifiedHouses",
+            ["Feature.AutoHideModel.YardObjects"] = "Feature.AutoHideModel.YardObjects",
+            ["Feature.AutoHideModel.YardObjects.Help"] = "Feature.AutoHideModel.YardObjects.Help"
+        });
 
     public override bool HasSettings => true;
 
@@ -61,7 +92,6 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private (nint Address, uint Territory, sbyte Ward, byte Division) yardContext;
     private GetYardPlotDelegate? getYardPlot;
     private nint housingLayoutAddress;
-    private FeatureLifetime? runtimeLifetime;
     private Hook<ActionEffectHandler.Delegates.Receive>? actionEffectHook;
     private Hook<SetYardEffectActiveDelegate>? setLightActiveHook;
     private Hook<SetYardEffectActiveDelegate>? setVfxActiveHook;
@@ -79,68 +109,51 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
     private long nextVisibilityWarningTick;
     private long nextEffectWarningTick;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            getYardPlot = GetYardPlotSignature.GetDelegate<GetYardPlotDelegate>();
-            setLightActiveHook = SetLightActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetLightActive);
-            lifetime.Add(() =>
-            {
-                setLightActiveHook?.Dispose();
-                setLightActiveHook = null;
-            });
-            setLightActiveHook.Enable();
-            setVfxActiveHook = SetVfxActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetVfxActive);
-            lifetime.Add(() =>
-            {
-                setVfxActiveHook?.Dispose();
-                setVfxActiveHook = null;
-            });
-            setVfxActiveHook.Enable();
-            actionEffectHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
-                ActionEffectHandler.MemberFunctionPointers.Receive,
-                OnActionEffect);
-            lifetime.Add(() =>
-            {
-                actionEffectHook?.Dispose();
-                actionEffectHook = null;
-            });
-            actionEffectHook.Enable();
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
-            {
-                throw new InvalidOperationException("Auto hide model update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            var clientState = DService.Instance().ClientState;
-            clientState.Logout += OnLogout;
-            lifetime.Add(() => clientState.Logout -= OnLogout);
-            clientState.TerritoryChanged += OnTerritoryChanged;
-            lifetime.Add(() => clientState.TerritoryChanged -= OnTerritoryChanged);
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            runtimeLifetime = null;
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             Refresh();
+        });
+        getYardPlot = GetYardPlotSignature.GetDelegate<GetYardPlotDelegate>();
+        setLightActiveHook = SetLightActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetLightActive);
+        lifetime.Add(() =>
+        {
+            setLightActiveHook?.Dispose();
+            setLightActiveHook = null;
+        });
+        lifetime.OnStopping(setLightActiveHook.Disable);
+        setLightActiveHook.Enable();
+        setVfxActiveHook = SetVfxActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetVfxActive);
+        lifetime.Add(() =>
+        {
+            setVfxActiveHook?.Dispose();
+            setVfxActiveHook = null;
+        });
+        lifetime.OnStopping(setVfxActiveHook.Disable);
+        setVfxActiveHook.Enable();
+        actionEffectHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
+            ActionEffectHandler.MemberFunctionPointers.Receive,
+            OnActionEffect);
+        lifetime.Add(() =>
+        {
+            actionEffectHook?.Dispose();
+            actionEffectHook = null;
+        });
+        lifetime.OnStopping(actionEffectHook.Disable);
+        actionEffectHook.Enable();
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
+        {
+            throw new InvalidOperationException("Auto hide model update registration failed.");
         }
+
+        lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+        var clientState = DService.Instance().ClientState;
+        lifetime.OnStopping(() => clientState.Logout -= OnLogout);
+        clientState.Logout += OnLogout;
+        lifetime.OnStopping(() => clientState.TerritoryChanged -= OnTerritoryChanged);
+        clientState.TerritoryChanged += OnTerritoryChanged;
     }
 
     public override bool DrawSettings()
@@ -150,11 +163,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
         ImGui.Dummy(new Vector2(0f, OmniTheme.Scale(6f)));
         using (var table = OmniControls.SettingsTable(
                    "##autoHideModelOptions",
-                   [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.IncludeSelf")),
-                    OmniControls.MeasureGroup([OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.HideGroundHealingEffects")),
+                   [OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.AutoHideModel.IncludeSelf")),
+                    OmniControls.MeasureGroup([OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.AutoHideModel.HideGroundHealingEffects")),
                         OmniControls.HelpIconSize()]),
-                     OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.ReduceOnScreenPlayers")),
-                     OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.ShowTargetOfTarget"))],
+                     OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.AutoHideModel.ReduceOnScreenPlayers")),
+                     OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.AutoHideModel.ShowTargetOfTarget"))],
                     ["##includeSelf", "##groundEffects", "##reduceOnScreenPlayers", "##targetOfTarget"],
                    columnsPerRow: 4, flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX))
         {
@@ -175,7 +188,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : ModuleB
                     config.HideGroundHealingEffects,
                     value => config.HideGroundHealingEffects = value);
                 OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                OmniControls.HelpIcon(OmniLoc.Get("Feature.AutoHideModel.HideGroundHealingEffects.Help"));
+                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoHideModel.HideGroundHealingEffects.Help"));
 
                 ImGui.TableNextColumn();
                 changed |= DrawCheckbox(

@@ -113,8 +113,12 @@ public sealed unsafe partial class BetterGlamourManagement
             portraitPreview?.CancelPreview();
     }
 
-    internal static string Revision(IEnumerable<BetterGlamourPreset> entries) =>
-        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(entries)));
+    internal static string Revision(IEnumerable<BetterGlamourPreset> entries, ulong contentID = 0) =>
+        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
+        {
+            ContentID = contentID,
+            Presets = entries
+        })));
 
     private string RemoteRequest(string json)
     {
@@ -136,7 +140,8 @@ public sealed unsafe partial class BetterGlamourManagement
             var id = request.TryGetProperty("id", out var idValue) ? idValue.GetString() ?? string.Empty : string.Empty;
             if (action is "save" or "delete" or "apply" or "preview-draft")
             {
-                if (!request.TryGetProperty("revision", out var revision) || revision.GetString() != Revision(config.Presets))
+                if (!request.TryGetProperty("revision", out var revision) ||
+                    revision.GetString() != Revision(config.Presets, DService.Instance().PlayerState.ContentId))
                     throw new InvalidOperationException("方案已在另一端更改，请刷新后重试。");
             }
 
@@ -241,8 +246,23 @@ public sealed unsafe partial class BetterGlamourManagement
                     var preset = GetRemotePreset(id);
                     var incoming = GlamourClipboard.Import(request.GetProperty("preset").GetRawText(), preset);
                     ValidateRemotePreset(incoming);
-                    var gearsetIndex = request.TryGetProperty("gearsetIndex", out var gearsetValue) ? gearsetValue.GetInt32() : preset.GearsetIndex;
-                    if (gearsetIndex < -1 || gearsetIndex > 99 || gearsetIndex >= 0 && !TryGetGearsetName(gearsetIndex, out _))
+                    List<int>? gearsetIndices = null;
+                    if (request.TryGetProperty("gearsetIndices", out var gearsetValues))
+                    {
+                        if (gearsetValues.ValueKind != JsonValueKind.Array || gearsetValues.GetArrayLength() > 100)
+                            throw new InvalidDataException("职业套装列表无效。");
+                        gearsetIndices = gearsetValues.EnumerateArray().Select(value => value.GetInt32()).Distinct().ToList();
+                    }
+                    else if (request.TryGetProperty("gearsetIndex", out var gearsetValue))
+                    {
+                        var gearsetIndex = gearsetValue.GetInt32();
+                        if (gearsetIndex < -1 || gearsetIndex > 99)
+                            throw new InvalidDataException("职业套装无效。");
+                        var currentIndices = preset.GetGearsetIndices(DService.Instance().PlayerState.ContentId);
+                        if (gearsetIndex != currentIndices.FirstOrDefault(-1))
+                            gearsetIndices = gearsetIndex < 0 ? [] : [gearsetIndex];
+                    }
+                    if (gearsetIndices?.Any(index => index is < 0 or >= 100 || !TryGetGearsetName(index, out _)) == true)
                         throw new InvalidDataException("职业套装无效。");
 
                     var oldName = preset.Name;
@@ -261,7 +281,10 @@ public sealed unsafe partial class BetterGlamourManagement
                     preset.Items = incoming.Items;
                     try
                     {
-                        saveConfig();
+                        if (gearsetIndices is null)
+                            saveConfig();
+                        else
+                            ChangePresetGearsets(preset, gearsetIndices);
                     }
                     catch
                     {
@@ -278,8 +301,6 @@ public sealed unsafe partial class BetterGlamourManagement
                     Volatile.Write(ref phoneSelectedID, string.Empty);
                     SelectPreset(preset);
                     managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
-                    if (gearsetIndex != preset.GearsetIndex)
-                        ChangePresetGearset(preset, gearsetIndex);
                     break;
                 }
                 case "delete":
@@ -358,6 +379,7 @@ public sealed unsafe partial class BetterGlamourManagement
 
     private string RemoteSnapshot(bool includeAssets)
     {
+        var contentID = DService.Instance().PlayerState.ContentId;
         var gearsets = new List<object>();
         for (var i = 0; i < 100; i++)
         {
@@ -377,13 +399,15 @@ public sealed unsafe partial class BetterGlamourManagement
         return JsonSerializer.Serialize(new
         {
             ok = true,
-            revision = Revision(config.Presets),
+            revision = Revision(config.Presets, contentID),
+            contentId = contentID.ToString(),
             selectedId = selectedID,
             presets = config.Presets.Select(preset => new
             {
                 id = preset.ID,
                 name = preset.Name,
-                gearsetIndex = preset.GearsetIndex,
+                gearsetIndex = preset.GetGearsetIndices(contentID).FirstOrDefault(-1),
+                gearsetIndices = preset.GetGearsetIndices(contentID),
                 glassesId = preset.GlassesID,
                 glassesName = GetGlassesName(preset.GlassesID),
                 glassesIcon = GetGlassesIcon(preset.GlassesID),
@@ -580,5 +604,5 @@ public sealed unsafe partial class BetterGlamourManagement
         return matches[0].ID;
     }
 
-    private static readonly uint[] NativePreviewButtonIDs = [32, 33, 34, 35, 37, 39];
+    private static readonly uint[] NativePreviewButtonIDs = [32, 33, 34, 35, 37, 38, 39];
 }

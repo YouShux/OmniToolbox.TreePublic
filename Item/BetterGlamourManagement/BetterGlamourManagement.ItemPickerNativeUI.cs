@@ -22,8 +22,12 @@ public sealed partial class BetterGlamourManagement
         private static bool LastDescending = true;
         private readonly ItemPatchMap itemPatchMap;
         private readonly CollectionSourceService collectionSourceService;
+        private readonly Func<uint, bool> isInGlamourDresser;
+        private readonly Func<uint, bool> isInArmoire;
+        private readonly Func<long> getInventoryRevision;
 
         private BetterGlamourEditorItemKind kind;
+        private int targetSlot;
         private BetterGlamourItemSearchResult[] candidates = [];
         private List<BetterGlamourItemSearchResult> results = [];
         private Action<BetterGlamourItemSearchResult>? onSelected;
@@ -32,21 +36,28 @@ public sealed partial class BetterGlamourManagement
         private DropDownNode<int>? filterNode;
         private CircleButtonNode? directionNode;
         private ListNode<BetterGlamourItemSearchResult, BetterGlamourItemSearchResultNode>? resultsNode;
-        private TextButtonNode? clearNode;
         private ItemSortMode sortMode;
         private bool descending;
         private uint selectedID;
         private string query = string.Empty;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-        public BetterGlamourItemPickerNativeUI(ItemPatchMap itemPatchMap, CollectionSourceService collectionSourceService)
+        public BetterGlamourItemPickerNativeUI(
+            ItemPatchMap itemPatchMap,
+            CollectionSourceService collectionSourceService,
+            Func<uint, bool> isInGlamourDresser,
+            Func<uint, bool> isInArmoire,
+            Func<long> getInventoryRevision)
         {
             this.itemPatchMap = itemPatchMap;
             this.collectionSourceService = collectionSourceService;
+            this.isInGlamourDresser = isInGlamourDresser;
+            this.isInArmoire = isInArmoire;
+            this.getInventoryRevision = getInventoryRevision;
             InternalName = "OmniBetterGlamourItemPicker";
             Title = OmniLoc.Get("Feature.BetterGlamourManagement.ItemPicker.Title");
             Subtitle = string.Empty;
-            Size = new(340f, 570f);
+            Size = new(300f, 516f);
             ContentPadding = new(10f, 8f);
             RememberClosePosition = true;
             CreateWindowNode = static () => new WindowNode { ShowCloseButton = true };
@@ -60,13 +71,12 @@ public sealed partial class BetterGlamourManagement
             Action<BetterGlamourItemSearchResult> selected)
         {
             kind = itemKind;
+            targetSlot = slot;
             selectedID = currentID;
             onSelected = selected;
             query = string.Empty;
             descending = LastDescending;
-            sortMode = LastSortMode == ItemSortMode.Level && kind != BetterGlamourEditorItemKind.Item
-                ? ItemSortMode.ID
-                : LastSortMode;
+            sortMode = IsSortModeAvailable(LastSortMode) ? LastSortMode : ItemSortMode.ID;
 
             var options = kind switch
             {
@@ -98,12 +108,14 @@ public sealed partial class BetterGlamourManagement
 
             if (!IsOpen)
                 Open();
+            ResizeContent();
 
             if (searchNode is not null)
                 searchNode.String = string.Empty;
             if (sortNode is not null)
             {
                 sortNode.Collapse(false);
+                sortNode.Options = [.. Enum.GetValues<ItemSortMode>().Where(IsSortModeAvailable)];
                 sortNode.SelectedOption = sortMode;
             }
             UpdateFilterControls();
@@ -138,16 +150,16 @@ public sealed partial class BetterGlamourManagement
 
             sortNode = new()
             {
-                Options = [ItemSortMode.Name, ItemSortMode.ID, ItemSortMode.Level, ItemSortMode.Patch, ItemSortMode.Source],
-                MaxListOptions = 5,
+                Options = [.. Enum.GetValues<ItemSortMode>().Where(IsSortModeAvailable)],
+                MaxListOptions = 7,
                 GetLabelFunction = mode => OmniLoc.Get(mode switch
                 {
                     ItemSortMode.Name => "Feature.BetterGlamourManagement.ItemPicker.SortName",
-                    ItemSortMode.Level when kind != BetterGlamourEditorItemKind.Item =>
-                        "Feature.BetterGlamourManagement.ItemPicker.SortLevelUnavailable",
                     ItemSortMode.Level => "Feature.BetterGlamourManagement.ItemPicker.SortLevel",
                     ItemSortMode.Patch => "Collection.Filter.Patch",
                     ItemSortMode.Source => "Collection.Filter.Source",
+                    ItemSortMode.GlamourDresser => "Collection.Filter.GlamourDresser",
+                    ItemSortMode.Armoire => "Collection.Filter.Armoire",
                     _ => "Feature.BetterGlamourManagement.ItemPicker.SortID"
                 }),
                 SelectedOption = sortMode,
@@ -199,13 +211,7 @@ public sealed partial class BetterGlamourManagement
             resultsNode.NoResultsTextNode.String = OmniLoc.Get("Feature.BetterGlamourManagement.ItemPicker.NoResults");
             resultsNode.AttachNode(this);
 
-            clearNode = new()
-            {
-                String = OmniLoc.Get("Feature.BetterGlamourManagement.ItemPicker.Clear"),
-                OnClick = () => SelectResult(new(0, OmniLoc.Get("Feature.BetterGlamourManagement.None"), 0))
-            };
-            clearNode.AttachNode(this);
-
+            SetWindowSize(new(Size.X, Size.Y - ContentSize.Y + 66f + VISIBLE_ITEM_COUNT * BetterGlamourItemSearchResultNode.ItemHeight + 4f));
             ResizeContent();
             UpdateFilterControls();
             RebuildResults(true);
@@ -215,6 +221,8 @@ public sealed partial class BetterGlamourManagement
         {
             ResizeContent();
             if (sortMode == ItemSortMode.Source && sourceRevision != collectionSourceService.Revision)
+                RebuildResults();
+            if (sortMode is ItemSortMode.GlamourDresser or ItemSortMode.Armoire && inventoryRevision != getInventoryRevision())
                 RebuildResults();
             resultsNode?.Update();
         }
@@ -232,7 +240,6 @@ public sealed partial class BetterGlamourManagement
             filterNode = null;
             directionNode = null;
             resultsNode = null;
-            clearNode = null;
             onSelected = null;
             candidates = [];
             candidateMetadata.Clear();
@@ -242,7 +249,7 @@ public sealed partial class BetterGlamourManagement
 
         private void SelectSort(ItemSortMode mode)
         {
-            if (mode == ItemSortMode.Level && kind != BetterGlamourEditorItemKind.Item || mode == sortMode)
+            if (!IsSortModeAvailable(mode) || mode == sortMode)
                 return;
 
             sortMode = mode;
@@ -275,6 +282,9 @@ public sealed partial class BetterGlamourManagement
             if (resultsNode is null)
                 return;
 
+            resultsNode.NoResultsTextNode.String = OmniLoc.Get(sortMode is ItemSortMode.GlamourDresser or ItemSortMode.Armoire
+                ? "Feature.BetterGlamourManagement.ItemPicker.NoStoredResults"
+                : "Feature.BetterGlamourManagement.ItemPicker.NoResults");
             resultsNode.OptionsList = results;
             UpdateScrollThumb();
             resultsNode.ClearSelection();
@@ -309,13 +319,22 @@ public sealed partial class BetterGlamourManagement
             }
         }
 
+        public void ClearSelection(BetterGlamourEditorItemKind itemKind, int slot)
+        {
+            if (!IsOpen || kind != itemKind || targetSlot != slot)
+                return;
+            selectedID = 0;
+            resultsNode?.ClearSelection();
+        }
+
         private void ResizeContent()
         {
             var x = ContentStartPosition.X;
             var y = ContentStartPosition.Y;
             var width = ContentSize.X;
             var listPosition = new Vector2(x, y + 66f);
-            var listSize = new Vector2(width, MathF.Max(BetterGlamourItemSearchResultNode.ItemHeight, ContentSize.Y - 98f));
+            var listHeight = VISIBLE_ITEM_COUNT * BetterGlamourItemSearchResultNode.ItemHeight;
+            var listSize = new Vector2(width, listHeight);
             if (resultsNode is null || resultsNode.Position == listPosition && resultsNode.Size == listSize)
                 return;
 
@@ -344,11 +363,6 @@ public sealed partial class BetterGlamourManagement
             resultsNode.Position = listPosition;
             resultsNode.Size = listSize;
             UpdateScrollThumb();
-            if (clearNode is not null)
-            {
-                clearNode.Position = new(x, y + ContentSize.Y - 28f);
-                clearNode.Size = new(width, 28f);
-            }
         }
 
         private unsafe void UpdateScrollThumb()
@@ -372,7 +386,15 @@ public sealed partial class BetterGlamourManagement
             ID,
             Level,
             Patch,
-            Source
+            Source,
+            GlamourDresser,
+            Armoire
         }
+
+        #region 常量
+
+        private const int VISIBLE_ITEM_COUNT = 8;
+
+        #endregion
     }
 }

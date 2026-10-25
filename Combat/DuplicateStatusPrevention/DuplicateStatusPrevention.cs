@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Collections.Frozen;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
@@ -18,14 +19,32 @@ using LuminaStatus = Lumina.Excel.Sheets.Status;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class DuplicateStatusPrevention : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class DuplicateStatusPrevention : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("DuplicateStatusPreventionTitle"),
-        Description = OmniLoc.Get("DuplicateStatusPreventionDescription"),
         Category = ModuleCategory.Combat
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "DuplicateStatusPreventionTitle",
+            ["Description"] = "DuplicateStatusPreventionDescription",
+            ["Feature.DuplicateStatusPrevention.ActionCount"] = "Feature.DuplicateStatusPrevention.ActionCount",
+            ["Feature.DuplicateStatusPrevention.ChatNotify"] = "Feature.DuplicateStatusPrevention.ChatNotify",
+            ["Feature.DuplicateStatusPrevention.Column.Action"] = "Feature.DuplicateStatusPrevention.Column.Action",
+            ["Feature.DuplicateStatusPrevention.Column.Status"] = "Feature.DuplicateStatusPrevention.Column.Status",
+            ["Feature.DuplicateStatusPrevention.OverlapThreshold"] = "Feature.DuplicateStatusPrevention.OverlapThreshold",
+            ["Feature.DuplicateStatusPrevention.OverlapThreshold.Help"] = "Feature.DuplicateStatusPrevention.OverlapThreshold.Help",
+            ["Feature.DuplicateStatusPrevention.PopupNotify"] = "Feature.DuplicateStatusPrevention.PopupNotify",
+            ["Feature.DuplicateStatusPrevention.Prevented"] = "Feature.DuplicateStatusPrevention.Prevented",
+            ["Feature.DuplicateStatusPrevention.StatusTooltip"] = "Feature.DuplicateStatusPrevention.StatusTooltip",
+            ["Feature.DuplicateStatusPrevention.Target.Member"] = "Feature.DuplicateStatusPrevention.Target.Member",
+            ["Feature.DuplicateStatusPrevention.Target.Self"] = "Feature.DuplicateStatusPrevention.Target.Self",
+            ["Feature.DuplicateStatusPrevention.Target.Target"] = "Feature.DuplicateStatusPrevention.Target.Target"
+        });
 
     public override bool HasSettings => true;
 
@@ -38,16 +57,16 @@ public sealed unsafe partial class DuplicateStatusPrevention : ModuleBase
         NormalizeConfig(config);
     }
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(() => UseActionManager.Instance().Unreg(OnPreUseAction));
+
         lastNotificationTick = 0;
         if (!UseActionManager.Instance().RegPreUseAction(OnPreUseAction))
         {
             throw new InvalidOperationException("Duplicate status prevention registration failed.");
         }
     }
-
-    protected override void OnDisable() => UseActionManager.Instance().Unreg(OnPreUseAction);
 
     public override bool DrawSettings() => Panel.Draw(config);
 
@@ -123,16 +142,16 @@ public sealed unsafe partial class DuplicateStatusPrevention : ModuleBase
 
         lastNotificationTick = currentTick;
         var details = string.Format(
-            OmniLoc.Get("Feature.DuplicateStatusPrevention.Prevented"),
+            OmniLoc.Get(this, "Feature.DuplicateStatusPrevention.Prevented"),
             action.Name);
         if (config.ChatNotify)
         {
-            OmniNotifier.Chat($"{Info.Title} {details}");
+            OmniNotifier.Chat($"{Title} {details}");
         }
 
         if (config.PopupNotify)
         {
-            OmniNotifier.Popup(Info.Title, details);
+            OmniNotifier.Popup(Title, details);
         }
     }
 

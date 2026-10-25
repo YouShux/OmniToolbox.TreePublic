@@ -22,12 +22,12 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using LuminaAetheryte = Lumina.Excel.Sheets.Aetheryte;
 using LuminaTerritoryType = Lumina.Excel.Sheets.TerritoryType;
-using ModuleBase = OmniToolbox.Common.Module.Abstractions.ModuleBase;
+using OmniModuleBase = OmniToolbox.Common.Module.Abstractions.OmniModuleBase;
 
 namespace OmniToolbox.TreePublic;
 

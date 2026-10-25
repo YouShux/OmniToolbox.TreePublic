@@ -12,13 +12,14 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Plugin.Services;
+using TreeTools.Lifecycle;
 using ImageEncoder = System.Drawing.Imaging.Encoder;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed partial class BetterGlamourManagement
 {
-    internal sealed class RemotePreviewFrames
+    internal sealed class RemotePreviewFrames(FeatureLifetime lifetime) : IAsyncDisposable
     {
         private readonly object gate = new();
         private long leaseUntil;
@@ -28,6 +29,9 @@ public sealed partial class BetterGlamourManagement
         private long serial;
         private int epoch;
         private bool busy;
+        private bool disposed;
+        private Task captureTask = Task.CompletedTask;
+        private Task cancellationTask = Task.CompletedTask;
         private CancellationTokenSource? operation;
         private string image = string.Empty;
         private string error = string.Empty;
@@ -60,7 +64,8 @@ public sealed partial class BetterGlamourManagement
                 currentRequest = 0;
                 leaseUntil = 0;
                 nextCaptureAt = 0;
-                _ = operation?.CancelAsync();
+                if (operation is { } current)
+                    cancellationTask = current.CancelAsync();
             }
         }
 
@@ -68,6 +73,8 @@ public sealed partial class BetterGlamourManagement
         {
             lock (gate)
             {
+                if (disposed)
+                    return;
                 if (request != currentRequest)
                 {
                     epoch++;
@@ -75,7 +82,8 @@ public sealed partial class BetterGlamourManagement
                     image = string.Empty;
                     error = string.Empty;
                     frameRequest = 0;
-                    _ = operation?.CancelAsync();
+                    if (operation is { } current)
+                    cancellationTask = current.CancelAsync();
                 }
 
                 var now = Environment.TickCount64;
@@ -84,9 +92,11 @@ public sealed partial class BetterGlamourManagement
                 var wrap = new RetainedSRV(srv, width, height);
                 var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(2));
                 operation = cancellation;
+                cancellationTask = Task.CompletedTask;
                 busy = true;
                 nextCaptureAt = now + 30;
-                _ = Capture(reader, wrap, request, epoch, cancellation);
+                captureTask = Capture(reader, wrap, request, epoch, cancellation);
+                lifetime.Track(captureTask);
             }
         }
 
@@ -137,14 +147,33 @@ public sealed partial class BetterGlamourManagement
             }
             finally
             {
+                Task canceled;
                 lock (gate)
+                    canceled = cancellationTask;
+                try
                 {
-                    if (ReferenceEquals(operation, cancellation))
-                        operation = null;
-                    busy = false;
+                    await canceled.ConfigureAwait(false);
                 }
+                finally
+                {
+                    lock (gate)
+                    {
+                        if (ReferenceEquals(operation, cancellation))
+                            operation = null;
+                        busy = false;
+                    }
+                    cancellation.Dispose();
+                }
+            }
+        }
 
-                cancellation.Dispose();
+        public ValueTask DisposeAsync()
+        {
+            lock (gate)
+            {
+                disposed = true;
+                Reset();
+                return new(Task.WhenAll(captureTask, cancellationTask));
             }
         }
 

@@ -8,6 +8,8 @@ public sealed class BetterGlamourPreset
 
     public int GearsetIndex { get; set; } = -1;
 
+    public Dictionary<ulong, List<int>> GearsetBindings { get; set; } = [];
+
     public ushort GlassesID { get; set; }
 
     public uint HairstyleID { get; set; }
@@ -19,4 +21,7 @@ public sealed class BetterGlamourPreset
     public bool? HighlightsEnabled { get; set; }
 
     public List<BetterGlamourItem> Items { get; set; } = [];
+
+    internal IReadOnlyList<int> GetGearsetIndices(ulong contentID) =>
+        contentID != 0 && GearsetBindings.TryGetValue(contentID, out var indices) ? indices : Array.Empty<int>();
 }

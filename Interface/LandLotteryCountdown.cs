@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Globalization;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
@@ -10,26 +11,32 @@ using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe class LandLotteryCountdown : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe class LandLotteryCountdown : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("LandLotteryCountdownTitle"),
-        Description = OmniLoc.Get("LandLotteryCountdownDescription"),
         Category = ModuleCategory.Interface
     };
 
-    protected override void OnEnable() =>
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "LandLotteryCountdownTitle",
+            ["Description"] = "LandLotteryCountdownDescription",
+            ["Feature.LandLotteryCountdown.Remaining"] = "Feature.LandLotteryCountdown.Remaining"
+        });
+
+    protected override void OnStart(FeatureLifetime activation) {
+        activation.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
+            AddonEvent.PreRefresh,
+            ADDON_NAME,
+            OnContentsInfoPreRefresh));
         DalamudServices.AddonLifecycle.RegisterListener(
             AddonEvent.PreRefresh,
             ADDON_NAME,
             OnContentsInfoPreRefresh);
-
-    protected override void OnDisable() =>
-        DalamudServices.AddonLifecycle.UnregisterListener(
-            AddonEvent.PreRefresh,
-            ADDON_NAME,
-            OnContentsInfoPreRefresh);
+    }
 
     private static void OnContentsInfoPreRefresh(AddonEvent _, AddonArgs args)
     {

@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using System.Threading;
 using System.Threading.Tasks;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -5,7 +6,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.OmenService;
-using OmenTools.Threading.TaskHelper;
+using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -14,14 +15,54 @@ using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed partial class AutoSwitchConfiguration : ModuleBase
+[ModuleApiVersion(1)]
+public sealed partial class AutoSwitchConfiguration : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("AutoSwitchConfigurationTitle"),
-        Description = OmniLoc.Get("AutoSwitchConfigurationDescription"),
         Category = ModuleCategory.Automation
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "AutoSwitchConfigurationTitle",
+            ["Description"] = "AutoSwitchConfigurationDescription",
+            ["Feature.AutoSwitchConfiguration.ActionContent"] = "Feature.AutoSwitchConfiguration.ActionContent",
+            ["Feature.AutoSwitchConfiguration.ActionType"] = "Feature.AutoSwitchConfiguration.ActionType",
+            ["Feature.AutoSwitchConfiguration.Actions"] = "Feature.AutoSwitchConfiguration.Actions",
+            ["Feature.AutoSwitchConfiguration.Add"] = "Feature.AutoSwitchConfiguration.Add",
+            ["Feature.AutoSwitchConfiguration.AddAction"] = "Feature.AutoSwitchConfiguration.AddAction",
+            ["Feature.AutoSwitchConfiguration.AnyTerritory"] = "Feature.AutoSwitchConfiguration.AnyTerritory",
+            ["Feature.AutoSwitchConfiguration.AutoGearset"] = "Feature.AutoSwitchConfiguration.AutoGearset",
+            ["Feature.AutoSwitchConfiguration.Cancel"] = "Feature.AutoSwitchConfiguration.Cancel",
+            ["Feature.AutoSwitchConfiguration.CollectionUnavailable"] = "Feature.AutoSwitchConfiguration.CollectionUnavailable",
+            ["Feature.AutoSwitchConfiguration.CommandsHelp"] = "Feature.AutoSwitchConfiguration.CommandsHelp",
+            ["Feature.AutoSwitchConfiguration.Delete"] = "Feature.AutoSwitchConfiguration.Delete",
+            ["Feature.AutoSwitchConfiguration.DisableCollection"] = "Feature.AutoSwitchConfiguration.DisableCollection",
+            ["Feature.AutoSwitchConfiguration.Edit"] = "Feature.AutoSwitchConfiguration.Edit",
+            ["Feature.AutoSwitchConfiguration.EnableAll"] = "Feature.AutoSwitchConfiguration.EnableAll",
+            ["Feature.AutoSwitchConfiguration.EnableCollection"] = "Feature.AutoSwitchConfiguration.EnableCollection",
+            ["Feature.AutoSwitchConfiguration.Enabled"] = "Feature.AutoSwitchConfiguration.Enabled",
+            ["Feature.AutoSwitchConfiguration.Gearset"] = "Feature.AutoSwitchConfiguration.Gearset",
+            ["Feature.AutoSwitchConfiguration.GearsetFallback"] = "Feature.AutoSwitchConfiguration.GearsetFallback",
+            ["Feature.AutoSwitchConfiguration.MoveDown"] = "Feature.AutoSwitchConfiguration.MoveDown",
+            ["Feature.AutoSwitchConfiguration.MoveUp"] = "Feature.AutoSwitchConfiguration.MoveUp",
+            ["Feature.AutoSwitchConfiguration.Name"] = "Feature.AutoSwitchConfiguration.Name",
+            ["Feature.AutoSwitchConfiguration.NoClassJob"] = "Feature.AutoSwitchConfiguration.NoClassJob",
+            ["Feature.AutoSwitchConfiguration.NoCollections"] = "Feature.AutoSwitchConfiguration.NoCollections",
+            ["Feature.AutoSwitchConfiguration.NoMatches"] = "Feature.AutoSwitchConfiguration.NoMatches",
+            ["Feature.AutoSwitchConfiguration.NoToolbarCommands"] = "Feature.AutoSwitchConfiguration.NoToolbarCommands",
+            ["Feature.AutoSwitchConfiguration.Rule"] = "Feature.AutoSwitchConfiguration.Rule",
+            ["Feature.AutoSwitchConfiguration.RuleNameDefault"] = "Feature.AutoSwitchConfiguration.RuleNameDefault",
+            ["Feature.AutoSwitchConfiguration.Save"] = "Feature.AutoSwitchConfiguration.Save",
+            ["Feature.AutoSwitchConfiguration.Search"] = "Feature.AutoSwitchConfiguration.Search",
+            ["Feature.AutoSwitchConfiguration.SelectCollection"] = "Feature.AutoSwitchConfiguration.SelectCollection",
+            ["Feature.AutoSwitchConfiguration.SelectJob"] = "Feature.AutoSwitchConfiguration.SelectJob",
+            ["Feature.AutoSwitchConfiguration.SelectTerritory"] = "Feature.AutoSwitchConfiguration.SelectTerritory",
+            ["Feature.AutoSwitchConfiguration.SelectToolbarCommand"] = "Feature.AutoSwitchConfiguration.SelectToolbarCommand",
+            ["Feature.AutoSwitchConfiguration.SendCommand"] = "Feature.AutoSwitchConfiguration.SendCommand"
+        });
 
     public override bool HasSettings => true;
 
@@ -41,33 +82,33 @@ public sealed partial class AutoSwitchConfiguration : ModuleBase
             saveConfig();
     }
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
         taskHelper = new()
         {
             RetryIntervalMS = 100,
             TimeoutMS = 30_000
         };
+        activation.Add(taskHelper);
+        var tasks = taskHelper;
+        Activation.Add(() =>
+        {
+            taskHelper = null;
+        });
+        Activation.OnStopping(CancelFlow);
         taskHelper.TaskTimeout += _ => Fail("Timed out.");
         taskHelper.TaskGetException += _ => Fail("Task execution failed.");
         var clientState = DService.Instance().ClientState;
+        Activation.OnStopping(() => clientState.TerritoryChanged -= OnTerritoryChanged);
         clientState.TerritoryChanged += OnTerritoryChanged;
+        Activation.OnStopping(() => clientState.Login -= OnLogin);
         clientState.Login += OnLogin;
+        Activation.OnStopping(() => clientState.Logout -= OnLogout);
         clientState.Logout += OnLogout;
         QueueMatchingRule(clientState.TerritoryType);
     }
 
-    protected override void OnDisable()
-    {
-        var clientState = DService.Instance().ClientState;
-        clientState.TerritoryChanged -= OnTerritoryChanged;
-        clientState.Login -= OnLogin;
-        clientState.Logout -= OnLogout;
-        CancelFlow();
-        taskHelper?.Dispose();
-        taskHelper = null;
-        triggeredTerritory = 0;
-    }
+    protected override void OnStop() => triggeredTerritory = 0;
 
     protected override bool OnInterruptAutomation()
     {
@@ -99,7 +140,7 @@ public sealed partial class AutoSwitchConfiguration : ModuleBase
         if (taskHelper is null || !DService.Instance().ClientState.IsLoggedIn || territory == 0)
             return;
 
-        flowCancellation = new();
+        flowCancellation = CancellationTokenSource.CreateLinkedTokenSource(Activation.CancellationToken);
         var token = flowCancellation.Token;
         taskHelper.Enqueue(() =>
         {
@@ -181,14 +222,7 @@ public sealed partial class AutoSwitchConfiguration : ModuleBase
                     {
                         collectionTask = source.SetPluginCollectionEnabledAsync(
                             step.CollectionID, step.Type == ActionKind.EnableCollection, token);
-                        // 已取消的流程不再轮询，仍须观察提供方稍后返回的异常。
-                        _ = collectionTask.ContinueWith(static task =>
-{
-    _ = task.Exception;
-},
-                            CancellationToken.None,
-                            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
-                            TaskScheduler.Default);
+                        Activation.Track(collectionTask);
                     }
                     if (!collectionTask.IsCompleted)
                         return false;

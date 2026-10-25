@@ -19,18 +19,18 @@ public sealed partial class AutoIshgardRestoration
     {
         if (DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.SubmissionRequiresFirmament"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SubmissionRequiresFirmament"));
             return;
         }
 
         if (ReadInventory(activeItemID).ItemCount <= 0)
         {
-            CompleteAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.NoItemsToSubmit"));
+            CompleteAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.NoItemsToSubmit"));
             return;
         }
 
         EnterPhase(AutomationPhase.MoveToAppraiser);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.MovingToAppraiser"), reason);
+        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.MovingToAppraiser"), reason);
     }
 
     private unsafe void DriveOpenAppraiser()
@@ -39,7 +39,7 @@ public sealed partial class AutoIshgardRestoration
         {
             EnterPhase(AutomationPhase.SelectJob);
             nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.SupplyOpened");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyOpened");
             return;
         }
 
@@ -53,7 +53,7 @@ public sealed partial class AutoIshgardRestoration
 
         if (PhaseTimedOut(TimeSpan.FromSeconds(15)))
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.SupplyOpenFailed"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyOpenFailed"));
         }
     }
 
@@ -67,14 +67,14 @@ public sealed partial class AutoIshgardRestoration
         var addon = GetAddon("HWDSupply");
         if (addon == null)
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.SupplyUnexpectedlyClosed"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyUnexpectedlyClosed"));
             return;
         }
 
         addon->Callback(0, (int)recipe.JobID - 8);
         EnterPhase(AutomationPhase.SelectItem);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(700);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.SupplyJobSelected"), GetJobName(recipe.JobID));
+        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyJobSelected"), GetJobName(recipe.JobID));
     }
 
     private unsafe void DriveSelectItem(RecipeOption recipe)
@@ -95,7 +95,7 @@ public sealed partial class AutoIshgardRestoration
         var addon = GetAddon("HWDSupply");
         if (addon == null)
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.SupplyUnexpectedlyClosed"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyUnexpectedlyClosed"));
             return;
         }
 
@@ -104,7 +104,7 @@ public sealed partial class AutoIshgardRestoration
         {
             if (PhaseTimedOut(TimeSpan.FromSeconds(10)))
             {
-                FailAutomation(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.SupplyItemNotFound"), recipe.ItemName));
+                FailAutomation(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyItemNotFound"), recipe.ItemName));
             }
             return;
         }
@@ -114,7 +114,7 @@ public sealed partial class AutoIshgardRestoration
         addon->Callback(1, row);
         EnterPhase(AutomationPhase.FillRequest);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.SubmittingItem"), recipe.ItemName);
+        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SubmittingItem"), recipe.ItemName);
     }
 
     private unsafe void DriveFillRequest()
@@ -135,7 +135,7 @@ public sealed partial class AutoIshgardRestoration
         {
             if (PhaseTimedOut(TimeSpan.FromSeconds(10)))
             {
-                FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.RequestNotOpened"));
+                FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.RequestNotOpened"));
             }
             return;
         }
@@ -146,7 +146,7 @@ public sealed partial class AutoIshgardRestoration
             ClickButton(requestBase, request->HandOverButton);
             EnterPhase(AutomationPhase.WaitTurnIn);
             nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForTurnIn");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForTurnIn");
             return;
         }
 
@@ -166,7 +166,7 @@ public sealed partial class AutoIshgardRestoration
         nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
         if (PhaseTimedOut(TimeSpan.FromSeconds(15)))
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.FillingRequestTimedOut"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.FillingRequestTimedOut"));
         }
     }
 
@@ -192,7 +192,7 @@ public sealed partial class AutoIshgardRestoration
 
         if (PhaseTimedOut(TimeSpan.FromSeconds(20)))
         {
-            FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.TurnInNotCompleted"));
+            FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.TurnInNotCompleted"));
         }
     }
 
@@ -206,7 +206,7 @@ public sealed partial class AutoIshgardRestoration
         var request = GetAddon("Request");
         if (request != null && !PhaseTimedOut(TimeSpan.FromSeconds(2)))
         {
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForRequestClose"), itemCountBeforeTurnIn);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForRequestClose"), itemCountBeforeTurnIn);
             return;
         }
 
@@ -214,7 +214,7 @@ public sealed partial class AutoIshgardRestoration
         {
             CloseAddon("Request");
             nextActionAt = DateTime.UtcNow.AddMilliseconds(600);
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.ClosingCompletedRequest");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ClosingCompletedRequest");
             if (!PhaseTimedOut(TimeSpan.FromSeconds(5)))
             {
                 return;
@@ -229,13 +229,13 @@ public sealed partial class AutoIshgardRestoration
             {
                 if (PhaseTimedOut(TimeSpan.FromSeconds(12)))
                 {
-                    FailAutomation(OmniLoc.Get("Feature.AutoIshgardRestoration.SupplyRefreshFailed"));
+                    FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyRefreshFailed"));
                 }
                 return;
             }
 
             EnterPhase(AutomationPhase.MoveToAppraiser);
-            status = OmniLoc.Get("Feature.AutoIshgardRestoration.ReopeningSupply");
+            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ReopeningSupply");
             return;
         }
 
@@ -244,7 +244,7 @@ public sealed partial class AutoIshgardRestoration
             ticketsToPlay = vouchers;
             CloseAddon("HWDSupply");
             EnterPhase(AutomationPhase.MoveToLottery);
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.TicketThresholdReached"), vouchers);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.TicketThresholdReached"), vouchers);
             return;
         }
 
@@ -252,7 +252,7 @@ public sealed partial class AutoIshgardRestoration
         {
             EnterPhase(AutomationPhase.SelectItem);
             nextActionAt = DateTime.UtcNow.AddMilliseconds(700);
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.ContinuingSubmission"), itemCountBeforeTurnIn);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ContinuingSubmission"), itemCountBeforeTurnIn);
         }
         else
         {
@@ -269,11 +269,11 @@ public sealed partial class AutoIshgardRestoration
             ticketsToPlay = vouchers;
             CloseAddon("HWDSupply");
             EnterPhase(AutomationPhase.MoveToLottery);
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.SubmissionCompletedWithTickets"), vouchers);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SubmissionCompletedWithTickets"), vouchers);
             return;
         }
 
-        BeginNextCraftingCycle(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.AllItemsSubmitted"), recipe.ItemName));
+        BeginNextCraftingCycle(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.AllItemsSubmitted"), recipe.ItemName));
     }
 
     private bool TryDetectCompletedTurnIn(out int currentCount, out uint currentScrips)
@@ -292,8 +292,8 @@ public sealed partial class AutoIshgardRestoration
         EnterPhase(AutomationPhase.WaitSupplyRefresh);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(800);
         status = detectedByScrips
-            ? string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.TurnInConfirmedByScrips"), currentCount)
-            : string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.TurnInConfirmedByInventory"), currentCount);
+            ? string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.TurnInConfirmedByScrips"), currentCount)
+            : string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.TurnInConfirmedByInventory"), currentCount);
     }
 
     private static unsafe int FindSupplyRow(AtkUnitBase* addon, uint itemID)

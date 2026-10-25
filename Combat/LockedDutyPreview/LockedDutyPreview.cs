@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -10,24 +11,39 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
+[ModuleApiVersion(1)]
 public sealed unsafe partial class LockedDutyPreview(
     LockedDutyPreview.Settings config,
-    Action saveConfig) : ModuleBase
+    Action saveConfig) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("LockedDutyPreviewTitle"),
-        Description = OmniLoc.Get("LockedDutyPreviewDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/LockedDutyPreview-1.png",
         RequiresPrivateProvider = true
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "LockedDutyPreviewTitle",
+            ["Description"] = "LockedDutyPreviewDescription",
+            ["Feature.LockedDutyPreview.ClearExcluded"] = "Feature.LockedDutyPreview.ClearExcluded",
+            ["Feature.LockedDutyPreview.Exclude"] = "Feature.LockedDutyPreview.Exclude",
+            ["Feature.LockedDutyPreview.ExcludedCount"] = "Feature.LockedDutyPreview.ExcludedCount",
+            ["Feature.LockedDutyPreview.Restore"] = "Feature.LockedDutyPreview.Restore",
+            ["Feature.LockedDutyPreview.Summary"] = "Feature.LockedDutyPreview.Summary",
+            ["Feature.LockedDutyPreview.Tab.Excluded"] = "Feature.LockedDutyPreview.Tab.Excluded",
+            ["Feature.LockedDutyPreview.Tab.Incomplete"] = "Feature.LockedDutyPreview.Tab.Incomplete",
+            ["Feature.LockedDutyPreview.Tab.Locked"] = "Feature.LockedDutyPreview.Tab.Locked",
+            ["Feature.LockedDutyPreview.Title"] = "Feature.LockedDutyPreview.Title",
+            ["Feature.LockedDutyPreview.Wiki"] = "Feature.LockedDutyPreview.Wiki"
+        });
 
     public override bool HasSettings => true;
 
@@ -35,47 +51,15 @@ public sealed unsafe partial class LockedDutyPreview(
     private readonly List<LockedDutyPreviewRow> lockedRows = [];
     private readonly List<LockedDutyPreviewRow> incompleteRows = [];
     private readonly List<LockedDutyPreviewRow> excludedRows = [];
-    private FeatureLifetime? runtimeLifetime;
     private LockedDutyPreviewNativeUI? nativeUI;
     private bool contentsFinderWasVisible;
     private LockedDutyPreviewView currentView;
     private long nextRefreshTick;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            nativeUI = new(OnViewChanged, OnExclude, OnRestore, row => OpenWiki(row.Name), name => ImGui.SetClipboardText(name));
-            lifetime.Add(DisposeNativeUI);
-
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
-            {
-                throw new InvalidOperationException("Locked-duty preview update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
-            lifetime.Add(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            runtimeLifetime = null;
-            lifetime.Dispose();
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             contentsFinderWasVisible = false;
             nextRefreshTick = 0;
@@ -83,7 +67,18 @@ public sealed unsafe partial class LockedDutyPreview(
             lockedRows.Clear();
             incompleteRows.Clear();
             excludedRows.Clear();
+        });
+        nativeUI = new(OnViewChanged, OnExclude, OnRestore, row => OpenWiki(row.Name), name => ImGui.SetClipboardText(name));
+        lifetime.Add(DisposeNativeUI);
+
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
+        {
+            throw new InvalidOperationException("Locked-duty preview update registration failed.");
         }
+
+        lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+        lifetime.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
+        DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
     }
 
     public override bool DrawSettings()
@@ -100,7 +95,7 @@ public sealed unsafe partial class LockedDutyPreview(
 
     private void DrawOverlay()
     {
-        if (DalamudServices.IsUnloading || runtimeLifetime is null || nativeUI is null)
+        if (DalamudServices.IsUnloading || !IsEnabled || Activation.IsStopping || nativeUI is null)
         {
             return;
         }
@@ -164,7 +159,7 @@ public sealed unsafe partial class LockedDutyPreview(
 
     private void OnFrameworkUpdate(IFramework framework)
     {
-        if (DalamudServices.IsUnloading || runtimeLifetime is null || nativeUI is null)
+        if (DalamudServices.IsUnloading || !IsEnabled || Activation.IsStopping || nativeUI is null)
         {
             return;
         }
@@ -240,7 +235,7 @@ public sealed unsafe partial class LockedDutyPreview(
 
         nativeUI.UpdateData(
             string.Format(
-                OmniLoc.Get("Feature.LockedDutyPreview.Summary"),
+                OmniLoc.Get(this, "Feature.LockedDutyPreview.Summary"),
                 resolver.UnlockedCount,
                 lockedRows.Count,
                 incompleteRows.Count,

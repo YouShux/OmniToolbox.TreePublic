@@ -1,3 +1,4 @@
+using TreeToolKit;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Classes;
 using KamiToolKit.Interfaces;
@@ -47,7 +48,10 @@ public sealed partial class BetterGlamourManagement
 
         protected override void SetNodeData(BetterGlamourItemSearchResult itemData)
         {
-            iconNode.IconID = itemData.IconID;
+            if (itemData.Kind == BetterGlamourEditorItemKind.Item)
+                iconNode.SetItem(itemData.ItemID);
+            else
+                iconNode.IconID = itemData.IconID;
             nameNode.String = itemData.Name;
             this.SetTextTooltip(itemData.Name);
             levelNode.IsVisible = itemData.EquipLevel > 0;

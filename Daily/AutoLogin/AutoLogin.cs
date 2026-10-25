@@ -16,27 +16,25 @@ using OmenTools.Interop.Game.AgentEvent;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using OmenTools.Threading.TaskHelper;
-using OmenTools.Threading.TaskHelper.Models;
+using TreeTools.Threading;
 using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
+[ModuleApiVersion(1)]
 public sealed unsafe partial class AutoLogin(
     AutoLogin.Settings config,
-    System.Action saveConfig) : ModuleBase
+    System.Action saveConfig) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("AutoLoginTitle"),
-        Description = OmniLoc.Get("AutoLoginDescription"),
         Category = ModuleCategory.Daily,
         Commands =
         [
@@ -46,13 +44,23 @@ public sealed unsafe partial class AutoLogin(
         ]
     };
 
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "AutoLoginTitle",
+            ["Description"] = "AutoLoginDescription",
+            ["Feature.AutoLogin.Add"] = "Feature.AutoLogin.Add",
+            ["Feature.AutoLogin.Column.Actions"] = "Feature.AutoLogin.Column.Actions",
+            ["Feature.AutoLogin.Column.CharacterName"] = "Feature.AutoLogin.Column.CharacterName",
+            ["Feature.AutoLogin.Column.World"] = "Feature.AutoLogin.Column.World",
+            ["Feature.AutoLogin.CommandDescription"] = "Feature.AutoLogin.CommandDescription",
+            ["Feature.AutoLogin.DataCenterUnavailable"] = "Feature.AutoLogin.DataCenterUnavailable",
+            ["Feature.AutoLogin.Delete"] = "Feature.AutoLogin.Delete"
+        });
+
     public override bool HasSettings => true;
 
-    private readonly TaskHelper tasks = new()
-    {
-        RetryIntervalMS = 100,
-        TimeoutMS = 180_000
-    };
+    private TaskHelper tasks = null!;
     private readonly IPCSubscriber<string, Task<bool>> selectDataCenterAndLogin = new(
         "DCTravelerX.SelectDCAndLogin",
         static () => Task.FromException<bool>(
@@ -62,12 +70,24 @@ public sealed unsafe partial class AutoLogin(
     private bool suspendedUntilLogin;
     private bool crossDataCenterTravelInProgress;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
+        tasks = new()
+        {
+            RetryIntervalMS = 100,
+            TimeoutMS = 180_000
+        };
+        activation.Add(tasks);
+        activation.OnStopping(() => addonEvents?.Dispose());
+        activation.OnStopping(() => DService.Instance().ClientState.Login -= OnLogin);
+        activation.OnStopping(() => tasks.Abort());
+
         if (GameState.IsLoggedIn)
             suspendedUntilLogin = false;
 
+        Activation.OnStopping(() => tasks.TaskTimeout -= OnTaskFailed);
         tasks.TaskTimeout += OnTaskFailed;
+        Activation.OnStopping(() => tasks.TaskGetException -= OnTaskFailed);
         tasks.TaskGetException += OnTaskFailed;
         DService.Instance().ClientState.Login += OnLogin;
         addonEvents = new(DalamudServices.AddonLifecycle);
@@ -80,21 +100,17 @@ public sealed unsafe partial class AutoLogin(
             OnTitleMenu(AddonEvent.PostSetup, null);
     }
 
-    protected override void OnDisable()
+    protected override void OnStop()
     {
-        tasks.TaskTimeout -= OnTaskFailed;
-        tasks.TaskGetException -= OnTaskFailed;
-        addonEvents?.Dispose();
+        tasks = null!;
         addonEvents = null;
-        DService.Instance().ClientState.Login -= OnLogin;
-        tasks.Abort();
         manualTarget = null;
         crossDataCenterTravelInProgress = false;
     }
 
     protected override bool OnInterruptAutomation()
     {
-        if (!tasks.IsBusy)
+        if (tasks is not { IsBusy: true })
         {
             return false;
         }
@@ -103,9 +119,8 @@ public sealed unsafe partial class AutoLogin(
         return true;
     }
 
-    protected override void OnDispose()
+    protected override void OnDestroy()
     {
-        tasks.Dispose();
         selectDataCenterAndLogin.Dispose();
     }
 
@@ -118,11 +133,11 @@ public sealed unsafe partial class AutoLogin(
         var rowContentHeight = MathF.Max(
             OmniTheme.CheckboxSize(),
             MathF.Max(OmniTheme.SmallButtonSize().Y, ImGui.GetFrameHeight()));
-        var addLabel = OmniLoc.Get("Feature.AutoLogin.Add");
-        var deleteLabel = OmniLoc.Get("Feature.AutoLogin.Delete");
+        var addLabel = OmniLoc.Get(this, "Feature.AutoLogin.Add");
+        var deleteLabel = OmniLoc.Get(this, "Feature.AutoLogin.Delete");
         var addSize = OmniControls.CompactButtonSize(addLabel);
         var deleteSize = OmniControls.CompactButtonSize(deleteLabel);
-        var actionLabel = OmniLoc.Get("Feature.AutoLogin.Column.Actions");
+        var actionLabel = OmniLoc.Get(this, "Feature.AutoLogin.Column.Actions");
         var actionWidth = MathF.Max(ImGui.CalcTextSize(actionLabel).X, MathF.Max(addSize.X, deleteSize.X));
         var scroll = config.Targets.Count > 5;
         var tableHeight = scroll
@@ -140,8 +155,8 @@ public sealed unsafe partial class AutoLogin(
         }
         using (var table = OmniControls.DataTable(
                    "##AutoLoginTargets",
-                   ["##autoLoginEnabled", OmniLoc.Get("Feature.AutoLogin.Column.CharacterName"),
-                       OmniLoc.Get("Feature.AutoLogin.Column.World"), actionLabel],
+                   ["##autoLoginEnabled", OmniLoc.Get(this, "Feature.AutoLogin.Column.CharacterName"),
+                       OmniLoc.Get(this, "Feature.AutoLogin.Column.World"), actionLabel],
                    [OmniControls.MeasureCheckbox(string.Empty).X, nameWidth, worldWidth, actionWidth],
                    [OmniControls.MeasureCheckbox(string.Empty).X, nameWidth, worldWidth, actionWidth], out var detailLayout,
                    ImGuiTableFlags.Borders |
@@ -177,8 +192,8 @@ public sealed unsafe partial class AutoLogin(
 
             if (!detailLayout)
             {
-                OmniControls.TableHeader(OmniLoc.Get("Feature.AutoLogin.Column.CharacterName"), rowContentHeight);
-                OmniControls.TableHeader(OmniLoc.Get("Feature.AutoLogin.Column.World"), rowContentHeight);
+                OmniControls.TableHeader(OmniLoc.Get(this, "Feature.AutoLogin.Column.CharacterName"), rowContentHeight);
+                OmniControls.TableHeader(OmniLoc.Get(this, "Feature.AutoLogin.Column.World"), rowContentHeight);
                 OmniControls.TableHeader(actionLabel, rowContentHeight);
             }
 
@@ -198,13 +213,13 @@ public sealed unsafe partial class AutoLogin(
                     changed = true;
                 }
 
-                OmniControls.NextTableField(OmniLoc.Get("Feature.AutoLogin.Column.CharacterName"), detailLayout);
+                OmniControls.NextTableField(OmniLoc.Get(this, "Feature.AutoLogin.Column.CharacterName"), detailLayout);
                 if (detailLayout)
                     OmniControls.TableTextWrappedCentered(target.CharacterName);
                 else
                     OmniControls.TableTextCentered(target.CharacterName, rowContentHeight);
 
-                OmniControls.NextTableField(OmniLoc.Get("Feature.AutoLogin.Column.World"), detailLayout);
+                OmniControls.NextTableField(OmniLoc.Get(this, "Feature.AutoLogin.Column.World"), detailLayout);
                 OmniControls.TableWorldNameCentered(LuminaWrapper.GetWorldName(target.WorldID), rowContentHeight);
 
                 OmniControls.NextTableField(actionLabel, detailLayout);
@@ -240,7 +255,7 @@ public sealed unsafe partial class AutoLogin(
     public void SuspendUntilNextLogin()
     {
         suspendedUntilLogin = true;
-        tasks.Abort();
+        tasks?.Abort();
         manualTarget = null;
     }
 
@@ -467,34 +482,12 @@ public sealed unsafe partial class AutoLogin(
             timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
         if (target is not null && GameState.IsCN)
         {
-            Task<bool>? dataCenterLogin = null;
-            tasks.Enqueue(
+            tasks.EnqueueAsync(
                 () =>
                 {
-                    if (!requiresDataCenterLogin || IsLobbyTravelReady())
-                        return true;
-
-                    if (dataCenterLogin is null)
-                    {
-                        if (!IsDataCenterLoginAvailable())
-                        {
-                            NotifyHelper.Instance().NotificationWarning("DCTravelerX 登录接口未就绪，已停止自动登录。");
-                            SuspendUntilNextLogin();
-                            return true;
-                        }
-                        dataCenterLogin = selectDataCenterAndLogin.InvokeFunc(LuminaWrapper.GetDataCenterName(dataCenterID));
-                    }
-                    if (!dataCenterLogin.IsCompleted)
-                    {
-                        return false;
-                    }
-
-                    var accepted = dataCenterLogin.GetAwaiter().GetResult();
-                    if (!accepted)
-                    {
-                        dataCenterLogin = null;
-                    }
-                    return accepted;
+                    var operation = RequestDataCenterLoginAsync(dataCenterID, requiresDataCenterLogin);
+                    Activation.Track(operation);
+                    return operation;
                 },
                 "Select target data center via DCTravelerX",
                 timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);

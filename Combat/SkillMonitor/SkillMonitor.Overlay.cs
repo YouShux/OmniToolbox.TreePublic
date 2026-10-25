@@ -1,3 +1,4 @@
+using TreeToolKit;
 using System.Drawing;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
@@ -60,7 +61,7 @@ public sealed partial class SkillMonitor
             {
                 Dispose();
                 loadedFont = config.Font;
-                countdownFont = OmniFonts.CreateGameFont(config.Font switch
+                countdownFont = Fonts.CreateGameFont(config.Font switch
                 {
                     FontType.Axis => GameFontFamily.Axis,
                     FontType.MiedingerMed => GameFontFamily.MiedingerMid,

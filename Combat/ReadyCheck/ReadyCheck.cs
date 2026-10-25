@@ -1,3 +1,4 @@
+using TreeTools.Lifecycle;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
 using Dalamud.Interface.Textures;
@@ -15,29 +16,45 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using ContentFinderCondition = Lumina.Excel.Sheets.ContentFinderCondition;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("ReadyCheckTitle"),
-        Description = OmniLoc.Get("ReadyCheckDescription"),
         Category = ModuleCategory.Combat,
         PreviewImageURL =
             "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/ReadyCheck-1.png"
     };
 
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "ReadyCheckTitle",
+            ["Description"] = "ReadyCheckDescription",
+            ["Feature.ReadyCheck.AllianceList"] = "Feature.ReadyCheck.AllianceList",
+            ["Feature.ReadyCheck.ClearAfterTime"] = "Feature.ReadyCheck.ClearAfterTime",
+            ["Feature.ReadyCheck.ClearOnCombat"] = "Feature.ReadyCheck.ClearOnCombat",
+            ["Feature.ReadyCheck.ClearOnInstancedCombat"] = "Feature.ReadyCheck.ClearOnInstancedCombat",
+            ["Feature.ReadyCheck.ClearOnTerritoryChanged"] = "Feature.ReadyCheck.ClearOnTerritoryChanged",
+            ["Feature.ReadyCheck.CrossWorldAllianceList"] = "Feature.ReadyCheck.CrossWorldAllianceList",
+            ["Feature.ReadyCheck.IconSettings"] = "Feature.ReadyCheck.IconSettings",
+            ["Feature.ReadyCheck.List"] = "Feature.ReadyCheck.List",
+            ["Feature.ReadyCheck.Offset"] = "Feature.ReadyCheck.Offset",
+            ["Feature.ReadyCheck.PartyList"] = "Feature.ReadyCheck.PartyList",
+            ["Feature.ReadyCheck.Scale"] = "Feature.ReadyCheck.Scale",
+            ["Feature.ReadyCheck.Seconds"] = "Feature.ReadyCheck.Seconds"
+        });
+
     public override bool HasSettings => true;
 
     private readonly List<ReadyCheckMember> members = new(48);
     private readonly HashSet<uint> instancedTerritories = [];
-    private FeatureLifetime? runtimeLifetime;
     private Hook<AgentReadyCheck.Delegates.InitiateReadyCheck>? initiateHook;
     private Hook<AgentReadyCheck.Delegates.EndReadyCheck>? endHook;
     private ISharedImmediateTexture? readyCheckTexture;
@@ -47,75 +64,48 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : ModuleB
     private bool overlayVisible;
     private long clearAfterTick;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
         PopulateInstancedTerritories();
         readyCheckTexture ??= DalamudServices.TextureProvider.GetFromGame("ui/uld/ReadyCheck_hr1.tex");
         notPresentTexture ??= DalamudServices.TextureProvider.GetFromGameIcon(new GameIconLookup(61504));
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            initiateHook = DService.Instance().Hook.HookFromAddress<AgentReadyCheck.Delegates.InitiateReadyCheck>(
-                AgentReadyCheck.MemberFunctionPointers.InitiateReadyCheck,
-                OnInitiateReadyCheck);
-            lifetime.Add(initiateHook.Dispose);
-            initiateHook.Enable();
-
-            endHook = DService.Instance().Hook.HookFromAddress<AgentReadyCheck.Delegates.EndReadyCheck>(
-                AgentReadyCheck.MemberFunctionPointers.EndReadyCheck,
-                OnEndReadyCheck);
-            lifetime.Add(endHook.Dispose);
-            endHook.Enable();
-
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
-            {
-                throw new InvalidOperationException("Ready-check update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
-            lifetime.Add(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
-
-            var services = DService.Instance();
-            services.ClientState.Logout += OnLogout;
-            lifetime.Add(() => services.ClientState.Logout -= OnLogout);
-            services.ClientState.TerritoryChanged += OnTerritoryChanged;
-            lifetime.Add(() => services.ClientState.TerritoryChanged -= OnTerritoryChanged);
-            services.Condition.ConditionChange += OnConditionChanged;
-            lifetime.Add(() => services.Condition.ConditionChange -= OnConditionChanged);
-            runtimeLifetime = lifetime;
-        }
-        catch
-        {
-            try
-            {
-                lifetime.Dispose();
-            }
-            finally
-            {
-                runtimeLifetime = null;
-                initiateHook = null;
-                endHook = null;
-            }
-
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             initiateHook = null;
             endHook = null;
             ClearState();
+        });
+        initiateHook = DService.Instance().Hook.HookFromAddress<AgentReadyCheck.Delegates.InitiateReadyCheck>(
+            AgentReadyCheck.MemberFunctionPointers.InitiateReadyCheck,
+            OnInitiateReadyCheck);
+        lifetime.Add(initiateHook.Dispose);
+        lifetime.OnStopping(initiateHook.Disable);
+        initiateHook.Enable();
+
+        endHook = DService.Instance().Hook.HookFromAddress<AgentReadyCheck.Delegates.EndReadyCheck>(
+            AgentReadyCheck.MemberFunctionPointers.EndReadyCheck,
+            OnEndReadyCheck);
+        lifetime.Add(endHook.Dispose);
+        lifetime.OnStopping(endHook.Disable);
+        endHook.Enable();
+
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
+        {
+            throw new InvalidOperationException("Ready-check update registration failed.");
         }
+
+        lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+        lifetime.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
+        DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
+
+        var services = DService.Instance();
+        lifetime.OnStopping(() => services.ClientState.Logout -= OnLogout);
+        services.ClientState.Logout += OnLogout;
+        lifetime.OnStopping(() => services.ClientState.TerritoryChanged -= OnTerritoryChanged);
+        services.ClientState.TerritoryChanged += OnTerritoryChanged;
+        lifetime.OnStopping(() => services.Condition.ConditionChange -= OnConditionChanged);
+        services.Condition.ConditionChange += OnConditionChanged;
     }
 
     public override bool DrawSettings() => Panel.Draw(config);

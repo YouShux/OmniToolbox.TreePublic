@@ -23,7 +23,7 @@ public sealed partial class AutoIshgardRestoration
     {
         if (IsOccupied())
         {
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.WaitingForNPCInteraction"), label);
+            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForNPCInteraction"), label);
             return;
         }
 
@@ -31,19 +31,19 @@ public sealed partial class AutoIshgardRestoration
             .FirstOrDefault(o => npcIDs.Contains(GetBaseID(o.Address)) && o.IsTargetable);
         if (npc is null)
         {
-            FailAutomation(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.NPCNotFound"), label));
+            FailAutomation(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.NPCNotFound"), label));
             return;
         }
 
         if (!SendNPCEventStart(npc.Address))
         {
-            FailAutomation(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.NPCEventFailed"), label));
+            FailAutomation(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.NPCEventFailed"), label));
             return;
         }
 
         EnterPhase(nextPhase);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(600);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.AutoIshgardRestoration.OpeningNPCEvent"), label);
+        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.OpeningNPCEvent"), label);
     }
 
     private static unsafe uint ReadSkybuildersScrips()

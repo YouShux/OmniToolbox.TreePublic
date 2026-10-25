@@ -20,20 +20,34 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Host;
-using OmniToolbox.Lifecycle;
+using TreeTools.Lifecycle;
 using OmniToolbox.UI;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings config) : ModuleBase
+[ModuleApiVersion(1)]
+public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
-        Title = OmniLoc.Get("BetterUserMacroTitle"),
-        Description = OmniLoc.Get("BetterUserMacroDescription"),
         Category = ModuleCategory.Interface
     };
+
+    public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
+        new Dictionary<string, string>
+        {
+            ["Title"] = "BetterUserMacroTitle",
+            ["Description"] = "BetterUserMacroDescription",
+            ["Feature.BetterUserMacro.CustomIcons"] = "Feature.BetterUserMacro.CustomIcons",
+            ["Feature.BetterUserMacro.CustomIcons.Help"] = "Feature.BetterUserMacro.CustomIcons.Help",
+            ["Feature.BetterUserMacro.DragSwap"] = "Feature.BetterUserMacro.DragSwap",
+            ["Feature.BetterUserMacro.DragSwap.Help"] = "Feature.BetterUserMacro.DragSwap.Help",
+            ["Feature.BetterUserMacro.LineNumbers"] = "Feature.BetterUserMacro.LineNumbers",
+            ["Feature.BetterUserMacro.LineNumbers.Help"] = "Feature.BetterUserMacro.LineNumbers.Help",
+            ["Feature.BetterUserMacro.Tooltips"] = "Feature.BetterUserMacro.Tooltips",
+            ["Feature.BetterUserMacro.Tooltips.Help"] = "Feature.BetterUserMacro.Tooltips.Help"
+        });
 
     public override bool HasSettings => true;
 
@@ -42,7 +56,6 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
     private readonly List<TextNode> lineNumberNodes = new(MACRO_LINE_COUNT);
     private readonly MacroDropTarget?[] macroDropTargets = new MacroDropTarget?[(int)MACRO_SLOTS_PER_PAGE];
     private readonly Dictionary<string, uint> actionCache = new(StringComparer.OrdinalIgnoreCase);
-    private FeatureLifetime? runtimeLifetime;
     private Hook<AddonActionBarBase.Delegates.ShowTooltip>? tooltipHook;
     private Hook<AtkDragDropManager.Delegates.Drop>? macroDropHook;
     private Hook<RaptureMacroModule.Delegates.SetSavePendingFlag>? macroSaveHook;
@@ -58,79 +71,59 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
     private ulong macroCharacterContentID;
     private long macroScanRetryUntil;
 
-    protected override void OnEnable()
+    protected override void OnStart(FeatureLifetime activation)
     {
-        var lifetime = new FeatureLifetime();
-        try
-        {
-            tooltipHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.ShowTooltip>(
-                AddonActionBarBase.MemberFunctionPointers.ShowTooltip,
-                OnShowTooltip);
-            lifetime.Add(tooltipHook.Dispose);
-            tooltipHook.Enable();
-
-            macroDropHook = DService.Instance().Hook.HookFromAddress<AtkDragDropManager.Delegates.Drop>(
-                AtkDragDropManager.MemberFunctionPointers.Drop,
-                OnMacroDrop);
-            lifetime.Add(macroDropHook.Dispose);
-            macroDropHook.Enable();
-            macroSaveHook = DService.Instance().Hook.HookFromAddress<RaptureMacroModule.Delegates.SetSavePendingFlag>(
-                RaptureMacroModule.MemberFunctionPointers.SetSavePendingFlag, OnMacroSavePending);
-            lifetime.Add(macroSaveHook.Dispose);
-            macroSaveHook.Enable();
-            macroIconsDirty = true;
-            macroCharacterContentID = 0;
-            macroScanRetryUntil = Environment.TickCount64 + 30_000;
-
-            var condition = DService.Instance().Condition;
-            condition.ConditionChange += OnConditionChanged;
-            lifetime.Add(() => condition.ConditionChange -= OnConditionChanged);
-
-            lifetime.Add(ClearMacroUI);
-            var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
-            lifetime.Add(addonEvents.Dispose);
-            addonEvents.Register(AddonEvent.PostSetup, "Macro", OnMacroSetup);
-            addonEvents.Register(AddonEvent.PostShow, "Macro", OnMacroRefresh);
-            addonEvents.Register(AddonEvent.PreHide, "Macro", OnMacroFinalize);
-            addonEvents.Register(AddonEvent.PreFinalize, "Macro", OnMacroFinalize);
-            addonEvents.Register(AddonEvent.PreRefresh, "Macro", OnMacroPreRefresh);
-            addonEvents.Register(AddonEvent.PostRefresh, "Macro", OnMacroRefresh);
-            addonEvents.Register(AddonEvent.PostRequestedUpdate, "Macro", OnMacroRefresh);
-
-            if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 250))
-            {
-                throw new InvalidOperationException("Better user macro update registration failed.");
-            }
-
-            lifetime.Add(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-            runtimeLifetime = lifetime;
-            OnFrameworkUpdate(DService.Instance().Framework);
-        }
-        catch
-        {
-            runtimeLifetime = null;
-            lifetime.Dispose();
-            tooltipHook = null;
-            macroDropHook = null;
-            macroSaveHook = null;
-            throw;
-        }
-    }
-
-    protected override void OnDisable()
-    {
-        var lifetime = runtimeLifetime;
-        runtimeLifetime = null;
-        try
-        {
-            lifetime?.Dispose();
-        }
-        finally
+        var lifetime = Activation;
+        lifetime.Add(() =>
         {
             tooltipHook = null;
             macroDropHook = null;
             macroSaveHook = null;
+        });
+        tooltipHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.ShowTooltip>(
+            AddonActionBarBase.MemberFunctionPointers.ShowTooltip,
+            OnShowTooltip);
+        lifetime.Add(tooltipHook.Dispose);
+        lifetime.OnStopping(tooltipHook.Disable);
+        tooltipHook.Enable();
+
+        macroDropHook = DService.Instance().Hook.HookFromAddress<AtkDragDropManager.Delegates.Drop>(
+            AtkDragDropManager.MemberFunctionPointers.Drop,
+            OnMacroDrop);
+        lifetime.Add(macroDropHook.Dispose);
+        lifetime.OnStopping(macroDropHook.Disable);
+        macroDropHook.Enable();
+        macroSaveHook = DService.Instance().Hook.HookFromAddress<RaptureMacroModule.Delegates.SetSavePendingFlag>(
+            RaptureMacroModule.MemberFunctionPointers.SetSavePendingFlag, OnMacroSavePending);
+        lifetime.Add(macroSaveHook.Dispose);
+        lifetime.OnStopping(macroSaveHook.Disable);
+        macroSaveHook.Enable();
+        macroIconsDirty = true;
+        macroCharacterContentID = 0;
+        macroScanRetryUntil = Environment.TickCount64 + 30_000;
+
+        var condition = DService.Instance().Condition;
+        lifetime.OnStopping(() => condition.ConditionChange -= OnConditionChanged);
+        condition.ConditionChange += OnConditionChanged;
+
+        lifetime.Add(ClearMacroUI);
+        var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
+        lifetime.OnStopping(addonEvents.Dispose);
+        addonEvents.Register(AddonEvent.PostSetup, "Macro", OnMacroSetup);
+        addonEvents.Register(AddonEvent.PostShow, "Macro", OnMacroRefresh);
+        addonEvents.Register(AddonEvent.PreHide, "Macro", OnMacroFinalize);
+        addonEvents.Register(AddonEvent.PreFinalize, "Macro", OnMacroFinalize);
+        addonEvents.Register(AddonEvent.PreRefresh, "Macro", OnMacroPreRefresh);
+        addonEvents.Register(AddonEvent.PostRefresh, "Macro", OnMacroRefresh);
+        addonEvents.Register(AddonEvent.PostRequestedUpdate, "Macro", OnMacroRefresh);
+
+        if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 250))
+        {
+            throw new InvalidOperationException("Better user macro update registration failed.");
         }
+
+        lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+        OnFrameworkUpdate(DService.Instance().Framework);
     }
 
     public override bool DrawSettings()

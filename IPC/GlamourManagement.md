@@ -35,18 +35,24 @@ if (gate.HasFunction)
 | `select` | `id`，选择并启动预览 |
 | `search` | `kind` 为 equipment/hair/glasses，`query`，装备还需 `slot` |
 | `preview-draft` | `id`、`revision`、`preset`，预览未保存编辑 |
-| `save` | `id`、`revision`、`preset`，可选 `gearsetIndex` |
+| `save` | `id`、`revision`、`preset`，可选 `gearsetIndices`，兼容 `gearsetIndex` |
 | `delete` / `apply` | `id`、`revision`，删除／场景试穿 |
 | `restore` | 撤销场景试穿覆盖 |
 | `import` | `text`，模块剪贴板导出内容，创建新方案 |
 | `import-website` | `data`，石之家解析结果，含 name、parts；服务端负责页面提取，模块校验并解析物品 |
 | `export` | `id`，返回 `text` |
 | `camera` | `id`，yaw/x/y/wheel 增量；客户端节流并合并手势 |
-| `button` | `id`、`node`，仅接受 32/33/34/35/37/39 原生按钮 |
+| `button` | `id`、`node`，仅接受 32/33/34/35/37/38/39 原生按钮；35 为显示全部装备，37 为拔出或收回武器，38 为角色阅览模式（手柄专用） |
 | `frame` | `id`，读取预览帧及状态 |
 | `stop` | 结束手机预览租约；本地窗口仍打开时保留本地预览 |
 
 预设字段和网站 parts 的具体结构以 `GlamourClipboard.cs`、`GlamourRemote.cs` 为准。不要用显示名称代替稳定方案 Id；导入会新建条目且不继承套装绑定。
+
+套装绑定按当前登录角色的 ContentID 隔离。`read` 返回字符串 `contentId`，每个方案的 `gearsetIndices` 是该角色绑定的套装索引数组（0 至 99）。`save` 传入 `gearsetIndices` 会替换该方案在当前角色的绑定，空数组清空绑定；省略则保留。一个方案可绑定多个套装，同一角色的一个套装只能绑定一个方案，重新绑定会解除其在其他方案的关联。其他角色的绑定保持不变。
+
+`revision` 同时包含角色身份，切换角色后须重新读取。旧方案中缺少角色归属的 `GearsetIndex` 保留等待用户重新确认，不会自动应用。导入不继承这些绑定。
+
+旧客户端仍可使用 `gearsetIndex`：快照返回当前角色绑定列表中的首个索引，无绑定时返回 -1；保存不同索引时替换为单个绑定，保存 -1 清空，原样回传首个索引则保留全部绑定。同时提供新旧字段时，以 `gearsetIndices` 为准。
 
 ## 帧传输
 
