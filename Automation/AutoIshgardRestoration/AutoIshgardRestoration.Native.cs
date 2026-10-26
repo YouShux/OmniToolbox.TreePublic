@@ -1,7 +1,4 @@
-using System;
 using System.Globalization;
-using System.Linq;
-using System.Numerics;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.Inventory;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -9,7 +6,6 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Packets.Upstream;
-using OmniToolbox.UI;
 using GameEventHandler = FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandler;
 using GameEventHandlerContent = FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandlerContent;
 using GameEventID = FFXIVClientStructs.FFXIV.Client.Game.Event.EventId;

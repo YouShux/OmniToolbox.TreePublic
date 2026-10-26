@@ -1,9 +1,6 @@
-using System;
 using System.Globalization;
-using System.Numerics;
 using OmenTools;
 using OmenTools.Dalamud;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

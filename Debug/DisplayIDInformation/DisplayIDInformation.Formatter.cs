@@ -1,6 +1,5 @@
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.Gui.FlyText;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

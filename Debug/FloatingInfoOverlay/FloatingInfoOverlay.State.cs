@@ -8,7 +8,6 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using OmniToolbox.TreeHouse;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using CSCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 using LuminaStatus = Lumina.Excel.Sheets.Status;

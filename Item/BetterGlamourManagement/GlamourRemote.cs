@@ -1,7 +1,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -14,7 +13,6 @@ using Lumina.Excel.Sheets;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.Host;
 using OmniToolbox.Items;
 
 namespace OmniToolbox.TreePublic;

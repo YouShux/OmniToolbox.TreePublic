@@ -7,7 +7,6 @@ using Lumina.Text.ReadOnly;
 using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

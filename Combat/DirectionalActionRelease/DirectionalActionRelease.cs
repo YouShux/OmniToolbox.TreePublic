@@ -1,4 +1,3 @@
-using TreeTools.Lifecycle;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using OmenTools;
@@ -9,7 +8,6 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 

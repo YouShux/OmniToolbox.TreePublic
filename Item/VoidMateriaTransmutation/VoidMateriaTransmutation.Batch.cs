@@ -1,4 +1,3 @@
-using System.Linq;
 using Dalamud.Game.ClientState.Conditions;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -8,7 +7,6 @@ using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using TreeTools.Threading;
-using OmniToolbox.UI;
 using EventFramework = FFXIVClientStructs.FFXIV.Client.Game.Event.EventFramework;
 using Item = Lumina.Excel.Sheets.Item;
 

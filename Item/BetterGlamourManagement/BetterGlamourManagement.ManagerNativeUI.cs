@@ -1,5 +1,4 @@
 using Item = Lumina.Excel.Sheets.Item;
-using System.Linq;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Input;
@@ -9,7 +8,6 @@ using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools;
-using OmniToolbox.UI;
 using OmniToolbox.Collections;
 using OmniToolbox.Items;
 using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;

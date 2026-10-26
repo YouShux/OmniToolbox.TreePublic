@@ -1,4 +1,3 @@
-using System.Linq;
 using Dalamud.Game;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
@@ -10,8 +9,6 @@ using OmenTools.Interop.Game.Helpers;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
-using TreeTools.Lifecycle;
 
 namespace OmniToolbox.TreePublic;
 

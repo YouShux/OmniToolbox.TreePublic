@@ -4,7 +4,6 @@ using Dalamud.Interface;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.OmenService;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

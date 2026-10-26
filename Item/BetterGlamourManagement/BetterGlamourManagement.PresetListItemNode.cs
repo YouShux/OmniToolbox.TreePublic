@@ -1,5 +1,4 @@
 using Item = Lumina.Excel.Sheets.Item;
-using System.Linq;
 using System.Drawing;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Input;
@@ -14,7 +13,6 @@ using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
 using OmenTools;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.UI;
 using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;
 
 #pragma warning disable KTKExperimental_TextureImageNode

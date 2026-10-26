@@ -1,5 +1,3 @@
-using System.Linq;
-using System.Numerics;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
@@ -7,7 +5,6 @@ using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
 using Lumina.Excel.Sheets;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.UI;
 using OmniToolbox.Collections;
 using OmniToolbox.Items;
 using Item = Lumina.Excel.Sheets.Item;

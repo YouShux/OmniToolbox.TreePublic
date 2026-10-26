@@ -5,7 +5,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using OmenTools;
 using OmenTools.OmenService;
-using OmniToolbox.UI;
 using static OmniToolbox.TreePublic.MitigationMonitor;
 
 namespace OmniToolbox.TreePublic;

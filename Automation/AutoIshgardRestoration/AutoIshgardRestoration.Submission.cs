@@ -1,10 +1,8 @@
-using System;
 using System.Globalization;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmenTools;
 using OmenTools.Extensions;
-using OmniToolbox.UI;
 using ValueType = FFXIVClientStructs.FFXIV.Component.GUI.AtkValueType;
 
 namespace OmniToolbox.TreePublic;

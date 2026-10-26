@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Linq;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Plugin.Services;
@@ -13,7 +12,6 @@ using Lumina.Excel.Sheets;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.UI;
 using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
 using ObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
 

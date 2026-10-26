@@ -1,4 +1,3 @@
-using System.Linq;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -11,7 +10,6 @@ using OmenTools.Interop.Game.Lumina;
 using TreeTools.Threading;
 using OmniToolbox.Items;
 using OmniToolbox.Notifications;
-using OmniToolbox.UI;
 using Cabinet = Lumina.Excel.Sheets.Cabinet;
 using GameCabinet = FFXIVClientStructs.FFXIV.Client.Game.UI.Cabinet;
 using Item = Lumina.Excel.Sheets.Item;

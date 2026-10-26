@@ -12,7 +12,6 @@ using KamiToolKit.Nodes.Simplified;
 using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.UI;
 using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;
 
 #pragma warning disable KTKExperimental_TextureImageNode

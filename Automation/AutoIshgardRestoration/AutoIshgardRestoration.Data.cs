@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using Lumina.Excel.Sheets;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

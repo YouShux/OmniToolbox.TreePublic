@@ -1,8 +1,6 @@
 using Dalamud.Plugin.Services;
 using OmenTools;
 using OmenTools.OmenService;
-using TreeTools.Lifecycle;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

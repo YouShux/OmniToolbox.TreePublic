@@ -6,7 +6,6 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Items;
 using OmniToolbox.Notifications;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

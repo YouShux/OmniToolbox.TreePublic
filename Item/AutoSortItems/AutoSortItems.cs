@@ -1,4 +1,3 @@
-using System.Linq;
 using Dalamud.Game.Addon.Lifecycle;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -15,9 +14,6 @@ using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
-using TreeTools.Lifecycle;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

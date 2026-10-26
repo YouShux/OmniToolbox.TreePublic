@@ -1,10 +1,8 @@
 using TreeToolKit;
-using System.Linq;
 using Lumina.Excel.Sheets;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Collections;
 using OmniToolbox.Items;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

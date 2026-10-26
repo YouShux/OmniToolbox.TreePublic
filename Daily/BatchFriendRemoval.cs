@@ -1,6 +1,4 @@
-using TreeTools.Lifecycle;
 using System.Globalization;
-using System.Linq;
 using System.Threading;
 using Dalamud.Game.Text.Evaluator;
 using Dalamud.Hooking;
@@ -19,8 +17,6 @@ using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

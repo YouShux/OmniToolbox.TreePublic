@@ -1,4 +1,3 @@
-using TreeTools.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.ClientState.Conditions;
@@ -20,8 +19,6 @@ using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 using Aetheryte = Lumina.Excel.Sheets.Aetheryte;
 using EventFramework = FFXIVClientStructs.FFXIV.Client.Game.Event.EventFramework;
 using EventHandlerModule = FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandlerModule;

@@ -1,12 +1,10 @@
 using Dalamud.Interface.ImGuiNotification;
-using System.Linq;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
 using KamiToolKit.Nodes;
 using OmenTools.Extensions;
 using OmniToolbox.Notifications;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

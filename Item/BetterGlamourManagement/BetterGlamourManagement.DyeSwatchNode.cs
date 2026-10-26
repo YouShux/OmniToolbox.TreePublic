@@ -7,7 +7,6 @@ using KamiToolKit.Nodes.Simplified;
 using Lumina.Excel.Sheets;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

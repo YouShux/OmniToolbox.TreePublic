@@ -1,5 +1,4 @@
 using TreeToolKit;
-using TreeTools.Lifecycle;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -20,7 +19,6 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Items;
-using OmniToolbox.UI;
 using ContentFinderConditionSheet = Lumina.Excel.Sheets.ContentFinderCondition;
 using InstanceContentSheet = Lumina.Excel.Sheets.InstanceContent;
 
