@@ -33,6 +33,7 @@ public sealed partial class AutoIshgardRestoration
         }
 
         using var font = Fonts.GetUIFont().Push();
+        using var placement = new OmniWindowPlacement.WindowScope("###AutoIshgardRestorationWindow");
         using var style = new ComicStyleScope();
         var inset = OmniTheme.WindowInset();
         var frameInset = OmniTheme.ChromeFrameInset();
@@ -56,7 +57,7 @@ public sealed partial class AutoIshgardRestoration
                              ImGui.GetStyle().ItemSpacing.Y;
         }
 
-        var viewportSize = ImGui.GetMainViewport().WorkSize;
+        var viewportSize = OmniWindowPlacement.GetWorkArea("###AutoIshgardRestorationWindow").Size;
         var applyWindowSize = !windowExpanded || windowCollapsed || windowSizePending ||
                               MathF.Abs(lastWindowScale - OmniTheme.ScaleValue) > 0.001f ||
                               lastViewportSize != viewportSize;
@@ -359,7 +360,7 @@ public sealed partial class AutoIshgardRestoration
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseItem"));
         ImGui.SameLine();
-        var popupHeight = MathF.Max(1f, MathF.Min(OmniTheme.Scale(360f), ImGui.GetMainViewport().WorkSize.Y * 0.8f));
+        var popupHeight = MathF.Max(1f, MathF.Min(OmniTheme.Scale(360f), OmniWindowPlacement.GetWorkArea("###AutoIshgardRestorationWindow").Size.Y * 0.8f));
         ImGui.SetNextWindowSizeConstraints(new Vector2(0f, popupHeight), new Vector2(float.MaxValue, popupHeight));
         var preview = selected is null ? OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.SelectPurchaseItem")
             : string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ProductPrice"), selected.Name, selected.Price);

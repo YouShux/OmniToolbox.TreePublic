@@ -326,28 +326,7 @@ public sealed unsafe partial class BetterGlamourManagement(
             return;
         }
 
-        var inspectState = sourceAddon->WindowNode->GetNodeState();
-        var inspectScale = sourceAddon->WindowNode->GetScale().X;
-        if (MathF.Abs(actionAddon->WindowNode->GetScale().X - inspectScale) > 0.001f)
-        {
-            actionAddon->SetScale(inspectScale / AtkUnitBase.GetGlobalUIScale(), true);
-        }
-        var actionState = actionAddon->WindowNode->GetNodeState();
-        var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
-        var x = inspectState.TopLeft.X + inspectState.Width + gap;
-        if (x + actionState.Width > display.X - SCREEN_PADDING)
-        {
-            x = inspectState.TopLeft.X - actionState.Width - gap;
-        }
-
-        var position = new Vector2(
-            Math.Clamp(x, SCREEN_PADDING, MathF.Max(SCREEN_PADDING, display.X - actionState.Width - SCREEN_PADDING)),
-            Math.Clamp(
-                inspectState.TopLeft.Y,
-                SCREEN_PADDING,
-                MathF.Max(SCREEN_PADDING, display.Y - actionState.Height - SCREEN_PADDING)));
-        if (actionAddon->X != (short)position.X || actionAddon->Y != (short)position.Y)
-            nativeUI.SetWindowPosition(position);
+        OmniNativeWindowAttachment.SyncBeside(nativeUI, actionAddon, sourceAddon, gap, 0f, preferRight: true);
     }
 
     private void OnFrameworkUpdate(IFramework framework)
