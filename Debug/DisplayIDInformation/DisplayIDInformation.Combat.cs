@@ -10,15 +10,12 @@ using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using KamiToolKit.Nodes;
 using KamiToolKit.Enums;
-using OmniToolbox.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel;
 using OmenTools;
 using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Models;
-using OmniToolbox.Host;
-using TreeTools.Lifecycle;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 

@@ -3,8 +3,6 @@ using System.Globalization;
 using Lumina.Excel.Sheets;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 

@@ -4,9 +4,7 @@ using KamiToolKit.BaseTypes;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using Lumina.Data;
-using OmniToolbox.Host;
 using OmenTools.Extensions;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

@@ -3,7 +3,6 @@ using Dalamud.Interface;
 using OmenTools;
 using OmenTools.Extensions;
 using OmniToolbox.Notifications;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using static OmniToolbox.TreePublic.MitigationMonitor;
 

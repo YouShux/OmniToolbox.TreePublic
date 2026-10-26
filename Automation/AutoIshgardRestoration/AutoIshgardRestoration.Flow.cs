@@ -1,11 +1,7 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
 using Dalamud.Plugin.Services;
 using OmenTools;
 using OmenTools.Extensions;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

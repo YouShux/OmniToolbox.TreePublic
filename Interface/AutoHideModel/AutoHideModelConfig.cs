@@ -19,8 +19,6 @@ using OmenTools.Interop.Game.Models;
 using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using TreeTools.Lifecycle;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
 using TerritoryIntendedUse = FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse;

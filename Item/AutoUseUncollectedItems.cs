@@ -1,4 +1,3 @@
-using TreeTools.Lifecycle;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -21,9 +20,7 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Config;
-using OmniToolbox.Host;
 using OmniToolbox.Items;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

@@ -3,7 +3,6 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Classes;
 using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

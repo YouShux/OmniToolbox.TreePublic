@@ -1,4 +1,3 @@
-using System.Numerics;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
@@ -10,9 +9,7 @@ using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using OmenTools;
 using OmenTools.Extensions;
-using OmniToolbox.Host;
 using OmniToolbox.Items;
-using OmniToolbox.UI;
 using ItemContextMenu = KamiToolKit.ContextMenu.ContextMenu;
 
 namespace OmniToolbox.TreePublic;

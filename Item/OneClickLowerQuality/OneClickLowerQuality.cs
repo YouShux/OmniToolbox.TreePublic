@@ -14,10 +14,7 @@ using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
 using OmniToolbox.Items;
-using TreeTools.Lifecycle;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

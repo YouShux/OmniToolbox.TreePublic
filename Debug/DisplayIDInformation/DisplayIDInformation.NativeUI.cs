@@ -19,8 +19,6 @@ using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Interop.Game.Models;
 using OmenTools.OmenService;
-using OmniToolbox.Host;
-using TreeTools.Lifecycle;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaItem = Lumina.Excel.Sheets.Item;
 using LuminaStatus = Lumina.Excel.Sheets.Status;

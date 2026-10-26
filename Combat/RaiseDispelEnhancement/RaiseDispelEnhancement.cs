@@ -1,4 +1,3 @@
-using TreeTools.Lifecycle;
 using Dalamud.Interface.Textures;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Group;
@@ -15,8 +14,6 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Game;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 

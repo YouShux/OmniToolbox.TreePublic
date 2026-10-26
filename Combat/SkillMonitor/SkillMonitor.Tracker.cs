@@ -8,8 +8,6 @@ using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using OmenTools;
 using OmenTools.OmenService;
-using TreeTools.Lifecycle;
-using OmniToolbox.UI;
 using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 
 namespace OmniToolbox.TreePublic;

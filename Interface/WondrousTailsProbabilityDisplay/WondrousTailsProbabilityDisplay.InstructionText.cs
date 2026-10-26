@@ -1,4 +1,3 @@
-using System.Linq;
 using Dalamud.Game;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
@@ -10,10 +9,7 @@ using OmenTools.Interop.Game.Helpers;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
-using TreeTools.Lifecycle;
 using OmniToolbox.Config;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 
@@ -64,11 +60,19 @@ public sealed partial class WondrousTailsProbabilityDisplay
             string.Join("\r", text.Replace("\r\n", "\r", StringComparison.Ordinal).Replace('\n', '\r').Split('\r')
                 .Where(line => !IsGeneratedLine(line))).TrimEnd('\r');
 
-        private static bool IsGeneratedLine(string text) =>
-            text.StartsWith(OmniLoc.Get("Feature.WondrousTailsProbabilityDisplay.ProbabilityPrefix", UILanguage.SimplifiedChinese), StringComparison.Ordinal) ||
-            text.StartsWith(OmniLoc.Get("Feature.WondrousTailsProbabilityDisplay.ProbabilityPrefix", UILanguage.TraditionalChinese), StringComparison.Ordinal) ||
-            text.StartsWith(OmniLoc.Get("Feature.WondrousTailsProbabilityDisplay.AveragePrefix", UILanguage.SimplifiedChinese), StringComparison.Ordinal) ||
-            text.StartsWith(OmniLoc.Get("Feature.WondrousTailsProbabilityDisplay.AveragePrefix", UILanguage.TraditionalChinese), StringComparison.Ordinal);
+        private static bool IsGeneratedLine(string text)
+        {
+            foreach (var language in UILanguages.All)
+            {
+                if (OmniLoc.TryGet("Feature.WondrousTailsProbabilityDisplay.ProbabilityPrefix", language, out var probabilityPrefix)
+                    && text.StartsWith(probabilityPrefix, StringComparison.Ordinal))
+                    return true;
+                if (OmniLoc.TryGet("Feature.WondrousTailsProbabilityDisplay.AveragePrefix", language, out var averagePrefix)
+                    && text.StartsWith(averagePrefix, StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
+        }
 
         internal static (string Text, bool Separate) Prepare(string text, uint rowID, ClientLanguage language)
         {

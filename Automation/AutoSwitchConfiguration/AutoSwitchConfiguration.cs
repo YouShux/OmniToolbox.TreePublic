@@ -1,4 +1,3 @@
-using TreeTools.Lifecycle;
 using System.Threading;
 using System.Threading.Tasks;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -10,8 +9,6 @@ using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

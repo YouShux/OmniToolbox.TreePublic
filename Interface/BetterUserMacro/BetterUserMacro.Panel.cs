@@ -18,9 +18,6 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
-using TreeTools.Lifecycle;
-using OmniToolbox.UI;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreePublic;

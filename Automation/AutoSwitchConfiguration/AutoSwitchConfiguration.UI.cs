@@ -5,7 +5,6 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

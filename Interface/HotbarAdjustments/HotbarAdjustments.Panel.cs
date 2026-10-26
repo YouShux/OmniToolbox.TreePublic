@@ -1,4 +1,3 @@
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

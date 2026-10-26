@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using Dalamud.Game.ClientState.Conditions;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -10,7 +7,6 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Packets.Upstream;
-using OmniToolbox.UI;
 using GameObject = FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject;
 
 namespace OmniToolbox.TreePublic;

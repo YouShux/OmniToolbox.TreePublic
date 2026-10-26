@@ -1,4 +1,3 @@
-using TreeTools.Lifecycle;
 using System.Diagnostics;
 using Dalamud.Hooking;
 using Dalamud.Plugin.Services;
@@ -11,7 +10,6 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

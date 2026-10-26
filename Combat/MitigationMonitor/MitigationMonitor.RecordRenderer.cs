@@ -3,8 +3,6 @@ using System.Globalization;
 using Dalamud.Interface;
 using Dalamud.Interface.Textures;
 using OmenTools.Extensions;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using static OmniToolbox.TreePublic.MitigationMonitor;
 

@@ -7,7 +7,6 @@ using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
 using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
-using OmniToolbox.UI;
 using static OmniToolbox.TreePublic.BetterCharacterPanelState;
 
 namespace OmniToolbox.TreePublic;

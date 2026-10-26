@@ -1,5 +1,4 @@
 using TreeToolKit;
-using System.Linq;
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -12,8 +11,6 @@ using KamiToolKit.Nodes.Simplified;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 using Item = Lumina.Excel.Sheets.Item;
 using Stain = Lumina.Excel.Sheets.Stain;
 

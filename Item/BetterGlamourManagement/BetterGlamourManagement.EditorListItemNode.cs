@@ -7,8 +7,6 @@ using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

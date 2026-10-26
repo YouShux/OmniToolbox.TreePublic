@@ -6,7 +6,6 @@ using KamiToolKit.Nodes;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

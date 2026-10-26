@@ -1,4 +1,3 @@
-using TreeTools.Lifecycle;
 using Dalamud.Plugin.Services;
 using Dalamud.Utility;
 using Lumina.Excel.Sheets;
@@ -9,7 +8,6 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

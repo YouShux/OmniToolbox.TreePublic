@@ -18,9 +18,6 @@ using KamiToolKit.Nodes.Simplified;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
-using OmniToolbox.Host;
-using TreeTools.Lifecycle;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

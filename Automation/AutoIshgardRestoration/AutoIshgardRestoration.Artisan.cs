@@ -1,8 +1,6 @@
 using System.Globalization;
 using Dalamud.Plugin.Ipc;
 using OmenTools.Dalamud;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

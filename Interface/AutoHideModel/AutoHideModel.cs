@@ -1,6 +1,4 @@
-using TreeTools.Lifecycle;
 using OmniToolbox.Common.Module.Abstractions;
-using OmniToolbox.Host;
 using System.Diagnostics;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
@@ -22,7 +20,6 @@ using OmenTools.Interop.Game.Models;
 using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
 using TerritoryIntendedUse = FFXIVClientStructs.FFXIV.Client.Enums.TerritoryIntendedUse;

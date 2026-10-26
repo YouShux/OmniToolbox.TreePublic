@@ -1,4 +1,3 @@
-using TreeTools.Lifecycle;
 using System.Globalization;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Plugin.Services;
@@ -9,7 +8,6 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Notifications;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

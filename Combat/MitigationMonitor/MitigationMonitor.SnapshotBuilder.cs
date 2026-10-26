@@ -4,7 +4,6 @@ using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using OmniToolbox.Game;
-using OmniToolbox.UI;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 using IBattleChara = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IBattleChara;

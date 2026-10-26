@@ -1,5 +1,4 @@
 using System.Globalization;
-using OmniToolbox.UI;
 using static OmniToolbox.TreePublic.MitigationMonitor;
 
 namespace OmniToolbox.TreePublic;

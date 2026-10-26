@@ -1,23 +1,20 @@
 using System.Diagnostics;
-using System.Linq;
+using CsvHelper;
 using Lumina.Excel.Sheets;
-using LuminaSupplemental.Excel.Model;
-using LuminaSupplemental.Excel.Services;
 using OmenTools.Info.Game.ItemSource;
 using OmenTools.Info.Game.ItemSource.Enums;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
+using OmniToolbox.Data;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class DutyLootPreview
 {
     private readonly Dictionary<uint, Dictionary<uint, HashSet<string>>> dropsByDuty = [];
-    private readonly Dictionary<(uint ContentFinderConditionID, uint FightNo), DungeonBoss> bossRows = [];
+    private readonly Dictionary<(uint ContentFinderConditionID, uint FightNo), uint> bossRows = [];
     private readonly Dictionary<(uint ContentFinderConditionID, uint FightNo), string> bossSources = [];
-    private readonly Dictionary<uint, DungeonChest> chestRows = [];
-    private List<DungeonChestItem>? pendingChestItems;
+    private readonly Dictionary<uint, uint> chestRows = [];
+    private List<(uint ChestID, uint ItemID)>? pendingChestItems;
     private int pendingChestItemIndex;
     private int dropsLoadStep = -1;
 
@@ -38,35 +35,48 @@ public sealed unsafe partial class DutyLootPreview
         switch (dropsLoadStep)
         {
             case 0:
-                foreach (var boss in Load<DungeonBoss>(CsvLoader.DungeonBossResourceName))
+                foreach (var boss in Load("DungeonBoss.csv", csv => (
+                    DutyID: csv.GetField<uint>("ContentFinderConditionId"),
+                    FightNo: csv.GetField<uint>("FightNo"),
+                    NameID: csv.GetField<uint>("BNpcNameId"))))
                 {
-                    bossRows.TryAdd((boss.ContentFinderConditionId, boss.FightNo), boss);
+                    bossRows.TryAdd((boss.DutyID, boss.FightNo), boss.NameID);
                 }
                 dropsLoadStep = 1;
                 return false;
             case 1:
-                foreach (var chest in Load<DungeonChest>(CsvLoader.DungeonChestResourceName))
+                foreach (var chest in Load("DungeonChest.csv", csv => (
+                    ID: csv.GetField<uint>("RowId"),
+                    DutyID: csv.GetField<uint>("ContentFinderConditionId"))))
                 {
-                    chestRows.TryAdd(chest.RowId, chest);
+                    chestRows.TryAdd(chest.ID, chest.DutyID);
                 }
                 dropsLoadStep = 2;
                 return false;
             case 2:
-                foreach (var drop in Load<DungeonBossDrop>(CsvLoader.DungeonBossDropResourceName))
+                foreach (var drop in Load("DungeonBossDrop.csv", csv => (
+                    DutyID: csv.GetField<uint>("ContentFinderConditionId"),
+                    FightNo: csv.GetField<uint>("FightNo"),
+                    ItemID: csv.GetField<uint>("ItemId"))))
                 {
-                    AddBoss(drop.ContentFinderConditionId, drop.FightNo, drop.ItemId);
+                    AddBoss(drop.DutyID, drop.FightNo, drop.ItemID);
                 }
                 dropsLoadStep = 3;
                 return false;
             case 3:
-                foreach (var drop in Load<DungeonBossChest>(CsvLoader.DungeonBossChestResourceName))
+                foreach (var drop in Load("DungeonBossChest.csv", csv => (
+                    DutyID: csv.GetField<uint>("ContentFinderConditionId"),
+                    FightNo: csv.GetField<uint>("FightNo"),
+                    ItemID: csv.GetField<uint>("ItemId"))))
                 {
-                    AddBoss(drop.ContentFinderConditionId, drop.FightNo, drop.ItemId);
+                    AddBoss(drop.DutyID, drop.FightNo, drop.ItemID);
                 }
                 dropsLoadStep = 4;
                 return false;
             case 4:
-                pendingChestItems = Load<DungeonChestItem>(CsvLoader.DungeonChestItemResourceName);
+                pendingChestItems = Load("DungeonChestItem.csv", csv => (
+                    ChestID: csv.GetField<uint>("ChestId"),
+                    ItemID: csv.GetField<uint>("ItemId")));
                 pendingChestItemIndex = 0;
                 dropsLoadStep = 5;
                 return false;
@@ -75,9 +85,9 @@ public sealed unsafe partial class DutyLootPreview
                 while (pendingChestItems is not null && pendingChestItemIndex < pendingChestItems.Count)
                 {
                     var drop = pendingChestItems[pendingChestItemIndex++];
-                    if (chestRows.TryGetValue(drop.ChestId, out var chest))
+                    if (chestRows.TryGetValue(drop.ChestID, out var dutyID))
                     {
-                        AddDrop(chest.ContentFinderConditionId, drop.ItemId, chestSource);
+                        AddDrop(dutyID, drop.ItemID, chestSource);
                     }
 
                     if (Stopwatch.GetElapsedTime(phaseStarted).TotalMilliseconds >= 8)
@@ -98,8 +108,8 @@ public sealed unsafe partial class DutyLootPreview
     {
         if (!bossSources.TryGetValue((dutyID, fight), out var source))
         {
-            source = bossRows.TryGetValue((dutyID, fight), out var boss) &&
-                     LuminaGetter.TryGetRow<BNpcName>(boss.BNpcNameId, out var name)
+            source = bossRows.TryGetValue((dutyID, fight), out var nameID) &&
+                     LuminaGetter.TryGetRow<BNpcName>(nameID, out var name)
                 ? name.Singular.ExtractText()
                 : string.Format(OmniLoc.Get(this, "Feature.DutyLootPreview.Boss"), fight);
             bossSources.Add((dutyID, fight), source);
@@ -108,10 +118,10 @@ public sealed unsafe partial class DutyLootPreview
         AddDrop(dutyID, itemID, source);
     }
 
-    private static List<T> Load<T>(string resourceName) where T : ICsv, new()
+    private static List<T> Load<T>(string fileName, Func<CsvReader, T> readRow)
     {
-        var rows = CsvLoader.LoadResource<T>(resourceName, true, out var failedLines, out var exceptions);
-
+        var rows = new List<T>();
+        EmbeddedData.ReadCSV(fileName, csv => rows.Add(readRow(csv)));
         return rows;
     }
 

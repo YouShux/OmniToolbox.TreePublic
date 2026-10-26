@@ -4,7 +4,6 @@ using OmenTools.Extensions;
 using OmenTools.ImGuiOm.Widgets.Combos;
 using OmenTools.Info.Game.Enums;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

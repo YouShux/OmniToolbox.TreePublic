@@ -6,8 +6,6 @@ using OmenTools.Interop.Game.Models;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using TreeTools.Lifecycle;
-using OmniToolbox.UI;
 
 namespace OmniToolbox.TreePublic;
 

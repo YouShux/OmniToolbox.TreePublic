@@ -1,13 +1,6 @@
 using TreeToolKit;
-using System;
 using System.Globalization;
-using System.Numerics;
-using Dalamud.Bindings.ImGui;
-using Dalamud.Interface.Utility.Raii;
 using OmenTools.Dalamud;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
-using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

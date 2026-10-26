@@ -1,4 +1,3 @@
-using TreeTools.Lifecycle;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net.WebSockets;
@@ -17,9 +16,7 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
 using OmniToolbox.Notifications;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;

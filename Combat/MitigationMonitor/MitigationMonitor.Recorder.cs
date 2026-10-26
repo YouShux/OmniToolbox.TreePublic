@@ -1,4 +1,3 @@
-using OmniToolbox.Host;
 using System.Globalization;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.DutyState;
@@ -10,7 +9,6 @@ using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using OmenTools;
 using OmenTools.OmenService;
 using OmniToolbox.Game;
-using TreeTools.Lifecycle;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 using static OmniToolbox.TreePublic.MitigationMonitor;
 using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;

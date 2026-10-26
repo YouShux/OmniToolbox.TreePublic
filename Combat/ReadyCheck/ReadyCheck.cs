@@ -1,4 +1,3 @@
-using TreeTools.Lifecycle;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
 using Dalamud.Interface.Textures;
@@ -15,8 +14,6 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using ContentFinderCondition = Lumina.Excel.Sheets.ContentFinderCondition;
 

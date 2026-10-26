@@ -5,8 +5,6 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using OmniToolbox.Host;
-using OmniToolbox.UI;
 using LuminaTerritoryType = Lumina.Excel.Sheets.TerritoryType;
 using static OmniToolbox.TreePublic.MitigationMonitor;
 
