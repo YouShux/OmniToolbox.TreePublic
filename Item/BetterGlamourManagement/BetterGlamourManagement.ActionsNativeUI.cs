@@ -21,6 +21,8 @@ public sealed partial class BetterGlamourManagement
         private TextButtonNode? exportButton;
         private TextButtonNode? managerButton;
         private TextButtonNode? clearButton;
+        private Vector2 layoutSize;
+        private Vector2 layoutStart;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
         public BetterGlamourActionsNativeUI(
@@ -68,6 +70,8 @@ public sealed partial class BetterGlamourManagement
             exportButton = null;
             managerButton = null;
             clearButton = null;
+            layoutSize = Vector2.Zero;
+            layoutStart = Vector2.Zero;
         }
 
         private TextButtonNode CreateButton(string textKey, Action onClick)
@@ -83,15 +87,21 @@ public sealed partial class BetterGlamourManagement
 
         private void ResizeContent()
         {
+            var size = ContentSize;
+            var start = ContentStartPosition;
+            if (layoutSize == size && layoutStart == start)
+                return;
+            layoutSize = size;
+            layoutStart = start;
             const float GAP = 6f;
-            var width = MathF.Max(80f, (ContentSize.X - GAP) / 2f);
-            var x = ContentStartPosition.X;
-            var y = ContentStartPosition.Y;
+            var width = MathF.Max(80f, (size.X - GAP) / 2f);
+            var x = start.X;
+            var y = start.Y;
             PositionButton(tryOnAllButton, x, y, width);
             PositionButton(saveButton, x + width + GAP, y, width);
             PositionButton(exportButton, x, y + 34f, width);
             PositionButton(managerButton, x + width + GAP, y + 34f, width);
-            PositionButton(clearButton, x, y + 68f, ContentSize.X);
+            PositionButton(clearButton, x, y + 68f, size.X);
         }
 
         private static void PositionButton(TextButtonNode? button, float x, float y, float width)

@@ -9,6 +9,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Client.UI.Shell;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using InteropGenerator.Runtime;
 using KamiToolKit.Nodes;
 using OmenTools;
 using OmenTools.Extensions;
@@ -56,6 +57,9 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
     private Hook<AddonActionBarBase.Delegates.ShowTooltip>? tooltipHook;
     private Hook<AtkDragDropManager.Delegates.Drop>? macroDropHook;
     private Hook<RaptureMacroModule.Delegates.SetSavePendingFlag>? macroSaveHook;
+    private delegate InputCallbackResult MacroInputCallbackDelegate(
+        AtkUnitBase* addon, InputCallbackType type, CStringPointer rawString, CStringPointer evaluatedString, int eventKind);
+    private Hook<MacroInputCallbackDelegate>? MacroInputCallbackHook;
     private bool macroIconsDirty = true;
     private AddonMacro* lineNumberAddon;
     private bool macroInputRepositioned;
@@ -65,7 +69,6 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
     private uint pendingSourceIcon;
     private uint pendingTargetIcon;
     private int pendingRefreshFrames;
-    private ulong macroCharacterContentID;
     private long macroScanRetryUntil;
 
     protected override void OnStart(FeatureLifetime activation)
@@ -76,7 +79,10 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             tooltipHook = null;
             macroDropHook = null;
             macroSaveHook = null;
+            MacroInputCallbackHook?.Dispose();
+            MacroInputCallbackHook = null;
         });
+        lifetime.OnStopping(() => MacroInputCallbackHook?.Disable());
         tooltipHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.ShowTooltip>(
             AddonActionBarBase.MemberFunctionPointers.ShowTooltip,
             OnShowTooltip);
@@ -96,12 +102,14 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         lifetime.OnStopping(macroSaveHook.Disable);
         macroSaveHook.Enable();
         macroIconsDirty = true;
-        macroCharacterContentID = 0;
         macroScanRetryUntil = Environment.TickCount64 + 30_000;
 
         var condition = DService.Instance().Condition;
         lifetime.OnStopping(() => condition.ConditionChange -= OnConditionChanged);
         condition.ConditionChange += OnConditionChanged;
+        var clientState = DService.Instance().ClientState;
+        lifetime.OnStopping(() => clientState.Login -= OnLogin);
+        clientState.Login += OnLogin;
 
         lifetime.Add(ClearMacroUI);
         var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
@@ -120,6 +128,8 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         }
 
         lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
+        if (AddonHelper.TryGetByName("Macro", out AddonMacro* addon) && IsMacroAddonVisible(addon))
+            RefreshMacroUI(addon);
         OnFrameworkUpdate(DService.Instance().Framework);
     }
 
@@ -127,6 +137,8 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
     {
         var changed = Panel.Draw(config);
         macroIconsDirty |= changed;
+        if (changed && AddonHelper.TryGetByName("Macro", out AddonMacro* addon) && IsMacroAddonVisible(addon))
+            RefreshMacroUI(addon);
         return changed;
     }
 
@@ -160,37 +172,27 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
 
     private void OnFrameworkUpdate(IFramework _)
     {
+        if ((!config.CustomIcons || !macroIconsDirty) && pendingRefreshFrames <= 0)
+            return;
         if (DService.Instance().Condition.IsBetweenAreas)
         {
             return;
         }
 
-        var macroModule = RaptureMacroModule.Instance();
-        var contentID = macroModule is null ? 0 : macroModule->CharacterContentId;
-        if (contentID != 0 && contentID != macroCharacterContentID)
+        if (config.CustomIcons && macroIconsDirty)
         {
-            macroCharacterContentID = contentID;
-            macroIconsDirty = true;
-            macroScanRetryUntil = Environment.TickCount64 + 30_000;
+            if (ScanAllMacroCustomIcons() || Environment.TickCount64 >= macroScanRetryUntil)
+                macroIconsDirty = false;
         }
 
-        if (config.CustomIcons)
-        {
-            ScanSelectedMacroEditorIcon();
-            if (macroIconsDirty)
-            {
-                if (ScanAllMacroCustomIcons())
-                    macroIconsDirty = false;
-            }
-        }
-
+        if (pendingRefreshFrames <= 0)
+            return;
         if (!AddonHelper.TryGetByName("Macro", out AddonMacro* addon) || !IsMacroAddonVisible(addon))
         {
+            pendingRefreshFrames = 0;
             return;
         }
 
-        EnsureMacroLineNumbers(addon);
-        EnsureMacroDropTargets(addon);
         RefreshPendingMacroSwap(addon);
     }
 
@@ -327,8 +329,7 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             return;
         }
 
-        EnsureMacroLineNumbers(addon);
-        EnsureMacroDropTargets(addon);
+        RefreshMacroUI(addon);
     }
 
     private void OnMacroRefresh(AddonEvent eventType, AddonArgs args)
@@ -342,8 +343,31 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             return;
         }
 
+        RefreshMacroUI(addon);
+    }
+
+    private void RefreshMacroUI(AddonMacro* addon)
+    {
         EnsureMacroLineNumbers(addon);
         EnsureMacroDropTargets(addon);
+        var input = (AtkComponentTextInput*)addon->GetComponentByNodeId(119);
+        if (MacroInputCallbackHook is null && input != null && input->Callback != null)
+        {
+            Hook<MacroInputCallbackDelegate> inputCallbackHook = null!;
+            inputCallbackHook = DService.Instance().Hook.HookFromAddress<MacroInputCallbackDelegate>(
+                (nint)input->Callback, (callbackAddon, type, rawString, evaluatedString, eventKind) =>
+                {
+                    var result = inputCallbackHook.Original(callbackAddon, type, rawString, evaluatedString, eventKind);
+                    if (config.CustomIcons && type == InputCallbackType.TextChanged &&
+                        callbackAddon == AddonHelper.GetByName("Macro"))
+                        ScanSelectedMacroEditorIcon();
+                    return result;
+                });
+            MacroInputCallbackHook = inputCallbackHook;
+            inputCallbackHook.Enable();
+        }
+        if (config.CustomIcons)
+            ScanSelectedMacroEditorIcon();
     }
 
     private void OnMacroPreRefresh(AddonEvent _, AddonArgs unusedArgs) => ClearMacroDropTargets();
@@ -454,7 +478,8 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             {
                 if (target.Component == dragDrop)
                 {
-                    dragDrop->AcceptedType = DragDropType.Macro;
+                    if (dragDrop->AcceptedType != DragDropType.Macro)
+                        dragDrop->AcceptedType = DragDropType.Macro;
                     continue;
                 }
 
@@ -768,6 +793,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             return;
         }
 
+        OnLogin();
+    }
+
+    private void OnLogin()
+    {
         macroIconsDirty = true;
         macroScanRetryUntil = Environment.TickCount64 + 30_000;
     }
@@ -782,7 +812,9 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
     private bool ScanAllMacroCustomIcons()
     {
         var macroModule = RaptureMacroModule.Instance();
-        if (macroModule is null || macroModule->CharacterContentId == 0)
+        var contentID = DService.Instance().PlayerState.ContentId;
+        if (!DService.Instance().ClientState.IsLoggedIn || macroModule is null || contentID == 0 ||
+            macroModule->CharacterContentId != contentID)
             return false;
 
         var addon = AddonHelper.GetByName<AddonMacro>("Macro");
