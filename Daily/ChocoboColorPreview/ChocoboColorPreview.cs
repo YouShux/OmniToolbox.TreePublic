@@ -218,24 +218,7 @@ public sealed unsafe partial class ChocoboColorPreview(
             return;
         }
 
-        var buddyState = buddyWindow->GetNodeState();
-        var buddyScale = buddyWindow->GetScale().X;
-        if (MathF.Abs(previewAddon->WindowNode->GetScale().X - buddyScale) > 0.001f)
-        {
-            previewAddon->SetScale(buddyScale / AtkUnitBase.GetGlobalUIScale(), true);
-        }
-        var previewState = previewAddon->WindowNode->GetNodeState();
-        var screenSize = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
-        var position = new Vector2(
-            Math.Clamp(
-                buddyState.TopLeft.X + buddyState.Width + 4f,
-                8f,
-                MathF.Max(8f, screenSize.X - previewState.Width - 8f)),
-            Math.Clamp(
-                buddyState.TopLeft.Y,
-                8f,
-                MathF.Max(8f, screenSize.Y - previewState.Height - 8f)));
-        nativeUI.SetWindowPosition(position);
+        OmniNativeWindowAttachment.SyncBeside(nativeUI, previewAddon, buddyAddon, 4f, 0f, preferRight: true);
     }
 
     private void EnsureData()

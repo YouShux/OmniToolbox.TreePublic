@@ -267,7 +267,7 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         var cancelSize = OmniControls.CompactButtonSize(cancelLabel);
         var actionsSize = OmniControls.MeasureGroup([confirmSize, cancelSize]);
         var textWidth = MathF.Max(ImGui.CalcTextSize(title).X, ImGui.CalcTextSize(message).X);
-        var viewportSize = ImGui.GetMainViewport().WorkSize;
+        var viewportSize = OmniWindowPlacement.GetWorkArea().Size;
         var width = MathF.Min(MathF.Floor(viewportSize.X), MathF.Ceiling(
             MathF.Max(textWidth, actionsSize.X) + ImGui.GetStyle().WindowPadding.X * 2f));
         OmniControls.SetNextAutoResizeWindowSizeConstraints(new Vector2(width, 1f), new Vector2(width, viewportSize.Y));

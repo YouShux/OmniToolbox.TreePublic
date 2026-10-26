@@ -173,6 +173,7 @@ internal sealed partial class FloatingInfoOverlay
                 flags |= ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse;
             using var windowPadding = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, Vector2.Zero);
             using var colors = ImRaii.PushColor(ImGuiCol.WindowBg, Vector4.Zero).Push(ImGuiCol.Border, Vector4.Zero);
+            ImGui.SetNextWindowViewport(ImGui.GetMainViewport().ID);
             var windowOpen = ImGui.Begin($"##OmniFloatingInfo_{groupID:X8}", flags);
             try
             {

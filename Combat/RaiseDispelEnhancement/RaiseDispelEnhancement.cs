@@ -326,6 +326,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                 ImGuiWindowFlags.NoBackground |
                 ImGuiWindowFlags.NoNav;
             ImGuiHelpers.ForceNextWindowMainViewport();
+            ImGui.SetNextWindowViewport(ImGui.GetMainViewport().ID);
             ImGui.SetNextWindowPos(ImGui.GetMainViewport().Pos);
             ImGui.SetNextWindowSize(ImGui.GetMainViewport().Size);
             var windowOpen = ImGui.Begin("##omniRaiseDispelEnhancementOverlay", FLAGS);

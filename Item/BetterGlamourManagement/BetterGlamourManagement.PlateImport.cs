@@ -54,8 +54,6 @@ public sealed unsafe partial class BetterGlamourManagement
         var plan = new List<PlateImportSlot>(InspectSlots.Length);
         var reservedDyes = new Dictionary<(InventoryType, short), PlateImportDye>();
         var missingDyes = new Dictionary<byte, int>();
-        var missingItems = 0;
-        var ignoredChannels = 0;
         Inventories.Player.TryGetItems(item => item.ItemId != 0 && item.Quantity > 0, out var inventory);
         var manager = MirageManager.Instance();
         var uiState = UIState.Instance();
@@ -68,26 +66,19 @@ public sealed unsafe partial class BetterGlamourManagement
                 !LuminaGetter.TryGetRow<Item>(itemID, out var row) ||
                 !FitsSlot(row, InspectSlots[index]))
             {
-                if (itemID != 0)
-                    missingItems++;
                 plan.Add(new((uint)index, default, 0, 0, 0));
                 continue;
             }
 
             var stain0 = row.DyeCount > 0 ? item?.Stain0 ?? 0 : (byte)0;
             var stain1 = row.DyeCount > 1 ? item?.Stain1 ?? 0 : (byte)0;
-            ignoredChannels += row.DyeCount < 1 && item?.Stain0 > 0 ? 1 : 0;
-            ignoredChannels += row.DyeCount < 2 && item?.Stain1 > 0 ? 1 : 0;
             var available0 = GetAvailablePlateImportDyes(stain0, inventory, reservedDyes);
             var available1 = stain0 == stain1 ? available0 : GetAvailablePlateImportDyes(stain1, inventory, reservedDyes);
             var source = FindPlateImportSource(manager, cabinet, itemID, index, stain0, stain1, row.DyeCount, available0, available1);
             var slot = new PlateImportSlot((uint)index, source, stain0, stain1, row.DyeCount);
             plan.Add(slot);
             if (source.ItemID == 0)
-            {
-                missingItems++;
                 continue;
-            }
             if (row.DyeCount > 0 && source.Stain0 != stain0)
                 slot.Dye0 = ReservePlateImportDye(stain0, inventory, reservedDyes, missingDyes);
             if (row.DyeCount > 1 && source.Stain1 != stain1)
@@ -200,11 +191,7 @@ public sealed unsafe partial class BetterGlamourManagement
                 GetPlateImportDyeItem(dye);
             OmniNotifier.Popup(
                 Title,
-                string.Format(
-                    OmniLoc.Get(this, "Feature.BetterGlamourManagement.PlateImport.Completed"),
-                    plateIndex + 1,
-                    missingItems,
-                    ignoredChannels),
+                string.Format(OmniLoc.Get(this, "Feature.BetterGlamourManagement.PlateImport.Completed"), plateIndex + 1),
                 NotificationType.Success);
             return true;
         });

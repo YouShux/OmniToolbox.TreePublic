@@ -22,7 +22,7 @@ public sealed partial class MitigationMonitor
 
         public void Draw()
         {
-            OmniControls.SetNextAutoResizeWindowSizeConstraints(Vector2.Zero, ImGui.GetMainViewport().WorkSize);
+            OmniControls.SetNextAutoResizeWindowSizeConstraints(Vector2.Zero, OmniWindowPlacement.GetWorkArea().Size);
             if (!ImGui.BeginPopup(HISTORY_POPUP_ID))
             {
                 return;
@@ -55,7 +55,7 @@ public sealed partial class MitigationMonitor
                 using var child = ImRaii.Child(
                     "##MitigationHistoryItems",
                     new(0f, MathF.Max(1f, MathF.Min(
-                        ImGui.GetMainViewport().WorkSize.Y - ImGui.GetCursorPosY() -
+                        OmniWindowPlacement.GetWorkArea().Size.Y - ImGui.GetCursorPosY() -
                         ImGui.GetStyle().WindowPadding.Y - ImGui.GetStyle().WindowBorderSize * 2f,
                         ImGui.GetTextLineHeightWithSpacing() * 12 * 2f))),
                     false);
@@ -151,7 +151,7 @@ public sealed partial class MitigationMonitor
 
         private void DrawImportPopup()
         {
-            OmniControls.SetNextAutoResizeWindowSizeConstraints(Vector2.Zero, ImGui.GetMainViewport().WorkSize);
+            OmniControls.SetNextAutoResizeWindowSizeConstraints(Vector2.Zero, OmniWindowPlacement.GetWorkArea().Size);
             if (!ImGui.BeginPopup(IMPORT_POPUP_ID))
             {
                 return;

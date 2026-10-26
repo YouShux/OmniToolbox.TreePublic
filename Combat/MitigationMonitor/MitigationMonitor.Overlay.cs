@@ -47,6 +47,7 @@ public sealed partial class MitigationMonitor
                 return;
             }
 
+            using var placement = new OmniWindowPlacement.WindowScope(config.Collapsed ? "###OmniMitigationMonitorCollapsed" : "###OmniMitigationMonitor");
             using var font = Fonts.GetUIFont().Push();
             if (config.Collapsed)
             {
@@ -55,7 +56,7 @@ public sealed partial class MitigationMonitor
             }
 
             var scaleChanged = MathF.Abs(lastScale - config.ScaleValue) > 0.001f;
-            var viewportSize = ImGui.GetMainViewport().WorkSize;
+            var viewportSize = OmniWindowPlacement.GetWorkArea("###OmniMitigationMonitor").Size;
             scaleChanged |= lastViewportSize != viewportSize;
             lastViewportSize = viewportSize;
             var targetPosition = config.Position;
@@ -113,6 +114,8 @@ public sealed partial class MitigationMonitor
                     W = 0.42f
                 });
 
+            OmniWindowPlacement.SetNextWindowPosition("###OmniMitigationMonitor",
+                positionCondition == ImGuiCond.Always || animatingExpansion ? targetPosition : null);
             if (ImGui.Begin($"{OmniLoc.Get("Feature.MitigationMonitor.Title")}###OmniMitigationMonitor", flags))
             {
                 ImGui.SetWindowFontScale(config.EffectiveScale);
@@ -180,6 +183,7 @@ public sealed partial class MitigationMonitor
 
             ImGui.SetNextWindowPos(config.CollapsedPosition, ImGuiCond.Always);
             ImGui.SetNextWindowSize(config.Scale(new Vector2(34f)), ImGuiCond.Always);
+            OmniWindowPlacement.SetNextWindowPosition("###OmniMitigationMonitorCollapsed", config.CollapsedPosition);
             using var styles = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, config.Scale(new Vector2(4f)))
                 .Push(ImGuiStyleVar.WindowRounding, config.Scale(4f))
                 .Push(ImGuiStyleVar.WindowBorderSize, OmniTheme.BorderThickness() * config.EffectiveScale);
@@ -201,7 +205,8 @@ public sealed partial class MitigationMonitor
                 {
                     collapsedIconDragged = true;
                     var delta = ImGui.GetIO().MouseDelta;
-                    config.CollapsedPosition = ImGui.GetWindowPos() + delta;
+                    config.CollapsedPosition = OmniWindowPlacement.ClampPosition(
+                        ImGui.GetWindowPos() + delta, ImGui.GetWindowSize(), true);
                     config.Position += delta;
                     ImGui.SetWindowPos(config.CollapsedPosition);
                     ImGui.SetMouseCursor(ImGuiMouseCursor.ResizeAll);

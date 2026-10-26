@@ -22,7 +22,7 @@ public sealed partial class AutoSwitchConfiguration
         using var popupStyles = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding, OmniTheme.PopupPadding())
             .Push(ImGuiStyleVar.PopupRounding, OmniTheme.Scale(OmniTheme.Tokens.BorderRadius))
             .Push(ImGuiStyleVar.PopupBorderSize, 0f);
-        var viewport = ImGui.GetMainViewport().WorkSize;
+        var viewport = OmniWindowPlacement.GetWorkArea().Size;
         ImGui.SetNextWindowSize(Vector2.Min(new Vector2(ImGui.GetFontSize() * 36f, ImGui.GetFontSize() * 22f),
             Vector2.Max(Vector2.One, viewport - ImGui.GetStyle().WindowPadding * 2f)));
         using var background = ImRaii.PushColor(ImGuiCol.PopupBg, OmniTheme.Tokens.Surface);
