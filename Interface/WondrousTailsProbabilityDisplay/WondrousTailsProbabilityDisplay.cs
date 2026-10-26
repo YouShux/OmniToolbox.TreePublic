@@ -40,7 +40,6 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : OmniModuleB
     ];
 
     private Calculator? calculator;
-    private readonly bool[] cells = new bool[16];
     private readonly Dictionary<uint, InstructionSnapshot> snapshots = [];
     private readonly Dictionary<string, (string Text, bool Separate)> instructionTexts = new(StringComparer.Ordinal);
     private string rewardInstruction = string.Empty;
@@ -51,7 +50,6 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : OmniModuleB
 
     protected override void OnStart(FeatureLifetime activation)
     {
-        calculator ??= new Calculator();
         var lifetime = Activation;
         lifetime.Add(() =>
         {
@@ -134,17 +132,16 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : OmniModuleB
         }
 
         var playerState = PlayerState.Instance();
-        if (playerState == null || calculator == null)
+        if (playerState == null)
         {
             return;
         }
 
         var mask = 0;
         var stickerCount = 0;
-        for (var index = 0; index < cells.Length; index++)
+        for (var index = 0; index < 16; index++)
         {
-            cells[index] = playerState->IsWeeklyBingoStickerPlaced(index);
-            if (!cells[index])
+            if (!playerState->IsWeeklyBingoStickerPlaced(index))
             {
                 continue;
             }
@@ -159,7 +156,8 @@ public sealed unsafe partial class WondrousTailsProbabilityDisplay : OmniModuleB
 
         if (lastMask != mask)
         {
-            displayLines = InstructionText.Format(this, calculator.Solve(cells), Calculator.GetShuffleAverage(stickerCount));
+            calculator ??= new Calculator();
+            displayLines = InstructionText.Format(this, calculator.Solve(mask), Calculator.GetShuffleAverage(stickerCount));
             lastMask = mask;
         }
 

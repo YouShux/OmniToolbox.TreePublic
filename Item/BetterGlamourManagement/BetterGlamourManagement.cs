@@ -1,10 +1,13 @@
 using System.Threading;
+using Dalamud.Game.Addon.Lifecycle;
+using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using KamiToolKit.BaseTypes;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
@@ -249,8 +252,22 @@ public sealed unsafe partial class BetterGlamourManagement(
         }
 
         Activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-        Activation.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= Draw);
-        DalamudServices.PluginInterface.UiBuilder.Draw += Draw;
+        var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
+        Activation.OnStopping(addonEvents.Dispose);
+        foreach (var addonName in new[] { CHARACTER_INSPECT_ADDON_NAME, GLAMOUR_PLATE_ADDON_NAME })
+        {
+            addonEvents.Register(AddonEvent.PostSetup, addonName, OnAttachedAddonEvent);
+            addonEvents.Register(AddonEvent.PostShow, addonName, OnAttachedAddonEvent);
+            addonEvents.Register(AddonEvent.PostRefresh, addonName, OnAttachedAddonEvent);
+            addonEvents.Register(AddonEvent.PostRequestedUpdate, addonName, OnAttachedAddonEvent);
+            addonEvents.Register(AddonEvent.PostUpdate, addonName, OnAttachedAddonEvent);
+            addonEvents.Register(AddonEvent.PreHide, addonName, OnAttachedAddonEvent);
+            addonEvents.Register(AddonEvent.PreFinalize, addonName, OnAttachedAddonEvent);
+        }
+        if (TryGetReadyAddon(CHARACTER_INSPECT_ADDON_NAME, out var inspectAddon))
+            RefreshInspectActions(inspectAddon);
+        if (TryGetReadyAddon(GLAMOUR_PLATE_ADDON_NAME, out var plateAddon))
+            RefreshPlateExport(plateAddon, true);
     }
 
     protected override void OnStop()
@@ -262,52 +279,75 @@ public sealed unsafe partial class BetterGlamourManagement(
         lastCharacterContentID = 0;
     }
 
-    private void Draw()
+    private void OnAttachedAddonEvent(AddonEvent type, AddonArgs args)
     {
-        DrawPlateExport();
-        DrawInspectActions();
+        var closing = type is AddonEvent.PreHide or AddonEvent.PreFinalize;
+        if (args.AddonName == CHARACTER_INSPECT_ADDON_NAME)
+        {
+            if (closing)
+                actionsNativeUI?.Close();
+            else
+                RefreshInspectActions((AtkUnitBase*)args.Addon.Address);
+        }
+        else if (closing)
+        {
+            AbortPlateImport();
+            plateExportNativeUI?.Close();
+        }
+        else
+        {
+            RefreshPlateExport((AtkUnitBase*)args.Addon.Address, type != AddonEvent.PostUpdate);
+        }
     }
 
-    private void DrawInspectActions()
+    private void RefreshInspectActions(AtkUnitBase* inspectAddon)
     {
-        if (!TryGetReadyAddon(CHARACTER_INSPECT_ADDON_NAME, out var inspectAddon) || actionsNativeUI is null)
+        if (inspectAddon == null || !inspectAddon->IsVisible || !inspectAddon->IsAddonAndNodesReady() ||
+            inspectAddon->WindowNode == null || actionsNativeUI is null)
         {
             actionsNativeUI?.Close();
             return;
         }
 
-        if (!actionsNativeUI.IsOpen)
+        PositionAttachedNativeUI(inspectAddon, actionsNativeUI, 2f);
+    }
+
+    private static void PositionAttachedNativeUI(AtkUnitBase* sourceAddon, NativeAddon nativeUI, float gap)
+    {
+        if (!nativeUI.IsOpen)
         {
-            actionsNativeUI.Open();
+            nativeUI.Open();
         }
 
-        AtkUnitBase* actionAddon = actionsNativeUI;
+        AtkUnitBase* actionAddon = nativeUI;
         var stage = AtkStage.Instance();
-        if (actionAddon == null || actionAddon->WindowNode == null || stage == null)
+        if (sourceAddon->WindowNode == null || actionAddon == null || actionAddon->WindowNode == null || stage == null)
         {
             return;
         }
 
-        var inspectState = inspectAddon->WindowNode->GetNodeState();
-        var inspectScale = inspectAddon->WindowNode->GetScale().X;
+        var inspectState = sourceAddon->WindowNode->GetNodeState();
+        var inspectScale = sourceAddon->WindowNode->GetScale().X;
         if (MathF.Abs(actionAddon->WindowNode->GetScale().X - inspectScale) > 0.001f)
         {
             actionAddon->SetScale(inspectScale / AtkUnitBase.GetGlobalUIScale(), true);
         }
         var actionState = actionAddon->WindowNode->GetNodeState();
         var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
-        var x = inspectState.TopLeft.X + inspectState.Width + 2f;
+        var x = inspectState.TopLeft.X + inspectState.Width + gap;
         if (x + actionState.Width > display.X - SCREEN_PADDING)
         {
-            x = MathF.Max(SCREEN_PADDING, inspectState.TopLeft.X - actionState.Width - 2f);
+            x = inspectState.TopLeft.X - actionState.Width - gap;
         }
 
-        actionsNativeUI.SetWindowPosition(new(
+        var position = new Vector2(
             Math.Clamp(x, SCREEN_PADDING, MathF.Max(SCREEN_PADDING, display.X - actionState.Width - SCREEN_PADDING)),
             Math.Clamp(
                 inspectState.TopLeft.Y,
                 SCREEN_PADDING,
-                MathF.Max(SCREEN_PADDING, display.Y - actionState.Height - SCREEN_PADDING))));
+                MathF.Max(SCREEN_PADDING, display.Y - actionState.Height - SCREEN_PADDING)));
+        if (actionAddon->X != (short)position.X || actionAddon->Y != (short)position.Y)
+            nativeUI.SetWindowPosition(position);
     }
 
     private void OnFrameworkUpdate(IFramework framework)
@@ -594,6 +634,7 @@ public sealed unsafe partial class BetterGlamourManagement(
     private void PresetChanged(BetterGlamourPreset preset)
     {
         saveConfig();
+        plateExportNativeUI?.RefreshState();
         QueuePortraitPreview(preset);
     }
 

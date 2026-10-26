@@ -20,7 +20,7 @@ public sealed partial class WondrousTailsProbabilityDisplay
         internal static bool HasProbabilityLines(string text) =>
             text.Split('\r', '\n').Any(IsGeneratedLine);
 
-        internal static (SeString ProbabilityLine, string AverageLine) Format(OmniModuleBase module, double[] values, double[] samples)
+        internal static (SeString ProbabilityLine, string AverageLine) Format(OmniModuleBase module, Probabilities values, Probabilities samples)
         {
             var probabilityPrefix = OmniLoc.Get(module, "Feature.WondrousTailsProbabilityDisplay.ProbabilityPrefix");
             var averagePrefix = OmniLoc.Get(module, "Feature.WondrousTailsProbabilityDisplay.AveragePrefix");
@@ -50,8 +50,8 @@ public sealed partial class WondrousTailsProbabilityDisplay
             return (probability.Build(), average);
         }
 
-        private static string FormatValues(OmniModuleBase module, double[] values) =>
-            string.Join("  ", values.Select((value, index) => FormatValue(module, index + 1, value)));
+        private static string FormatValues(OmniModuleBase module, Probabilities values) =>
+            $"{FormatValue(module, 1, values.OneLine)}  {FormatValue(module, 2, values.TwoLines)}  {FormatValue(module, 3, values.ThreeLines)}";
 
         private static string FormatValue(OmniModuleBase module, int lines, double probability) =>
             string.Format(OmniLoc.Get(module, "Feature.WondrousTailsProbabilityDisplay.ProbabilityValue"), lines, probability * 100);

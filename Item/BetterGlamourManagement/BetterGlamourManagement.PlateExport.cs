@@ -4,6 +4,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
 using KamiToolKit.Nodes;
 using OmenTools.Extensions;
+using OmenTools.Interop.Game.Helpers;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI.Theme;
 
@@ -22,6 +23,7 @@ public sealed unsafe partial class BetterGlamourManagement
         {
             config.EnableGlamourPlateExport = enabled;
             saveConfig();
+            RefreshPlateExport(AddonHelper.GetByName(GLAMOUR_PLATE_ADDON_NAME), true);
         }
 
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X, OmniTheme.Scale(4f));
@@ -61,65 +63,20 @@ public sealed unsafe partial class BetterGlamourManagement
         ui.Dispose();
     }
 
-    private void DrawPlateExport()
+    private void RefreshPlateExport(AtkUnitBase* plateAddon, bool refreshState)
     {
         if (!config.EnableGlamourPlateExport ||
             plateExportNativeUI is null ||
-            !TryGetReadyAddon(GLAMOUR_PLATE_ADDON_NAME, out var plateAddon) ||
-            !plateAddon->IsVisible)
+            plateAddon == null || !plateAddon->IsVisible || !plateAddon->IsAddonAndNodesReady() || plateAddon->WindowNode == null)
         {
             AbortPlateImport();
             plateExportNativeUI?.Close();
             return;
         }
 
-        PositionPlateExportNativeUI(plateAddon, plateExportNativeUI);
-    }
-
-    private static void PositionPlateExportNativeUI(
-        AtkUnitBase* plateAddon,
-        BetterGlamourPlateExportNativeUI nativeUI)
-    {
-        var plateWindow = plateAddon->WindowNode;
-        var stage = AtkStage.Instance();
-        if (plateWindow == null || stage == null)
-        {
-            nativeUI.Close();
-            return;
-        }
-
-        if (!nativeUI.IsOpen)
-        {
-            nativeUI.Open();
-        }
-
-        AtkUnitBase* nativeAddon = nativeUI;
-        if (nativeAddon == null || nativeAddon->WindowNode == null)
-        {
-            return;
-        }
-
-        var plateState = plateWindow->GetNodeState();
-        var plateScale = plateWindow->GetScale().X;
-        if (MathF.Abs(nativeAddon->WindowNode->GetScale().X - plateScale) > 0.001f)
-        {
-            nativeAddon->SetScale(plateScale / AtkUnitBase.GetGlobalUIScale(), true);
-        }
-
-        var nativeState = nativeAddon->WindowNode->GetNodeState();
-        var display = new Vector2(stage->ScreenSize.Width, stage->ScreenSize.Height);
-        var x = plateState.TopLeft.X + plateState.Width + SCREEN_PADDING;
-        if (x + nativeState.Width > display.X - SCREEN_PADDING)
-        {
-            x = plateState.TopLeft.X - nativeState.Width - SCREEN_PADDING;
-        }
-
-        nativeUI.SetWindowPosition(new(
-            Math.Clamp(x, SCREEN_PADDING, MathF.Max(SCREEN_PADDING, display.X - nativeState.Width - SCREEN_PADDING)),
-            Math.Clamp(
-                plateState.TopLeft.Y,
-                SCREEN_PADDING,
-                MathF.Max(SCREEN_PADDING, display.Y - nativeState.Height - SCREEN_PADDING))));
+        PositionAttachedNativeUI(plateAddon, plateExportNativeUI, SCREEN_PADDING);
+        if (refreshState)
+            plateExportNativeUI.RefreshState();
     }
 
     private static bool CanExportCurrentGlamourPlate()
@@ -249,6 +206,9 @@ public sealed unsafe partial class BetterGlamourManagement
         private string? displayedPresetName;
         private TextButtonNode? exportButton;
         private TextButtonNode? openManagerButton;
+        private bool selectedPresetHasItems;
+        private Vector2 layoutSize;
+        private Vector2 layoutStart;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
         public BetterGlamourPlateExportNativeUI(
@@ -325,6 +285,7 @@ public sealed unsafe partial class BetterGlamourManagement
             };
             openManagerButton.AttachNode(this);
             RefreshPresets();
+            RefreshState();
             ResizeContent();
         }
 
@@ -337,11 +298,10 @@ public sealed unsafe partial class BetterGlamourManagement
                  displayedPresetName != selected?.Name))
                 RefreshPresets();
             if (importButton is not null)
-                importButton.IsEnabled = selected is not null &&
-                                         selected.Items.Exists(static item => item.ItemID != 0) && canImport();
-            if (exportButton is not null)
             {
-                exportButton.IsEnabled = canExport();
+                var enabled = selectedPresetHasItems && canImport();
+                if (importButton.IsEnabled != enabled)
+                    importButton.IsEnabled = enabled;
             }
 
             ResizeContent();
@@ -358,6 +318,20 @@ public sealed unsafe partial class BetterGlamourManagement
             displayedPresetName = null;
             exportButton = null;
             openManagerButton = null;
+            selectedPresetHasItems = false;
+            layoutSize = Vector2.Zero;
+            layoutStart = Vector2.Zero;
+        }
+
+        internal void RefreshState()
+        {
+            selectedPresetHasItems = getSelectedPreset()?.Items.Exists(static item => item.ItemID != 0) == true;
+            if (exportButton is not null)
+            {
+                var enabled = canExport();
+                if (exportButton.IsEnabled != enabled)
+                    exportButton.IsEnabled = enabled;
+            }
         }
 
         private void RefreshPresets()
@@ -370,6 +344,7 @@ public sealed unsafe partial class BetterGlamourManagement
             presetDropDown.IsEnabled = presetDropDown.Options.Count > 0;
             presetDropDown.TextTooltip = selected?.Name ?? string.Empty;
             displayedPresetName = selected?.Name;
+            selectedPresetHasItems = selected?.Items.Exists(static item => item.ItemID != 0) == true;
         }
 
         private void ResizeContent()
@@ -378,6 +353,13 @@ public sealed unsafe partial class BetterGlamourManagement
             {
                 return;
             }
+
+            var size = ContentSize;
+            var start = ContentStartPosition;
+            if (layoutSize == size && layoutStart == start)
+                return;
+            layoutSize = size;
+            layoutStart = start;
 
             const float BUTTON_HEIGHT = 30f;
             const float BUTTON_GAP = 6f;
