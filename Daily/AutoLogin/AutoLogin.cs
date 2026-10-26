@@ -20,6 +20,7 @@ using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
+using OmniToolbox.Operations;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
@@ -77,6 +78,16 @@ public sealed unsafe partial class AutoLogin(
         activation.OnStopping(() => addonEvents?.Dispose());
         activation.OnStopping(() => DService.Instance().ClientState.Login -= OnLogin);
         activation.OnStopping(() => tasks.Abort());
+        activation.OnStopping(() =>
+        {
+            if (characterSwitch is { } request)
+            {
+                CompleteCharacterSwitch(request, OperationState.Cancelled, "ModuleStopped");
+                PublishCharacterSwitchResult(request);
+            }
+        });
+        tasks.LeaveBusyState += OnLoginTasksIdle;
+        activation.OnStopping(() => tasks.LeaveBusyState -= OnLoginTasksIdle);
 
         if (GameState.IsLoggedIn)
             suspendedUntilLogin = false;
@@ -98,6 +109,11 @@ public sealed unsafe partial class AutoLogin(
 
     protected override void OnStop()
     {
+        if (characterSwitch is { } request)
+        {
+            CompleteCharacterSwitch(request, OperationState.Cancelled, "ModuleStopped");
+            PublishCharacterSwitchResult(request);
+        }
         tasks = null!;
         addonEvents = null;
         manualTarget = null;
@@ -106,6 +122,12 @@ public sealed unsafe partial class AutoLogin(
 
     protected override bool OnInterruptAutomation()
     {
+        if (characterSwitch is { } request)
+        {
+            CompleteCharacterSwitch(request, OperationState.Cancelled, "Cancelled");
+            return true;
+        }
+
         if (tasks is not { IsBusy: true })
         {
             return false;
@@ -246,10 +268,20 @@ public sealed unsafe partial class AutoLogin(
         return changed;
     }
 
-    private void OnTaskFailed(TaskHelperTask _) => SuspendUntilNextLogin();
+    private void OnTaskFailed(TaskHelperTask task)
+    {
+        if (!task.Name.StartsWith($"{nameof(SwitchCharacterAsync)}:", StringComparison.Ordinal))
+            SuspendUntilNextLogin();
+    }
 
     public void SuspendUntilNextLogin()
     {
+        if (characterSwitch is { } request)
+        {
+            CompleteCharacterSwitch(request, OperationState.Failed, "LoginSuspended");
+            return;
+        }
+
         suspendedUntilLogin = true;
         tasks?.Abort();
         manualTarget = null;
@@ -263,8 +295,11 @@ public sealed unsafe partial class AutoLogin(
 
     private void OnLogin()
     {
-        tasks.Abort();
-        manualTarget = null;
+        if (characterSwitch is null)
+        {
+            tasks.Abort();
+            manualTarget = null;
+        }
         crossDataCenterTravelInProgress = false;
         suspendedUntilLogin = false;
         GetCurrentAccountTargets();
@@ -316,6 +351,7 @@ public sealed unsafe partial class AutoLogin(
             suspendedUntilLogin ||
             !GameState.IsLoggedIn ||
             GameState.ContentFinderCondition != 0 ||
+            characterSwitch is not null ||
             tasks.IsBusy ||
             !config.Targets.Any(candidate =>
                 candidate.WorldID == target.WorldID &&
@@ -382,10 +418,19 @@ public sealed unsafe partial class AutoLogin(
         var lobbyTravelReady = IsLobbyTravelReady();
         var target = manualTarget;
         if (GameState.IsLoggedIn || tasks.IsBusy || lobbyTravelReady ||
+            characterSwitch is not null ||
             (target is null && !config.Targets.Any(candidate => candidate.Enabled)))
         {
             return;
         }
+
+        EnqueueLogin(target);
+    }
+
+    private void EnqueueLogin(AutoLoginTarget? target, CharacterSwitchRequest? request = null)
+    {
+        if (request is not null)
+            request.AwaitingLogin = true;
 
         uint dataCenterID = 0;
         var requiresDataCenterLogin = target is not null && GameState.IsCN;
@@ -399,15 +444,16 @@ public sealed unsafe partial class AutoLogin(
             dataCenterID = targetWorld.DataCenter.RowId;
         }
 
-        tasks.Abort();
-        tasks.Enqueue(
+        if (request is null)
+            tasks.Abort();
+        EnqueueLoginStep(request,
             () =>
             {
                 tasks.DelayNext(LOBBY_TRAVEL_SETTLE_DELAY_MS);
                 return true;
             },
             "Wait for lobby travel state");
-        tasks.Enqueue(
+        EnqueueLoginStep(request,
             () =>
             {
                 if (target is null || IsLobbyTravelReady())
@@ -479,16 +525,20 @@ public sealed unsafe partial class AutoLogin(
         if (target is not null && GameState.IsCN)
         {
             tasks.EnqueueAsync(
-                () =>
+                cancellationToken =>
                 {
-                    var operation = RequestDataCenterLoginAsync(dataCenterID, requiresDataCenterLogin);
+                    var operation = request is null
+                        ? RequestDataCenterLoginAsync(dataCenterID, requiresDataCenterLogin)
+                        : RequestCharacterSwitchDataCenterAsync(dataCenterID, requiresDataCenterLogin, request, cancellationToken);
                     Activation.Track(operation);
                     return operation;
                 },
-                "Select target data center via DCTravelerX",
-                timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
+                request is null ? "Select target data center via DCTravelerX" : $"{nameof(SwitchCharacterAsync)}: Select target data center via DCTravelerX",
+                timeoutMS: CHARACTER_SELECT_TIMEOUT_MS,
+                timeoutAction: request is null ? null : () => CompleteCharacterSwitch(request, OperationState.Failed, "TaskTimeout"),
+                exceptionAction: request is null ? null : () => CompleteCharacterSwitch(request, OperationState.Failed, "TaskFailed"));
         }
-        tasks.Enqueue(
+        EnqueueLoginStep(request,
             () =>
             {
                 if (target is null || IsLobbyTravelReady() || GameState.IsCN)
@@ -503,7 +553,7 @@ public sealed unsafe partial class AutoLogin(
             },
             "Select target data center",
             timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
-        tasks.Enqueue(
+        EnqueueLoginStep(request,
             () =>
             {
                 if (IsLobbyTravelReady())
@@ -542,7 +592,7 @@ public sealed unsafe partial class AutoLogin(
                 return true;
             },
             "Open character selection");
-        tasks.Enqueue(
+        EnqueueLoginStep(request,
             () =>
             {
                 if (IsLobbyTravelReady())
@@ -566,7 +616,7 @@ public sealed unsafe partial class AutoLogin(
             },
             "Wait for character selection",
             timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
-        tasks.Enqueue(
+        EnqueueLoginStep(request,
             () =>
             {
                 if (IsLobbyTravelReady())
@@ -605,10 +655,22 @@ public sealed unsafe partial class AutoLogin(
                         continue;
                     }
 
+                    if (request is not null)
+                    {
+                        if (entry.ContentId == 0 ||
+                            (request.ExpectedContentID != 0 && request.ExpectedContentID != entry.ContentId))
+                        {
+                            CompleteCharacterSwitch(request, OperationState.Failed, "TargetMismatch");
+                            return true;
+                        }
+
+                        request.ExpectedContentID = entry.ContentId;
+                    }
+
                     var worldID = entry.LoginFlags == CharaSelectCharacterEntryLoginFlags.DCTraveling
                         ? entry.CurrentWorldId
                         : entry.HomeWorldId;
-                    tasks.Enqueue(
+                    EnqueueLoginStep(request,
                         () =>
                         {
                             if (IsLobbyTravelReady())
@@ -619,7 +681,7 @@ public sealed unsafe partial class AutoLogin(
                             return AgentLobbyEvent.SelectWorldByID(worldID);
                         },
                         "Select target world");
-                    tasks.Enqueue(
+                    EnqueueLoginStep(request,
                         () =>
                         {
                             if (IsLobbyTravelReady())
@@ -632,7 +694,7 @@ public sealed unsafe partial class AutoLogin(
                         },
                         "Wait for target world",
                         timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
-                    tasks.Enqueue(
+                    EnqueueLoginStep(request,
                         () =>
                         {
                             if (IsLobbyTravelReady())
@@ -644,7 +706,7 @@ public sealed unsafe partial class AutoLogin(
                         },
                         "Select target character",
                         timeoutMS: CHARACTER_SELECT_TIMEOUT_MS);
-                    tasks.Enqueue(
+                    EnqueueLoginStep(request,
                         () =>
                         {
                             if (!GameState.IsLoggedIn)
