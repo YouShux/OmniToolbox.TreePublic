@@ -21,6 +21,7 @@ public sealed unsafe partial class MoreMinimapInformation
 {
     private void UpdateMarkers(IFramework framework)
     {
+        mapController?.Update();
         foreach (var marker in objectMarkers.Values)
             marker.IsVisible = false;
 

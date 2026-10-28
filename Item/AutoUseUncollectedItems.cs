@@ -47,6 +47,7 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
     private readonly Config config;
     private readonly CollectionSourceService sourceService;
     private readonly Dictionary<uint, CollectionType> itemTypes = [];
+    private readonly Dictionary<uint, long> blindBoxRetryAt = [];
     private readonly Throttler<ulong> fieldNoteRequests = new();
     private TaskHelper? taskHelper;
 
@@ -161,7 +162,9 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
 
         var actionManager = ActionManager.Instance();
         var inventoryContext = AgentInventoryContext.Instance();
-        if (actionManager == null || inventoryContext == null || actionManager->AnimationLock > 0)
+        var inventoryManager = InventoryManager.Instance();
+        if (actionManager == null || inventoryContext == null || inventoryManager == null ||
+            actionManager->AnimationLock > 0)
             return;
 
         if (!Inventories.Player.TryGetFirstItem(CanUseCollectible, out var slot) &&
@@ -169,17 +172,27 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
              !Inventories.Player.TryGetFirstItem(CanOpenBlindBox, out slot)))
             return;
 
+        var baseItemID = slot->GetBaseItemId();
         var itemID = slot->GetItemId();
-        var container = slot->Container;
-        var slotIndex = slot->GetSlot();
-        var quantity = slot->GetQuantity();
-        if (inventoryContext->UseItem(itemID, container, slotIndex) != 0)
+        var quantity = inventoryManager->GetInventoryItemCount(baseItemID, false, false, false);
+        if (inventoryContext->UseItem(itemID) != 0)
+        {
+            DelayBlindBox(baseItemID);
             return;
+        }
 
         helper.Enqueue(() =>
-            DalamudServices.IsUnloading || !service.ClientState.IsLoggedIn ||
-            !InventorySlotAccess.TryGet(container, slotIndex, out var currentSlot) ||
-            currentSlot->GetItemId() != itemID || currentSlot->GetQuantity() != quantity);
+            {
+                if (DalamudServices.IsUnloading || !service.ClientState.IsLoggedIn)
+                    return true;
+
+                var currentManager = InventoryManager.Instance();
+                return currentManager != null &&
+                       currentManager->GetInventoryItemCount(baseItemID, false, false, false) < quantity;
+            },
+            "AutoUseUncollectedItems.WaitUse",
+            timeoutMS: 5_000,
+            timeoutAction: () => DelayBlindBox(baseItemID));
     }
 
     private bool CanUseCollectible(InventoryItem slot)
@@ -242,20 +255,32 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
 
     private bool CanOpenBlindBox(InventoryItem slot)
     {
-        var pool = sourceService.GetBlindBoxDropPool(slot.GetBaseItemId());
+        var blindBoxItemID = slot.GetBaseItemId();
+        if (blindBoxRetryAt.TryGetValue(blindBoxItemID, out var retryAt) &&
+            Environment.TickCount64 < retryAt)
+            return false;
+        blindBoxRetryAt.Remove(blindBoxItemID);
+
+        var pool = sourceService.GetBlindBoxDropPool(blindBoxItemID);
         if (pool.Count == 0 ||
             ActionManager.Instance()->GetActionStatus(ActionType.Item, slot.GetItemId()) != 0)
             return false;
 
-        foreach (var itemID in pool)
+        // 收录页的盲盒池包含无法由 UnlockState 标记的普通奖励，按奖励池实际的解锁状态判断。
+        foreach (var rewardItemID in pool)
         {
-            if (LuminaGetter.TryGetRow<Item>(itemID, out var item) &&
-                DalamudServices.UnlockState.IsItemUnlockable(item) &&
+            if (LuminaGetter.TryGetRow<Item>(rewardItemID, out var item) &&
                 !DalamudServices.UnlockState.IsItemUnlocked(item))
                 return true;
         }
 
         return false;
+    }
+
+    private void DelayBlindBox(uint itemID)
+    {
+        if (sourceService.GetBlindBoxDropPool(itemID).Count != 0)
+            blindBoxRetryAt[itemID] = Environment.TickCount64 + 60_000;
     }
 
     private sealed class Config

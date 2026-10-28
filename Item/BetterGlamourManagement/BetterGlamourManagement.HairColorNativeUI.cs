@@ -35,15 +35,17 @@ public sealed partial class BetterGlamourManagement
             return colors.Length != 0;
         }
         var data = HairColorData.Value;
-        var offset = highlights ? 0x400 : 0x4800 + ((tribe - 1) * 2 + sex) * 0x1400 + 4 * 0x400;
-        var count = highlights ? 192 : 208;
-        if (offset > data.Length - count * 4)
+        var offset = highlights
+            ? 0x2800
+            : 0x4800 + ((tribe - 1) * 2 + sex) * 0x1400 + 4 * 0x400;
+        const int PLAYER_COLOR_COUNT = 192;
+        if (offset > data.Length - PLAYER_COLOR_COUNT * 4)
         {
             HairPalettes[key] = [];
             return false;
         }
-        colors = new Vector4[count];
-        for (var index = 0; index < count; index++)
+        colors = new Vector4[PLAYER_COLOR_COUNT];
+        for (var index = 0; index < PLAYER_COLOR_COUNT; index++)
         {
             var position = offset + index * 4;
             colors[index] = new(data[position] / 255f, data[position + 1] / 255f, data[position + 2] / 255f, 1f);
@@ -62,10 +64,6 @@ public sealed partial class BetterGlamourManagement
         private readonly TextNode?[,] previewLabels = new TextNode?[2, 2];
         private readonly SimpleImageNode?[] selectionFrames = new SimpleImageNode?[2];
         private Action<int, byte>? onSelected;
-        private Action<bool>? onHighlightsChanged;
-        private TextNode? hairLabel;
-        private CheckboxNode? highlightsCheckbox;
-        private bool highlightsEnabled;
         private Vector2 lastContentPosition;
         private Vector2 lastContentSize;
 
@@ -86,11 +84,9 @@ public sealed partial class BetterGlamourManagement
             Vector4[] highlightPalette,
             byte hairColor,
             byte highlightColor,
-            bool enabled,
             byte originalHairColor,
             byte originalHighlightColor,
-            Action<int, byte> selected,
-            Action<bool> highlightsChanged)
+            Action<int, byte> selected)
         {
             colors[0] = hairPalette;
             colors[1] = highlightPalette;
@@ -98,9 +94,7 @@ public sealed partial class BetterGlamourManagement
             selectedIDs[1] = highlightColor;
             originalIDs[0] = originalHairColor;
             originalIDs[1] = originalHighlightColor;
-            highlightsEnabled = enabled;
             onSelected = selected;
-            onHighlightsChanged = highlightsChanged;
             if (!IsOpen)
             {
                 Size = GetRequiredContentSize() + new Vector2(ContentPadding.X * 2f + 8f, ContentPadding.Y + 54f);
@@ -110,33 +104,17 @@ public sealed partial class BetterGlamourManagement
                 RebuildPalettes();
         }
 
-        public void RefreshAppearance(byte hairColor, byte highlightColor, bool enabled)
+        public void RefreshAppearance(byte hairColor, byte highlightColor)
         {
             if (!IsOpen)
                 return;
             selectedIDs[0] = hairColor;
             selectedIDs[1] = highlightColor;
-            highlightsEnabled = enabled;
             RefreshSelection();
         }
 
         protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
         {
-            hairLabel = new()
-            {
-                String = OmniLoc.Get("Feature.BetterGlamourManagement.HairColor"),
-                FontSize = 16,
-                AlignmentType = AlignmentType.Left,
-                TextFlags = TextFlags.None
-            };
-            hairLabel.AttachNode(this);
-            highlightsCheckbox = new()
-            {
-                Height = 22f,
-                String = OmniLoc.Get("Feature.BetterGlamourManagement.HairColors.EnableHighlights"),
-                OnClick = SetHighlights
-            };
-            highlightsCheckbox.AttachNode(this);
             for (var channel = 0; channel < colors.Length; channel++)
             {
                 for (var comparison = 0; comparison < 2; comparison++)
@@ -169,13 +147,10 @@ public sealed partial class BetterGlamourManagement
         {
             RootNode.HideTooltip();
             onSelected = null;
-            onHighlightsChanged = null;
         }
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
-            hairLabel = null;
-            highlightsCheckbox = null;
             Array.Clear(previewNodes);
             Array.Clear(previewLabels);
             Array.Clear(selectionFrames);
@@ -185,13 +160,11 @@ public sealed partial class BetterGlamourManagement
                 colors[channel] = [];
             }
             onSelected = null;
-            onHighlightsChanged = null;
             lastContentPosition = lastContentSize = Vector2.Zero;
         }
 
         private unsafe void RebuildPalettes()
         {
-            highlightsCheckbox?.HideTooltip();
             for (var channel = 0; channel < colors.Length; channel++)
             {
                 selectionFrames[channel]?.Dispose();
@@ -239,33 +212,21 @@ public sealed partial class BetterGlamourManagement
 
         private void SelectColor(int channel, byte colorID)
         {
-            if (colorID >= colors[channel].Length || onSelected is null || channel == 1 && !highlightsEnabled)
+            if (colorID >= colors[channel].Length || onSelected is null)
                 return;
             selectedIDs[channel] = colorID;
             RefreshSelection();
             onSelected(channel, colorID);
         }
 
-        private void SetHighlights(bool enabled)
-        {
-            if (highlightsEnabled == enabled)
-                return;
-            highlightsEnabled = enabled;
-            RefreshSelection();
-            onHighlightsChanged?.Invoke(enabled);
-        }
-
         private void RefreshSelection()
         {
-            if (highlightsCheckbox is not null && highlightsCheckbox.IsChecked != highlightsEnabled)
-                highlightsCheckbox.IsChecked = highlightsEnabled;
             for (var channel = 0; channel < colors.Length; channel++)
             {
-                var enabled = channel == 0 || highlightsEnabled;
                 foreach (var swatch in swatches[channel])
                 {
-                    swatch.Alpha = enabled ? 1f : 0.45f;
-                    swatch.CollisionNode.ShowClickableCursor = enabled;
+                    swatch.Alpha = 1f;
+                    swatch.CollisionNode.ShowClickableCursor = true;
                 }
                 if (selectionFrames[channel] is { } frame)
                 {
@@ -273,7 +234,7 @@ public sealed partial class BetterGlamourManagement
                     frame.IsVisible = index < swatches[channel].Count;
                     if (frame.IsVisible)
                         frame.Position = swatches[channel][index].Position - new Vector2(2f);
-                    frame.Alpha = enabled ? 1f : 0.45f;
+                    frame.Alpha = 1f;
                 }
                 for (var comparison = 0; comparison < 2; comparison++)
                 {
@@ -289,8 +250,6 @@ public sealed partial class BetterGlamourManagement
 
         private void ResizeContent()
         {
-            if (hairLabel is null || highlightsCheckbox is null)
-                return;
             var requiredSize = GetRequiredContentSize();
             if (ContentSize != requiredSize)
                 SetWindowSize(Size - ContentSize + requiredSize);
@@ -298,13 +257,10 @@ public sealed partial class BetterGlamourManagement
                 return;
             lastContentPosition = ContentStartPosition;
             lastContentSize = ContentSize;
-            hairLabel.Position = ContentStartPosition + new Vector2(2f, 0f);
-            hairLabel.Size = new(GRID_WIDTH, 22f);
-            highlightsCheckbox.Position = hairLabel.Position + new Vector2(GRID_WIDTH + PANEL_GAP, 0f);
             var comparisonY = ContentStartPosition.Y + requiredSize.Y - 46f;
             for (var channel = 0; channel < colors.Length; channel++)
             {
-                var start = ContentStartPosition + new Vector2(2f + channel * (GRID_WIDTH + PANEL_GAP), 28f);
+                var start = ContentStartPosition + new Vector2(2f + channel * (GRID_WIDTH + PANEL_GAP), 0f);
                 for (var index = 0; index < swatches[channel].Count; index++)
                 {
                     swatches[channel][index].Position = start + new Vector2(index % COLUMN_COUNT * SWATCH_WIDTH, index / COLUMN_COUNT * SWATCH_HEIGHT);
@@ -330,7 +286,7 @@ public sealed partial class BetterGlamourManagement
 
         private Vector2 GetRequiredContentSize() => new(
             GRID_WIDTH * 2f + PANEL_GAP + 4f,
-            Math.Max((colors[0].Length + COLUMN_COUNT - 1) / COLUMN_COUNT, (colors[1].Length + COLUMN_COUNT - 1) / COLUMN_COUNT) * SWATCH_HEIGHT + 86f);
+            Math.Max((colors[0].Length + COLUMN_COUNT - 1) / COLUMN_COUNT, (colors[1].Length + COLUMN_COUNT - 1) / COLUMN_COUNT) * SWATCH_HEIGHT + 58f);
 
         private sealed class HairColorSwatchNode : SimpleComponentNode
         {

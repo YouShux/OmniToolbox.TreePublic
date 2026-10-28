@@ -2,18 +2,17 @@ using System.Numerics;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed partial class WondrousTailsProbabilityDisplay
+public sealed partial class BetterWondrousTails
 {
     internal sealed class Calculator
     {
         private readonly long[]?[] possibleBoards = new long[]?[1 << 16];
-        private static readonly Probabilities Error = new(-1, -1, -1);
 
         internal Probabilities Solve(int mask)
         {
             if (mask is < 0 or >= 1 << 16 || BitOperations.PopCount((uint)mask) > 9)
             {
-                return Error;
+                return Probabilities.Unavailable;
             }
 
             var counts = CalculateBoards(mask);
@@ -24,7 +23,7 @@ public sealed partial class WondrousTailsProbabilityDisplay
         internal static Probabilities GetShuffleAverage(int stickersPlaced) =>
             stickersPlaced is >= 1 and <= 7
                 ? new(6688d / 11440, 1208d / 11440, 24d / 11440)
-                : Error;
+                : Probabilities.Unavailable;
 
         private long[] CalculateBoards(int mask)
         {
@@ -66,6 +65,8 @@ public sealed partial class WondrousTailsProbabilityDisplay
 
     internal readonly record struct Probabilities(double OneLine, double TwoLines, double ThreeLines)
     {
+        internal static readonly Probabilities Unavailable = new(-1, -1, -1);
+
         internal int Length => 3;
 
         internal double this[int index] => index switch
