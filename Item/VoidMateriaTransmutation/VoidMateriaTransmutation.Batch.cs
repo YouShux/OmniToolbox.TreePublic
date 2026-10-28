@@ -29,8 +29,8 @@ public sealed unsafe partial class VoidMateriaTransmutation
             TimeoutMS = 15_000
         };
         Activation.Add(batchTasks);
-        batchTasks.TaskTimeout += _ => StopBatch("Feature.VoidMateriaTransmutation.BatchTimedOut");
-        batchTasks.TaskGetException += _ => StopBatch("Feature.VoidMateriaTransmutation.BatchFailed");
+        batchTasks.TaskTimeout += _ => StopBatch();
+        batchTasks.TaskGetException += _ => StopBatch();
     }
 
     private void DisposeBatch()
@@ -134,7 +134,7 @@ public sealed unsafe partial class VoidMateriaTransmutation
 
         if (remaining != 0)
         {
-            StopBatch("Feature.VoidMateriaTransmutation.BatchFinished");
+            StopBatch();
             return false;
         }
 
@@ -163,7 +163,7 @@ public sealed unsafe partial class VoidMateriaTransmutation
         var inventory = InventoryManager.Instance();
         if (agent == null || inventory == null)
         {
-            StopBatch("Feature.VoidMateriaTransmutation.BatchFailed");
+            StopBatch();
             return;
         }
 
@@ -187,12 +187,12 @@ public sealed unsafe partial class VoidMateriaTransmutation
                 }
             }
 
-            StopBatch("Feature.VoidMateriaTransmutation.BatchFailed");
+            StopBatch();
             return;
         }
 
         if (!agent->Confirm())
-            StopBatch("Feature.VoidMateriaTransmutation.BatchFailed");
+            StopBatch();
     }
 
     private bool WaitForBatchResult()
@@ -232,11 +232,7 @@ public sealed unsafe partial class VoidMateriaTransmutation
         return true;
     }
 
-    private void StopBatch(string messageKey)
-    {
-        batchTasks?.Abort();
-        NotifyHelper.Toast(OmniLoc.Get(messageKey));
-    }
+    private void StopBatch() => batchTasks?.Abort();
 
     private static readonly InventoryType[] InventoryContainers =
     [

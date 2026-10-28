@@ -87,7 +87,6 @@ public sealed unsafe partial class BetterGlamourManagement(
             ["Feature.BetterGlamourManagement.Export"] = "Feature.BetterGlamourManagement.Export",
             ["Feature.BetterGlamourManagement.HairColor"] = "Feature.BetterGlamourManagement.HairColor",
             ["Feature.BetterGlamourManagement.HairColors.Current"] = "Feature.BetterGlamourManagement.HairColors.Current",
-            ["Feature.BetterGlamourManagement.HairColors.EnableHighlights"] = "Feature.BetterGlamourManagement.HairColors.EnableHighlights",
             ["Feature.BetterGlamourManagement.HairColors.Original"] = "Feature.BetterGlamourManagement.HairColors.Original",
             ["Feature.BetterGlamourManagement.HairColors.Title"] = "Feature.BetterGlamourManagement.HairColors.Title",
             ["Feature.BetterGlamourManagement.HairPaletteUnavailable"] = "Feature.BetterGlamourManagement.HairPaletteUnavailable",

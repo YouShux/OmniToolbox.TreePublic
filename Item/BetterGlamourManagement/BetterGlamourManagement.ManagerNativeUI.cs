@@ -683,7 +683,7 @@ public sealed partial class BetterGlamourManagement
             onChanged(owner);
             pendingEditorRefresh = true;
             if (hairColorPicker?.IsOpen == true && GetHairAppearance() is { } appearance)
-                hairColorPicker.RefreshAppearance(appearance.HairColor, appearance.HighlightsColor, appearance.Highlights);
+                hairColorPicker.RefreshAppearance(appearance.HairColor, appearance.HighlightsColor);
         }
 
         private void OpenItemPicker(BetterGlamourPreset owner, BetterGlamourEditorItemKind kind, BetterGlamourItem? item)
@@ -809,7 +809,7 @@ public sealed partial class BetterGlamourManagement
             dyePicker?.Close();
             hairColorPicker ??= new();
             hairColorPicker.OpenFor(hairColors, highlightColors, appearance.HairColor, appearance.HighlightsColor,
-                appearance.Highlights, originalAppearance.HairColor, originalAppearance.HighlightsColor,
+                originalAppearance.HairColor, originalAppearance.HighlightsColor,
                 (channel, color) =>
                 {
                     if (!IsCurrentPreset(owner))
@@ -818,13 +818,6 @@ public sealed partial class BetterGlamourManagement
                         owner.HairColor = color;
                     else
                         owner.HighlightColor = color;
-                    NotifyPresetChanged(owner);
-                },
-                enabled =>
-                {
-                    if (!IsCurrentPreset(owner))
-                        return;
-                    owner.HighlightsEnabled = enabled;
                     NotifyPresetChanged(owner);
                 });
         }

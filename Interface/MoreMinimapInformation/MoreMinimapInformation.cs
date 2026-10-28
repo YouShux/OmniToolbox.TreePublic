@@ -2,12 +2,13 @@ using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Interface.Textures.TextureWraps;
 using FFXIVClientStructs.FFXIV.Client.UI;
-using KamiToolKit.MapOverlay;
 using KamiToolKit.Nodes;
+using OmenTools;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.UI.Theme;
+using TreeToolKit;
 
 namespace OmniToolbox.TreePublic;
 
@@ -41,7 +42,7 @@ public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation
 
     public override bool HasSettings => true;
 
-    private MapOverlayController? mapController;
+    private NativeMapOverlayController? mapController;
     private AddonEventRegistry? addonEvents;
     private ResNode? minimapRoot;
     private IDalamudTextureWrap? playerMarkerTexture;
@@ -57,7 +58,7 @@ public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation
 
         playerMarkerTexture = CreatePlayerMarkerTexture();
         activation.Add(playerMarkerTexture);
-        mapController = new MapOverlayController
+        mapController = new NativeMapOverlayController(DService.Instance().KeyState)
         {
             HideKey = config.HideKey
         };

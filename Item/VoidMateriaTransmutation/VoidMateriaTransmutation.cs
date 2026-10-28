@@ -36,6 +36,8 @@ public sealed unsafe partial class VoidMateriaTransmutation(
     public override ModuleInfo Info { get; } = new()
     {
         Category = ModuleCategory.Item,
+        PreviewImageURL =
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Item/VoidMateriaTransmutation-1.png",
         RequiresPrivateProvider = true,
         Commands =
         [
@@ -48,23 +50,10 @@ public sealed unsafe partial class VoidMateriaTransmutation(
         {
             ["Title"] = "VoidMateriaTransmutationTitle",
             ["Description"] = "VoidMateriaTransmutationDescription",
-            ["Feature.VoidMateriaTransmutation.AlreadyOpen"] = "Feature.VoidMateriaTransmutation.AlreadyOpen",
-            ["Feature.VoidMateriaTransmutation.BatchFailed"] = "Feature.VoidMateriaTransmutation.BatchFailed",
-            ["Feature.VoidMateriaTransmutation.BatchFinished"] = "Feature.VoidMateriaTransmutation.BatchFinished",
             ["Feature.VoidMateriaTransmutation.BatchStart"] = "Feature.VoidMateriaTransmutation.BatchStart",
             ["Feature.VoidMateriaTransmutation.BatchStop"] = "Feature.VoidMateriaTransmutation.BatchStop",
-            ["Feature.VoidMateriaTransmutation.BatchTimedOut"] = "Feature.VoidMateriaTransmutation.BatchTimedOut",
-            ["Feature.VoidMateriaTransmutation.Busy"] = "Feature.VoidMateriaTransmutation.Busy",
             ["Feature.VoidMateriaTransmutation.Command"] = "Feature.VoidMateriaTransmutation.Command",
-            ["Feature.VoidMateriaTransmutation.NotLoggedIn"] = "Feature.VoidMateriaTransmutation.NotLoggedIn",
-            ["Feature.VoidMateriaTransmutation.Open"] = "Feature.VoidMateriaTransmutation.Open",
-            ["Feature.VoidMateriaTransmutation.OpenFailed"] = "Feature.VoidMateriaTransmutation.OpenFailed",
-            ["Feature.VoidMateriaTransmutation.OpenTimedOut"] = "Feature.VoidMateriaTransmutation.OpenTimedOut",
-            ["Feature.VoidMateriaTransmutation.Opening"] = "Feature.VoidMateriaTransmutation.Opening",
-            ["Feature.VoidMateriaTransmutation.QuestRequired"] = "Feature.VoidMateriaTransmutation.QuestRequired",
-            ["Feature.VoidMateriaTransmutation.TeleportFailed"] = "Feature.VoidMateriaTransmutation.TeleportFailed",
-            ["Feature.VoidMateriaTransmutation.Unavailable"] = "Feature.VoidMateriaTransmutation.Unavailable",
-            ["TreeHouse.Status.VerificationRequired"] = "TreeHouse.Status.VerificationRequired"
+            ["Feature.VoidMateriaTransmutation.Open"] = "Feature.VoidMateriaTransmutation.Open"
         });
 
     public override bool HasSettings => true;
@@ -110,8 +99,8 @@ public sealed unsafe partial class VoidMateriaTransmutation(
             TimeoutMS = 10_000
         };
         lifetime.Add(taskHelper);
-        taskHelper.TaskTimeout += _ => Fail("Feature.VoidMateriaTransmutation.OpenTimedOut");
-        taskHelper.TaskGetException += _ => Fail("Feature.VoidMateriaTransmutation.OpenFailed");
+        taskHelper.TaskTimeout += _ => Stop();
+        taskHelper.TaskGetException += _ => Stop();
         InitializeBatch();
         lifetime.OnStopping(() => services.AddonLifecycle.UnregisterListener(OnWindowEvent));
         services.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, "TradeMultiple", OnWindowEvent);
@@ -129,8 +118,7 @@ public sealed unsafe partial class VoidMateriaTransmutation(
 
     public override bool DrawSettings()
     {
-        var reason = GetUnavailableReason();
-        using (ImRaii.Disabled(reason is not null))
+        using (ImRaii.Disabled(IsUnavailable()))
         {
             if (OmniControls.SmallButton(OmniLoc.Get(this, "Feature.VoidMateriaTransmutation.Open"), false))
                 _ = DalamudServices.Framework.RunOnFrameworkThread(RequestOpen);
@@ -166,11 +154,8 @@ public sealed unsafe partial class VoidMateriaTransmutation(
 
     private void RequestOpen()
     {
-        if (GetUnavailableReason() is { } reason)
-        {
-            NotifyHelper.ToastError(reason);
+        if (IsUnavailable())
             return;
-        }
 
         var helper = taskHelper;
         if (helper is null)
@@ -180,7 +165,7 @@ public sealed unsafe partial class VoidMateriaTransmutation(
         {
             if (!tryTeleport(DESTINATION_AETHERYTE_ID))
             {
-                Fail("Feature.VoidMateriaTransmutation.TeleportFailed");
+                Stop();
                 return;
             }
 
@@ -206,7 +191,7 @@ public sealed unsafe partial class VoidMateriaTransmutation(
     {
         if (!IsEnabled || !canUseFeature())
         {
-            Fail("TreeHouse.Status.VerificationRequired");
+            Stop();
             return false;
         }
 
@@ -222,13 +207,13 @@ public sealed unsafe partial class VoidMateriaTransmutation(
 
         if (services.ClientState.TerritoryType != destinationTerritoryID)
         {
-            Fail("Feature.VoidMateriaTransmutation.TeleportFailed");
+            Stop();
             return false;
         }
 
         if (services.Condition[ConditionFlag.InCombat])
         {
-            Fail("Feature.VoidMateriaTransmutation.Busy");
+            Stop();
             return false;
         }
 
@@ -327,34 +312,31 @@ public sealed unsafe partial class VoidMateriaTransmutation(
 
     private void OnLogout(int logoutType, int logoutCode) => Stop();
 
-    private string? GetUnavailableReason()
+    private bool IsUnavailable()
     {
         if (!IsEnabled || !canUseFeature())
-            return OmniLoc.Get("TreeHouse.Status.VerificationRequired");
+            return true;
 
         var services = DService.Instance();
         if (!services.ClientState.IsLoggedIn || !DalamudServices.PlayerState.IsLoaded)
-            return OmniLoc.Get(this, "Feature.VoidMateriaTransmutation.NotLoggedIn");
+            return true;
 
         if (!QuestManager.IsQuestComplete(UNLOCK_QUEST_ID))
-            return string.Format(OmniLoc.Get(this, "Feature.VoidMateriaTransmutation.QuestRequired"),
-                LuminaWrapper.GetQuestName(UNLOCK_QUEST_ID));
+            return true;
 
         if (taskHelper?.IsBusy == true)
-            return OmniLoc.Get(this, "Feature.VoidMateriaTransmutation.Opening");
+            return true;
 
         var condition = services.Condition;
         if (isTeleportBusy() || !UIModule.IsScreenReady() || condition.IsBetweenAreas ||
             condition.IsOccupiedInEvent || condition.IsOnMount || condition.IsCasting || condition[ConditionFlag.InCombat])
-            return OmniLoc.Get(this, "Feature.VoidMateriaTransmutation.Busy");
+            return true;
 
         var agent = AgentTradeMultiple.Instance();
         if (agent == null || UpstreamOpcode.EventStartOpcode == 0)
-            return OmniLoc.Get(this, "Feature.VoidMateriaTransmutation.Unavailable");
+            return true;
 
-        return agent->IsAgentActive()
-            ? OmniLoc.Get(this, "Feature.VoidMateriaTransmutation.AlreadyOpen")
-            : null;
+        return agent->IsAgentActive();
     }
 
     private void Stop()
@@ -403,12 +385,6 @@ public sealed unsafe partial class VoidMateriaTransmutation(
         {
             DalamudServices.PluginLog.Warning(exception, "Failed to restore materia transmutation scenes.");
         }
-    }
-
-    private void Fail(string reasonKey)
-    {
-        Stop();
-        NotifyHelper.ToastError(OmniLoc.Get(reasonKey));
     }
 
     #region 常量
