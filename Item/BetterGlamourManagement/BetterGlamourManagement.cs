@@ -44,7 +44,10 @@ public sealed unsafe partial class BetterGlamourManagement(
         [
             new ModuleCommand(
                 "Feature.BetterGlamourManagement.CommandDescription",
-                OmniCommandCatalog.Format("glamourmanager"))
+                OmniCommandCatalog.Format("glamourmanager")),
+            new ModuleCommand(
+                "Feature.BetterGlamourManagement.ClearTryOnCommandDescription",
+                OmniCommandCatalog.Format("cleartryon"))
         ]
     };
 
@@ -60,6 +63,7 @@ public sealed unsafe partial class BetterGlamourManagement(
             ["Feature.BetterGlamourManagement.Clear"] = "Feature.BetterGlamourManagement.Clear",
             ["Feature.BetterGlamourManagement.ClearGearsetBindings"] = "Feature.BetterGlamourManagement.ClearGearsetBindings",
             ["Feature.BetterGlamourManagement.ClearTryOn"] = "Feature.BetterGlamourManagement.ClearTryOn",
+            ["Feature.BetterGlamourManagement.ClearTryOnCommandDescription"] = "Command.cleartryon.Description",
             ["Feature.BetterGlamourManagement.Column.Stain0"] = "Feature.BetterGlamourManagement.Column.Stain0",
             ["Feature.BetterGlamourManagement.Column.Stain1"] = "Feature.BetterGlamourManagement.Column.Stain1",
             ["Feature.BetterGlamourManagement.CommandDescription"] = "Feature.BetterGlamourManagement.CommandDescription",
@@ -575,7 +579,7 @@ public sealed unsafe partial class BetterGlamourManagement(
         });
     }
 
-    private void ClearTryOn()
+    internal void ClearTryOn()
     {
         taskHelper?.Abort();
         activeTryOnPreset = null;
