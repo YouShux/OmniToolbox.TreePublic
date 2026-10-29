@@ -31,17 +31,15 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
             ["Feature.DynamicBattleEffects.TwentyFourPlayers"] = "Feature.DynamicBattleEffects.TwentyFourPlayers"
         });
 
-    public override bool HasSettings => true;
-
-    private static readonly string[] ConfigKeys =
+    private static readonly string[] ConfigKeys    =
         ["BattleEffectSelf", "BattleEffectParty", "BattleEffectOther", "BattleEffectPvPEnemyPc"];
-    private static readonly uint[] TargetTextIDs = [4087, 4088, 4089, 4109];
+    private static readonly uint[]   TargetTextIDs = [4087, 4088, 4089, 4109];
 
-    private uint[]? originalValues;
-    private uint[]? appliedValues;
+    private uint[]?  originalValues;
+    private uint[]?  appliedValues;
     private Profile? appliedProfile;
-    private uint appliedDutyID;
-    private ulong originalContentID;
+    private uint     appliedDutyID;
+    private ulong    originalContentID;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -61,6 +59,8 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
         RestoreOriginal();
     }
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings()
     {
         string[] labels =
@@ -75,14 +75,14 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
         var tableWidth = ImGui.GetContentRegionAvail().X;
         Span<float> widths = stackalloc float[labels.Length];
         Span<float> desiredWidths = stackalloc float[labels.Length];
-        widths[0] = MathF.Ceiling(MathF.Max(OmniControls.MeasureCheckbox(labels[0]).X,
+        widths[0]        = MathF.Ceiling(MathF.Max(OmniControls.MeasureCheckbox(labels[0]).X,
             OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.DynamicBattleEffects.LargeDuty")).X));
         desiredWidths[0] = widths[0];
         var modeWidth = (tableWidth - widths[0] - ImGui.GetStyle().CellPadding.X * labels.Length * 2f -
             labels.Length - 1f) / TargetTextIDs.Length;
         for (var index = 1; index < labels.Length; index++)
         {
-            widths[index] = MathF.Ceiling(MathF.Max(comboWidth, OmniControls.MeasureTableHeader(labels[index]).X));
+            widths[index]        = MathF.Ceiling(MathF.Max(comboWidth, OmniControls.MeasureTableHeader(labels[index]).X));
             desiredWidths[index] = MathF.Max(widths[index], modeWidth);
         }
 
@@ -102,10 +102,10 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
         var changed = OmniControls.Checkbox($"{labels[0]}##allDutyTypes", ref allEnabled);
         if (changed)
         {
-            config.FourPlayers.Enabled = allEnabled;
-            config.EightPlayers.Enabled = allEnabled;
+            config.FourPlayers.Enabled       = allEnabled;
+            config.EightPlayers.Enabled      = allEnabled;
             config.TwentyFourPlayers.Enabled = allEnabled;
-            config.LargeDuty.Enabled = allEnabled;
+            config.LargeDuty.Enabled         = allEnabled;
         }
 
         if (!detailLayout)
@@ -128,7 +128,13 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
         return changed;
     }
 
-    private static bool DrawProfile(string labelKey, Profile profile, ReadOnlySpan<string> labels, bool detailLayout)
+    private static bool DrawProfile
+    (
+        string               labelKey,
+        Profile              profile,
+        ReadOnlySpan<string> labels,
+        bool                 detailLayout
+    )
     {
         using var id = ImRaii.PushId(labelKey);
         ImGui.TableNextRow();
@@ -142,7 +148,13 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
         return changed;
     }
 
-    private static bool DrawMode(int index, ref DisplayMode mode, string label, bool detailLayout)
+    private static bool DrawMode
+    (
+        int             index,
+        ref DisplayMode mode,
+        string          label,
+        bool            detailLayout
+    )
     {
         OmniControls.NextTableField(label, detailLayout);
         using var combo = OmniControls.Combo($"##mode{index}", GetModeText(mode), ImGui.GetContentRegionAvail().X);
@@ -156,7 +168,7 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
         {
             if (ImGui.Selectable(GetModeText(value), mode == value))
             {
-                mode = value;
+                mode    = value;
                 changed = true;
             }
         }
@@ -166,7 +178,11 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
 
     private void OnUpdate(IFramework _) => Refresh();
 
-    private void OnLogout(int logoutType, int logoutCode) => RestoreOriginal();
+    private void OnLogout
+    (
+        int logoutType,
+        int logoutCode
+    ) => RestoreOriginal();
 
     private void Refresh(bool force = false)
     {
@@ -180,7 +196,7 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
         if (originalValues is not null && originalContentID != contentID)
         {
             originalValues = null;
-            appliedValues = null;
+            appliedValues  = null;
             appliedProfile = null;
         }
 
@@ -237,7 +253,7 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
         }
 
         appliedProfile = profile;
-        appliedDutyID = dutyID;
+        appliedDutyID  = dutyID;
     }
 
     private void RestoreOriginal()
@@ -261,10 +277,10 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
             }
         }
 
-        originalValues = null;
-        appliedValues = null;
-        appliedProfile = null;
-        appliedDutyID = 0;
+        originalValues    = null;
+        appliedValues     = null;
+        appliedProfile    = null;
+        appliedDutyID     = 0;
         originalContentID = 0;
     }
 
@@ -277,18 +293,18 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
 
     public sealed class Settings
     {
-        public Profile FourPlayers = new();
-        public Profile EightPlayers = new();
+        public Profile FourPlayers       = new();
+        public Profile EightPlayers      = new();
         public Profile TwentyFourPlayers = new();
-        public Profile LargeDuty = new();
+        public Profile LargeDuty         = new();
     }
 
     public sealed class Profile
     {
-        public bool Enabled;
+        public bool        Enabled;
         public DisplayMode Self;
-        public DisplayMode Party = DisplayMode.Limited;
-        public DisplayMode Other = DisplayMode.Limited;
+        public DisplayMode Party   = DisplayMode.Limited;
+        public DisplayMode Other   = DisplayMode.Limited;
         public DisplayMode Enemy;
     }
 

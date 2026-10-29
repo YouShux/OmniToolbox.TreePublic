@@ -1,4 +1,3 @@
-using OmniToolbox.Common.Module.Abstractions;
 using System.Diagnostics;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
@@ -18,6 +17,7 @@ using OmenTools.Extensions;
 using OmenTools.Info.Game.Data.Icons;
 using OmenTools.Interop.Game.Models;
 using OmenTools.OmenService;
+using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.UI.Theme;
@@ -67,41 +67,43 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
             ["Feature.AutoHideModel.YardObjects.Help"] = "Feature.AutoHideModel.YardObjects.Help"
         });
 
-    public override bool HasSettings => true;
-
-    private static readonly string[] AsylumVfxPaths = ["vfx/common/eff/abi_cnj022g.avfx"];
-    private static readonly string[] SacredSoilVfxPaths = ["vfx/common/eff/abi_swl053g.avfx"];
-    private static readonly CompSig GetYardPlotSignature = new(
+    private static readonly string[] AsylumVfxPaths       = ["vfx/common/eff/abi_cnj022g.avfx"];
+    private static readonly string[] SacredSoilVfxPaths   = ["vfx/common/eff/abi_swl053g.avfx"];
+    private static readonly CompSig  GetYardPlotSignature = new(
         "40 53 48 83 EC 20 0F B7 D9 B9 ?? ?? ?? ?? 66 3B D9 75 ?? 48 8B 05");
-    private static readonly CompSig SetLightActiveSignature = new(
-        "40 53 48 83 EC 20 80 61 ?? ?? 0F B6 C2 C0 E0 04 0F B6 DA 08 41 ?? 48 8B 01 FF 90");
-    private static readonly CompSig SetVfxActiveSignature = new(
-        "80 61 ?? ?? 0F B6 C2 C0 E0 04 08 41 ?? 48 8B 41 ?? 48 85 C0 74 ?? 80 A0 ?? ?? ?? ?? FE 08 90");
-    private readonly HashSet<nint> hiddenObjects = [];
-    private readonly HashSet<uint> friendPlayers = [];
-    private readonly HashSet<uint> partyPlayers = [];
-    private readonly HashSet<uint> freeCompanyPlayers = [];
-    private readonly HashSet<uint> beastmasterPlayers = [];
-    private readonly List<Vector3> nearbyAvailableQuestNPCPositions = [];
-    private readonly Dictionary<int, OutdoorPlotExteriorData> hiddenHouseOriginals = [];
-    private readonly Dictionary<int, (nint Address, uint ID, short FurnitureIndex, nint Layout)> hiddenYardObjects = [];
-    private readonly Dictionary<nint, (int ObjectIndex, uint InstanceKey, uint SubID)> hiddenYardEffects = [];
-    private (nint Address, uint Territory, sbyte Ward, byte Division) yardContext;
-    private GetYardPlotDelegate? getYardPlot;
-    private nint housingLayoutAddress;
-    private Hook<ActionEffectHandler.Delegates.Receive>? actionEffectHook;
-    private Hook<SetYardEffectActiveDelegate>? setLightActiveHook;
-    private Hook<SetYardEffectActiveDelegate>? setVfxActiveHook;
-    private long asylumBlockUntil;
-    private long asylumAllowUntil;
-    private long sacredSoilBlockUntil;
-    private long sacredSoilAllowUntil;
-    private bool asylumResourceBlocked;
-    private bool sacredSoilResourceBlocked;
-
     private delegate byte GetYardPlotDelegate(ushort furnitureIndex);
+    private GetYardPlotDelegate? GetYardPlot;
 
-    private delegate void SetYardEffectActiveDelegate(ILayoutInstance* instance, byte active);
+    private delegate void SetYardEffectActiveDelegate
+    (
+        ILayoutInstance* instance,
+        byte             active
+    );
+    private static readonly CompSig            SetLightActiveSignature = new(
+        "40 53 48 83 EC 20 80 61 ?? ?? 0F B6 C2 C0 E0 04 0F B6 DA 08 41 ?? 48 8B 01 FF 90");
+    private Hook<SetYardEffectActiveDelegate>? SetLightActiveHook;
+    private static readonly CompSig            SetVfxActiveSignature   = new(
+        "80 61 ?? ?? 0F B6 C2 C0 E0 04 08 41 ?? 48 8B 41 ?? 48 85 C0 74 ?? 80 A0 ?? ?? ?? ?? FE 08 90");
+    private Hook<SetYardEffectActiveDelegate>? SetVfxActiveHook;
+
+    private readonly HashSet<nint>                                                               hiddenObjects                    = [];
+    private readonly HashSet<uint>                                                               friendPlayers                    = [];
+    private readonly HashSet<uint>                                                               partyPlayers                     = [];
+    private readonly HashSet<uint>                                                               freeCompanyPlayers               = [];
+    private readonly HashSet<uint>                                                               beastmasterPlayers               = [];
+    private readonly List<Vector3>                                                               nearbyAvailableQuestNPCPositions = [];
+    private readonly Dictionary<int, OutdoorPlotExteriorData>                                    hiddenHouseOriginals             = [];
+    private readonly Dictionary<int, (nint Address, uint ID, short FurnitureIndex, nint Layout)> hiddenYardObjects                = [];
+    private readonly Dictionary<nint, (int ObjectIndex, uint InstanceKey, uint SubID)>           hiddenYardEffects                = [];
+    private (nint Address, uint Territory, sbyte Ward, byte Division)                            yardContext;
+    private nint                                                                                 housingLayoutAddress;
+    private Hook<ActionEffectHandler.Delegates.Receive>?                                         ActionEffectHook;
+    private long                                                                                 asylumBlockUntil;
+    private long                                                                                 asylumAllowUntil;
+    private long                                                                                 sacredSoilBlockUntil;
+    private long                                                                                 sacredSoilAllowUntil;
+    private bool                                                                                 asylumResourceBlocked;
+    private bool                                                                                 sacredSoilResourceBlocked;
 
     private long nextVisibilityWarningTick;
     private long nextEffectWarningTick;
@@ -113,33 +115,33 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         {
             Refresh();
         });
-        getYardPlot = GetYardPlotSignature.GetDelegate<GetYardPlotDelegate>();
-        setLightActiveHook = SetLightActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetLightActive);
+        GetYardPlot        = GetYardPlotSignature.GetDelegate<GetYardPlotDelegate>();
+        SetLightActiveHook = SetLightActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetLightActive);
         lifetime.Add(() =>
         {
-            setLightActiveHook?.Dispose();
-            setLightActiveHook = null;
+            SetLightActiveHook?.Dispose();
+            SetLightActiveHook = null;
         });
-        lifetime.OnStopping(setLightActiveHook.Disable);
-        setLightActiveHook.Enable();
-        setVfxActiveHook = SetVfxActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetVfxActive);
+        lifetime.OnStopping(SetLightActiveHook.Disable);
+        SetLightActiveHook.Enable();
+        SetVfxActiveHook = SetVfxActiveSignature.GetHook<SetYardEffectActiveDelegate>(OnSetVfxActive);
         lifetime.Add(() =>
         {
-            setVfxActiveHook?.Dispose();
-            setVfxActiveHook = null;
+            SetVfxActiveHook?.Dispose();
+            SetVfxActiveHook = null;
         });
-        lifetime.OnStopping(setVfxActiveHook.Disable);
-        setVfxActiveHook.Enable();
-        actionEffectHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
+        lifetime.OnStopping(SetVfxActiveHook.Disable);
+        SetVfxActiveHook.Enable();
+        ActionEffectHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
             ActionEffectHandler.MemberFunctionPointers.Receive,
             OnActionEffect);
         lifetime.Add(() =>
         {
-            actionEffectHook?.Dispose();
-            actionEffectHook = null;
+            ActionEffectHook?.Dispose();
+            ActionEffectHook = null;
         });
-        lifetime.OnStopping(actionEffectHook.Disable);
-        actionEffectHook.Enable();
+        lifetime.OnStopping(ActionEffectHook.Disable);
+        ActionEffectHook.Enable();
         if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
         {
             throw new InvalidOperationException("Auto hide model update registration failed.");
@@ -152,6 +154,8 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         lifetime.OnStopping(() => clientState.TerritoryChanged -= OnTerritoryChanged);
         clientState.TerritoryChanged += OnTerritoryChanged;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -217,9 +221,14 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         return true;
     }
 
-    private static bool DrawVisibilityTable(AutoHideModelConfig config, out Vector4 columnPositions, out float yardColumnPosition)
+    private static bool DrawVisibilityTable
+    (
+        AutoHideModelConfig config,
+        out Vector4         columnPositions,
+        out float           yardColumnPosition
+    )
     {
-        columnPositions = default;
+        columnPositions    = default;
         yardColumnPosition = 0f;
         var minimumWidth = MathF.Max(OmniTheme.Scale(82f), ImGui.GetFontSize() * 5f);
         var detailLayout = ImGui.GetContentRegionAvail().X < (minimumWidth + ImGui.GetStyle().CellPadding.X * 2f) * 7f;
@@ -291,7 +300,12 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         return changed;
     }
 
-    private static bool DrawHouseSettings(AutoHideModelConfig config, Vector4 columnPositions, float yardColumnPosition)
+    private static bool DrawHouseSettings
+    (
+        AutoHideModelConfig config,
+        Vector4             columnPositions,
+        float               yardColumnPosition
+    )
     {
         var label = $"{OmniLoc.Get("Feature.AutoHideModel.Houses")}：";
         if (columnPositions != Vector4.Zero)
@@ -334,11 +348,13 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         return changed;
     }
 
-    private static bool DrawUnitRow(
-        string labelKey,
-        string id,
+    private static bool DrawUnitRow
+    (
+        string             labelKey,
+        string             id,
         AutoHideUnitConfig config,
-        bool showDeadOption)
+        bool               showDeadOption
+    )
     {
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
@@ -388,7 +404,13 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         return changed;
     }
 
-    private static bool DrawCenteredCheckbox(string id, string labelKey, bool value, Action<bool> setValue)
+    private static bool DrawCenteredCheckbox
+    (
+        string       id,
+        string       labelKey,
+        bool         value,
+        Action<bool> setValue
+    )
     {
         ImGui.TableNextColumn();
         if (ImGui.TableGetColumnCount() == 1)
@@ -434,11 +456,13 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         ImGui.TextDisabled(text);
     }
 
-    private static bool DrawCheckbox(
-        string key,
-        string id,
-        bool value,
-        Action<bool> setValue)
+    private static bool DrawCheckbox
+    (
+        string       key,
+        string       id,
+        bool         value,
+        Action<bool> setValue
+    )
     {
         if (!OmniControls.Checkbox($"{OmniLoc.Get(key)}##autoHideModel{id}", ref value))
         {
@@ -587,7 +611,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         }
     }
 
-    private void RefreshPlayerContainers(GameObjectManager* objectManager, Character* localPlayer)
+    private void RefreshPlayerContainers
+    (
+        GameObjectManager* objectManager,
+        Character*         localPlayer
+    )
     {
         beastmasterPlayers.Clear();
         if (localPlayer->CharacterData.ClassJob == BEASTMASTER_CLASS_JOB_ID)
@@ -630,7 +658,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         }
     }
 
-    private void RefreshNearbyAvailableQuestNPCs(GameObjectManager* objectManager, GameObject* localGameObject)
+    private void RefreshNearbyAvailableQuestNPCs
+    (
+        GameObjectManager* objectManager,
+        GameObject*        localGameObject
+    )
     {
         nearbyAvailableQuestNPCPositions.Clear();
         for (var index = OBJECT_SCAN_START; index < UNIMPORTANT_NPC_SCAN_END; index++)
@@ -650,7 +682,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         }
     }
 
-    private bool ShouldShowPlayer(Character* character, int playerCount)
+    private bool ShouldShowPlayer
+    (
+        Character* character,
+        int        playerCount
+    )
     {
         var entityID = character->GameObject.EntityId;
         var showByConfig = config.Players.ShowDead && character->GameObject.IsDead() ||
@@ -671,12 +707,14 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
                showByConfig;
     }
 
-    private void ProcessOwnedObject(
-        GameObject* gameObject,
-        uint ownerID,
-        Character* localPlayer,
+    private void ProcessOwnedObject
+    (
+        GameObject*        gameObject,
+        uint               ownerID,
+        Character*         localPlayer,
         AutoHideUnitConfig unitConfig,
-        bool forceShow)
+        bool               forceShow
+    )
     {
         if (ownerID == localPlayer->GameObject.EntityId)
         {
@@ -687,10 +725,12 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         SetVisibility(gameObject, forceShow || ShouldShowOwnedObject(ownerID, unitConfig));
     }
 
-    private void ProcessNonCharacterPet(
+    private void ProcessNonCharacterPet
+    (
         GameObject* gameObject,
-        Character* localPlayer,
-        int objectIndex)
+        Character*  localPlayer,
+        int         objectIndex
+    )
     {
         if (!ShouldTreatAsNonCharacterPet(gameObject, objectIndex) || !ShouldHide(config.Minions))
         {
@@ -701,7 +741,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         ProcessOwnedObject(gameObject, gameObject->OwnerId, localPlayer, config.Minions, false);
     }
 
-    private bool ShouldShowOwnedObject(uint ownerID, AutoHideUnitConfig unitConfig)
+    private bool ShouldShowOwnedObject
+    (
+        uint               ownerID,
+        AutoHideUnitConfig unitConfig
+    )
     {
         if (!ShouldHide(unitConfig))
         {
@@ -713,7 +757,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
                unitConfig.ShowParty && IsObjectIDInParty(ownerID);
     }
 
-    private bool ShouldHideGroundEffectOwner(uint ownerID, Character* localPlayer) =>
+    private bool ShouldHideGroundEffectOwner
+    (
+        uint       ownerID,
+        Character* localPlayer
+    ) =>
         config.HideGroundHealingEffects &&
         ownerID != localPlayer->GameObject.EntityId &&
         !IsObjectIDInParty(ownerID);
@@ -731,7 +779,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
             CharacterManager.Instance()->LookupBattleCharaByEntityId(target->TargetId.ObjectId) == character;
     }
 
-    private void SetVisibility(GameObject* gameObject, bool visible)
+    private void SetVisibility
+    (
+        GameObject* gameObject,
+        bool        visible
+    )
     {
         if (visible)
         {
@@ -801,13 +853,15 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         }
     }
 
-    private void OnActionEffect(
-        uint casterEntityID,
-        Character* caster,
-        Vector3* targetPosition,
-        ActionEffectHandler.Header* header,
+    private void OnActionEffect
+    (
+        uint                               casterEntityID,
+        Character*                         caster,
+        Vector3*                           targetPosition,
+        ActionEffectHandler.Header*        header,
         ActionEffectHandler.TargetEffects* effects,
-        GameObjectId* targetEntityIds)
+        GameObjectId*                      targetEntityIds
+    )
     {
         try
         {
@@ -829,7 +883,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         }
         finally
         {
-            actionEffectHook!.Original(
+            ActionEffectHook!.Original(
                 casterEntityID,
                 caster,
                 targetPosition,
@@ -839,7 +893,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         }
     }
 
-    private void SetGroundEffectDecision(GroundHealingVfxKind kind, bool shouldBlock)
+    private void SetGroundEffectDecision
+    (
+        GroundHealingVfxKind kind,
+        bool                 shouldBlock
+    )
     {
         var until = Stopwatch.GetTimestamp() + Stopwatch.Frequency * 4;
         switch (kind)
@@ -926,8 +984,8 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
 
     private void ClearGroundEffectDecisions()
     {
-        asylumBlockUntil = 0;
-        asylumAllowUntil = 0;
+        asylumBlockUntil     = 0;
+        asylumAllowUntil     = 0;
         sacredSoilBlockUntil = 0;
         sacredSoilAllowUntil = 0;
         if (asylumResourceBlocked)
@@ -959,7 +1017,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         ClearGroundEffectDecisions();
     }
 
-    private void OnLogout(int _, int unusedReason) => Refresh();
+    private void OnLogout
+    (
+        int _,
+        int unusedReason
+    ) => Refresh();
 
     private void OnTerritoryChanged(uint _) => Refresh();
 
@@ -990,7 +1052,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
             yardContext = context;
         }
 
-        restore |= ward < 0 || division is not (1 or 2) || getYardPlot is null;
+        restore |= ward < 0 || division is not (1 or 2) || GetYardPlot is null;
         var ownedPlots = restore ? 0UL : GetOwnedHousePlots(ward);
         var objects = outdoor->FurnitureManager.ObjectManager.ObjectArray.Objects;
         for (var index = 0; index < objects.Length; index++)
@@ -1023,7 +1085,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
                 housingObject->HousingFurnitureIndex >= 0 &&
                 housingObject->HousingFurnitureIndex < outdoor->FurnitureManager.FurnitureMemory.Length)
             {
-                var plot = getYardPlot!((ushort)housingObject->HousingFurnitureIndex);
+                var plot = GetYardPlot!((ushort)housingObject->HousingFurnitureIndex);
                 shouldHide = plot < 60 && (ownedPlots & (1UL << plot)) == 0;
             }
 
@@ -1047,7 +1109,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         }
     }
 
-    private void TrackYardEffects(SharedGroupLayoutInstance* group, int objectIndex)
+    private void TrackYardEffects
+    (
+        SharedGroupLayoutInstance* group,
+        int                        objectIndex
+    )
     {
         foreach (var child in group->Instances.Instances)
         {
@@ -1068,13 +1134,25 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         }
     }
 
-    private void OnSetLightActive(ILayoutInstance* instance, byte active) =>
-        setLightActiveHook!.Original(instance, FilterYardEffectActivation(instance, active));
+    private void OnSetLightActive
+    (
+        ILayoutInstance* instance,
+        byte             active
+    ) =>
+        SetLightActiveHook!.Original(instance, FilterYardEffectActivation(instance, active));
 
-    private void OnSetVfxActive(ILayoutInstance* instance, byte active) =>
-        setVfxActiveHook!.Original(instance, FilterYardEffectActivation(instance, active));
+    private void OnSetVfxActive
+    (
+        ILayoutInstance* instance,
+        byte             active
+    ) =>
+        SetVfxActiveHook!.Original(instance, FilterYardEffectActivation(instance, active));
 
-    private byte FilterYardEffectActivation(ILayoutInstance* instance, byte active)
+    private byte FilterYardEffectActivation
+    (
+        ILayoutInstance* instance,
+        byte             active
+    )
     {
         if (active != 0 && instance != null && config.HideYardObjects &&
             hiddenYardEffects.TryGetValue((nint)instance, out var effect) &&
@@ -1165,7 +1243,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
             for (var part = 0; part < 8; part++)
             {
                 hiddenExterior.HousingExteriorIds[part] = 0;
-                hiddenExterior.StainIds[part] = 0;
+                hiddenExterior.StainIds[part]           = 0;
             }
 
             SetHouseExterior(layout, plot, hiddenExterior);
@@ -1198,17 +1276,19 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         housingLayoutAddress = 0;
     }
 
-    private static unsafe void SetHouseExterior(
-        LayoutManager* layout,
-        int plot,
-        OutdoorPlotExteriorData exteriorData)
+    private static unsafe void SetHouseExterior
+    (
+        LayoutManager*          layout,
+        int                     plot,
+        OutdoorPlotExteriorData exteriorData
+    )
     {
         layout->HousingLayoutDataUpdatePending = true;
         for (var part = 0; part < 8; part++)
         {
             layout->OutdoorExteriorData->Plots[plot].HousingExteriorIds[part] =
                 exteriorData.HousingExteriorIds[part];
-            layout->OutdoorExteriorData->Plots[plot].StainIds[part] = exteriorData.StainIds[part];
+            layout->OutdoorExteriorData->Plots[plot].StainIds[part]           = exteriorData.StainIds[part];
         }
     }
 
@@ -1244,7 +1324,12 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
             return 0;
         }
 
-        static bool Matches(HouseId house, ushort territory, sbyte ward) =>
+        static bool Matches
+        (
+            HouseId house,
+            ushort  territory,
+            sbyte   ward
+        ) =>
             house.Id != 0 &&
             !house.IsApartment &&
             !house.IsWorkshop &&
@@ -1294,7 +1379,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         unitConfig.HideAll ||
         unitConfig.HideInCombat && DService.Instance().Condition[ConditionFlag.InCombat];
 
-    private static bool ShouldTreatAsNonCharacterPet(GameObject* gameObject, int objectIndex) =>
+    private static bool ShouldTreatAsNonCharacterPet
+    (
+        GameObject* gameObject,
+        int         objectIndex
+    ) =>
         objectIndex < OBJECT_SCAN_END &&
         objectIndex % 2 == 1 &&
         gameObject->ObjectKind != ClientObjectKind.Mount &&
@@ -1352,7 +1441,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         return false;
     }
 
-    private static bool IsSameFreeCompany(Character* character, Character* localPlayer)
+    private static bool IsSameFreeCompany
+    (
+        Character* character,
+        Character* localPlayer
+    )
     {
         if (localPlayer->FreeCompanyTag[0] == 0 || localPlayer->CurrentWorld != localPlayer->HomeWorld)
         {
@@ -1390,7 +1483,11 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         return null;
     }
 
-    private static bool TryGetGroundHealingVfxKind(uint actionID, out GroundHealingVfxKind kind)
+    private static bool TryGetGroundHealingVfxKind
+    (
+        uint                     actionID,
+        out GroundHealingVfxKind kind
+    )
     {
         switch (actionID)
         {

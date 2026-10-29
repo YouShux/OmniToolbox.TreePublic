@@ -12,7 +12,7 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class BackgroundChatReminder
 {
-    internal static class BackgroundChatReminderPanel
+    private static class BackgroundChatReminderPanel
     {
         public static bool Draw(Settings config)
         {
@@ -34,7 +34,7 @@ public sealed partial class BackgroundChatReminder
             if (OmniControls.Checkbox(OmniLoc.Get("Feature.BackgroundChatReminder.Tell"), ref tell))
             {
                 config.EnableFlashOnTell = tell;
-                changed = true;
+                changed                  = true;
             }
 
             ImGui.TableNextColumn();
@@ -42,7 +42,7 @@ public sealed partial class BackgroundChatReminder
             if (OmniControls.Checkbox(OmniLoc.Get("Feature.BackgroundChatReminder.Party"), ref party))
             {
                 config.EnableFlashOnParty = party;
-                changed = true;
+                changed                   = true;
             }
 
             return changed;

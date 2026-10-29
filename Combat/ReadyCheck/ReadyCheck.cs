@@ -48,18 +48,16 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
             ["Feature.ReadyCheck.Seconds"] = "Feature.ReadyCheck.Seconds"
         });
 
-    public override bool HasSettings => true;
-
-    private readonly List<ReadyCheckMember> members = new(48);
-    private readonly HashSet<uint> instancedTerritories = [];
-    private Hook<AgentReadyCheck.Delegates.InitiateReadyCheck>? initiateHook;
-    private Hook<AgentReadyCheck.Delegates.EndReadyCheck>? endHook;
-    private ISharedImmediateTexture? readyCheckTexture;
-    private ISharedImmediateTexture? notPresentTexture;
-    private bool instancedTerritoriesInitialized;
-    private bool readyCheckActive;
-    private bool overlayVisible;
-    private long clearAfterTick;
+    private readonly List<ReadyCheckMember>                     members                         = new(48);
+    private readonly HashSet<uint>                              instancedTerritories            = [];
+    private Hook<AgentReadyCheck.Delegates.InitiateReadyCheck>? InitiateReadyCheckHook;
+    private Hook<AgentReadyCheck.Delegates.EndReadyCheck>?      EndReadyCheckHook;
+    private ISharedImmediateTexture?                            readyCheckTexture;
+    private ISharedImmediateTexture?                            notPresentTexture;
+    private bool                                                instancedTerritoriesInitialized;
+    private bool                                                readyCheckActive;
+    private bool                                                overlayVisible;
+    private long                                                clearAfterTick;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -69,23 +67,23 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
         var lifetime = Activation;
         lifetime.Add(() =>
         {
-            initiateHook = null;
-            endHook = null;
+            InitiateReadyCheckHook = null;
+            EndReadyCheckHook      = null;
             ClearState();
         });
-        initiateHook = DService.Instance().Hook.HookFromAddress<AgentReadyCheck.Delegates.InitiateReadyCheck>(
+        InitiateReadyCheckHook = DService.Instance().Hook.HookFromAddress<AgentReadyCheck.Delegates.InitiateReadyCheck>(
             AgentReadyCheck.MemberFunctionPointers.InitiateReadyCheck,
             OnInitiateReadyCheck);
-        lifetime.Add(initiateHook.Dispose);
-        lifetime.OnStopping(initiateHook.Disable);
-        initiateHook.Enable();
+        lifetime.Add(InitiateReadyCheckHook.Dispose);
+        lifetime.OnStopping(InitiateReadyCheckHook.Disable);
+        InitiateReadyCheckHook.Enable();
 
-        endHook = DService.Instance().Hook.HookFromAddress<AgentReadyCheck.Delegates.EndReadyCheck>(
+        EndReadyCheckHook = DService.Instance().Hook.HookFromAddress<AgentReadyCheck.Delegates.EndReadyCheck>(
             AgentReadyCheck.MemberFunctionPointers.EndReadyCheck,
             OnEndReadyCheck);
-        lifetime.Add(endHook.Dispose);
-        lifetime.OnStopping(endHook.Disable);
-        endHook.Enable();
+        lifetime.Add(EndReadyCheckHook.Dispose);
+        lifetime.OnStopping(EndReadyCheckHook.Disable);
+        EndReadyCheckHook.Enable();
 
         if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate))
         {
@@ -104,6 +102,8 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
         lifetime.OnStopping(() => services.Condition.ConditionChange -= OnConditionChanged);
         services.Condition.ConditionChange += OnConditionChanged;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings() => Panel.Draw(config);
 
@@ -187,13 +187,15 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
         }
     }
 
-    private void DrawOnPartyList(
-        int index,
+    private void DrawOnPartyList
+    (
+        int              index,
         ReadyCheckStatus status,
-        AddonPartyList* partyList,
-        ImDrawListPtr drawList,
-        ImTextureID readyCheckTextureHandle,
-        ImTextureID notPresentTextureHandle)
+        AddonPartyList*  partyList,
+        ImDrawListPtr    drawList,
+        ImTextureID      readyCheckTextureHandle,
+        ImTextureID      notPresentTextureHandle
+    )
     {
         if (index is < 0 or > 7 || partyList == null || !IsActuallyVisible(&partyList->AtkUnitBase))
         {
@@ -229,13 +231,15 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
             notPresentTextureHandle);
     }
 
-    private void DrawOnAllianceList(
-        int index,
-        ReadyCheckStatus status,
+    private void DrawOnAllianceList
+    (
+        int                 index,
+        ReadyCheckStatus    status,
         AddonAllianceListX* allianceList,
-        ImDrawListPtr drawList,
-        ImTextureID readyCheckTextureHandle,
-        ImTextureID notPresentTextureHandle)
+        ImDrawListPtr       drawList,
+        ImTextureID         readyCheckTextureHandle,
+        ImTextureID         notPresentTextureHandle
+    )
     {
         if (index is < 0 or > 7 || allianceList == null || !IsActuallyVisible(&allianceList->AtkUnitBase))
         {
@@ -269,14 +273,16 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
             notPresentTextureHandle);
     }
 
-    private void DrawOnCrossWorldAllianceList(
-        int allianceIndex,
-        int memberIndex,
+    private void DrawOnCrossWorldAllianceList
+    (
+        int              allianceIndex,
+        int              memberIndex,
         ReadyCheckStatus status,
         AddonAlliance48* allianceList,
-        ImDrawListPtr drawList,
-        ImTextureID readyCheckTextureHandle,
-        ImTextureID notPresentTextureHandle)
+        ImDrawListPtr    drawList,
+        ImTextureID      readyCheckTextureHandle,
+        ImTextureID      notPresentTextureHandle
+    )
     {
         if (allianceIndex is < 1 or > 5 ||
             memberIndex is < 0 or > 7 ||
@@ -322,13 +328,15 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
             notPresentTextureHandle);
     }
 
-    private static void DrawReadyCheckIcon(
-        ImDrawListPtr drawList,
+    private static void DrawReadyCheckIcon
+    (
+        ImDrawListPtr    drawList,
         ReadyCheckStatus status,
-        Vector2 position,
-        Vector2 size,
-        ImTextureID readyCheckTextureHandle,
-        ImTextureID notPresentTextureHandle)
+        Vector2          position,
+        Vector2          size,
+        ImTextureID      readyCheckTextureHandle,
+        ImTextureID      notPresentTextureHandle
+    )
     {
         var min = PixelSnap(position);
         var max = PixelSnap(position + size);
@@ -369,7 +377,7 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
 
     private void OnInitiateReadyCheck(AgentReadyCheck* agent)
     {
-        initiateHook!.Original(agent);
+        InitiateReadyCheckHook!.Original(agent);
         try
         {
             if (!DService.Instance().ClientState.IsLoggedIn)
@@ -378,8 +386,8 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
             }
 
             readyCheckActive = true;
-            overlayVisible = true;
-            clearAfterTick = 0;
+            overlayVisible   = true;
+            clearAfterTick   = 0;
             ProcessReadyCheckResults();
         }
         catch (Exception)
@@ -389,7 +397,7 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
 
     private void OnEndReadyCheck(AgentReadyCheck* agent)
     {
-        endHook!.Original(agent);
+        EndReadyCheckHook!.Original(agent);
         try
         {
             if (!DService.Instance().ClientState.IsLoggedIn)
@@ -398,7 +406,7 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
             }
 
             readyCheckActive = false;
-            overlayVisible = true;
+            overlayVisible   = true;
             ProcessReadyCheckResults();
             ScheduleOverlayClear();
         }
@@ -424,7 +432,11 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
         CheckOverlayExpiration();
     }
 
-    private void OnLogout(int _, int unusedReason) => ClearState();
+    private void OnLogout
+    (
+        int _,
+        int unusedReason
+    ) => ClearState();
 
     private void OnTerritoryChanged(uint _)
     {
@@ -434,7 +446,11 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
         }
     }
 
-    private void OnConditionChanged(ConditionFlag flag, bool value)
+    private void OnConditionChanged
+    (
+        ConditionFlag flag,
+        bool          value
+    )
     {
         if (flag != ConditionFlag.InCombat || !value || !overlayVisible)
         {
@@ -469,8 +485,8 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
     private void ClearState()
     {
         readyCheckActive = false;
-        overlayVisible = false;
-        clearAfterTick = 0;
+        overlayVisible   = false;
+        clearAfterTick   = 0;
         members.Clear();
     }
 
@@ -603,13 +619,15 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
         }
     }
 
-    private static bool TryGetHudPosition(
-        ulong contentID,
-        uint entityID,
-        InfoProxyCrossRealm* infoProxy,
-        GroupManager* groupManager,
-        AgentHUD* agentHud,
-        out PartyListPosition position)
+    private static bool TryGetHudPosition
+    (
+        ulong                 contentID,
+        uint                  entityID,
+        InfoProxyCrossRealm*  infoProxy,
+        GroupManager*         groupManager,
+        AgentHUD*             agentHud,
+        out PartyListPosition position
+    )
     {
         position = default;
         if (contentID == 0 && entityID is 0 or INVALID_ENTITY_ID)
@@ -668,7 +686,12 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
     private static Vector2 PixelSnap(Vector2 value) =>
         new(MathF.Round(value.X), MathF.Round(value.Y));
 
-    private readonly struct ReadyCheckMember(ulong contentID, uint entityID, ReadyCheckStatus status)
+    private readonly struct ReadyCheckMember
+    (
+        ulong            contentID,
+        uint             entityID,
+        ReadyCheckStatus status
+    )
     {
         public ulong ContentID { get; } = contentID;
 
@@ -677,7 +700,12 @@ public sealed unsafe partial class ReadyCheck(ReadyCheckConfig config) : OmniMod
         public ReadyCheckStatus Status { get; } = status;
     }
 
-    private readonly struct PartyListPosition(bool crossWorld, int groupNumber, int memberIndex)
+    private readonly struct PartyListPosition
+    (
+        bool crossWorld,
+        int  groupNumber,
+        int  memberIndex
+    )
     {
         public bool CrossWorld { get; } = crossWorld;
 

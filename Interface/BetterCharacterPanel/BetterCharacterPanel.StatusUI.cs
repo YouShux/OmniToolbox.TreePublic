@@ -1,4 +1,3 @@
-using TreeToolKit;
 using System.Globalization;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.Graphics;
@@ -7,6 +6,7 @@ using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
 using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
+using TreeToolKit;
 using static OmniToolbox.TreePublic.BetterCharacterPanelState;
 
 namespace OmniToolbox.TreePublic;
@@ -17,43 +17,43 @@ public sealed partial class BetterCharacterPanel
     {
         private static readonly ByteColor SecondaryTextColor = new() { A = 0xFF, R = 0xA0, G = 0xA0, B = 0xA0 };
 
-        private readonly List<NodeBase> injectedNodes = [];
+        private readonly List<NodeBase>                 injectedNodes = [];
         private readonly Dictionary<nint, NodeSnapshot> nodeSnapshots = [];
         private readonly Dictionary<nint, TextSnapshot> textSnapshots = [];
 
-        private AtkUnitBase* addon;
-        private AtkResNode* attributes;
-        private AtkResNode* offensive;
-        private AtkResNode* defensive;
-        private AtkResNode* physicalProperties;
-        private AtkResNode* gear;
-        private AtkResNode* piety;
-        private AtkResNode* tenacity;
-        private AtkResNode* spellSpeed;
-        private AtkResNode* skillSpeed;
-        private AtkResNode* crafting;
-        private AtkResNode* gathering;
-        private StatRow? directHitChance;
-        private StatRow? directHitDamage;
-        private StatRow? determinationBonus;
-        private StatRow? criticalChance;
-        private StatRow? criticalDamage;
-        private StatRow? criticalExpected;
-        private StatRow? physicalMitigation;
-        private StatRow? magicMitigation;
-        private StatRow? skillSpeedBonus;
-        private StatRow? skillGcd;
-        private StatRow? spellSpeedBonus;
-        private StatRow? spellGcd;
-        private StatRow? tenacityMitigation;
-        private StatRow? tenacityDamage;
-        private StatRow? manaPerTick;
-        private StatRow? expectedDamage;
-        private StatRow? expectedHeal;
-        private StatRow? craftingPoints;
-        private StatRow? gatheringPoints;
+        private AtkUnitBase*                     addon;
+        private AtkResNode*                      attributes;
+        private AtkResNode*                      offensive;
+        private AtkResNode*                      defensive;
+        private AtkResNode*                      physicalProperties;
+        private AtkResNode*                      gear;
+        private AtkResNode*                      piety;
+        private AtkResNode*                      tenacity;
+        private AtkResNode*                      spellSpeed;
+        private AtkResNode*                      skillSpeed;
+        private AtkResNode*                      crafting;
+        private AtkResNode*                      gathering;
+        private StatRow?                         directHitChance;
+        private StatRow?                         directHitDamage;
+        private StatRow?                         determinationBonus;
+        private StatRow?                         criticalChance;
+        private StatRow?                         criticalDamage;
+        private StatRow?                         criticalExpected;
+        private StatRow?                         physicalMitigation;
+        private StatRow?                         magicMitigation;
+        private StatRow?                         skillSpeedBonus;
+        private StatRow?                         skillGcd;
+        private StatRow?                         spellSpeedBonus;
+        private StatRow?                         spellGcd;
+        private StatRow?                         tenacityMitigation;
+        private StatRow?                         tenacityDamage;
+        private StatRow?                         manaPerTick;
+        private StatRow?                         expectedDamage;
+        private StatRow?                         expectedHeal;
+        private StatRow?                         craftingPoints;
+        private StatRow?                         gatheringPoints;
         private BetterCharacterPanelState.Stats? lastStats;
-        private bool layoutApplied;
+        private bool                             layoutApplied;
 
         public bool Setup(AtkUnitBase* characterStatus)
         {
@@ -69,15 +69,15 @@ public sealed partial class BetterCharacterPanel
             }
 
             Restore();
-            addon = characterStatus;
+            addon      = characterStatus;
             attributes = addon->UldManager.SearchNodeById(26);
             var mentalProperties = addon->UldManager.SearchNodeById(58);
-            offensive = addon->UldManager.SearchNodeById(36);
-            defensive = addon->UldManager.SearchNodeById(44);
+            offensive          = addon->UldManager.SearchNodeById(36);
+            defensive          = addon->UldManager.SearchNodeById(44);
             physicalProperties = addon->UldManager.SearchNodeById(51);
-            gear = addon->UldManager.SearchNodeById(80);
+            gear               = addon->UldManager.SearchNodeById(80);
             var roleProperties = addon->UldManager.SearchNodeById(86);
-            crafting = addon->UldManager.SearchNodeById(73);
+            crafting  = addon->UldManager.SearchNodeById(73);
             gathering = addon->UldManager.SearchNodeById(66);
             if (attributes == null
                 || mentalProperties == null
@@ -172,11 +172,11 @@ public sealed partial class BetterCharacterPanel
                 (AtkComponentNode*)determinationNode,
                 "Feature.BetterCharacterPanel.Row.DeterminationBonus",
                 BetterCharacterPanelTooltip.Determination);
-            criticalChance = AddRow(
+            criticalChance     = AddRow(
                 (AtkComponentNode*)criticalNode,
                 "Feature.BetterCharacterPanel.Row.CriticalChance",
                 BetterCharacterPanelTooltip.CriticalHit);
-            criticalDamage = AddRow(
+            criticalDamage     = AddRow(
                 (AtkComponentNode*)criticalNode,
                 "Feature.BetterCharacterPanel.Row.CriticalDamage",
                 BetterCharacterPanelTooltip.CriticalHit);
@@ -200,7 +200,7 @@ public sealed partial class BetterCharacterPanel
             }
 
             SetPosition(magicDefenseNode, magicDefenseNode->X, 60f);
-            magicMitigation = AddRow(
+            magicMitigation    = AddRow(
                 (AtkComponentNode*)magicDefenseNode,
                 "Feature.BetterCharacterPanel.Row.MagicMitigation",
                 BetterCharacterPanelTooltip.MagicDefense);
@@ -222,7 +222,7 @@ public sealed partial class BetterCharacterPanel
                 (AtkComponentNode*)spellSpeed,
                 "Feature.BetterCharacterPanel.Row.SpellSpeedBonus",
                 BetterCharacterPanelTooltip.Speed);
-            spellGcd = AddRow(
+            spellGcd        = AddRow(
                 (AtkComponentNode*)spellSpeed,
                 "Feature.BetterCharacterPanel.Row.Gcd",
                 BetterCharacterPanelTooltip.Speed);
@@ -242,7 +242,7 @@ public sealed partial class BetterCharacterPanel
                 (AtkComponentNode*)skillSpeed,
                 "Feature.BetterCharacterPanel.Row.SkillSpeedBonus",
                 BetterCharacterPanelTooltip.Speed);
-            skillGcd = AddRow(
+            skillGcd        = AddRow(
                 (AtkComponentNode*)skillSpeed,
                 "Feature.BetterCharacterPanel.Row.Gcd",
                 BetterCharacterPanelTooltip.Speed);
@@ -253,7 +253,7 @@ public sealed partial class BetterCharacterPanel
             }
 
             SetPosition(roleProperties, roleProperties->X, 60f);
-            piety = roleProperties->ChildNode;
+            piety    = roleProperties->ChildNode;
             tenacity = Previous(piety);
             if (piety != null)
             {
@@ -270,7 +270,7 @@ public sealed partial class BetterCharacterPanel
                     (AtkComponentNode*)tenacity,
                     "Feature.BetterCharacterPanel.Row.TenacityMitigation",
                     BetterCharacterPanelTooltip.Tenacity);
-                tenacityDamage = AddRow(
+                tenacityDamage     = AddRow(
                     (AtkComponentNode*)tenacity,
                     "Feature.BetterCharacterPanel.Row.TenacityDamage",
                     BetterCharacterPanelTooltip.Tenacity);
@@ -445,13 +445,15 @@ public sealed partial class BetterCharacterPanel
 
         public void Dispose() => Restore();
 
-        private StatRow? AddRow(
-            AtkComponentNode* parent,
-            string labelKey,
+        private StatRow? AddRow
+        (
+            AtkComponentNode*            parent,
+            string                       labelKey,
             BetterCharacterPanelTooltip? tooltip,
-            bool hideOriginal = false,
-            bool copyColor = false,
-            bool expandCollision = true)
+            bool                         hideOriginal = false,
+            bool                         copyColor = false,
+            bool                         expandCollision = true
+        )
         {
             if (parent == null || parent->Component == null)
             {
@@ -518,7 +520,12 @@ public sealed partial class BetterCharacterPanel
             return new(label, value, tooltipNode);
         }
 
-        private TextNode CreateTextNode(AtkTextNode* template, float y, ByteColor? color)
+        private TextNode CreateTextNode
+        (
+            AtkTextNode* template,
+            float        y,
+            ByteColor?   color
+        )
         {
             var node = new TextNode();
             node.Node->AtkResNode.SetPositionFloat(template->AtkResNode.X, y);
@@ -526,18 +533,22 @@ public sealed partial class BetterCharacterPanel
             node.Node->AtkResNode.SetHeight(template->AtkResNode.Height);
             node.Node->SetFont(template->FontType);
             node.Node->SetAlignment(template->AlignmentType);
-            node.Node->LineSpacing = template->LineSpacing;
-            node.Node->TextColor = color ?? template->TextColor;
-            node.Node->EdgeColor = template->EdgeColor;
-            node.Node->BackgroundColor = template->BackgroundColor;
-            node.Node->TextFlags = template->TextFlags;
+            node.Node->LineSpacing          = template->LineSpacing;
+            node.Node->TextColor            = color ?? template->TextColor;
+            node.Node->EdgeColor            = template->EdgeColor;
+            node.Node->BackgroundColor      = template->BackgroundColor;
+            node.Node->TextFlags            = template->TextFlags;
             node.Node->AtkResNode.DrawFlags = template->AtkResNode.DrawFlags;
             node.Node->AtkResNode.NodeFlags = template->AtkResNode.NodeFlags;
-            node.Node->FontSize = template->FontSize;
+            node.Node->FontSize             = template->FontSize;
             return node;
         }
 
-        private void AddNativeTooltip(AtkComponentNode* parent, BetterCharacterPanelTooltip tooltip)
+        private void AddNativeTooltip
+        (
+            AtkComponentNode*           parent,
+            BetterCharacterPanelTooltip tooltip
+        )
         {
             if (parent == null || parent->Component == null || parent->Component->UldManager.RootNode == null)
             {
@@ -660,7 +671,12 @@ public sealed partial class BetterCharacterPanel
             textSnapshots[(nint)node] = new((nint)node, node->NodeText.ToString(), node->TextColor);
         }
 
-        private void SetPosition(AtkResNode* node, float x, float y)
+        private void SetPosition
+        (
+            AtkResNode* node,
+            float       x,
+            float       y
+        )
         {
             if (node == null)
             {
@@ -671,7 +687,11 @@ public sealed partial class BetterCharacterPanel
             node->SetPositionFloat(x, y);
         }
 
-        private void MoveY(AtkResNode* node, float amount)
+        private void MoveY
+        (
+            AtkResNode* node,
+            float       amount
+        )
         {
             if (node != null)
             {
@@ -679,7 +699,11 @@ public sealed partial class BetterCharacterPanel
             }
         }
 
-        private void SetVisible(AtkResNode* node, bool visible)
+        private void SetVisible
+        (
+            AtkResNode* node,
+            bool        visible
+        )
         {
             if (node == null)
             {
@@ -690,7 +714,11 @@ public sealed partial class BetterCharacterPanel
             node->ToggleVisibility(visible);
         }
 
-        private void SetSpeedHeaderText(AtkResNode* speedNode, string text)
+        private void SetSpeedHeaderText
+        (
+            AtkResNode* speedNode,
+            string      text
+        )
         {
             var header = Previous(Previous(speedNode));
             var textNode = header == null || header->ChildNode == null
@@ -705,7 +733,11 @@ public sealed partial class BetterCharacterPanel
             textNode->SetText(text);
         }
 
-        private static void SetRowText(StatRow? row, string text)
+        private static void SetRowText
+        (
+            StatRow? row,
+            string   text
+        )
         {
             if (row is not null)
             {
@@ -713,10 +745,12 @@ public sealed partial class BetterCharacterPanel
             }
         }
 
-        private static void SetTooltip(
-            StatRow? row,
-            BetterCharacterPanelTooltip tooltip,
-            in BetterCharacterPanelState.Stats stats)
+        private static void SetTooltip
+        (
+            StatRow?                           row,
+            BetterCharacterPanelTooltip        tooltip,
+            in BetterCharacterPanelState.Stats stats
+        )
         {
             if (row is not null)
             {
@@ -727,7 +761,11 @@ public sealed partial class BetterCharacterPanel
             }
         }
 
-        private void SetRowParentVisible(StatRow? row, bool visible)
+        private void SetRowParentVisible
+        (
+            StatRow? row,
+            bool     visible
+        )
         {
             if (row is not null)
             {
@@ -740,42 +778,46 @@ public sealed partial class BetterCharacterPanel
             injectedNodes.Clear();
             nodeSnapshots.Clear();
             textSnapshots.Clear();
-            addon = null;
-            attributes = null;
-            offensive = null;
-            defensive = null;
+            addon              = null;
+            attributes         = null;
+            offensive          = null;
+            defensive          = null;
             physicalProperties = null;
-            gear = null;
-            piety = null;
-            tenacity = null;
-            spellSpeed = null;
-            skillSpeed = null;
-            crafting = null;
-            gathering = null;
-            directHitChance = null;
-            directHitDamage = null;
+            gear               = null;
+            piety              = null;
+            tenacity           = null;
+            spellSpeed         = null;
+            skillSpeed         = null;
+            crafting           = null;
+            gathering          = null;
+            directHitChance    = null;
+            directHitDamage    = null;
             determinationBonus = null;
-            criticalChance = null;
-            criticalDamage = null;
-            criticalExpected = null;
+            criticalChance     = null;
+            criticalDamage     = null;
+            criticalExpected   = null;
             physicalMitigation = null;
-            magicMitigation = null;
-            skillSpeedBonus = null;
-            skillGcd = null;
-            spellSpeedBonus = null;
-            spellGcd = null;
+            magicMitigation    = null;
+            skillSpeedBonus    = null;
+            skillGcd           = null;
+            spellSpeedBonus    = null;
+            spellGcd           = null;
             tenacityMitigation = null;
-            tenacityDamage = null;
-            manaPerTick = null;
-            expectedDamage = null;
-            expectedHeal = null;
-            craftingPoints = null;
-            gatheringPoints = null;
-            lastStats = null;
-            layoutApplied = false;
+            tenacityDamage     = null;
+            manaPerTick        = null;
+            expectedDamage     = null;
+            expectedHeal       = null;
+            craftingPoints     = null;
+            gatheringPoints    = null;
+            lastStats          = null;
+            layoutApplied      = false;
         }
 
-        private static AtkResNode* Previous(AtkResNode* node, int count = 1)
+        private static AtkResNode* Previous
+        (
+            AtkResNode* node,
+            int         count = 1
+        )
         {
             while (node != null && count-- > 0)
             {
@@ -792,21 +834,37 @@ public sealed partial class BetterCharacterPanel
             && unitBase->RootNode->IsVisible()
             && (unitBase->VisibilityFlags & 5) == 0;
 
-        private static string Format(string key, params object[] values) =>
+        private static string Format
+        (
+            string          key,
+            params object[] values
+        ) =>
             string.Format(CultureInfo.CurrentCulture, OmniLoc.Get(key), values);
 
-        private sealed record StatRow(TextNode Label, TextNode Value, CollisionNode? Tooltip);
+        private sealed record StatRow
+        (
+            TextNode       Label,
+            TextNode       Value,
+            CollisionNode? Tooltip
+        );
 
-        private readonly record struct NodeSnapshot(
-            nint Address,
-            float X,
-            float Y,
-            ushort Width,
-            ushort Height,
-            bool Visible,
-            NodeFlags NodeFlags);
+        private readonly record struct NodeSnapshot
+        (
+            nint      Address,
+            float     X,
+            float     Y,
+            ushort    Width,
+            ushort    Height,
+            bool      Visible,
+            NodeFlags NodeFlags
+        );
 
-        private readonly record struct TextSnapshot(nint Address, string Text, ByteColor Color);
+        private readonly record struct TextSnapshot
+        (
+            nint      Address,
+            string    Text,
+            ByteColor Color
+        );
 
         #region 常量
 

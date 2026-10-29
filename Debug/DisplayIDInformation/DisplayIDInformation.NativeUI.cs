@@ -28,82 +28,85 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class DisplayIDInformation
 {
-    internal sealed unsafe class DisplayIDInformationNativeUI : IDisposable
+    private sealed unsafe class DisplayIDInformationNativeUI : IDisposable
     {
         private static readonly CompSig StatusTooltipSig = new(
             "40 55 41 54 41 55 41 56 41 57 48 8D 6C 24 90 48 81 EC 70 01 00 00");
-        private static readonly CompSig TooltipSig = new("E8 ?? ?? ?? ?? 49 63 47 ?? BB");
-
-        private readonly DisplayIDInformationConfig config;
-        private readonly TooltipManager tooltipManager;
-        private readonly AddonEventRegistry addonEvents;
-        private readonly FeatureLifetime lifetime = new();
-        private readonly TooltipManager.ItemTooltipUpdateDelegate itemTooltipHandler;
-        private readonly TooltipManager.ActionTooltipUpdateDelegate actionTooltipHandler;
-        private readonly IAddonLifecycle.AddonEventDelegate naviMapHandler;
-        private Hook<GetStatusTooltipTextDelegate>? statusTooltipHook;
-        private Hook<ShowTooltipDelegate>? tooltipHook;
-        private IDtrBarEntry? zoneInfoEntry;
-        private AtkEventWrapper? weatherMouseOver;
-        private AtkEventWrapper? weatherMouseOut;
-        private AtkResNode* weatherCollisionNode;
-        private uint lastMapID;
-        private uint lastTerritoryID;
-        private uint lastWeatherID;
-        private bool lastShowZone;
-        private bool lastShowWeather;
-        private nint lastTargetAddress;
-        private uint lastTargetID;
-        private bool lastTargetShow;
-        private string? lastTargetText;
-        private string? lastTargetName;
-
-        private delegate CStringPointer GetStatusTooltipTextDelegate(
-            AgentHUD* agent,
+        private delegate CStringPointer GetStatusTooltipTextDelegate
+        (
+            AgentHUD*   agent,
             Utf8String* output,
-            uint statusID,
-            uint param);
+            uint        statusID,
+            uint        param
+        );
+        private Hook<GetStatusTooltipTextDelegate>? GetStatusTooltipTextHook;
 
-        private delegate void ShowTooltipDelegate(
-            AtkTooltipManager* manager,
-            AtkTooltipType type,
-            ushort parentID,
-            AtkResNode* targetNode,
+        private static readonly CompSig TooltipSig = new("E8 ?? ?? ?? ?? 49 63 47 ?? BB");
+        private delegate void ShowTooltipDelegate
+        (
+            AtkTooltipManager*                manager,
+            AtkTooltipType                    type,
+            ushort                            parentID,
+            AtkResNode*                       targetNode,
             AtkTooltipManager.AtkTooltipArgs* tooltipArgs,
-            long unkDelegate,
-            byte unk7,
-            byte unk8);
+            long                              unkDelegate,
+            byte                              unk7,
+            byte                              unk8
+        );
+        private Hook<ShowTooltipDelegate>? ShowTooltipHook;
+
+        private readonly DisplayIDInformationConfig                 config;
+        private readonly TooltipManager                             tooltipManager;
+        private readonly AddonEventRegistry                         addonEvents;
+        private readonly FeatureLifetime                            lifetime             = new();
+        private readonly TooltipManager.ItemTooltipUpdateDelegate   itemTooltipHandler;
+        private readonly TooltipManager.ActionTooltipUpdateDelegate actionTooltipHandler;
+        private readonly IAddonLifecycle.AddonEventDelegate         naviMapHandler;
+        private IDtrBarEntry?                                       zoneInfoEntry;
+        private AtkEventWrapper?                                    weatherMouseOver;
+        private AtkEventWrapper?                                    weatherMouseOut;
+        private AtkResNode*                                         weatherCollisionNode;
+        private uint                                                lastMapID;
+        private uint                                                lastTerritoryID;
+        private uint                                                lastWeatherID;
+        private bool                                                lastShowZone;
+        private bool                                                lastShowWeather;
+        private nint                                                lastTargetAddress;
+        private uint                                                lastTargetID;
+        private bool                                                lastTargetShow;
+        private string?                                             lastTargetText;
+        private string?                                             lastTargetName;
 
         public DisplayIDInformationNativeUI(DisplayIDInformationConfig config)
         {
-            this.config = config;
-            tooltipManager = TooltipManager.Instance();
-            addonEvents = new(DalamudServices.AddonLifecycle);
-            itemTooltipHandler = (_, itemID, ref modifications) => OnItemTooltip(itemID, ref modifications);
+            this.config          = config;
+            tooltipManager       = TooltipManager.Instance();
+            addonEvents          = new(DalamudServices.AddonLifecycle);
+            itemTooltipHandler   = (_, itemID, ref modifications) => OnItemTooltip(itemID, ref modifications);
             actionTooltipHandler = OnActionTooltip;
-            naviMapHandler = OnNaviMapAddon;
+            naviMapHandler       = OnNaviMapAddon;
 
             try
             {
                 zoneInfoEntry = DService.Instance().DTRBar.Get("OmniToolbox-DisplayIdInformation-ZoneInfo");
                 lifetime.Add(RemoveDtrEntry);
 
-                statusTooltipHook = StatusTooltipSig.GetHook<GetStatusTooltipTextDelegate>(OnStatusTooltip);
+                GetStatusTooltipTextHook = StatusTooltipSig.GetHook<GetStatusTooltipTextDelegate>(OnStatusTooltip);
                 lifetime.Add(DisposeStatusHook);
-                statusTooltipHook.Enable();
+                GetStatusTooltipTextHook.Enable();
 
                 try
                 {
-                    tooltipHook = TooltipSig.GetHook<ShowTooltipDelegate>(OnTooltip);
-                    tooltipHook.Enable();
+                    ShowTooltipHook = TooltipSig.GetHook<ShowTooltipDelegate>(OnTooltip);
+                    ShowTooltipHook.Enable();
                 }
                 catch (Exception)
                 {
-                    tooltipHook?.Dispose();
-                    tooltipHook = null;
+                    ShowTooltipHook?.Dispose();
+                    ShowTooltipHook = null;
                 }
 
-                if (tooltipHook is not null)
+                if (ShowTooltipHook is not null)
                 {
                     lifetime.Add(DisposeTooltipHook);
                 }
@@ -144,10 +147,10 @@ public sealed partial class DisplayIDInformation
                 return;
             }
 
-            lastMapID = mapID;
+            lastMapID       = mapID;
             lastTerritoryID = territoryID;
-            lastWeatherID = weatherID;
-            lastShowZone = config.DisplayZoneInfo;
+            lastWeatherID   = weatherID;
+            lastShowZone    = config.DisplayZoneInfo;
             lastShowWeather = config.DisplayWeatherID;
             if (zoneInfoEntry is null)
             {
@@ -169,7 +172,11 @@ public sealed partial class DisplayIDInformation
 
         public void Dispose() => lifetime.Dispose();
 
-        private void OnItemTooltip(uint itemID, ref List<TooltipItemModification> modifications)
+        private void OnItemTooltip
+        (
+            uint                              itemID,
+            ref List<TooltipItemModification> modifications
+        )
         {
             if (!config.DisplayItemID || itemID == 0)
             {
@@ -193,7 +200,12 @@ public sealed partial class DisplayIDInformation
             });
         }
 
-        private void OnActionTooltip(DetailKind _, uint actionID, ref List<TooltipActionModification> modifications)
+        private void OnActionTooltip
+        (
+            DetailKind                          _,
+            uint                                actionID,
+            ref List<TooltipActionModification> modifications
+        )
         {
             if (!config.DisplayActionID || actionID == 0)
             {
@@ -223,7 +235,11 @@ public sealed partial class DisplayIDInformation
             });
         }
 
-        private void OnTargetAddon(AddonEvent _, AddonArgs args)
+        private void OnTargetAddon
+        (
+            AddonEvent _,
+            AddonArgs  args
+        )
         {
             var addon = (AtkUnitBase*)args.Addon.Address;
             if (addon == null || !addon->IsVisible || addon->RootNode == null || !addon->RootNode->IsVisible())
@@ -255,10 +271,10 @@ public sealed partial class DisplayIDInformation
                 lastTargetText is null)
             {
                 lastTargetAddress = target.Address;
-                lastTargetID = baseID;
-                lastTargetShow = show;
-                lastTargetName = targetName;
-                lastTargetText = show ? $"{targetName}  [{baseID}]" : targetName;
+                lastTargetID      = baseID;
+                lastTargetShow    = show;
+                lastTargetName    = targetName;
+                lastTargetText    = show ? $"{targetName}  [{baseID}]" : targetName;
             }
 
             var stringArray = AtkStage.Instance()->GetStringArrayData(StringArrayType.Hud2);
@@ -268,21 +284,23 @@ public sealed partial class DisplayIDInformation
             }
         }
 
-        private void OnTooltip(
-            AtkTooltipManager* manager,
-            AtkTooltipType type,
-            ushort parentID,
-            AtkResNode* targetNode,
+        private void OnTooltip
+        (
+            AtkTooltipManager*                manager,
+            AtkTooltipType                    type,
+            ushort                            parentID,
+            AtkResNode*                       targetNode,
             AtkTooltipManager.AtkTooltipArgs* tooltipArgs,
-            long unkDelegate,
-            byte unk7,
-            byte unk8)
+            long                              unkDelegate,
+            byte                              unk7,
+            byte                              unk8
+        )
         {
             if (!config.DisplayWeatherID ||
                 tooltipArgs == null ||
                 tooltipArgs->TextArgs.Text.Value == null)
             {
-                tooltipHook!.Original(manager, type, parentID, targetNode, tooltipArgs, unkDelegate, unk7, unk8);
+                ShowTooltipHook!.Original(manager, type, parentID, targetNode, tooltipArgs, unkDelegate, unk7, unk8);
                 return;
             }
 
@@ -294,7 +312,7 @@ public sealed partial class DisplayIDInformation
                 !LuminaGetter.TryGetRow<LuminaWeather>(weatherID, out var weather) ||
                 !TryAppendWeatherID(text, weather.Name.ToString(), weatherID, out var modified))
             {
-                tooltipHook!.Original(manager, type, parentID, targetNode, tooltipArgs, unkDelegate, unk7, unk8);
+                ShowTooltipHook!.Original(manager, type, parentID, targetNode, tooltipArgs, unkDelegate, unk7, unk8);
                 return;
             }
 
@@ -305,7 +323,7 @@ public sealed partial class DisplayIDInformation
                 tooltipArgs->TextArgs.Text = pointer;
                 try
                 {
-                    tooltipHook!.Original(manager, type, parentID, targetNode, tooltipArgs, unkDelegate, unk7, unk8);
+                    ShowTooltipHook!.Original(manager, type, parentID, targetNode, tooltipArgs, unkDelegate, unk7, unk8);
                 }
                 finally
                 {
@@ -314,7 +332,13 @@ public sealed partial class DisplayIDInformation
             }
         }
 
-        private CStringPointer OnStatusTooltip(AgentHUD* agent, Utf8String* output, uint statusID, uint param)
+        private CStringPointer OnStatusTooltip
+        (
+            AgentHUD*   agent,
+            Utf8String* output,
+            uint        statusID,
+            uint        param
+        )
         {
             // 小队列表路径可能在状态提示请求中传入空的 AgentHUD 或输出缓冲区；原函数会写入 this + 0x20。
             if (agent == null || output == null)
@@ -322,7 +346,7 @@ public sealed partial class DisplayIDInformation
                 return default;
             }
 
-            var original = statusTooltipHook!.Original(agent, output, statusID, param);
+            var original = GetStatusTooltipTextHook!.Original(agent, output, statusID, param);
             if (!config.DisplayStatusID || statusID is 0 or uint.MaxValue || !original.HasValue)
             {
                 return original;
@@ -348,7 +372,11 @@ public sealed partial class DisplayIDInformation
             return output->StringPtr;
         }
 
-        private void OnNaviMapAddon(AddonEvent eventType, AddonArgs args)
+        private void OnNaviMapAddon
+        (
+            AddonEvent eventType,
+            AddonArgs  args
+        )
         {
             if (eventType == AddonEvent.PreFinalize)
             {
@@ -384,8 +412,8 @@ public sealed partial class DisplayIDInformation
                 mouseOut = new(OnWeatherMouseOut);
                 mouseOut.Add(addon, collisionNode, AtkEventType.MouseOut);
                 weatherCollisionNode = collisionNode;
-                weatherMouseOver = mouseOver;
-                weatherMouseOut = mouseOut;
+                weatherMouseOver     = mouseOver;
+                weatherMouseOut      = mouseOut;
             }
             catch
             {
@@ -395,7 +423,13 @@ public sealed partial class DisplayIDInformation
             }
         }
 
-        private void OnWeatherMouseOver(AtkEventType _, AtkUnitBase* addon, AtkEvent* atkEvent, AtkEventData* data)
+        private void OnWeatherMouseOver
+        (
+            AtkEventType  _,
+            AtkUnitBase*  addon,
+            AtkEvent*     atkEvent,
+            AtkEventData* data
+        )
         {
             if (!config.DisplayWeatherID)
             {
@@ -414,7 +448,7 @@ public sealed partial class DisplayIDInformation
             values[0].SetManagedString(builder.Builder.Append($"{weather.Name} [{weather.RowId}]").GetViewAsSpan());
             var tooltipArgs = new AtkTooltipManager.AtkTooltipArgs();
             tooltipArgs.TextArgs.AtkArrayType = 0;
-            tooltipArgs.TextArgs.Text = values[0].String;
+            tooltipArgs.TextArgs.Text         = values[0].String;
             AtkStage.Instance()->TooltipManager.ShowTooltip(
                 AtkTooltipType.Text,
                 addon->Id,
@@ -422,7 +456,13 @@ public sealed partial class DisplayIDInformation
                 &tooltipArgs);
         }
 
-        private static void OnWeatherMouseOut(AtkEventType _, AtkUnitBase* addon, AtkEvent* unusedEvent, AtkEventData* unusedEventData) =>
+        private static void OnWeatherMouseOut
+        (
+            AtkEventType  _,
+            AtkUnitBase*  addon,
+            AtkEvent*     unusedEvent,
+            AtkEventData* unusedEventData
+        ) =>
             AtkStage.Instance()->TooltipManager.HideTooltip(addon->Id);
 
         private void ReleaseWeatherEvents()
@@ -458,7 +498,7 @@ public sealed partial class DisplayIDInformation
             weatherMouseOver?.Dispose();
             weatherMouseOver = null;
             weatherMouseOut?.Dispose();
-            weatherMouseOut = null;
+            weatherMouseOut      = null;
             weatherCollisionNode = null;
         }
 
@@ -477,22 +517,22 @@ public sealed partial class DisplayIDInformation
             }
 
             lastTargetAddress = nint.Zero;
-            lastTargetID = 0;
-            lastTargetShow = false;
-            lastTargetText = null;
-            lastTargetName = null;
+            lastTargetID      = 0;
+            lastTargetShow    = false;
+            lastTargetText    = null;
+            lastTargetName    = null;
         }
 
         private void DisposeStatusHook()
         {
-            statusTooltipHook?.Dispose();
-            statusTooltipHook = null;
+            GetStatusTooltipTextHook?.Dispose();
+            GetStatusTooltipTextHook = null;
         }
 
         private void DisposeTooltipHook()
         {
-            tooltipHook?.Dispose();
-            tooltipHook = null;
+            ShowTooltipHook?.Dispose();
+            ShowTooltipHook = null;
         }
 
         private void RemoveDtrEntry()
@@ -512,7 +552,13 @@ public sealed partial class DisplayIDInformation
             return mapID == 0 ? GameMain.Instance()->CurrentMapId : mapID;
         }
 
-        private static bool TryAppendWeatherID(string text, string weatherName, uint weatherID, out string modified)
+        private static bool TryAppendWeatherID
+        (
+            string     text,
+            string     weatherName,
+            uint       weatherID,
+            out string modified
+        )
         {
             modified = text;
             var newlineIndex = text.IndexOf('\n');

@@ -25,7 +25,7 @@ public sealed unsafe class LockedPortraitPreview : OmniModuleBase
         });
 
     private readonly Dictionary<(byte DatasetIndex, ushort RowID), byte> originalUnlockStates = [];
-    private AddonEventRegistry? addonEvents;
+    private AddonEventRegistry?                                          addonEvents;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -45,7 +45,11 @@ public sealed unsafe class LockedPortraitPreview : OmniModuleBase
 
     }
 
-    private void OnEditorEvent(AddonEvent eventType, AddonArgs args)
+    private void OnEditorEvent
+    (
+        AddonEvent eventType,
+        AddonArgs  args
+    )
     {
         if (eventType == AddonEvent.PreFinalize)
         {
@@ -70,7 +74,11 @@ public sealed unsafe class LockedPortraitPreview : OmniModuleBase
         UpdateDataset(ref state->Expressions, restore);
     }
 
-    private void UpdateDataset(ref AgentBannerEditorState.Dataset dataset, bool restore)
+    private void UpdateDataset
+    (
+        ref AgentBannerEditorState.Dataset dataset,
+        bool                               restore
+    )
     {
         if (dataset.SortedEntries == null)
             return;
@@ -90,13 +98,17 @@ public sealed unsafe class LockedPortraitPreview : OmniModuleBase
             else if (entry->BannerConditionUnlockState == 2 ||
                      entry->BannerConditionUnlockState == 3 && IsPreviewAvailable(dataset.DatasetIndex, entry->RowId))
             {
-                originalUnlockStates[key] = entry->BannerConditionUnlockState;
+                originalUnlockStates[key]         = entry->BannerConditionUnlockState;
                 entry->BannerConditionUnlockState = 1;
             }
         }
     }
 
-    private static bool IsPreviewAvailable(byte datasetIndex, ushort rowID)
+    private static bool IsPreviewAvailable
+    (
+        byte   datasetIndex,
+        ushort rowID
+    )
     {
         uint? conditionID = datasetIndex switch
         {

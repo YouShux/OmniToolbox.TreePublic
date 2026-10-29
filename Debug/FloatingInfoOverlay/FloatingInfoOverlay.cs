@@ -10,9 +10,11 @@ using OmniToolbox.UI.Theme;
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-internal sealed partial class FloatingInfoOverlay(
+internal sealed partial class FloatingInfoOverlay
+(
     FloatingInfoOverlayConfig config,
-    NonEntityTargetVisibility targetVisibility) : OmniModuleBase
+    NonEntityTargetVisibility targetVisibility
+) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -119,8 +121,6 @@ internal sealed partial class FloatingInfoOverlay(
             ["Feature.FloatingInfoOverlay.Whitelist"] = "Feature.FloatingInfoOverlay.Whitelist"
         });
 
-    public override bool HasSettings => true;
-
     private readonly FloatingInfoOverlayPanel panel = new(config);
 
     protected override void OnStart(FeatureLifetime activation)
@@ -139,6 +139,8 @@ internal sealed partial class FloatingInfoOverlay(
         DalamudServices.PluginInterface.UiBuilder.Draw += nativeUI.Draw;
         state.Update(DalamudServices.Framework);
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings() => panel.Draw();
 }

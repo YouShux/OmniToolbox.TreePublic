@@ -13,12 +13,12 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class SkillMonitor
 {
-    internal sealed class SkillMonitorPanel
+    private sealed class SkillMonitorPanel
     {
-        private static readonly Vector2 DefaultOffset = new(17f, 0f);
-        private readonly int[] CustomActionInputs = new int[4];
-        private readonly string[] CustomActionErrors = new string[4];
-        private static readonly SkillMonitorGroup[] GroupOrder =
+        private static readonly Vector2             DefaultOffset      = new(17f, 0f);
+        private readonly int[]                      CustomActionInputs = new int[4];
+        private readonly string[]                   CustomActionErrors = new string[4];
+        private static readonly SkillMonitorGroup[] GroupOrder         =
         [
             SkillMonitorGroup.General,
             SkillMonitorGroup.Tank,
@@ -26,13 +26,15 @@ public sealed partial class SkillMonitor
             SkillMonitorGroup.Dps
         ];
 
-        private uint DraggedScopeID = uint.MaxValue;
-        private int DraggedOrderIndex = -1;
+        private uint DraggedScopeID    = uint.MaxValue;
+        private int  DraggedOrderIndex = -1;
 
-        public bool Draw(
-            SkillMonitorConfig config,
+        public bool Draw
+        (
+            SkillMonitorConfig       config,
             SkillMonitorDefinition[] definitions,
-            out bool definitionsChanged)
+            out bool                 definitionsChanged
+        )
         {
             var changed = false;
             definitionsChanged = false;
@@ -77,11 +79,13 @@ public sealed partial class SkillMonitor
             return changed;
         }
 
-        private bool DrawGroup(
-            SkillMonitorConfig config,
+        private bool DrawGroup
+        (
+            SkillMonitorConfig       config,
             SkillMonitorDefinition[] definitions,
-            SkillMonitorGroup group,
-            ref bool runtimeChanged)
+            SkillMonitorGroup        group,
+            ref bool                 runtimeChanged
+        )
         {
             var changed = false;
             var groupIndex = (int)group;
@@ -111,8 +115,8 @@ public sealed partial class SkillMonitor
                     config.CustomActions.Add(new(actionID));
                     CustomActionInputs[groupIndex] = 0;
                     CustomActionErrors[groupIndex] = string.Empty;
-                    runtimeChanged = true;
-                    changed = true;
+                    runtimeChanged                 = true;
+                    changed                        = true;
                 }
             }
 
@@ -157,12 +161,14 @@ public sealed partial class SkillMonitor
             return changed;
         }
 
-        private bool DrawScope(
-            SkillMonitorConfig config,
+        private bool DrawScope
+        (
+            SkillMonitorConfig       config,
             SkillMonitorDefinition[] definitions,
-            uint scopeID,
-            SkillMonitorGroup group,
-            ref bool runtimeChanged)
+            uint                     scopeID,
+            SkillMonitorGroup        group,
+            ref bool                 runtimeChanged
+        )
         {
             if (!config.JobActionOrder.TryGetValue(scopeID, out var order) ||
                 !config.JobDisabledActions.TryGetValue(scopeID, out var disabled))
@@ -227,7 +233,7 @@ public sealed partial class SkillMonitor
                 if (DrawReorderHandle(scopeID, order, orderIndex, definition.Name))
                 {
                     runtimeChanged = true;
-                    changed = true;
+                    changed        = true;
                     break;
                 }
 
@@ -246,7 +252,7 @@ public sealed partial class SkillMonitor
                     }
 
                     runtimeChanged = true;
-                    changed = true;
+                    changed        = true;
                 }
 
                 OmniControls.NextTableField(actionLabel, detailLayout);
@@ -281,7 +287,7 @@ public sealed partial class SkillMonitor
                 {
                     config.CustomActions.RemoveAll(action => action.ActionID == definition.ActionID);
                     runtimeChanged = true;
-                    changed = true;
+                    changed        = true;
                     break;
                 }
             }
@@ -289,7 +295,13 @@ public sealed partial class SkillMonitor
             return changed;
         }
 
-        private bool DrawReorderHandle(uint scopeID, List<uint> order, int orderIndex, string label)
+        private bool DrawReorderHandle
+        (
+            uint       scopeID,
+            List<uint> order,
+            int        orderIndex,
+            string     label
+        )
         {
             OmniControls.IconButton(
                 $"##skillMonitorReorder{scopeID}_{order[orderIndex]}",
@@ -302,7 +314,7 @@ public sealed partial class SkillMonitor
                 {
                     if (ImGui.SetDragDropPayload(REORDER_PAYLOAD, []))
                     {
-                        DraggedScopeID = scopeID;
+                        DraggedScopeID    = scopeID;
                         DraggedOrderIndex = orderIndex;
                     }
 
@@ -329,16 +341,18 @@ public sealed partial class SkillMonitor
             var configID = order[DraggedOrderIndex];
             order.RemoveAt(DraggedOrderIndex);
             order.Insert(orderIndex, configID);
-            DraggedScopeID = uint.MaxValue;
+            DraggedScopeID    = uint.MaxValue;
             DraggedOrderIndex = -1;
             return true;
         }
 
-        private static int FindDefinition(
+        private static int FindDefinition
+        (
             SkillMonitorDefinition[] definitions,
-            uint configID,
-            uint scopeID,
-            SkillMonitorGroup group)
+            uint                     configID,
+            uint                     scopeID,
+            SkillMonitorGroup        group
+        )
         {
             for (var index = 0; index < definitions.Length; index++)
             {
@@ -353,10 +367,12 @@ public sealed partial class SkillMonitor
             return -1;
         }
 
-        private static bool ContainsAction(
-            SkillMonitorDefinition[] definitions,
+        private static bool ContainsAction
+        (
+            SkillMonitorDefinition[]                       definitions,
             IReadOnlyList<SkillMonitorConfig.CustomAction> customActions,
-            uint actionID)
+            uint                                           actionID
+        )
         {
             for (var index = 0; index < definitions.Length; index++)
             {
@@ -402,7 +418,7 @@ public sealed partial class SkillMonitor
             if (DrawCheckbox("Active", ref showActive))
             {
                 config.ShowActive = showActive;
-                changed = true;
+                changed           = true;
             }
 
             ImGui.TableNextColumn();
@@ -410,7 +426,7 @@ public sealed partial class SkillMonitor
             if (DrawCheckbox("OnCooldown", ref showOnCooldown))
             {
                 config.ShowOnCooldown = showOnCooldown;
-                changed = true;
+                changed               = true;
             }
 
             ImGui.TableNextColumn();
@@ -418,7 +434,7 @@ public sealed partial class SkillMonitor
             if (DrawCheckbox("OffCooldown", ref showOffCooldown))
             {
                 config.ShowOffCooldown = showOffCooldown;
-                changed = true;
+                changed                = true;
             }
 
             ImGui.TableNextRow();
@@ -430,7 +446,7 @@ public sealed partial class SkillMonitor
             if (DrawCheckbox("WeaponSheathed", ref hideWeaponSheathed))
             {
                 config.HideWeaponSheathed = hideWeaponSheathed;
-                changed = true;
+                changed                   = true;
             }
 
             ImGui.TableNextColumn();
@@ -438,13 +454,17 @@ public sealed partial class SkillMonitor
             if (DrawCheckbox("OutOfCombat", ref hideOutOfCombat))
             {
                 config.HideOutOfCombat = hideOutOfCombat;
-                changed = true;
+                changed                = true;
             }
 
             return changed;
         }
 
-        private static bool DrawLayoutSettings(SkillMonitorConfig config, ref bool definitionsChanged)
+        private static bool DrawLayoutSettings
+        (
+            SkillMonitorConfig config,
+            ref bool           definitionsChanged
+        )
         {
             var changed = false;
             var iconScaleLabel = OmniLoc.Get("Feature.SkillMonitor.IconScale");
@@ -565,7 +585,7 @@ public sealed partial class SkillMonitor
                     if (ImGui.Selectable(LargeCooldownCounter.GetFontName(font), config.Font == font))
                     {
                         config.Font = font;
-                        changed = true;
+                        changed     = true;
                     }
                 }
                 ImGui.EndCombo();
@@ -584,8 +604,8 @@ public sealed partial class SkillMonitor
                         config.ShowGeneralSkillsFirst))
                 {
                     config.ShowGeneralSkillsFirst = true;
-                    definitionsChanged = true;
-                    changed = true;
+                    definitionsChanged            = true;
+                    changed                       = true;
                 }
 
                 if (ImGui.Selectable(
@@ -593,8 +613,8 @@ public sealed partial class SkillMonitor
                         !config.ShowGeneralSkillsFirst))
                 {
                     config.ShowGeneralSkillsFirst = false;
-                    definitionsChanged = true;
-                    changed = true;
+                    definitionsChanged            = true;
+                    changed                       = true;
                 }
 
                 ImGui.EndCombo();
@@ -614,7 +634,7 @@ public sealed partial class SkillMonitor
                         config.Alignment == SkillMonitorAlignment.Right))
                 {
                     config.Alignment = SkillMonitorAlignment.Right;
-                    changed = true;
+                    changed          = true;
                 }
 
                 if (ImGui.Selectable(
@@ -622,7 +642,7 @@ public sealed partial class SkillMonitor
                         config.Alignment == SkillMonitorAlignment.Mirror))
                 {
                     config.Alignment = SkillMonitorAlignment.Mirror;
-                    changed = true;
+                    changed          = true;
                 }
 
                 ImGui.EndCombo();
@@ -631,7 +651,11 @@ public sealed partial class SkillMonitor
             return changed;
         }
 
-        private static bool DrawCheckbox(string name, ref bool value) =>
+        private static bool DrawCheckbox
+        (
+            string   name,
+            ref bool value
+        ) =>
             OmniControls.Checkbox($"{OmniLoc.Get($"Feature.SkillMonitor.{name}")}##skillMonitor{name}", ref value);
 
 

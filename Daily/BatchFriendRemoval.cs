@@ -13,11 +13,11 @@ using OmenTools.Info.Game.Data;
 using OmenTools.Interop.Game.AddonEvent;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
-using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.UI.Theme;
+using TreeTools.Threading;
 
 namespace OmniToolbox.TreePublic;
 
@@ -47,30 +47,28 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
             ["Feature.BatchFriendRemoval.Unresolved"] = "Feature.BatchFriendRemoval.Unresolved"
         });
 
-    public override bool HasSettings => true;
-
-    private readonly HashSet<ulong> selectedContentIDs = [];
-    private volatile FriendSnapshot snapshot = new(0, [], 0);
-    private FriendSnapshot? displayedSnapshot;
-    private FriendEntry[] confirmationTargets = [];
-    private ulong confirmationOwnerContentID;
-    private TaskHelper? tasks;
-    private Hook<InfoProxyFriendList.Delegates.EndRequest>? endRequestHook;
-    private FriendEntry? currentFriend;
-    private int lastSettingsFrame = -1;
-    private ulong settingsOwnerContentID;
-    private bool refreshRequested;
-    private int operationVersion;
-    private uint friendAddonID;
-    private uint menuAddonID;
-    private string currentStep = string.Empty;
+    private readonly HashSet<ulong>                         selectedContentIDs         = [];
+    private volatile FriendSnapshot                         snapshot                   = new(0, [], 0);
+    private FriendSnapshot?                                 displayedSnapshot;
+    private FriendEntry[]                                   confirmationTargets        = [];
+    private ulong                                           confirmationOwnerContentID;
+    private TaskHelper?                                     tasks;
+    private Hook<InfoProxyFriendList.Delegates.EndRequest>? EndRequestHook;
+    private FriendEntry?                                    currentFriend;
+    private int                                             lastSettingsFrame          = -1;
+    private ulong                                           settingsOwnerContentID;
+    private bool                                            refreshRequested;
+    private int                                             operationVersion;
+    private uint                                            friendAddonID;
+    private uint                                            menuAddonID;
+    private string                                          currentStep                = string.Empty;
 
     protected override void OnStart(FeatureLifetime activation)
     {
         activation.OnStopping(() => DService.Instance().ClientState.Logout -= OnLogout);
 
         lastSettingsFrame = -1;
-        tasks = new()
+        tasks             = new()
         {
             RetryIntervalMS = 100, TimeoutMS = 30_000
         };
@@ -82,10 +80,10 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
     protected override void OnStop()
     {
         StopOperation("Stopped");
-        endRequestHook?.Dispose();
-        endRequestHook = null;
-        tasks = null;
-        snapshot = new(0, [], snapshot.Version + 1);
+        EndRequestHook?.Dispose();
+        EndRequestHook      = null;
+        tasks               = null;
+        snapshot            = new(0, [], snapshot.Version + 1);
         confirmationTargets = [];
         selectedContentIDs.Clear();
         refreshRequested = false;
@@ -100,6 +98,8 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         return true;
     }
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings()
     {
         var currentSnapshot = snapshot;
@@ -108,7 +108,7 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         var frame = ImGui.GetFrameCount();
         if (frame != lastSettingsFrame + 1 || settingsOwnerContentID != ownerContentID)
             refreshRequested = true;
-        lastSettingsFrame = frame;
+        lastSettingsFrame      = frame;
         settingsOwnerContentID = ownerContentID;
         if (refreshRequested && IsEnabled && loggedIn && tasks?.IsBusy == false)
         {
@@ -148,10 +148,10 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         {
             if (OmniControls.SmallButton(removeLabel, false))
             {
-                confirmationTargets = currentSnapshot.Friends
+                confirmationTargets        = currentSnapshot.Friends
                     .Where(friend => selectedContentIDs.Contains(friend.ContentID)).ToArray();
                 confirmationOwnerContentID = ownerContentID;
-                openConfirmation = true;
+                openConfirmation           = true;
             }
         }
 
@@ -171,7 +171,11 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         return false;
     }
 
-    private void DrawFriendList(FriendEntry[] friends, bool busy)
+    private void DrawFriendList
+    (
+        FriendEntry[] friends,
+        bool          busy
+    )
     {
         using var cellPadding = ImRaii.PushStyle(
             ImGuiStyleVar.CellPadding,
@@ -184,7 +188,7 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         var worldWidth = ImGui.CalcTextSize(worldLabel).X;
         foreach (var friend in friends)
         {
-            nameWidth = MathF.Max(nameWidth, ImGui.CalcTextSize(friend.DisplayName).X);
+            nameWidth  = MathF.Max(nameWidth, ImGui.CalcTextSize(friend.DisplayName).X);
             worldWidth = MathF.Max(worldWidth,
                 ImGui.CalcTextSize(friend.DisplayWorldName).X + ImGui.GetTextLineHeight());
         }
@@ -304,7 +308,11 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         }
     }
 
-    private void OnLogout(int _, int unusedReason)
+    private void OnLogout
+    (
+        int _,
+        int unusedReason
+    )
     {
         StopOperation("CharacterChanged");
         snapshot = new(0, [], snapshot.Version + 1);
@@ -366,11 +374,11 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         if (proxy == null)
             return false;
 
-        if (endRequestHook is null)
+        if (EndRequestHook is null)
         {
-            endRequestHook = proxy->VirtualTable->HookVFuncFromName(
+            EndRequestHook = proxy->VirtualTable->HookVFuncFromName(
                 "EndRequest", (InfoProxyFriendList.Delegates.EndRequest)OnEndRequest);
-            endRequestHook.Enable();
+            EndRequestHook.Enable();
         }
 
         responseVersion = snapshot.Version;
@@ -379,7 +387,7 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
 
     private void OnEndRequest(InfoProxyFriendList* proxy)
     {
-        endRequestHook!.Original(proxy);
+        EndRequestHook!.Original(proxy);
         var ownerContentID = DalamudServices.PlayerState.ContentId;
         if (!IsEnabled || !DService.Instance().ClientState.IsLoggedIn || ownerContentID == 0 ||
             proxy != InfoProxyFriendList.Instance() || (proxy->EntryCount > 0 && proxy->CharData == null))
@@ -388,7 +396,12 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         CaptureFriends(proxy, ownerContentID, snapshot.Version + 1);
     }
 
-    private void CaptureFriends(InfoProxyFriendList* proxy, ulong ownerContentID, int version)
+    private void CaptureFriends
+    (
+        InfoProxyFriendList* proxy,
+        ulong                ownerContentID,
+        int                  version
+    )
     {
         var entries = proxy->CharDataSpan;
         var unavailableName = LuminaWrapper.GetAddonText(UNAVAILABLE_CHARACTER_TEXT_ID);
@@ -451,7 +464,11 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         snapshot = new(ownerContentID, friends.ToArray(), version);
     }
 
-    private void BeginRemoval(FriendEntry[] targets, ulong ownerContentID)
+    private void BeginRemoval
+    (
+        FriendEntry[] targets,
+        ulong         ownerContentID
+    )
     {
         if (!IsEnabled || tasks is null || tasks.IsBusy || targets.Length == 0)
         {
@@ -497,7 +514,13 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         });
     }
 
-    private bool FindFriendMenu(FriendEntry friend, ref int preferredIndex, ref int scanIndex, ref bool awaitingMenu)
+    private bool FindFriendMenu
+    (
+        FriendEntry friend,
+        ref int     preferredIndex,
+        ref int     scanIndex,
+        ref bool    awaitingMenu
+    )
     {
         currentFriend = friend;
         var proxy = InfoProxyFriendList.Instance();
@@ -667,7 +690,14 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         return AddonSelectYesnoEvent.ClickYes();
     }
 
-    private void EnqueueStep(int version, ulong ownerContentID, string step, Func<bool> action, int timeoutMS = 30_000)
+    private void EnqueueStep
+    (
+        int        version,
+        ulong      ownerContentID,
+        string     step,
+        Func<bool> action,
+        int        timeoutMS = 30_000
+    )
     {
         var started = false;
         tasks!.EnqueueAsync(
@@ -678,7 +708,7 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
 
                 if (!started)
                 {
-                    started = true;
+                    started     = true;
                     currentStep = step;
                 }
 
@@ -690,7 +720,11 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
             exceptionAction: () => OnTaskFailed(version, step, false));
     }
 
-    private bool IsCurrentOperation(int version, ulong ownerContentID)
+    private bool IsCurrentOperation
+    (
+        int   version,
+        ulong ownerContentID
+    )
     {
         if (!IsEnabled || version != Volatile.Read(ref operationVersion))
             return false;
@@ -703,7 +737,12 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         return false;
     }
 
-    private void OnTaskFailed(int version, string step, bool timedOut) => _ = DalamudServices.Framework.RunOnFrameworkThread(() =>
+    private void OnTaskFailed
+    (
+        int    version,
+        string step,
+        bool   timedOut
+    ) => _ = DalamudServices.Framework.RunOnFrameworkThread(() =>
                                                                                {
                                                                                    if (version != Volatile.Read(ref operationVersion))
                                                                                        return;
@@ -719,10 +758,15 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         tasks?.Abort();
         currentFriend = null;
         friendAddonID = 0;
-        menuAddonID = 0;
+        menuAddonID   = 0;
     }
 
-    private sealed record FriendEntry(ulong ContentID, string Name, string WorldName)
+    private sealed record FriendEntry
+    (
+        ulong  ContentID,
+        string Name,
+        string WorldName
+    )
     {
         public bool IsUnresolved => string.IsNullOrWhiteSpace(Name);
 
@@ -732,7 +776,12 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
             ? OmniLoc.Get("Feature.BatchFriendRemoval.Unresolved") : WorldName;
     }
 
-    private sealed record FriendSnapshot(ulong OwnerContentID, FriendEntry[] Friends, int Version);
+    private sealed record FriendSnapshot
+    (
+        ulong         OwnerContentID,
+        FriendEntry[] Friends,
+        int           Version
+    );
 
     #region 常量
 

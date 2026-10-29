@@ -15,7 +15,12 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class AutoIshgardRestoration
 {
-    private void DriveStartNPCEvent(uint[] npcIDs, AutomationPhase nextPhase, string label)
+    private void DriveStartNPCEvent
+    (
+        uint[]          npcIDs,
+        AutomationPhase nextPhase,
+        string          label
+    )
     {
         if (IsOccupied())
         {
@@ -39,7 +44,7 @@ public sealed partial class AutoIshgardRestoration
 
         EnterPhase(nextPhase);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(600);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.OpeningNPCEvent"), label);
+        status       = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.OpeningNPCEvent"), label);
     }
 
     private static unsafe uint ReadSkybuildersScrips()
@@ -48,7 +53,11 @@ public sealed partial class AutoIshgardRestoration
         return manager == null ? 0 : manager->GetItemCount(SKYBUILDERS_SCRIP_ITEM_ID);
     }
 
-    private static unsafe bool ClickButton(AtkUnitBase* addon, AtkComponentButton* button)
+    private static unsafe bool ClickButton
+    (
+        AtkUnitBase*        addon,
+        AtkComponentButton* button
+    )
     {
         if (addon == null || button == null)
         {
@@ -87,9 +96,11 @@ public sealed partial class AutoIshgardRestoration
         return true;
     }
 
-    private static unsafe bool TryResolveNPCEventID(
-        GameObject* gameObject,
-        out GameEventID eventID)
+    private static unsafe bool TryResolveNPCEventID
+    (
+        GameObject*     gameObject,
+        out GameEventID eventID
+    )
     {
         eventID = default;
 
@@ -254,7 +265,13 @@ public sealed partial class AutoIshgardRestoration
         return new InventorySnapshot(freeSlots, totalSlots, itemCount, pendingScrips);
     }
 
-    private readonly record struct InventorySnapshot(int FreeSlots, int TotalSlots, int ItemCount, int PendingScrips);
+    private readonly record struct InventorySnapshot
+    (
+        int FreeSlots,
+        int TotalSlots,
+        int ItemCount,
+        int PendingScrips
+    );
 
     private static readonly GameInventoryType[] MainInventoryTypes =
     [

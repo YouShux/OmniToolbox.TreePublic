@@ -64,10 +64,22 @@ public sealed partial class AutoIshgardRestoration
     private int GetConfiguredScripLimit(ScripProduct product) =>
         CalculateConfiguredScripLimit(config.ScripThreshold, product.Price, product.Unique);
 
-    private static int CalculateConfiguredScripLimit(int threshold, int price, bool unique) =>
+    private static int CalculateConfiguredScripLimit
+    (
+        int  threshold,
+        int  price,
+        bool unique
+    ) =>
         CalculateScripLimit(Math.Clamp(threshold, 1, 10000), price, int.MaxValue, unique, 0);
 
-    private static int CalculateScripLimit(int balance, int price, int capacity, bool unique, int owned)
+    private static int CalculateScripLimit
+    (
+        int  balance,
+        int  price,
+        int  capacity,
+        bool unique,
+        int  owned
+    )
     {
         if (balance < 0 || price <= 0 || capacity <= 0 || owned < 0) return 0;
         var limit = Math.Min(Math.Clamp(balance, 0, 10000) / price, capacity);
@@ -129,14 +141,14 @@ public sealed partial class AutoIshgardRestoration
             return;
         }
         pendingScripProduct = product;
-        scripRemaining = amount;
-        scripPurchased = 0;
+        scripRemaining      = amount;
+        scripPurchased      = 0;
         scripVouchersBefore = TryReadVoucherCount(out var vouchers, out _) ? vouchers : -1;
-        scripEventOwned = scripEventEnded = false;
-        running = true;
+        scripEventOwned     = scripEventEnded = false;
+        running             = true;
         EnterPhase(AutomationPhase.PrepareScripPurchase);
         nextCheckAt = nextActionAt = DateTime.UtcNow;
-        status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchasePreparing");
+        status      = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchasePreparing");
     }
 
     private static unsafe bool IsScripShopActive()
@@ -188,7 +200,7 @@ public sealed partial class AutoIshgardRestoration
         new EventStartPackt(entityID, product.ShopID).Send();
         EnterPhase(AutomationPhase.OpenScripShop);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(800);
-        status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseShopOpening");
+        status       = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseShopOpening");
     }
 
     private void DriveOpenScripShop(ScripProduct product)
@@ -219,12 +231,12 @@ public sealed partial class AutoIshgardRestoration
             FailAutomation(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseConditionsChanged"));
             return;
         }
-        scripBalanceBefore = ReadSkybuildersScrips();
+        scripBalanceBefore   = ReadSkybuildersScrips();
         scripItemCountBefore = ReadInventory(product.ItemID).ItemCount;
-        scripQuantitySent = scripConfirmSent = false;
+        scripQuantitySent    = scripConfirmSent = false;
         EnterPhase(AutomationPhase.VerifyScripPurchase);
         AgentId.Shop.SendEvent(1, 0, scripSelectedIndex, scripBatch, 0);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Purchasing"), product.Name, scripBatch);
+        status       = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Purchasing"), product.Name, scripBatch);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(400);
     }
 
@@ -237,7 +249,7 @@ public sealed partial class AutoIshgardRestoration
             scripRemaining -= scripBatch;
             EnterPhase(scripRemaining > 0 ? AutomationPhase.BuyScripItem : AutomationPhase.CloseScripShop);
             nextActionAt = DateTime.UtcNow.AddMilliseconds(800);
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Purchased"), product.Name, scripPurchased);
+            status       = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Purchased"), product.Name, scripPurchased);
             return;
         }
         ConfirmScripPurchase(product);
@@ -248,7 +260,7 @@ public sealed partial class AutoIshgardRestoration
         EndScripEvent();
         if (IsScripShopActive() || IsOccupied() || HasScripTransactionDialog() || GetAddon("ShopExchangeCurrency") != null) return;
         pendingScripProduct = null;
-        scripEventOwned = false;
+        scripEventOwned     = false;
         var recipe = FindRecipe(activeRecipeID);
         if (recipe is null)
         {
@@ -269,7 +281,15 @@ public sealed partial class AutoIshgardRestoration
         else BeginNextCraftingCycle(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseComplete"));
     }
 
-    private static bool ScripPurchaseApplied(uint beforeBalance, uint nowBalance, int beforeItems, int nowItems, int price, int quantity) =>
+    private static bool ScripPurchaseApplied
+    (
+        uint beforeBalance,
+        uint nowBalance,
+        int  beforeItems,
+        int  nowItems,
+        int  price,
+        int  quantity
+    ) =>
         price > 0 && quantity > 0 && beforeBalance >= (long)price * quantity &&
         nowBalance == beforeBalance - (long)price * quantity && nowItems == beforeItems + (long)quantity;
 
@@ -312,7 +332,7 @@ public sealed partial class AutoIshgardRestoration
         {
             EndScripEvent();
         }
-        scripEventOwned = false;
+        scripEventOwned     = false;
         pendingScripProduct = null;
     }
 }

@@ -14,55 +14,61 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class ChocoboColorPreview
 {
-    internal sealed class ChocoboColorPreviewNativeUI : NativeAddon
+    private sealed class ChocoboColorPreviewNativeUI : NativeAddon
     {
         private static readonly float FeedListHeight = ChocoboFeedOrderListItemNode.ItemHeight * 6f;
 
-        private readonly System.Action<byte> onTargetColorSelected;
-        private readonly System.Action onPreview;
-        private readonly System.Action onClear;
-        private List<ChocoboFruitRequirement> fruitRequirements = [];
-        private List<ChocoboFeedOrder> feedOrder = [];
-        private string currentColorName = string.Empty;
-        private Vector4 currentColor;
-        private string targetColorName = string.Empty;
-        private Vector4 targetColor;
-        private TextNode? currentLabelNode;
-        private ColorImageNode? currentColorNode;
-        private TextNode? currentColorNameNode;
-        private TextNode? targetLabelNode;
-        private ColorImageNode? targetColorNode;
-        private DropDownNode<Stain>? targetColorDropDown;
-        private TextButtonNode? previewButton;
-        private TextButtonNode? clearButton;
-        private TextNode? fruitRequirementsLabelNode;
+        private readonly System.Action<byte>                                            onTargetColorSelected;
+        private readonly System.Action                                                  onPreview;
+        private readonly System.Action                                                  onClear;
+        private List<ChocoboFruitRequirement>                                           fruitRequirements          = [];
+        private List<ChocoboFeedOrder>                                                  feedOrder                  = [];
+        private string                                                                  currentColorName           = string.Empty;
+        private Vector4                                                                 currentColor;
+        private string                                                                  targetColorName            = string.Empty;
+        private Vector4                                                                 targetColor;
+        private TextNode?                                                               currentLabelNode;
+        private ColorImageNode?                                                         currentColorNode;
+        private TextNode?                                                               currentColorNameNode;
+        private TextNode?                                                               targetLabelNode;
+        private ColorImageNode?                                                         targetColorNode;
+        private DropDownNode<Stain>?                                                    targetColorDropDown;
+        private TextButtonNode?                                                         previewButton;
+        private TextButtonNode?                                                         clearButton;
+        private TextNode?                                                               fruitRequirementsLabelNode;
         private ListNode<ChocoboFruitRequirement, ChocoboFruitRequirementListItemNode>? fruitRequirementsListNode;
-        private TextNode? feedOrderLabelNode;
-        private TextNode? noFruitNode;
-        private ListNode<ChocoboFeedOrder, ChocoboFeedOrderListItemNode>? feedOrderListNode;
+        private TextNode?                                                               feedOrderLabelNode;
+        private TextNode?                                                               noFruitNode;
+        private ListNode<ChocoboFeedOrder, ChocoboFeedOrderListItemNode>?               feedOrderListNode;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-        public ChocoboColorPreviewNativeUI(
+        public ChocoboColorPreviewNativeUI
+        (
             System.Action<byte> onTargetColorSelected,
-            System.Action onPreview,
-            System.Action onClear)
+            System.Action       onPreview,
+            System.Action       onClear
+        )
         {
-            InternalName = "OmniChocoboColorPreviewNative";
-            Title = OmniLoc.Get("ChocoboColorPreviewTitle");
-            Subtitle = string.Empty;
-            Size = new(420f, 390f);
-            ContentPadding = new(8f, 0f);
-            RememberClosePosition = false;
-            CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
-            RespectCloseAll = false;
-            DisableClose = true;
-            EnableContextMenu = false;
+            InternalName               = "OmniChocoboColorPreviewNative";
+            Title                      = OmniLoc.Get("ChocoboColorPreviewTitle");
+            Subtitle                   = string.Empty;
+            Size                       = new(420f, 390f);
+            ContentPadding             = new(8f, 0f);
+            RememberClosePosition      = false;
+            CreateWindowNode           = static () => new WindowNode { ShowCloseButton = false };
+            RespectCloseAll            = false;
+            DisableClose               = true;
+            EnableContextMenu          = false;
             this.onTargetColorSelected = onTargetColorSelected;
-            this.onPreview = onPreview;
-            this.onClear = onClear;
+            this.onPreview             = onPreview;
+            this.onClear               = onClear;
         }
 
-        protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
+        protected override unsafe void OnSetup
+        (
+            AtkUnitBase*   addon,
+            Span<AtkValue> atkValueSpan
+        )
         {
             var source = AddonHelper.GetByName("Buddy");
             if (source != null && source->WindowNode != null)
@@ -164,35 +170,37 @@ public sealed partial class ChocoboColorPreview
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
-            currentLabelNode = null;
-            currentColorNode = null;
-            currentColorNameNode = null;
-            targetLabelNode = null;
-            targetColorNode = null;
-            targetColorDropDown = null;
-            previewButton = null;
-            clearButton = null;
+            currentLabelNode           = null;
+            currentColorNode           = null;
+            currentColorNameNode       = null;
+            targetLabelNode            = null;
+            targetColorNode            = null;
+            targetColorDropDown        = null;
+            previewButton              = null;
+            clearButton                = null;
             fruitRequirementsLabelNode = null;
-            fruitRequirementsListNode = null;
-            feedOrderLabelNode = null;
-            noFruitNode = null;
-            feedOrderListNode = null;
+            fruitRequirementsListNode  = null;
+            feedOrderLabelNode         = null;
+            noFruitNode                = null;
+            feedOrderListNode          = null;
         }
 
-        public void UpdateData(
-            string currentColorName,
-            Vector4 currentColor,
-            string targetColorName,
-            Vector4 targetColor,
+        public void UpdateData
+        (
+            string                        currentColorName,
+            Vector4                       currentColor,
+            string                        targetColorName,
+            Vector4                       targetColor,
             List<ChocoboFruitRequirement> fruitRequirements,
-            List<ChocoboFeedOrder> feedOrder)
+            List<ChocoboFeedOrder>        feedOrder
+        )
         {
-            this.currentColorName = currentColorName;
-            this.currentColor = currentColor;
-            this.targetColorName = targetColorName;
-            this.targetColor = targetColor;
+            this.currentColorName  = currentColorName;
+            this.currentColor      = currentColor;
+            this.targetColorName   = targetColorName;
+            this.targetColor       = targetColor;
             this.fruitRequirements = fruitRequirements;
-            this.feedOrder = feedOrder;
+            this.feedOrder         = feedOrder;
             ApplyData();
         }
 
@@ -221,7 +229,7 @@ public sealed partial class ChocoboColorPreview
             if (fruitRequirementsListNode is not null)
             {
                 fruitRequirementsListNode.OptionsList = fruitRequirements;
-                fruitRequirementsListNode.IsVisible = fruitRequirements.Count > 0;
+                fruitRequirementsListNode.IsVisible   = fruitRequirements.Count > 0;
             }
 
             if (noFruitNode is not null)
@@ -232,7 +240,7 @@ public sealed partial class ChocoboColorPreview
             if (feedOrderListNode is not null)
             {
                 feedOrderListNode.OptionsList = feedOrder;
-                feedOrderListNode.IsVisible = feedOrder.Count > 0;
+                feedOrderListNode.IsVisible   = feedOrder.Count > 0;
             }
         }
 
@@ -249,19 +257,19 @@ public sealed partial class ChocoboColorPreview
             if (currentLabelNode is not null)
             {
                 currentLabelNode.Position = new(contentX, contentY);
-                currentLabelNode.Size = new(LABEL_WIDTH, ROW_HEIGHT);
+                currentLabelNode.Size     = new(LABEL_WIDTH, ROW_HEIGHT);
             }
 
             if (currentColorNode is not null)
             {
                 currentColorNode.Position = new(contentX + LABEL_WIDTH, contentY + 3f);
-                currentColorNode.Size = new(COLOR_SIZE, COLOR_SIZE);
+                currentColorNode.Size     = new(COLOR_SIZE, COLOR_SIZE);
             }
 
             if (currentColorNameNode is not null)
             {
                 currentColorNameNode.Position = new(contentX + LABEL_WIDTH + COLOR_SIZE + GAP, contentY);
-                currentColorNameNode.Size = new(contentWidth - LABEL_WIDTH - COLOR_SIZE - GAP, ROW_HEIGHT);
+                currentColorNameNode.Size     = new(contentWidth - LABEL_WIDTH - COLOR_SIZE - GAP, ROW_HEIGHT);
             }
 
             var targetY = contentY + ROW_HEIGHT;
@@ -272,63 +280,63 @@ public sealed partial class ChocoboColorPreview
             if (targetLabelNode is not null)
             {
                 targetLabelNode.Position = new(contentX, targetY);
-                targetLabelNode.Size = new(LABEL_WIDTH, ROW_HEIGHT);
+                targetLabelNode.Size     = new(LABEL_WIDTH, ROW_HEIGHT);
             }
 
             if (targetColorDropDown is not null)
             {
                 targetColorDropDown.Position = new(dropdownX, targetY);
-                targetColorDropDown.Size = new(dropdownWidth, ROW_HEIGHT);
+                targetColorDropDown.Size     = new(dropdownWidth, ROW_HEIGHT);
             }
 
             if (targetColorNode is not null)
             {
                 targetColorNode.Position = new(contentX + LABEL_WIDTH, targetY + 3f);
-                targetColorNode.Size = new(COLOR_SIZE, COLOR_SIZE);
+                targetColorNode.Size     = new(COLOR_SIZE, COLOR_SIZE);
             }
 
             if (previewButton is not null)
             {
                 previewButton.Position = new(previewX, targetY);
-                previewButton.Size = new(BUTTON_WIDTH, ROW_HEIGHT);
+                previewButton.Size     = new(BUTTON_WIDTH, ROW_HEIGHT);
             }
 
             if (clearButton is not null)
             {
                 clearButton.Position = new(clearX, targetY);
-                clearButton.Size = new(BUTTON_WIDTH, ROW_HEIGHT);
+                clearButton.Size     = new(BUTTON_WIDTH, ROW_HEIGHT);
             }
 
             var fruitRequirementsY = targetY + ROW_HEIGHT + 8f;
             if (fruitRequirementsLabelNode is not null)
             {
                 fruitRequirementsLabelNode.Position = new(contentX, fruitRequirementsY);
-                fruitRequirementsLabelNode.Size = new(contentWidth, ROW_HEIGHT);
+                fruitRequirementsLabelNode.Size     = new(contentWidth, ROW_HEIGHT);
             }
 
             if (fruitRequirementsListNode is not null)
             {
                 fruitRequirementsListNode.Position = new(contentX, fruitRequirementsY + ROW_HEIGHT);
-                fruitRequirementsListNode.Size = new(contentWidth, ChocoboFruitRequirementListItemNode.ItemHeight * 3f);
+                fruitRequirementsListNode.Size     = new(contentWidth, ChocoboFruitRequirementListItemNode.ItemHeight * 3f);
             }
 
             var feedOrderY = fruitRequirementsY + ROW_HEIGHT * 4f + 4f;
             if (feedOrderLabelNode is not null)
             {
                 feedOrderLabelNode.Position = new(contentX, feedOrderY);
-                feedOrderLabelNode.Size = new(contentWidth, ROW_HEIGHT);
+                feedOrderLabelNode.Size     = new(contentWidth, ROW_HEIGHT);
             }
 
             if (noFruitNode is not null)
             {
                 noFruitNode.Position = new(contentX + 8f, feedOrderY + ROW_HEIGHT);
-                noFruitNode.Size = new(contentWidth - 8f, ROW_HEIGHT);
+                noFruitNode.Size     = new(contentWidth - 8f, ROW_HEIGHT);
             }
 
             if (feedOrderListNode is not null)
             {
                 feedOrderListNode.Position = new(contentX, feedOrderY + ROW_HEIGHT);
-                feedOrderListNode.Size = new(
+                feedOrderListNode.Size     = new(
                     contentWidth,
                     MathF.Min(FeedListHeight, MathF.Max(ChocoboFeedOrderListItemNode.ItemHeight, ContentSize.Y - (feedOrderY + ROW_HEIGHT - contentY))));
             }

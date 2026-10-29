@@ -94,8 +94,6 @@ public sealed partial class BetterCharacterPanel(BetterCharacterPanelConfig conf
             ["Feature.BetterCharacterPanel.Value.Seconds"] = "Feature.BetterCharacterPanel.Value.Seconds"
         });
 
-    public override bool HasSettings => true;
-
     private BetterCharacterPanelNativeUI? nativeUI;
 
     protected override void OnStart(FeatureLifetime activation)
@@ -108,6 +106,8 @@ public sealed partial class BetterCharacterPanel(BetterCharacterPanelConfig conf
     {
         nativeUI = null;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {

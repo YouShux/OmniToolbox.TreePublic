@@ -10,13 +10,13 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class DutyLootPreview
 {
-    private readonly Dictionary<uint, Dictionary<uint, HashSet<string>>> dropsByDuty = [];
-    private readonly Dictionary<(uint ContentFinderConditionID, uint FightNo), uint> bossRows = [];
-    private readonly Dictionary<(uint ContentFinderConditionID, uint FightNo), string> bossSources = [];
-    private readonly Dictionary<uint, uint> chestRows = [];
-    private List<(uint ChestID, uint ItemID)>? pendingChestItems;
-    private int pendingChestItemIndex;
-    private int dropsLoadStep = -1;
+    private readonly Dictionary<uint, Dictionary<uint, HashSet<string>>>               dropsByDuty           = [];
+    private readonly Dictionary<(uint ContentFinderConditionID, uint FightNo), uint>   bossRows              = [];
+    private readonly Dictionary<(uint ContentFinderConditionID, uint FightNo), string> bossSources           = [];
+    private readonly Dictionary<uint, uint>                                            chestRows             = [];
+    private List<(uint ChestID, uint ItemID)>?                                         pendingChestItems;
+    private int                                                                        pendingChestItemIndex;
+    private int                                                                        dropsLoadStep         = -1;
 
     private void BeginLoadDrops()
     {
@@ -24,9 +24,9 @@ public sealed unsafe partial class DutyLootPreview
         bossRows.Clear();
         bossSources.Clear();
         chestRows.Clear();
-        pendingChestItems = null;
+        pendingChestItems     = null;
         pendingChestItemIndex = 0;
-        dropsLoadStep = 0;
+        dropsLoadStep         = 0;
     }
 
     private bool StepLoadDrops()
@@ -104,7 +104,12 @@ public sealed unsafe partial class DutyLootPreview
         }
     }
 
-    private void AddBoss(uint dutyID, uint fight, uint itemID)
+    private void AddBoss
+    (
+        uint dutyID,
+        uint fight,
+        uint itemID
+    )
     {
         if (!bossSources.TryGetValue((dutyID, fight), out var source))
         {
@@ -118,14 +123,23 @@ public sealed unsafe partial class DutyLootPreview
         AddDrop(dutyID, itemID, source);
     }
 
-    private static List<T> Load<T>(string fileName, Func<CsvReader, T> readRow)
+    private static List<T> Load<T>
+    (
+        string             fileName,
+        Func<CsvReader, T> readRow
+    )
     {
         var rows = new List<T>();
         EmbeddedData.ReadCSV(fileName, csv => rows.Add(readRow(csv)));
         return rows;
     }
 
-    private void AddDrop(uint dutyID, uint itemID, string source)
+    private void AddDrop
+    (
+        uint   dutyID,
+        uint   itemID,
+        string source
+    )
     {
         if (dutyID == 0 || itemID == 0)
         {
@@ -216,7 +230,14 @@ public sealed unsafe partial class DutyLootPreview
             .ToList();
     }
 
-    private sealed record LootItem(DutyLootPreview Owner, Item Row, string Name, string Sources, bool IsUnlockable)
+    private sealed record LootItem
+    (
+        DutyLootPreview Owner,
+        Item            Row,
+        string          Name,
+        string          Sources,
+        bool            IsUnlockable
+    )
     {
         public bool IsEquipment => Row.EquipSlotCategory.RowId != 0;
 

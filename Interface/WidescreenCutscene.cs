@@ -26,23 +26,22 @@ public sealed unsafe class WidescreenCutscene : OmniModuleBase
 
     private static readonly CompSig UpdateLetterboxingSignature = new(
         "E8 ?? ?? ?? ?? 48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ?? 48 8B 8B ?? ?? ?? ??");
-
-    private Hook<UpdateLetterboxingDelegate>? hook;
-    private readonly HookRegistry hookRegistry;
-
     private delegate nint UpdateLetterboxingDelegate(nint instance);
+    private Hook<UpdateLetterboxingDelegate>? UpdateLetterboxingHook;
+
+    private readonly HookRegistry hookRegistry;
 
     public WidescreenCutscene(HookRegistry hookRegistry)
     {
         this.hookRegistry = hookRegistry;
     }
 
-    protected override void OnStart(FeatureLifetime activation) => hook = hookRegistry.Register(UpdateLetterboxingSignature, (UpdateLetterboxingDelegate)Detour);
+    protected override void OnStart(FeatureLifetime activation) => UpdateLetterboxingHook = hookRegistry.Register(UpdateLetterboxingSignature, (UpdateLetterboxingDelegate)Detour);
 
     protected override void OnStop()
     {
-        hookRegistry.Release(hook);
-        hook = null;
+        hookRegistry.Release(UpdateLetterboxingHook);
+        UpdateLetterboxingHook = null;
     }
 
     private nint Detour(nint instance)
@@ -53,7 +52,7 @@ public sealed unsafe class WidescreenCutscene : OmniModuleBase
             ((LetterboxConfig*)instance)->ShouldLetterBox &= ~LETTERBOX_FLAG;
         }
 
-        return hook!.Original(instance);
+        return UpdateLetterboxingHook!.Original(instance);
     }
 
     [StructLayout(LayoutKind.Explicit)]

@@ -43,7 +43,11 @@ public sealed unsafe partial class BetterGlamourManagement
         }
     }
 
-    internal static bool TryGetGearsetName(int index, out string name)
+    internal static bool TryGetGearsetName
+    (
+        int        index,
+        out string name
+    )
     {
         name = string.Empty;
         var module = RaptureGearsetModule.Instance();
@@ -59,7 +63,11 @@ public sealed unsafe partial class BetterGlamourManagement
         return !string.IsNullOrWhiteSpace(name);
     }
 
-    internal static BetterGlamourItem GetOrCreateItem(BetterGlamourPreset preset, int slot)
+    internal static BetterGlamourItem GetOrCreateItem
+    (
+        BetterGlamourPreset preset,
+        int                 slot
+    )
     {
         var item = preset.Items.Find(entry => entry.Slot == slot);
         if (item is not null)
@@ -196,7 +204,11 @@ public sealed unsafe partial class BetterGlamourManagement
         return SearchItems(query, HairstyleSearchIndex);
     }
 
-    private static List<BetterGlamourItemSearchResult> SearchHairstyles(string query, CustomizeData appearance)
+    private static List<BetterGlamourItemSearchResult> SearchHairstyles
+    (
+        string        query,
+        CustomizeData appearance
+    )
     {
         var availableIDs = new HashSet<uint>();
         foreach (var hairMakeType in LuminaGetter.Get<HairMakeType>())
@@ -221,9 +233,11 @@ public sealed unsafe partial class BetterGlamourManagement
         return SearchItems(query, GlassesSearchIndex);
     }
 
-    private static List<BetterGlamourItemSearchResult> SearchItems(
-        string query,
-        BetterGlamourItemSearchResult[] searchIndex)
+    private static List<BetterGlamourItemSearchResult> SearchItems
+    (
+        string                          query,
+        BetterGlamourItemSearchResult[] searchIndex
+    )
     {
         query = query.Trim();
         var results = new List<BetterGlamourItemSearchResult>();
@@ -406,7 +420,16 @@ public sealed unsafe partial class BetterGlamourManagement
         }
     }
 
-    internal readonly record struct GlamourPart(string TextKey, int Slot);
+    internal readonly record struct GlamourPart
+    (
+        string TextKey,
+        int    Slot
+    );
 
-    internal readonly record struct GlamourDyeOption(byte ID, string Name, Vector4 Color);
+    internal readonly record struct GlamourDyeOption
+    (
+        byte    ID,
+        string  Name,
+        Vector4 Color
+    );
 }

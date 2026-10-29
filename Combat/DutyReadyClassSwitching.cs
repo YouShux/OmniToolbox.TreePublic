@@ -26,9 +26,9 @@ public sealed unsafe class DutyReadyClassSwitching : OmniModuleBase
         });
 
     private AddonEventRegistry? addonEvents;
-    private nint addonAddress;
-    private bool switchAttempted;
-    private bool addonVisible;
+    private nint                addonAddress;
+    private bool                switchAttempted;
+    private bool                addonVisible;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -64,7 +64,11 @@ public sealed unsafe class DutyReadyClassSwitching : OmniModuleBase
         ClearState();
     }
 
-    private void OnAddonEvent(AddonEvent eventType, AddonArgs args)
+    private void OnAddonEvent
+    (
+        AddonEvent eventType,
+        AddonArgs  args
+    )
     {
         var addon = (AtkUnitBase*)args.Addon.Address;
         if (eventType == AddonEvent.PreFinalize)
@@ -80,14 +84,14 @@ public sealed unsafe class DutyReadyClassSwitching : OmniModuleBase
 
         if (!addon->IsVisible)
         {
-            addonVisible = false;
+            addonVisible    = false;
             switchAttempted = false;
             return;
         }
 
         if (addonAddress != (nint)addon || !addonVisible)
         {
-            addonAddress = (nint)addon;
+            addonAddress    = (nint)addon;
             switchAttempted = false;
         }
 
@@ -130,9 +134,9 @@ public sealed unsafe class DutyReadyClassSwitching : OmniModuleBase
 
     private void ClearState()
     {
-        addonAddress = nint.Zero;
+        addonAddress    = nint.Zero;
         switchAttempted = false;
-        addonVisible = false;
+        addonVisible    = false;
     }
 
     #region 常量

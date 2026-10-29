@@ -14,24 +14,26 @@ using OmenTools.Info.Game.Packets.Upstream;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Interop.Game.Models;
 using OmenTools.OmenService;
-using TreeTools.Threading;
 using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
-using Aetheryte = Lumina.Excel.Sheets.Aetheryte;
+using TreeTools.Threading;
 using EventFramework = FFXIVClientStructs.FFXIV.Client.Game.Event.EventFramework;
-using EventHandlerModule = FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandlerModule;
 using NativeEventHandler = FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandler;
+using EventHandlerModule = FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandlerModule;
+using Aetheryte = Lumina.Excel.Sheets.Aetheryte;
 
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-public sealed unsafe partial class VoidMateriaTransmutation(
-    Func<bool> canUseFeature,
+public sealed unsafe partial class VoidMateriaTransmutation
+(
+    Func<bool>       canUseFeature,
     Func<uint, bool> tryTeleport,
-    Func<bool> isTeleportBusy,
-    Action cancelTeleport) : OmniModuleBase
+    Func<bool>       isTeleportBusy,
+    Action           cancelTeleport
+) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -56,18 +58,21 @@ public sealed unsafe partial class VoidMateriaTransmutation(
             ["Feature.VoidMateriaTransmutation.Open"] = "Feature.VoidMateriaTransmutation.Open"
         });
 
-    public override bool HasSettings => true;
-
-    private TaskHelper? taskHelper;
-    private uint destinationTerritoryID;
-    private bool ownsTeleport;
-    private bool ownsWindow;
-    private bool hasSceneOverrides;
+    private TaskHelper?                                  taskHelper;
+    private uint                                         destinationTerritoryID;
+    private bool                                         ownsTeleport;
+    private bool                                         ownsWindow;
+    private bool                                         hasSceneOverrides;
     private Hook<NativeEventHandler.Delegates.EndEvent>? EndEventHook;
-    private static readonly CompSig CreateEventHandlerSig = new("48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 50 8B EA");
-    private delegate NativeEventHandler* CreateEventHandlerDelegate(EventHandlerModule* module, uint eventID, GameObject* eventObject);
+    private static readonly CompSig                      CreateEventHandlerSig  = new("48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 50 8B EA");
+    private delegate NativeEventHandler* CreateEventHandlerDelegate
+    (
+        EventHandlerModule* module,
+        uint                eventID,
+        GameObject*         eventObject
+    );
     private CreateEventHandlerDelegate? CreateEventHandler;
-    private static readonly CompSig IsEventHandlerReadySig = new("48 89 5C 24 08 57 48 83 EC 20 F6 41 24 01 48 8B F9 74 ?? 48 8B 99 98 01 00 00");
+    private static readonly CompSig     IsEventHandlerReadySig = new("48 89 5C 24 08 57 48 83 EC 20 F6 41 24 01 48 8B F9 74 ?? 48 8B 99 98 01 00 00");
     private delegate byte IsEventHandlerReadyDelegate(NativeEventHandler* handler);
     private IsEventHandlerReadyDelegate? IsEventHandlerReady;
 
@@ -89,7 +94,7 @@ public sealed unsafe partial class VoidMateriaTransmutation(
             {
                 EndEventHook?.Dispose();
                 EndEventHook = null;
-                taskHelper = null;
+                taskHelper   = null;
                 DisposeBatch();
             }
         });
@@ -116,27 +121,6 @@ public sealed unsafe partial class VoidMateriaTransmutation(
         lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
     }
 
-    public override bool DrawSettings()
-    {
-        using (ImRaii.Disabled(IsUnavailable()))
-        {
-            if (OmniControls.SmallButton(OmniLoc.Get(this, "Feature.VoidMateriaTransmutation.Open"), false))
-                _ = DalamudServices.Framework.RunOnFrameworkThread(RequestOpen);
-        }
-
-        return false;
-    }
-
-    public override bool TryHandleCommand(string command, string arguments)
-    {
-        if (!string.Equals(command, "materiatransmute", StringComparison.OrdinalIgnoreCase) ||
-            !string.IsNullOrWhiteSpace(arguments))
-            return false;
-
-        _ = DalamudServices.Framework.RunOnFrameworkThread(RequestOpen);
-        return true;
-    }
-
     protected override bool OnInterruptAutomation()
     {
         if (batchTasks?.IsBusy == true)
@@ -149,6 +133,33 @@ public sealed unsafe partial class VoidMateriaTransmutation(
             return false;
 
         Stop();
+        return true;
+    }
+
+    public override bool HasSettings => true;
+
+    public override bool DrawSettings()
+    {
+        using (ImRaii.Disabled(IsUnavailable()))
+        {
+            if (OmniControls.SmallButton(OmniLoc.Get(this, "Feature.VoidMateriaTransmutation.Open"), false))
+                _ = DalamudServices.Framework.RunOnFrameworkThread(RequestOpen);
+        }
+
+        return false;
+    }
+
+    public override bool TryHandleCommand
+    (
+        string command,
+        string arguments
+    )
+    {
+        if (!string.Equals(command, "materiatransmute", StringComparison.OrdinalIgnoreCase) ||
+            !string.IsNullOrWhiteSpace(arguments))
+            return false;
+
+        _ = DalamudServices.Framework.RunOnFrameworkThread(RequestOpen);
         return true;
     }
 
@@ -267,7 +278,11 @@ public sealed unsafe partial class VoidMateriaTransmutation(
         return true;
     }
 
-    private void OnWindowEvent(AddonEvent type, AddonArgs args)
+    private void OnWindowEvent
+    (
+        AddonEvent type,
+        AddonArgs  args
+    )
     {
         if (type == AddonEvent.PostSetup && hasSceneOverrides)
         {
@@ -279,12 +294,18 @@ public sealed unsafe partial class VoidMateriaTransmutation(
         }
         else if (type == AddonEvent.PreFinalize)
         {
-            ownsWindow = false;
+            ownsWindow  = false;
             batchButton = null;
         }
     }
 
-    private void EndEventDetour(NativeEventHandler* handler, bool a2, uint a3, uint exitReason)
+    private void EndEventDetour
+    (
+        NativeEventHandler* handler,
+        bool                a2,
+        uint                a3,
+        uint                exitReason
+    )
     {
         var restore = hasSceneOverrides && handler != null && handler->Info.EventId.Id == TRANSMUTATION_EVENT_ID;
         var hook = EndEventHook ?? throw new InvalidOperationException("Materia event completion hook is unavailable.");
@@ -310,7 +331,11 @@ public sealed unsafe partial class VoidMateriaTransmutation(
             Stop();
     }
 
-    private void OnLogout(int logoutType, int logoutCode) => Stop();
+    private void OnLogout
+    (
+        int logoutType,
+        int logoutCode
+    ) => Stop();
 
     private bool IsUnavailable()
     {
@@ -389,10 +414,10 @@ public sealed unsafe partial class VoidMateriaTransmutation(
 
     #region 常量
 
-    private const uint UNLOCK_QUEST_ID = 66999;
-    private const uint TRANSMUTATION_EVENT_ID = 0x000B00AE;
-    private const uint DESTINATION_AETHERYTE_ID = 53;
-    private const string APPLY_SCENE_OVERRIDES = """
+    private const uint   UNLOCK_QUEST_ID          = 66999;
+    private const uint   TRANSMUTATION_EVENT_ID   = 0x000B00AE;
+    private const uint   DESTINATION_AETHERYTE_ID = 53;
+    private const string APPLY_SCENE_OVERRIDES    = """
         local cls = CmnDefMateriaSlot
         assert(type(cls) == "table", "Materia scene class is unavailable")
         assert(rawget(cls, "__OmniMateriaScenes") == nil, "Materia scene overrides are already active")
@@ -416,7 +441,7 @@ public sealed unsafe partial class VoidMateriaTransmutation(
         end
         cls.__OmniMateriaScenes = saved
         """;
-    private const string RESTORE_SCENE_OVERRIDES = """
+    private const string RESTORE_SCENE_OVERRIDES  = """
         local cls = CmnDefMateriaSlot
         local saved = type(cls) == "table" and rawget(cls, "__OmniMateriaScenes")
         if type(saved) == "table" then

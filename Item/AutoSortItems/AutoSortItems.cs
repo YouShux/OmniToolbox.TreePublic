@@ -9,11 +9,11 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using TreeTools.Threading;
 using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
+using TreeTools.Threading;
 
 namespace OmniToolbox.TreePublic;
 
@@ -91,16 +91,14 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             ["Feature.AutoSortItems.Unset"] = "Feature.AutoSortItems.Unset"
         });
 
-    public override bool HasSettings => true;
-
-    private static readonly InventoryType[] InventoryContainers =
+    private static readonly InventoryType[] InventoryContainers        =
     [
         InventoryType.Inventory1,
         InventoryType.Inventory2,
         InventoryType.Inventory3,
         InventoryType.Inventory4
     ];
-    private static readonly InventoryType[] RetainerContainers =
+    private static readonly InventoryType[] RetainerContainers         =
     [
         InventoryType.RetainerPage1,
         InventoryType.RetainerPage2,
@@ -110,7 +108,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         InventoryType.RetainerPage6,
         InventoryType.RetainerPage7
     ];
-    private static readonly InventoryType[] SaddlebagContainers =
+    private static readonly InventoryType[] SaddlebagContainers        =
     [
         InventoryType.SaddleBag1,
         InventoryType.SaddleBag2
@@ -120,7 +118,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         InventoryType.PremiumSaddleBag1,
         InventoryType.PremiumSaddleBag2
     ];
-    internal static readonly RuleOption[] Categories =
+    internal static readonly RuleOption[]   Categories                 =
     [
         new("inventory", 257, "Feature.AutoSortItems.Category.Inventory"),
         new("retainer", 261, "Feature.AutoSortItems.Category.Retainer"),
@@ -140,7 +138,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         new("rings", 289, "Feature.AutoSortItems.Category.Rings"),
         new("soul", 291, "Feature.AutoSortItems.Category.Soul")
     ];
-    internal static readonly RuleOption[] Conditions =
+    internal static readonly RuleOption[]   Conditions                 =
     [
         new("id", 271, "Feature.AutoSortItems.Condition.ID"),
         new("spiritbond", 275, "Feature.AutoSortItems.Condition.Spiritbond"),
@@ -168,15 +166,15 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         new("gathering", 325, "Feature.AutoSortItems.Condition.Gathering"),
         new("perception", 327, "Feature.AutoSortItems.Condition.Perception")
     ];
-    internal static readonly RuleOption[] Orders =
+    internal static readonly RuleOption[]   Orders                     =
     [
         new("des", 283, "Feature.AutoSortItems.Order.Descending"),
         new("asc", 281, "Feature.AutoSortItems.Order.Ascending")
     ];
 
     private readonly HashSet<string> queuedCategories = new(StringComparer.Ordinal);
-    private TaskHelper? taskHelper;
-    private AddonEventRegistry? addonEvents;
+    private TaskHelper?              taskHelper;
+    private AddonEventRegistry?      addonEvents;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -210,6 +208,8 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         taskHelper = null;
         queuedCategories.Clear();
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings() => Panel.Draw(config);
 
@@ -254,7 +254,11 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         taskHelper.TaskGetException += _ => queuedCategories.Clear();
     }
 
-    private void RegisterAutoSortAddon(string addonName, System.Action queueAction) =>
+    private void RegisterAutoSortAddon
+    (
+        string        addonName,
+        System.Action queueAction
+    ) =>
         addonEvents!.Register(AddonEvent.PostShow, addonName, (_, _) => queueAction());
 
     private void OnClassJobChanged(uint _)
@@ -323,10 +327,12 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         }
     }
 
-    private void QueueCategory(
+    private void QueueCategory
+    (
         string category,
-        bool waitForMergeContainers = false,
-        bool manual = false)
+        bool   waitForMergeContainers = false,
+        bool   manual = false
+    )
     {
         EnsureRules(config);
         var playerState = PlayerState.Instance();
@@ -377,7 +383,12 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         taskHelper.Enqueue(() => FinishSort(category), $"Finish sort {category}");
     }
 
-    private bool StartSort(string category, IReadOnlyList<Settings.Rule> rules, bool manual)
+    private bool StartSort
+    (
+        string                       category,
+        IReadOnlyList<Settings.Rule> rules,
+        bool                         manual
+    )
     {
         if (!CanSort(category, manual))
         {
@@ -418,7 +429,12 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         return true;
     }
 
-    private bool MergeNext(string category, bool waitForContainers, bool manual)
+    private bool MergeNext
+    (
+        string category,
+        bool   waitForContainers,
+        bool   manual
+    )
     {
         if (!CanSort(category, manual))
         {
@@ -511,7 +527,11 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         return true;
     }
 
-    private static bool TryGetMergeSource(InventoryItem* item, out uint stackSize)
+    private static bool TryGetMergeSource
+    (
+        InventoryItem* item,
+        out uint       stackSize
+    )
     {
         stackSize = 0;
         if (item is null ||
@@ -526,7 +546,11 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         return stackSize > 1 && item->Quantity < stackSize;
     }
 
-    private static bool IsSameStack(InventoryItem* left, InventoryItem* right) =>
+    private static bool IsSameStack
+    (
+        InventoryItem* left,
+        InventoryItem* right
+    ) =>
         right is not null &&
         right->ItemId != 0 &&
         !right->Flags.HasFlag(InventoryItem.ItemFlags.Collectable) &&
@@ -534,7 +558,11 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         left->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality) ==
         right->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality);
 
-    private static bool CanSort(string category, bool manual)
+    private static bool CanSort
+    (
+        string category,
+        bool   manual
+    )
     {
         var services = DService.Instance();
         if (!GameState.IsLoggedIn ||
@@ -708,7 +736,11 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         _ => null
     };
 
-    private static string GetCommand(IEnumerable<RuleOption> options, string? key)
+    private static string GetCommand
+    (
+        IEnumerable<RuleOption> options,
+        string?                 key
+    )
     {
         var option = options.FirstOrDefault(option => string.Equals(option.Key, key, StringComparison.Ordinal));
         if (option is null)
@@ -779,7 +811,12 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         new("rightsaddlebag", true)
     ];
 
-    internal sealed record RuleOption(string Key, uint RowID, string LocalizationKey);
+    internal sealed record RuleOption
+    (
+        string Key,
+        uint   RowID,
+        string LocalizationKey
+    );
 
     #region 常量
 
@@ -797,15 +834,19 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
 
         public bool AutoMerge { get; set; } = true;
 
-        public sealed record Rule(
-            bool Enabled = true,
+        public sealed record Rule
+        (
+            bool    Enabled = true,
             string? Category = null,
             string? Condition = null,
-            string? Order = null);
+            string? Order = null
+        );
 
-        public sealed record CategoryHeader(
+        public sealed record CategoryHeader
+        (
             string Category,
-            bool Tab = false);
+            bool   Tab = false
+        );
 
     }
 }

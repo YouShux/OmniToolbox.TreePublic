@@ -1,8 +1,7 @@
-using Item = Lumina.Excel.Sheets.Item;
 using System.Drawing;
-using FFXIVClientStructs.FFXIV.Client.UI;
-using FFXIVClientStructs.FFXIV.Client.System.Input;
 using Dalamud.Interface;
+using FFXIVClientStructs.FFXIV.Client.System.Input;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
@@ -13,6 +12,7 @@ using Lumina.Text.ReadOnly;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;
+using Item = Lumina.Excel.Sheets.Item;
 
 #pragma warning disable KTKExperimental_TextureImageNode
 
@@ -45,7 +45,12 @@ public sealed partial class BetterGlamourManagement
             }
         }
 
-        public void SetItem(uint itemID, byte stain0 = 0, byte stain1 = 0)
+        public void SetItem
+        (
+            uint itemID,
+            byte stain0 = 0,
+            byte stain1 = 0
+        )
         {
             iconNode.IconId = LuminaWrapper.GetItemIconID(itemID);
             ItemIconDyeIndicators.Apply(iconNode, itemID, stain0, stain1);
@@ -55,8 +60,8 @@ public sealed partial class BetterGlamourManagement
         {
             base.OnSizeChanged();
             var scale = MathF.Max(0.01f, MathF.Min(Width, Height) / 48f);
-            iconNode.Size = new(48f, 48f);
-            iconNode.Scale = new(scale, scale);
+            iconNode.Size     = new(48f, 48f);
+            iconNode.Scale    = new(scale, scale);
             iconNode.Position = new((Width - 48f * scale) / 2f, (Height - 48f * scale) / 2f);
         }
     }

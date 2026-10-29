@@ -6,7 +6,11 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class AutoLogin
 {
-    private async Task<bool> RequestDataCenterLoginAsync(uint dataCenterID, bool requiresDataCenterLogin)
+    private async Task<bool> RequestDataCenterLoginAsync
+    (
+        uint dataCenterID,
+        bool requiresDataCenterLogin
+    )
     {
         if (!requiresDataCenterLogin || IsLobbyTravelReady())
             return true;

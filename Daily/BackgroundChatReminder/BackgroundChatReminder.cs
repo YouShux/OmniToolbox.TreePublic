@@ -27,10 +27,8 @@ public sealed unsafe partial class BackgroundChatReminder : OmniModuleBase
             ["Feature.BackgroundChatReminder.Tell"] = "Feature.BackgroundChatReminder.Tell"
         });
 
-    public override bool HasSettings => true;
-
     private readonly Settings config;
-    private bool subscribed;
+    private bool              subscribed;
 
     public BackgroundChatReminder(Settings config)
     {
@@ -40,6 +38,8 @@ public sealed unsafe partial class BackgroundChatReminder : OmniModuleBase
     protected override void OnStart(FeatureLifetime activation) => UpdateSubscription();
 
     protected override void OnStop() => DisableSubscription();
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {

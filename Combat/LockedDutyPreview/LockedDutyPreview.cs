@@ -13,9 +13,11 @@ using OmniToolbox.Common.Module.Models;
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-public sealed unsafe partial class LockedDutyPreview(
+public sealed unsafe partial class LockedDutyPreview
+(
     LockedDutyPreview.Settings config,
-    Action saveConfig) : OmniModuleBase
+    Action                     saveConfig
+) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -42,16 +44,14 @@ public sealed unsafe partial class LockedDutyPreview(
             ["Feature.LockedDutyPreview.Wiki"] = "Feature.LockedDutyPreview.Wiki"
         });
 
-    public override bool HasSettings => true;
-
-    private readonly LockedDutyPreviewResolver resolver = new();
-    private readonly List<LockedDutyPreviewRow> lockedRows = [];
-    private readonly List<LockedDutyPreviewRow> incompleteRows = [];
-    private readonly List<LockedDutyPreviewRow> excludedRows = [];
-    private LockedDutyPreviewNativeUI? nativeUI;
-    private bool contentsFinderWasVisible;
-    private LockedDutyPreviewView currentView;
-    private long nextRefreshTick;
+    private readonly LockedDutyPreviewResolver  resolver                 = new();
+    private readonly List<LockedDutyPreviewRow> lockedRows               = [];
+    private readonly List<LockedDutyPreviewRow> incompleteRows           = [];
+    private readonly List<LockedDutyPreviewRow> excludedRows             = [];
+    private LockedDutyPreviewNativeUI?          nativeUI;
+    private bool                                contentsFinderWasVisible;
+    private LockedDutyPreviewView               currentView;
+    private long                                nextRefreshTick;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -59,8 +59,8 @@ public sealed unsafe partial class LockedDutyPreview(
         lifetime.Add(() =>
         {
             contentsFinderWasVisible = false;
-            nextRefreshTick = 0;
-            currentView = LockedDutyPreviewView.Locked;
+            nextRefreshTick          = 0;
+            currentView              = LockedDutyPreviewView.Locked;
             lockedRows.Clear();
             incompleteRows.Clear();
             excludedRows.Clear();
@@ -77,6 +77,8 @@ public sealed unsafe partial class LockedDutyPreview(
         lifetime.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
         DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -152,7 +154,7 @@ public sealed unsafe partial class LockedDutyPreview(
         }
 
         contentsFinderWasVisible = true;
-        nextRefreshTick = now + 5_000;
+        nextRefreshTick          = now + 5_000;
         resolver.Refresh();
         RebuildRows();
         UpdateNativeUIData();

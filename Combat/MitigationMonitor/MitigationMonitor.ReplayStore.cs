@@ -136,10 +136,15 @@ public sealed partial class MitigationMonitor
             return dto;
         }
 
-        private static bool TryCreateHistory(ReplayDto? dto, out MitigationCombatHistory history, out string error)
+        private static bool TryCreateHistory
+        (
+            ReplayDto?                  dto,
+            out MitigationCombatHistory history,
+            out string                  error
+        )
         {
             history = default;
-            error = string.Empty;
+            error   = string.Empty;
             if (dto == null || dto.Version != EXPORT_VERSION)
             {
                 error = "Unsupported or empty replay file.";
@@ -185,7 +190,11 @@ public sealed partial class MitigationMonitor
             return true;
         }
 
-        private static bool TryCreateRecord(RecordDto? dto, out MitigationRecord record)
+        private static bool TryCreateRecord
+        (
+            RecordDto?           dto,
+            out MitigationRecord record
+        )
         {
             record = default;
             if (dto == null ||

@@ -17,20 +17,20 @@ public sealed partial class BetterGlamourManagement
 {
     internal sealed class RemotePreviewFrames(FeatureLifetime lifetime) : IAsyncDisposable
     {
-        private readonly object gate = new();
-        private long leaseUntil;
-        private long nextCaptureAt;
-        private long currentRequest;
-        private long frameRequest;
-        private long serial;
-        private int epoch;
-        private bool busy;
-        private bool disposed;
-        private Task captureTask = Task.CompletedTask;
-        private Task cancellationTask = Task.CompletedTask;
+        private readonly object          gate             = new();
+        private long                     leaseUntil;
+        private long                     nextCaptureAt;
+        private long                     currentRequest;
+        private long                     frameRequest;
+        private long                     serial;
+        private int                      epoch;
+        private bool                     busy;
+        private bool                     disposed;
+        private Task                     captureTask      = Task.CompletedTask;
+        private Task                     cancellationTask = Task.CompletedTask;
         private CancellationTokenSource? operation;
-        private string image = string.Empty;
-        private string error = string.Empty;
+        private string                   image            = string.Empty;
+        private string                   error            = string.Empty;
 
         public string Read(string status)
         {
@@ -54,18 +54,26 @@ public sealed partial class BetterGlamourManagement
             lock (gate)
             {
                 epoch++;
-                image = string.Empty;
-                error = string.Empty;
-                frameRequest = 0;
+                image          = string.Empty;
+                error          = string.Empty;
+                frameRequest   = 0;
                 currentRequest = 0;
-                leaseUntil = 0;
-                nextCaptureAt = 0;
+                leaseUntil     = 0;
+                nextCaptureAt  = 0;
                 if (operation is { } current)
                     cancellationTask = current.CancelAsync();
             }
         }
 
-        public void Update(ITextureReadbackProvider reader, nint srv, int width, int height, long request, bool ready)
+        public void Update
+        (
+            ITextureReadbackProvider reader,
+            nint                     srv,
+            int                      width,
+            int                      height,
+            long                     request,
+            bool                     ready
+        )
         {
             lock (gate)
             {
@@ -75,9 +83,9 @@ public sealed partial class BetterGlamourManagement
                 {
                     epoch++;
                     currentRequest = request;
-                    image = string.Empty;
-                    error = string.Empty;
-                    frameRequest = 0;
+                    image          = string.Empty;
+                    error          = string.Empty;
+                    frameRequest   = 0;
                     if (operation is { } current)
                     cancellationTask = current.CancelAsync();
                 }
@@ -87,16 +95,23 @@ public sealed partial class BetterGlamourManagement
                     return;
                 var wrap = new RetainedSRV(srv, width, height);
                 var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-                operation = cancellation;
+                operation        = cancellation;
                 cancellationTask = Task.CompletedTask;
-                busy = true;
-                nextCaptureAt = now + 30;
-                captureTask = Capture(reader, wrap, request, epoch, cancellation);
+                busy             = true;
+                nextCaptureAt    = now + 30;
+                captureTask      = Capture(reader, wrap, request, epoch, cancellation);
                 lifetime.Track(captureTask);
             }
         }
 
-        private async Task Capture(ITextureReadbackProvider reader, RetainedSRV wrap, long request, int ticket, CancellationTokenSource cancellation)
+        private async Task Capture
+        (
+            ITextureReadbackProvider reader,
+            RetainedSRV              wrap,
+            long                     request,
+            int                      ticket,
+            CancellationTokenSource  cancellation
+        )
         {
             try
             {
@@ -118,9 +133,9 @@ public sealed partial class BetterGlamourManagement
                 {
                     if (ticket == epoch && request == currentRequest)
                     {
-                        image = data;
+                        image        = data;
                         frameRequest = request;
-                        error = string.Empty;
+                        error        = string.Empty;
                         serial++;
                     }
                 }
@@ -173,7 +188,12 @@ public sealed partial class BetterGlamourManagement
             }
         }
 
-        internal static byte[] Encode(RawImageSpecification spec, byte[] bytes, CancellationToken token)
+        internal static byte[] Encode
+        (
+            RawImageSpecification spec,
+            byte[]                bytes,
+            CancellationToken     token
+        )
         {
             token.ThrowIfCancellationRequested();
             var width = spec.Width;
@@ -228,12 +248,17 @@ public sealed partial class BetterGlamourManagement
         {
             private nint pointer;
 
-            public RetainedSRV(nint pointer, int width, int height)
+            public RetainedSRV
+            (
+                nint pointer,
+                int  width,
+                int  height
+            )
             {
                 Marshal.AddRef(pointer);
                 this.pointer = pointer;
-                Width = width;
-                Height = height;
+                Width        = width;
+                Height       = height;
             }
 
             public ImTextureID Handle => new((ulong)pointer);

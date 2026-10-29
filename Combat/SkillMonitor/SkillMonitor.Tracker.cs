@@ -14,22 +14,22 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class SkillMonitor
 {
-    internal sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] definitions)
+    private sealed unsafe class SkillMonitorTracker(SkillMonitorDefinition[] definitions)
     {
-        private readonly ConcurrentQueue<ActionUse> pendingActions = new();
-        private readonly Dictionary<uint, int> actionIndexes = CreateActionIndexes(definitions);
-        private readonly Dictionary<uint, int> statusIndexes = CreateStatusIndexes(definitions);
-        private readonly SkillMonitorMember[] members = new SkillMonitorMember[8];
-        private readonly SkillMonitorRuntimeState[,] states = new SkillMonitorRuntimeState[8, definitions.Length];
-        private Hook<ActionEffectHandler.Delegates.Receive>? receiveHook;
+        private readonly ConcurrentQueue<ActionUse>          pendingActions = new();
+        private readonly Dictionary<uint, int>               actionIndexes  = CreateActionIndexes(definitions);
+        private readonly Dictionary<uint, int>               statusIndexes  = CreateStatusIndexes(definitions);
+        private readonly SkillMonitorMember[]                members        = new SkillMonitorMember[8];
+        private readonly SkillMonitorRuntimeState[,]         states         = new SkillMonitorRuntimeState[8, definitions.Length];
+        private Hook<ActionEffectHandler.Delegates.Receive>? ReceiveHook;
 
         public void Register(FeatureLifetime lifetime)
         {
-            receiveHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
+            ReceiveHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
                 ActionEffectHandler.MemberFunctionPointers.Receive,
                 OnActionEffect);
-            lifetime.Add(receiveHook.Dispose);
-            receiveHook.Enable();
+            lifetime.Add(ReceiveHook.Dispose);
+            ReceiveHook.Enable();
 
             if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 125))
             {
@@ -46,7 +46,11 @@ public sealed partial class SkillMonitor
 
         public SkillMonitorMember GetMember(int index) => members[index];
 
-        public SkillMonitorRuntimeState GetState(int memberIndex, int definitionIndex) => states[memberIndex, definitionIndex];
+        public SkillMonitorRuntimeState GetState
+        (
+            int memberIndex,
+            int definitionIndex
+        ) => states[memberIndex, definitionIndex];
 
         public void Clear()
         {
@@ -57,13 +61,15 @@ public sealed partial class SkillMonitor
             }
         }
 
-        private void OnActionEffect(
-            uint casterEntityID,
-            GameCharacter* casterPtr,
-            Vector3* targetPos,
-            ActionEffectHandler.Header* header,
+        private void OnActionEffect
+        (
+            uint                               casterEntityID,
+            GameCharacter*                     casterPtr,
+            Vector3*                           targetPos,
+            ActionEffectHandler.Header*        header,
             ActionEffectHandler.TargetEffects* effects,
-            GameObjectId* targetEntityIds)
+            GameObjectId*                      targetEntityIds
+        )
         {
             try
             {
@@ -74,7 +80,7 @@ public sealed partial class SkillMonitor
             }
             finally
             {
-                receiveHook!.Original(casterEntityID, casterPtr, targetPos, header, effects, targetEntityIds);
+                ReceiveHook!.Original(casterEntityID, casterPtr, targetPos, header, effects, targetEntityIds);
             }
         }
 
@@ -146,8 +152,8 @@ public sealed partial class SkillMonitor
                     }
 
                     var state = states[memberIndex, definitionIndex];
-                    state.StatusActive = true;
-                    state.StatusRemainingMilliseconds = status.RemainingTime > 0f
+                    state.StatusActive                   = true;
+                    state.StatusRemainingMilliseconds    = status.RemainingTime > 0f
                         ? (int)Math.Ceiling(status.RemainingTime * 1_000f)
                         : 0;
                     states[memberIndex, definitionIndex] = state;
@@ -182,10 +188,10 @@ public sealed partial class SkillMonitor
                 var cooldownMilliseconds = SkillMonitorDefinitions.GetCooldownMilliseconds(
                     definitions[definitionIndex], member.ClassJobID, member.Level);
                 var state = states[memberIndex, definitionIndex];
-                state.CooldownKnown = true;
-                state.ReadyAtTick = action.Tick + cooldownMilliseconds;
-                state.CooldownMilliseconds = cooldownMilliseconds;
-                state.ActiveUntilTick = action.Tick + definitions[definitionIndex].ActiveMilliseconds;
+                state.CooldownKnown                  = true;
+                state.ReadyAtTick                    = action.Tick + cooldownMilliseconds;
+                state.CooldownMilliseconds           = cooldownMilliseconds;
+                state.ActiveUntilTick                = action.Tick + definitions[definitionIndex].ActiveMilliseconds;
                 states[memberIndex, definitionIndex] = state;
                 return;
             }
@@ -210,8 +216,8 @@ public sealed partial class SkillMonitor
                     if (isActive)
                     {
                         var wasActive = state.DisplayState == SkillMonitorDisplayState.Active;
-                        state.DisplayState = SkillMonitorDisplayState.Active;
-                        state.CooldownText = string.Empty;
+                        state.DisplayState     = SkillMonitorDisplayState.Active;
+                        state.CooldownText     = string.Empty;
                         state.CooldownProgress = 0f;
                         var remainingActiveMilliseconds = definition.StatusID != 0
                             ? state.StatusRemainingMilliseconds
@@ -220,7 +226,7 @@ public sealed partial class SkillMonitor
                         if (!wasActive || statusSeconds != state.DisplaySeconds)
                         {
                             state.DisplaySeconds = statusSeconds;
-                            state.StatusText = statusSeconds > 0
+                            state.StatusText     = statusSeconds > 0
                                 ? definition.IsFood
                                     ? FormatDuration(statusSeconds)
                                     : statusSeconds.ToString(CultureInfo.InvariantCulture)
@@ -236,34 +242,34 @@ public sealed partial class SkillMonitor
                         if (!wasOnCooldown || seconds != state.DisplaySeconds)
                         {
                             state.DisplaySeconds = seconds;
-                            state.CooldownText = seconds.ToString(CultureInfo.InvariantCulture);
+                            state.CooldownText   = seconds.ToString(CultureInfo.InvariantCulture);
                         }
 
                         state.CooldownProgress = state.CooldownMilliseconds > 0
                             ? Math.Clamp((float)remainingMilliseconds / state.CooldownMilliseconds, 0f, 1f)
                             : 0f;
-                        state.StatusText = string.Empty;
+                        state.StatusText       = string.Empty;
                     }
                     else if (state.CooldownKnown)
                     {
-                        state.DisplayState = SkillMonitorDisplayState.Ready;
-                        state.CooldownText = string.Empty;
+                        state.DisplayState     = SkillMonitorDisplayState.Ready;
+                        state.CooldownText     = string.Empty;
                         state.CooldownProgress = 0f;
-                        state.StatusText = string.Empty;
+                        state.StatusText       = string.Empty;
                     }
                     else if (definition.StatusOnly)
                     {
-                        state.DisplayState = SkillMonitorDisplayState.Inactive;
-                        state.CooldownText = string.Empty;
+                        state.DisplayState     = SkillMonitorDisplayState.Inactive;
+                        state.CooldownText     = string.Empty;
                         state.CooldownProgress = 0f;
-                        state.StatusText = string.Empty;
+                        state.StatusText       = string.Empty;
                     }
                     else
                     {
-                        state.DisplayState = SkillMonitorDisplayState.Unknown;
-                        state.CooldownText = string.Empty;
+                        state.DisplayState     = SkillMonitorDisplayState.Unknown;
+                        state.CooldownText     = string.Empty;
                         state.CooldownProgress = 0f;
-                        state.StatusText = string.Empty;
+                        state.StatusText       = string.Empty;
                     }
 
                     states[memberIndex, definitionIndex] = state;
@@ -302,14 +308,14 @@ public sealed partial class SkillMonitor
                         state.CooldownMilliseconds = (int)(Math.Max(
                             0f,
                             actionManager->GetRecastTime(ActionType.Action, definition.ActionID)) * 1_000f);
-                        state.ReadyAtTick = now + (long)(Math.Max(
+                        state.ReadyAtTick          = now + (long)(Math.Max(
                             0f,
                             actionManager->GetRecastTime(ActionType.Action, definition.ActionID) -
                             actionManager->GetRecastTimeElapsed(ActionType.Action, definition.ActionID)) * 1_000f);
                     }
                     else
                     {
-                        state.ReadyAtTick = now;
+                        state.ReadyAtTick          = now;
                         state.CooldownMilliseconds = definition.CooldownMilliseconds;
                     }
 
@@ -325,8 +331,8 @@ public sealed partial class SkillMonitor
             for (var definitionIndex = 0; definitionIndex < definitions.Length; definitionIndex++)
             {
                 var state = states[memberIndex, definitionIndex];
-                state.StatusActive = false;
-                state.StatusRemainingMilliseconds = 0;
+                state.StatusActive                   = false;
+                state.StatusRemainingMilliseconds    = 0;
                 states[memberIndex, definitionIndex] = state;
             }
         }
@@ -340,7 +346,11 @@ public sealed partial class SkillMonitor
             }
         }
 
-        private void OnLogout(int _, int unusedReason) => Clear();
+        private void OnLogout
+        (
+            int _,
+            int unusedReason
+        ) => Clear();
 
         private void OnTerritoryChanged(uint _) => Clear();
 
@@ -376,7 +386,12 @@ public sealed partial class SkillMonitor
                 ? string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.SkillMonitor.Duration.Minutes"), seconds / 60)
                 : string.Format(CultureInfo.InvariantCulture, OmniLoc.Get("Feature.SkillMonitor.Duration.Seconds"), seconds);
 
-        private readonly record struct ActionUse(uint CasterEntityID, uint ActionID, long Tick);
+        private readonly record struct ActionUse
+        (
+            uint CasterEntityID,
+            uint ActionID,
+            long Tick
+        );
 
         #region 常量
 

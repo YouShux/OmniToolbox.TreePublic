@@ -27,7 +27,11 @@ public sealed unsafe partial class HotbarAdjustments
         }
     }
 
-    private void OnActionBarAddon(AddonEvent _, AddonArgs args)
+    private void OnActionBarAddon
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         var addon = (AddonActionBarBase*)args.Addon.Address;
         UpdateBackgrounds(args.AddonName, addon, config.HideBackground);
@@ -35,7 +39,11 @@ public sealed unsafe partial class HotbarAdjustments
             SetHotbarLockVisible((AddonActionBar*)addon, ShouldShowLocks);
     }
 
-    private void OnActionBarFinalize(AddonEvent _, AddonArgs args)
+    private void OnActionBarFinalize
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         var addon = (AddonActionBarBase*)args.Addon.Address;
         UpdateBackgrounds(args.AddonName, addon, false);
@@ -57,7 +65,12 @@ public sealed unsafe partial class HotbarAdjustments
             slotBackgrounds.Clear();
     }
 
-    private void UpdateBackgrounds(string addonName, AddonActionBarBase* addon, bool adjust)
+    private void UpdateBackgrounds
+    (
+        string              addonName,
+        AddonActionBarBase* addon,
+        bool                adjust
+    )
     {
         if (addon is null || (!adjust && slotBackgrounds.Count == 0))
             return;
@@ -106,12 +119,23 @@ public sealed unsafe partial class HotbarAdjustments
         }
     }
 
-    private static void SetHotbarLockVisible(AddonActionBar* addon, bool visible)
+    private static void SetHotbarLockVisible
+    (
+        AddonActionBar* addon,
+        bool            visible
+    )
     {
         var checkbox = addon->PadlockCheckbox;
         if (checkbox is not null && checkbox->OwnerNode is not null)
             checkbox->OwnerNode->AtkResNode.ToggleVisibility(visible);
     }
 
-    private readonly record struct BackgroundState(bool WasVisible, Vector2 Position, Vector2 Size, Vector2 Scale, byte Alpha);
+    private readonly record struct BackgroundState
+    (
+        bool    WasVisible,
+        Vector2 Position,
+        Vector2 Size,
+        Vector2 Scale,
+        byte    Alpha
+    );
 }

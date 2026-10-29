@@ -33,8 +33,6 @@ public sealed unsafe partial class DirectionalActionRelease : OmniModuleBase
             ["Feature.DirectionalActionRelease.Reverse"] = "Feature.DirectionalActionRelease.Reverse"
         });
 
-    public override bool HasSettings => true;
-
     private static readonly uint[] DefaultActionIDs =
     [
         94, 29494, 24401, 29550, 24402, 34684, 39210, 16010, 29430, 7418, 37008, 7385, 41506,
@@ -70,6 +68,8 @@ public sealed unsafe partial class DirectionalActionRelease : OmniModuleBase
         }
     }
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings() => Panel.Draw(config, ActionIDs);
 
     internal static void NormalizeConfig(Settings config)
@@ -92,25 +92,33 @@ public sealed unsafe partial class DirectionalActionRelease : OmniModuleBase
         config.ReversedActions.RemoveWhere(actionID => Array.IndexOf(DefaultActionIDs, actionID) < 0);
     }
 
-    private void OnPreUseAction(
-        ref bool isPrevented,
-        ref ActionType actionType,
-        ref uint actionID,
-        ref ulong targetID,
-        ref uint extraParam,
+    private void OnPreUseAction
+    (
+        ref bool                        isPrevented,
+        ref ActionType                  actionType,
+        ref uint                        actionID,
+        ref ulong                       targetID,
+        ref uint                        extraParam,
         ref ActionManager.UseActionMode queueState,
-        ref uint comboRouteID) => Align(actionType, actionID);
+        ref uint                        comboRouteID
+    ) => Align(actionType, actionID);
 
-    private void OnPreUseActionLocation(
-        ref bool isPrevented,
+    private void OnPreUseActionLocation
+    (
+        ref bool       isPrevented,
         ref ActionType actionType,
-        ref uint actionID,
-        ref ulong targetID,
-        ref Vector3 location,
-        ref uint extraParam,
-        ref byte a7) => Align(actionType, actionID);
+        ref uint       actionID,
+        ref ulong      targetID,
+        ref Vector3    location,
+        ref uint       extraParam,
+        ref byte       a7
+    ) => Align(actionType, actionID);
 
-    private void Align(ActionType actionType, uint actionID)
+    private void Align
+    (
+        ActionType actionType,
+        uint       actionID
+    )
     {
         if (actionType != ActionType.Action)
         {
@@ -133,7 +141,11 @@ public sealed unsafe partial class DirectionalActionRelease : OmniModuleBase
         ApplyRotation(rotation);
     }
 
-    private static bool TryGetRotation(DirectionalActionMode mode, out float rotation)
+    private static bool TryGetRotation
+    (
+        DirectionalActionMode mode,
+        out float             rotation
+    )
     {
         if (mode == DirectionalActionMode.Camera)
         {

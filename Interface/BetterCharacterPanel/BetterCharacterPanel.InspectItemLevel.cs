@@ -13,9 +13,9 @@ public sealed partial class BetterCharacterPanel
 {
     internal sealed unsafe partial class BetterCharacterPanelNativeUI
     {
-        private ResNode? inspectItemLevelDisplay;
+        private ResNode?  inspectItemLevelDisplay;
         private TextNode? inspectItemLevelText;
-        private int displayedInspectItemLevel = -1;
+        private int       displayedInspectItemLevel = -1;
 
         private void UpdateInspectItemLevel(AtkUnitBase* addon)
         {
@@ -86,8 +86,8 @@ public sealed partial class BetterCharacterPanel
         private void ClearInspectItemLevel()
         {
             inspectItemLevelDisplay?.Dispose();
-            inspectItemLevelDisplay = null;
-            inspectItemLevelText = null;
+            inspectItemLevelDisplay   = null;
+            inspectItemLevelText      = null;
             displayedInspectItemLevel = -1;
         }
     }

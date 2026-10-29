@@ -9,12 +9,12 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Data;
 using OmenTools.OmenService;
-using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Items;
 using OmniToolbox.UI.Theme;
+using TreeTools.Threading;
 
 namespace OmniToolbox.TreePublic;
 

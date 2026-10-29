@@ -10,11 +10,11 @@ using OmenTools;
 using OmenTools.OmenService;
 using OmniToolbox.Game;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
-using static OmniToolbox.TreePublic.MitigationMonitor;
 using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 using IBattleChara = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IBattleChara;
 using ICharacter = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.ICharacter;
 using IGameObject = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IGameObject;
+using static OmniToolbox.TreePublic.MitigationMonitor;
 
 namespace OmniToolbox.TreePublic;
 
@@ -22,13 +22,13 @@ public sealed partial class MitigationMonitor
 {
     internal sealed unsafe class MitigationRecorder
     {
-        private readonly MitigationCombatLog combatLog;
-        private readonly MitigationSnapshotBuilder snapshotBuilder = new();
-        private readonly object cacheSyncRoot = new();
-        private readonly HashSet<uint> friendlyEntityIds = [];
+        private readonly MitigationCombatLog                 combatLog;
+        private readonly MitigationSnapshotBuilder           snapshotBuilder       = new();
+        private readonly object                              cacheSyncRoot         = new();
+        private readonly HashSet<uint>                       friendlyEntityIds     = [];
         private Hook<ActionEffectHandler.Delegates.Receive>? ReceiveHook;
-        private bool pvpStateCleared;
-        private long nextEffectWarningTick;
+        private bool                                         pvpStateCleared;
+        private long                                         nextEffectWarningTick;
 
         public MitigationRecorder(MitigationCombatLog combatLog) => this.combatLog = combatLog;
 
@@ -67,7 +67,7 @@ public sealed partial class MitigationMonitor
 
         public void Reset()
         {
-            ReceiveHook = null;
+            ReceiveHook     = null;
             pvpStateCleared = false;
             lock (cacheSyncRoot)
             {
@@ -77,13 +77,15 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        private void OnActionEffect(
-            uint casterEntityID,
-            GameCharacter* caster,
-            Vector3* targetPosition,
-            ActionEffectHandler.Header* header,
+        private void OnActionEffect
+        (
+            uint                               casterEntityID,
+            GameCharacter*                     caster,
+            Vector3*                           targetPosition,
+            ActionEffectHandler.Header*        header,
             ActionEffectHandler.TargetEffects* effects,
-            GameObjectId* targetEntityIds)
+            GameObjectId*                      targetEntityIds
+        )
         {
             try
             {
@@ -102,11 +104,13 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        private void ProcessActionEffect(
-            uint casterEntityID,
-            ActionEffectHandler.Header* header,
+        private void ProcessActionEffect
+        (
+            uint                               casterEntityID,
+            ActionEffectHandler.Header*        header,
             ActionEffectHandler.TargetEffects* effects,
-            GameObjectId* targetEntityIds)
+            GameObjectId*                      targetEntityIds
+        )
         {
             var services = DService.Instance();
             if (!services.ClientState.IsLoggedIn ||
@@ -224,7 +228,11 @@ public sealed partial class MitigationMonitor
             return true;
         }
 
-        private void RefreshRuntimeCacheNoLock(DateTime now, bool detectDeaths)
+        private void RefreshRuntimeCacheNoLock
+        (
+            DateTime now,
+            bool     detectDeaths
+        )
         {
             var services = DService.Instance();
             friendlyEntityIds.Clear();
@@ -245,7 +253,12 @@ public sealed partial class MitigationMonitor
             snapshotBuilder.RefreshRuntime(now);
         }
 
-        private void TrackFriendlyNoLock(IGameObject? target, DateTime now, bool detectDeaths)
+        private void TrackFriendlyNoLock
+        (
+            IGameObject? target,
+            DateTime     now,
+            bool         detectDeaths
+        )
         {
             if (target == null || target.EntityID == 0)
             {
@@ -271,7 +284,11 @@ public sealed partial class MitigationMonitor
                 character?.CurrentHp ?? 0), now);
         }
 
-        private static bool TryDecodeTargetDamage(ActionEffectHandler.TargetEffects* targetEffects, out TargetDamageResult result)
+        private static bool TryDecodeTargetDamage
+        (
+            ActionEffectHandler.TargetEffects* targetEffects,
+            out TargetDamageResult             result
+        )
         {
             result = new()
             {
@@ -366,7 +383,11 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        private void OnLogout(int _, int unusedReason) => ClearRuntimeState();
+        private void OnLogout
+        (
+            int _,
+            int unusedReason
+        ) => ClearRuntimeState();
 
         private void OnTerritoryChanged(uint _) => ClearRuntimeState();
 

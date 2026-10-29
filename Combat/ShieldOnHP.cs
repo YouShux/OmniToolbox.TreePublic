@@ -34,8 +34,6 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
             ["Feature.ShieldOnHP.ShowBar.Help"] = "Feature.ShieldOnHP.ShowBar.Help"
         });
 
-    public override bool HasSettings => true;
-
     protected override void OnStart(FeatureLifetime activation)
     {
         var lifetime = Activation;
@@ -59,6 +57,8 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         lifetime.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawShieldValue);
         DalamudServices.PluginInterface.UiBuilder.Draw += DrawShieldValue;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -113,7 +113,11 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         drawList.AddText(position, 0xFFFFFFFF, text);
     }
 
-    private static void OnParameterWidgetFinalize(AddonEvent _, AddonArgs args) =>
+    private static void OnParameterWidgetFinalize
+    (
+        AddonEvent _,
+        AddonArgs  args
+    ) =>
         RemoveNodes((AtkUnitBase*)args.Addon.Address);
 
     private void OnUpdate(IFramework _)
@@ -165,11 +169,13 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         ApplyBarColor(shieldBar, overShieldBar, config.Color);
     }
 
-    private static bool TryGetHpBarComponent(
+    private static bool TryGetHpBarComponent
+    (
         out AtkComponentNode* hpBar,
-        out AtkNineGridNode* hpNineGrid)
+        out AtkNineGridNode*  hpNineGrid
+    )
     {
-        hpBar = null;
+        hpBar      = null;
         hpNineGrid = null;
         if (!AddonHelper.TryGetByName(PARAMETER_WIDGET_ADDON_NAME, out var parameterWidget) ||
             parameterWidget->UldManager.LoadedState != AtkLoadState.Loaded ||
@@ -229,10 +235,12 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         return true;
     }
 
-    private static AtkNineGridNode* CreateShieldBarNode(
+    private static AtkNineGridNode* CreateShieldBarNode
+    (
         AtkComponentNode* hpBar,
-        AtkNineGridNode* hpNineGrid,
-        uint nodeID)
+        AtkNineGridNode*  hpNineGrid,
+        uint              nodeID
+    )
     {
         if (hpNineGrid->AtkResNode.ParentNode == null)
         {
@@ -245,22 +253,22 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
             return null;
         }
 
-        bar->AtkResNode.Type = NodeType.NineGrid;
-        bar->AtkResNode.NodeId = nodeID;
-        bar->PartsList = hpNineGrid->PartsList;
-        bar->TopOffset = 0;
-        bar->BottomOffset = 0;
-        bar->LeftOffset = 7;
-        bar->RightOffset = 7;
-        bar->BlendMode = 0;
-        bar->PartsTypeRenderType = 0;
-        bar->PartId = 2;
-        bar->AtkResNode.MultiplyRed = 255;
+        bar->AtkResNode.Type          = NodeType.NineGrid;
+        bar->AtkResNode.NodeId        = nodeID;
+        bar->PartsList                = hpNineGrid->PartsList;
+        bar->TopOffset                = 0;
+        bar->BottomOffset             = 0;
+        bar->LeftOffset               = 7;
+        bar->RightOffset              = 7;
+        bar->BlendMode                = 0;
+        bar->PartsTypeRenderType      = 0;
+        bar->PartId                   = 2;
+        bar->AtkResNode.MultiplyRed   = 255;
         bar->AtkResNode.MultiplyGreen = 255;
-        bar->AtkResNode.MultiplyBlue = 0;
-        bar->AtkResNode.AddRed = -1;
-        bar->AtkResNode.AddGreen = -1;
-        bar->AtkResNode.AddBlue = -1;
+        bar->AtkResNode.MultiplyBlue  = 0;
+        bar->AtkResNode.AddRed        = -1;
+        bar->AtkResNode.AddGreen      = -1;
+        bar->AtkResNode.AddBlue       = -1;
         bar->AtkResNode.DrawFlags |= 1;
         bar->AtkResNode.SetHeight(20);
         bar->AtkResNode.SetWidth(0);
@@ -270,26 +278,30 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         return bar;
     }
 
-    private static void LinkNodeAfterTarget(
-        AtkResNode* node,
+    private static void LinkNodeAfterTarget
+    (
+        AtkResNode*       node,
         AtkComponentNode* parent,
-        AtkResNode* target)
+        AtkResNode*       target
+    )
     {
         node->ParentNode = target->ParentNode;
         if (target->PrevSiblingNode != null)
         {
             target->PrevSiblingNode->NextSiblingNode = node;
-            node->PrevSiblingNode = target->PrevSiblingNode;
+            node->PrevSiblingNode                    = target->PrevSiblingNode;
         }
 
         target->PrevSiblingNode = node;
-        node->NextSiblingNode = target;
+        node->NextSiblingNode   = target;
         parent->Component->UldManager.UpdateDrawNodeList();
     }
 
-    private static void HideBars(
+    private static void HideBars
+    (
         AtkNineGridNode* shieldBar,
-        AtkNineGridNode* overShieldBar)
+        AtkNineGridNode* overShieldBar
+    )
     {
         if (shieldBar != null)
         {
@@ -306,20 +318,22 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         }
     }
 
-    private static void ApplyBarColor(
+    private static void ApplyBarColor
+    (
         AtkNineGridNode* shieldBar,
         AtkNineGridNode* overShieldBar,
-        Vector3 color)
+        Vector3          color
+    )
     {
         var red = ToColorByte(color.X);
         var green = ToColorByte(color.Y);
         var blue = ToColorByte(color.Z);
-        shieldBar->AtkResNode.MultiplyRed = red;
-        shieldBar->AtkResNode.MultiplyGreen = green;
-        shieldBar->AtkResNode.MultiplyBlue = blue;
-        overShieldBar->AtkResNode.MultiplyRed = red;
+        shieldBar->AtkResNode.MultiplyRed       = red;
+        shieldBar->AtkResNode.MultiplyGreen     = green;
+        shieldBar->AtkResNode.MultiplyBlue      = blue;
+        overShieldBar->AtkResNode.MultiplyRed   = red;
         overShieldBar->AtkResNode.MultiplyGreen = green;
-        overShieldBar->AtkResNode.MultiplyBlue = blue;
+        overShieldBar->AtkResNode.MultiplyBlue  = blue;
     }
 
     private static void RemoveNodes(AtkUnitBase* parameterWidget)
@@ -390,15 +404,17 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
             node->NextSiblingNode->PrevSiblingNode = node->PrevSiblingNode;
         }
 
-        node->ParentNode = null;
+        node->ParentNode      = null;
         node->PrevSiblingNode = null;
         node->NextSiblingNode = null;
     }
 
-    private static T* FindNode<T>(
+    private static T* FindNode<T>
+    (
         AtkUldManager* manager,
-        uint nodeID,
-        NodeType nodeType)
+        uint           nodeID,
+        NodeType       nodeType
+    )
         where T : unmanaged
     {
         if (manager == null || manager->NodeList == null)
@@ -429,11 +445,13 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
     private static byte ToColorByte(float value) =>
         (byte)Math.Clamp((int)MathF.Round(value * byte.MaxValue), byte.MinValue, byte.MaxValue);
 
-    private readonly struct ShieldMetrics(
+    private readonly struct ShieldMetrics
+    (
         float hpPercentage,
         float shieldPercentage,
         float overShieldPercentage,
-        uint shieldAmount)
+        uint  shieldAmount
+    )
     {
         public float HpPercentage { get; } = hpPercentage;
 

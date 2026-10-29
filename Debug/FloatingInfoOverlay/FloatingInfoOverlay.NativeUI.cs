@@ -10,15 +10,17 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed partial class FloatingInfoOverlay
 {
-    internal sealed class FloatingInfoOverlayNativeUI(
+    private sealed class FloatingInfoOverlayNativeUI
+    (
         FloatingInfoOverlayConfig config,
-        FloatingInfoOverlayState state)
+        FloatingInfoOverlayState  state
+    )
     {
-        private readonly Dictionary<uint, int> currentPages = [];
-        private readonly Dictionary<uint, string> actionNameCache = [];
-        private readonly List<uint> removeBuffer = [];
-        private readonly List<FloatingInfoLine> lineBuffer = [];
-        private readonly List<FloatingInfoLineRect> lineRectBuffer = [];
+        private readonly Dictionary<uint, int>      currentPages    = [];
+        private readonly Dictionary<uint, string>   actionNameCache = [];
+        private readonly List<uint>                 removeBuffer    = [];
+        private readonly List<FloatingInfoLine>     lineBuffer      = [];
+        private readonly List<FloatingInfoLineRect> lineRectBuffer  = [];
 
         public void Draw()
         {
@@ -62,7 +64,11 @@ internal sealed partial class FloatingInfoOverlay
             }
         }
 
-        private int ResolveCurrentPage(uint groupID, List<FloatingInfoObject> objects)
+        private int ResolveCurrentPage
+        (
+            uint                     groupID,
+            List<FloatingInfoObject> objects
+        )
         {
             currentPages.TryAdd(groupID, 0);
             var castingIndex = -1;
@@ -77,7 +83,7 @@ internal sealed partial class FloatingInfoOverlay
             var currentPage = castingIndex >= 0 ? castingIndex : currentPages[groupID];
             if (currentPage >= objects.Count)
             {
-                currentPage = 0;
+                currentPage           = 0;
                 currentPages[groupID] = 0;
             }
 
@@ -89,13 +95,15 @@ internal sealed partial class FloatingInfoOverlay
             return currentPage;
         }
 
-        private bool HandleClick(
-            Vector2 minimum,
-            Vector2 maximum,
+        private bool HandleClick
+        (
+            Vector2                    minimum,
+            Vector2                    maximum,
             List<FloatingInfoLineRect> lineRects,
-            int objectCount,
-            int currentPage,
-            uint groupID)
+            int                        objectCount,
+            int                        currentPage,
+            uint                       groupID
+        )
         {
             if (!ImGui.IsWindowHovered() || ImGui.IsAnyItemActive() || !ImGui.IsMouseClicked(ImGuiMouseButton.Left))
             {
@@ -119,14 +127,16 @@ internal sealed partial class FloatingInfoOverlay
             return true;
         }
 
-        private bool DrawObjectInfoAt(
-            ImDrawListPtr drawList,
+        private bool DrawObjectInfoAt
+        (
+            ImDrawListPtr      drawList,
             FloatingInfoObject item,
-            Vector2 position,
-            int totalCount,
-            int currentIndex,
-            uint groupID,
-            bool allowClick)
+            Vector2            position,
+            int                totalCount,
+            int                currentIndex,
+            uint               groupID,
+            bool               allowClick
+        )
         {
             var lines = BuildOverlayLines(item, totalCount, currentIndex);
             lineRectBuffer.Clear();
@@ -156,7 +166,7 @@ internal sealed partial class FloatingInfoOverlay
             if (scrollable)
             {
                 contentWidth = MathF.Max(1f, contentWidth - ImGui.GetStyle().ScrollbarSize);
-                totalHeight = MeasureHeight(contentWidth);
+                totalHeight  = MeasureHeight(contentWidth);
             }
             var minimum = position - padding;
             var maximum = minimum + new Vector2(contentWidth + padding.X * 2f +
@@ -274,10 +284,12 @@ internal sealed partial class FloatingInfoOverlay
             }
         }
 
-        private List<FloatingInfoLine> BuildOverlayLines(
+        private List<FloatingInfoLine> BuildOverlayLines
+        (
             FloatingInfoObject item,
-            int totalCount,
-            int currentIndex)
+            int                totalCount,
+            int                currentIndex
+        )
         {
             lineBuffer.Clear();
             var standardText = KnownColor.White.ToVector4();
@@ -524,7 +536,7 @@ internal sealed partial class FloatingInfoOverlay
                 return name;
             }
 
-            name = LuminaGetter.TryGetRow<LuminaAction>(actionID, out var action)
+            name                      = LuminaGetter.TryGetRow<LuminaAction>(actionID, out var action)
                 ? action.Name.ToString()
                 : string.Empty;
             actionNameCache[actionID] = name;
@@ -565,14 +577,16 @@ internal sealed partial class FloatingInfoOverlay
                     _ => "Feature.FloatingInfoOverlay.CastType.None"
                 });
 
-        private static void DrawCastProgressBar(
-            ImDrawListPtr drawList,
+        private static void DrawCastProgressBar
+        (
+            ImDrawListPtr      drawList,
             FloatingInfoObject item,
-            Vector2 minimum,
-            Vector2 maximum,
-            Vector2 padding,
-            float height,
-            float opacity)
+            Vector2            minimum,
+            Vector2            maximum,
+            Vector2            padding,
+            float              height,
+            float              opacity
+        )
         {
             var progress = Math.Clamp(item.CurrentCastTime / item.TotalCastTime, 0f, 1f);
             var barMinimum = new Vector2(minimum.X + padding.X, maximum.Y - padding.Y - height);
@@ -619,12 +633,14 @@ internal sealed partial class FloatingInfoOverlay
                 OmniTheme.Scale(3f));
         }
 
-        private static void DrawCastProgressShimmer(
+        private static void DrawCastProgressShimmer
+        (
             ImDrawListPtr drawList,
-            Vector2 barMinimum,
-            Vector2 fillMaximum,
-            float height,
-            float opacity)
+            Vector2       barMinimum,
+            Vector2       fillMaximum,
+            float         height,
+            float         opacity
+        )
         {
             var fillWidth = fillMaximum.X - barMinimum.X;
             if (fillWidth <= height * 1.5f)
@@ -678,18 +694,20 @@ internal sealed partial class FloatingInfoOverlay
                 transparent);
         }
 
-        private static void DrawShimmerHalf(
+        private static void DrawShimmerHalf
+        (
             ImDrawListPtr drawList,
-            float clipMinimumX,
-            float clipMaximumX,
-            float left,
-            float right,
-            float minimumY,
-            float maximumY,
-            uint leftColor,
-            uint rightColor)
+            float         clipMinimumX,
+            float         clipMaximumX,
+            float         left,
+            float         right,
+            float         minimumY,
+            float         maximumY,
+            uint          leftColor,
+            uint          rightColor
+        )
         {
-            left = Math.Clamp(left, clipMinimumX, clipMaximumX);
+            left  = Math.Clamp(left, clipMinimumX, clipMaximumX);
             right = Math.Clamp(right, clipMinimumX, clipMaximumX);
             if (right <= left)
             {
@@ -724,7 +742,12 @@ internal sealed partial class FloatingInfoOverlay
             removeBuffer.Clear();
         }
 
-        private static void ClampToViewport(ref Vector2 minimum, ref Vector2 maximum, float margin)
+        private static void ClampToViewport
+        (
+            ref Vector2 minimum,
+            ref Vector2 maximum,
+            float       margin
+        )
         {
             var viewport = ImGui.GetMainViewport();
             var size = maximum - minimum;
@@ -734,31 +757,62 @@ internal sealed partial class FloatingInfoOverlay
             maximum = minimum + size;
         }
 
-        private static uint Color(Vector4 color, float opacity)
+        private static uint Color
+        (
+            Vector4 color,
+            float   opacity
+        )
         {
             color.W *= opacity;
             return ImGui.ColorConvertFloat4ToU32(color);
         }
 
-        private static string Format<T>(string key, T value) =>
+        private static string Format<T>
+        (
+            string key,
+            T      value
+        ) =>
             string.Format(CultureInfo.CurrentCulture, OmniLoc.Get(key), value);
 
-        private static string Format<T1, T2>(string key, T1 value1, T2 value2) =>
+        private static string Format<T1, T2>
+        (
+            string key,
+            T1     value1,
+            T2     value2
+        ) =>
             string.Format(CultureInfo.CurrentCulture, OmniLoc.Get(key), value1, value2);
 
-        private static string Format<T1, T2, T3>(string key, T1 value1, T2 value2, T3 value3) =>
+        private static string Format<T1, T2, T3>
+        (
+            string key,
+            T1     value1,
+            T2     value2,
+            T3     value3
+        ) =>
             string.Format(CultureInfo.CurrentCulture, OmniLoc.Get(key), value1, value2, value3);
 
-        private static bool HitTest(in Vector2 point, in Vector2 minimum, in Vector2 maximum) =>
+        private static bool HitTest
+        (
+            in Vector2 point,
+            in Vector2 minimum,
+            in Vector2 maximum
+        ) =>
             point.X >= minimum.X && point.X <= maximum.X &&
             point.Y >= minimum.Y && point.Y <= maximum.Y;
 
-        private readonly record struct FloatingInfoLine(string Text, Vector4 Color, string CopyValue);
+        private readonly record struct FloatingInfoLine
+        (
+            string  Text,
+            Vector4 Color,
+            string  CopyValue
+        );
 
-        private readonly record struct FloatingInfoLineRect(
+        private readonly record struct FloatingInfoLineRect
+        (
             Vector2 Minimum,
             Vector2 Maximum,
-            string CopyValue);
+            string  CopyValue
+        );
     }
 
 }

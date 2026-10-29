@@ -1,8 +1,7 @@
-using Item = Lumina.Excel.Sheets.Item;
 using System.Drawing;
-using FFXIVClientStructs.FFXIV.Client.UI;
-using FFXIVClientStructs.FFXIV.Client.System.Input;
 using Dalamud.Interface;
+using FFXIVClientStructs.FFXIV.Client.System.Input;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
@@ -10,10 +9,11 @@ using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using Lumina.Text.ReadOnly;
-using OmenTools.Extensions;
 using OmenTools;
+using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;
+using Item = Lumina.Excel.Sheets.Item;
 
 #pragma warning disable KTKExperimental_TextureImageNode
 
@@ -41,7 +41,7 @@ public sealed partial class BetterGlamourManagement
         {
             base.OnSizeChanged();
             nameNode.Position = new(4f, 0f);
-            nameNode.Size = new(MathF.Max(20f, Width - 6f), Height);
+            nameNode.Size     = new(MathF.Max(20f, Width - 6f), Height);
             if (!TextTooltip.IsEmpty)
                 nameNode.String = TextTooltip;
         }

@@ -76,12 +76,12 @@ public sealed partial class AutoIshgardRestoration
             return;
         }
 
-        running = true;
-        turnInGeneration = 0;
+        running             = true;
+        turnInGeneration    = 0;
         purchasedGeneration = -1;
-        activeRecipeID = recipe.Value.RecipeID;
-        activeItemID = recipe.Value.ItemID;
-        nextCheckAt = DateTime.UtcNow;
+        activeRecipeID      = recipe.Value.RecipeID;
+        activeItemID        = recipe.Value.ItemID;
+        nextCheckAt         = DateTime.UtcNow;
 
         if (DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
         {
@@ -108,20 +108,20 @@ public sealed partial class AutoIshgardRestoration
         StopOwnedArtisan();
         StopOwnedVnavPath();
 
-        running = false;
-        phase = AutomationPhase.Idle;
-        activeRecipeID = 0;
-        activeItemID = 0;
-        ticketsToPlay = 0;
-        lotteryScratched = false;
-        lotteryTicketCounted = false;
-        lotteryScratchAttempts = 0;
+        running                     = false;
+        phase                       = AutomationPhase.Idle;
+        activeRecipeID              = 0;
+        activeItemID                = 0;
+        ticketsToPlay               = 0;
+        lotteryScratched            = false;
+        lotteryTicketCounted        = false;
+        lotteryScratchAttempts      = 0;
         craftCycleStartingItemCount = 0;
-        movableSince = null;
-        initialDestination = default;
-        artisanStartedByModule = false;
-        vnavPathStartedByModule = false;
-        status = reason;
+        movableSince                = null;
+        initialDestination          = default;
+        artisanStartedByModule      = false;
+        vnavPathStartedByModule     = false;
+        status                      = reason;
     }
 
     private void OnFrameworkUpdate(IFramework _)
@@ -262,7 +262,7 @@ public sealed partial class AutoIshgardRestoration
         CloseAddon("HWDSupply");
         EnterPhase(AutomationPhase.PrepareNextCycle);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(800);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.PreparingNextCraftingCycle"), reason);
+        status       = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.PreparingNextCraftingCycle"), reason);
     }
 
     private unsafe void DrivePrepareNextCycle(RecipeOption recipe)
@@ -277,7 +277,7 @@ public sealed partial class AutoIshgardRestoration
             CloseAddon("Request");
             CloseAddon("HWDSupply");
             nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
-            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ClosingSupplyForCrafting");
+            status       = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ClosingSupplyForCrafting");
             return;
         }
 
@@ -296,7 +296,7 @@ public sealed partial class AutoIshgardRestoration
 
     private void EnterPhase(AutomationPhase next)
     {
-        phase = next;
+        phase          = next;
         phaseStartedAt = DateTime.UtcNow;
     }
 
@@ -304,18 +304,18 @@ public sealed partial class AutoIshgardRestoration
 
     private void CompleteAutomation(string message)
     {
-        running = false;
-        phase = AutomationPhase.Idle;
-        activeRecipeID = 0;
-        activeItemID = 0;
-        ticketsToPlay = 0;
-        lotteryScratched = false;
-        lotteryTicketCounted = false;
-        lotteryScratchAttempts = 0;
+        running                     = false;
+        phase                       = AutomationPhase.Idle;
+        activeRecipeID              = 0;
+        activeItemID                = 0;
+        ticketsToPlay               = 0;
+        lotteryScratched            = false;
+        lotteryTicketCounted        = false;
+        lotteryScratchAttempts      = 0;
         craftCycleStartingItemCount = 0;
-        movableSince = null;
-        initialDestination = default;
-        status = message;
+        movableSince                = null;
+        initialDestination          = default;
+        status                      = message;
     }
 
     private void FailAutomation(string message)
@@ -325,13 +325,18 @@ public sealed partial class AutoIshgardRestoration
         StopOwnedArtisan();
         StopOwnedVnavPath();
 
-        running = false;
-        phase = AutomationPhase.Idle;
+        running   = false;
+        phase     = AutomationPhase.Idle;
         lastError = message;
-        status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.AutomationStopped");
+        status    = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.AutomationStopped");
     }
 
-    private bool ShouldStop(InventorySnapshot snapshot, uint balance, out string reason)
+    private bool ShouldStop
+    (
+        InventorySnapshot snapshot,
+        uint              balance,
+        out string        reason
+    )
     {
         if (snapshot.FreeSlots <= 5)
         {
@@ -367,7 +372,7 @@ public sealed partial class AutoIshgardRestoration
     private void Fail(string message)
     {
         lastError = message;
-        status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.CannotStart");
+        status    = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.CannotStart");
     }
 
     private enum AutomationPhase

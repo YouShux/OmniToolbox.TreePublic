@@ -20,21 +20,25 @@ public sealed partial class AutoIshgardRestoration
 
     private void InitializeArtisan()
     {
-        craftItem = DalamudServices.PluginInterface.GetIpcSubscriber<ushort, int, object>("Artisan.CraftItem");
-        artisanIsBusy = DalamudServices.PluginInterface.GetIpcSubscriber<bool>("Artisan.IsBusy");
+        craftItem      = DalamudServices.PluginInterface.GetIpcSubscriber<ushort, int, object>("Artisan.CraftItem");
+        artisanIsBusy  = DalamudServices.PluginInterface.GetIpcSubscriber<bool>("Artisan.IsBusy");
         getStopRequest = DalamudServices.PluginInterface.GetIpcSubscriber<bool>("Artisan.GetStopRequest");
         setStopRequest = DalamudServices.PluginInterface.GetIpcSubscriber<bool, object>("Artisan.SetStopRequest");
     }
 
     private void ReleaseArtisan()
     {
-        craftItem = null;
-        artisanIsBusy = null;
+        craftItem      = null;
+        artisanIsBusy  = null;
         getStopRequest = null;
         setStopRequest = null;
     }
 
-    private void StartCraftingCycle(RecipeOption recipe, string reason)
+    private void StartCraftingCycle
+    (
+        RecipeOption recipe,
+        string       reason
+    )
     {
         if (TryBeginAutoScripPurchase()) return;
 

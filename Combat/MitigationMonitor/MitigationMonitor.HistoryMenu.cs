@@ -7,14 +7,16 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class MitigationMonitor
 {
-    internal sealed class MitigationHistoryMenu(
+    internal sealed class MitigationHistoryMenu
+    (
         MitigationMonitorConfig config,
-        MitigationCombatLog combatLog,
-        MitigationReplayStore replayStore)
+        MitigationCombatLog     combatLog,
+        MitigationReplayStore   replayStore
+    )
     {
-        private readonly List<MitigationCombatHistory> items = new(40);
-        private string[] importFiles = [];
-        private long historyVersion = -1;
+        private readonly List<MitigationCombatHistory> items          = new(40);
+        private string[]                               importFiles    = [];
+        private long                                   historyVersion = -1;
 
         public string? ActiveHistoryKey { get; private set; }
 
@@ -75,7 +77,7 @@ public sealed partial class MitigationMonitor
         public void ClearSelection()
         {
             ActiveHistoryKey = null;
-            historyVersion = -1;
+            historyVersion   = -1;
         }
 
         public void ResetRuntime()
@@ -172,7 +174,7 @@ public sealed partial class MitigationMonitor
                     if (OmniControls.WrappedSelectable($"{Path.GetFileName(file)}##{file}") && replayStore.Import(file) is { } imported)
                     {
                         ActiveHistoryKey = combatLog.AddImported(imported);
-                        historyVersion = -1;
+                        historyVersion   = -1;
                         ImGui.CloseCurrentPopup();
                     }
 

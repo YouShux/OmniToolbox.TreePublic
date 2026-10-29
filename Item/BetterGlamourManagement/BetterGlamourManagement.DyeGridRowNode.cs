@@ -28,7 +28,7 @@ public sealed partial class BetterGlamourManagement
             for (var index = 0; index < swatches.Length; index++)
             {
                 swatches[index].Position = new(start + index * ItemHeight, MathF.Max(0f, (Height - ItemHeight) / 2f));
-                swatches[index].Size = new(ItemHeight, ItemHeight);
+                swatches[index].Size     = new(ItemHeight, ItemHeight);
             }
         }
 

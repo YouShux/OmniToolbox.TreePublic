@@ -34,9 +34,7 @@ public sealed unsafe class CastMovementLock : OmniModuleBase
         });
 
     private readonly Config config;
-    private bool ownsMovementLock;
-
-    public override bool HasSettings => true;
+    private bool            ownsMovementLock;
 
     public CastMovementLock(TreeHouseConfig configStore)
     {
@@ -66,6 +64,8 @@ public sealed unsafe class CastMovementLock : OmniModuleBase
         ReleaseMovementLock();
     }
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings()
     {
         ImGui.AlignTextToFramePadding();
@@ -92,7 +92,11 @@ public sealed unsafe class CastMovementLock : OmniModuleBase
         return false;
     }
 
-    private void OnMovementInput(ref bool? overrideResult, ref InputId id)
+    private void OnMovementInput
+    (
+        ref bool?   overrideResult,
+        ref InputId id
+    )
     {
         if (id is InputId.MOVE_FORE or InputId.MOVE_BACK or InputId.MOVE_LEFT or InputId.MOVE_RIGHT or
             InputId.MOVE_STRIFE_L or InputId.MOVE_STRIFE_R or InputId.MOVE_AND_STEER &&
@@ -115,11 +119,11 @@ public sealed unsafe class CastMovementLock : OmniModuleBase
         if (!controller->MoveControllerWalk.IsMovementInputLocked)
         {
             controller->MoveControllerWalk.IsMovementInputLocked = true;
-            ownsMovementLock = true;
+            ownsMovementLock                                     = true;
         }
 
         controller->MoveControllerWalk.IsAutoRunForward = false;
-        controller->MoveControllerWalk.IsAutoRunStrafe = false;
+        controller->MoveControllerWalk.IsAutoRunStrafe  = false;
     }
 
     private bool ShouldPreventMovement()

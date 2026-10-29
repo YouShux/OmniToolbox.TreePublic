@@ -1,21 +1,21 @@
-using TreeToolKit;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.Gui.FlyText;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Hooking;
-using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
-using KamiToolKit.Nodes;
-using KamiToolKit.Enums;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using KamiToolKit.Enums;
+using KamiToolKit.Nodes;
 using Lumina.Excel;
 using OmenTools;
 using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Models;
+using TreeToolKit;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 using LuminaStatus = Lumina.Excel.Sheets.Status;
 
@@ -23,24 +23,24 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class DisplayIDInformation
 {
-    internal sealed unsafe class DisplayIDInformationCombat : IDisposable
+    private sealed unsafe class DisplayIDInformationCombat : IDisposable
     {
-        private readonly DisplayIDInformationConfig config;
-        private readonly AddonEventRegistry addonEvents;
-        private readonly FeatureLifetime lifetime = new();
-        private readonly DisplayIDInformationCache flyTextCache = new();
-        private readonly List<uint> currentCastActionIds = [];
-        private readonly List<uint> previousCastActionIds = [];
-        private readonly Dictionary<string, List<uint>> castActionIdsByName = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, string> castTextByName = new(StringComparer.Ordinal);
-        private readonly Dictionary<uint, string> actionNameCache = [];
-        private Dictionary<uint, List<IdName>>? actionIconMap;
-        private Dictionary<uint, List<IdName>>? statusIconMap;
-        private ExcelSheet<LuminaAction>? actionSheet;
-        private ExcelSheet<LuminaStatus>? statusSheet;
-        private Hook<ActionEffectHandler.Delegates.Receive>? actionEffectHook;
-        private bool actionEffectHookUnavailable;
-        private bool castNodesVisible;
+        private readonly DisplayIDInformationConfig          config;
+        private readonly AddonEventRegistry                  addonEvents;
+        private readonly FeatureLifetime                     lifetime                    = new();
+        private readonly DisplayIDInformationCache           flyTextCache                = new();
+        private readonly List<uint>                          currentCastActionIds        = [];
+        private readonly List<uint>                          previousCastActionIds       = [];
+        private readonly Dictionary<string, List<uint>>      castActionIdsByName         = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, string>          castTextByName              = new(StringComparer.Ordinal);
+        private readonly Dictionary<uint, string>            actionNameCache             = [];
+        private Dictionary<uint, List<IdName>>?              actionIconMap;
+        private Dictionary<uint, List<IdName>>?              statusIconMap;
+        private ExcelSheet<LuminaAction>?                    actionSheet;
+        private ExcelSheet<LuminaStatus>?                    statusSheet;
+        private Hook<ActionEffectHandler.Delegates.Receive>? ActionEffectHook;
+        private bool                                         actionEffectHookUnavailable;
+        private bool                                         castNodesVisible;
 
         private readonly Dictionary<nint, TextNode> castNodes = [];
 
@@ -123,38 +123,40 @@ public sealed partial class DisplayIDInformation
 
         private void EnsureActionEffectHook()
         {
-            if (actionEffectHook is not null || actionEffectHookUnavailable)
+            if (ActionEffectHook is not null || actionEffectHookUnavailable)
             {
                 return;
             }
 
             try
             {
-                actionEffectHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
+                ActionEffectHook = DService.Instance().Hook.HookFromAddress<ActionEffectHandler.Delegates.Receive>(
                     ActionEffectHandler.MemberFunctionPointers.Receive, OnActionEffect);
-                actionEffectHook.Enable();
+                ActionEffectHook.Enable();
             }
             catch (Exception)
             {
                 actionEffectHookUnavailable = true;
-                actionEffectHook?.Dispose();
-                actionEffectHook = null;
+                ActionEffectHook?.Dispose();
+                ActionEffectHook = null;
             }
         }
 
         private void ShutdownActionEffectHook()
         {
-            actionEffectHook?.Dispose();
-            actionEffectHook = null;
+            ActionEffectHook?.Dispose();
+            ActionEffectHook = null;
         }
 
-        private void OnActionEffect(
-            uint sourceID,
-            Character* sourceCharacter,
-            Vector3* position,
-            ActionEffectHandler.Header* effectHeader,
+        private void OnActionEffect
+        (
+            uint                               sourceID,
+            Character*                         sourceCharacter,
+            Vector3*                           position,
+            ActionEffectHandler.Header*        effectHeader,
             ActionEffectHandler.TargetEffects* effectArray,
-            GameObjectId* effectTail)
+            GameObjectId*                      effectTail
+        )
         {
             try
             {
@@ -164,10 +166,14 @@ public sealed partial class DisplayIDInformation
             {
             }
 
-            actionEffectHook!.Original(sourceID, sourceCharacter, position, effectHeader, effectArray, effectTail);
+            ActionEffectHook!.Original(sourceID, sourceCharacter, position, effectHeader, effectArray, effectTail);
         }
 
-        private void CaptureActionEffects(ActionEffectHandler.Header* header, ActionEffectHandler.TargetEffects* effects)
+        private void CaptureActionEffects
+        (
+            ActionEffectHandler.Header*        header,
+            ActionEffectHandler.TargetEffects* effects
+        )
         {
             if (!config.DisplayActionID || !config.DisplayFlyTextDamageActionID ||
                 header == null || effects == null || header->ActionId == 0)
@@ -191,17 +197,19 @@ public sealed partial class DisplayIDInformation
             }
         }
 
-        private void OnFlyTextCreated(
+        private void OnFlyTextCreated
+        (
             ref FlyTextKind kind,
-            ref int value1,
-            ref int value2,
-            ref SeString text1,
-            ref SeString text2,
-            ref uint color,
-            ref uint icon,
-            ref uint damageTypeIcon,
-            ref float yOffset,
-            ref bool handled)
+            ref int         value1,
+            ref int         value2,
+            ref SeString    text1,
+            ref SeString    text2,
+            ref uint        color,
+            ref uint        icon,
+            ref uint        damageTypeIcon,
+            ref float       yOffset,
+            ref bool        handled
+        )
         {
             if (config.DisplayStatusID &&
                 config.DisplayStatusIDAppendToName &&
@@ -229,7 +237,13 @@ public sealed partial class DisplayIDInformation
             AppendActionID(ref text2, value2, icon);
         }
 
-        private bool TryResolveDamageActionID(int value1, SeString text1, SeString text2, out uint actionID)
+        private bool TryResolveDamageActionID
+        (
+            int      value1,
+            SeString text1,
+            SeString text2,
+            out uint actionID
+        )
         {
             actionID = 0;
             var value = value1 > 0 ? (uint)value1 : 0;
@@ -243,7 +257,12 @@ public sealed partial class DisplayIDInformation
                    ActionExists(actionID);
         }
 
-        private static void AppendDamageActionID(ref SeString text1, ref SeString text2, uint actionID)
+        private static void AppendDamageActionID
+        (
+            ref SeString text1,
+            ref SeString text2,
+            uint         actionID
+        )
         {
             var suffix = $"({actionID})";
             if (text1.TextValue.Contains(suffix, StringComparison.Ordinal) ||
@@ -256,7 +275,11 @@ public sealed partial class DisplayIDInformation
             AppendSuffix(ref text1, suffix);
         }
 
-        private static bool AppendSuffix(ref SeString text, string suffix)
+        private static bool AppendSuffix
+        (
+            ref SeString text,
+            string       suffix
+        )
         {
             if (string.IsNullOrWhiteSpace(text.TextValue))
             {
@@ -267,7 +290,12 @@ public sealed partial class DisplayIDInformation
             return true;
         }
 
-        private void AppendStatusID(ref SeString text, uint iconID, FlyTextKind kind)
+        private void AppendStatusID
+        (
+            ref SeString text,
+            uint         iconID,
+            FlyTextKind  kind
+        )
         {
             var raw = text.TextValue;
             if (string.IsNullOrWhiteSpace(raw))
@@ -288,12 +316,14 @@ public sealed partial class DisplayIDInformation
             }
         }
 
-        private bool TryResolveStatusID(
-            uint iconID,
-            string name,
+        private bool TryResolveStatusID
+        (
+            uint        iconID,
+            string      name,
             FlyTextKind kind,
-            out uint statusID,
-            out string matchedName)
+            out uint    statusID,
+            out string  matchedName
+        )
         {
             var now = Environment.TickCount64;
             if (kind is FlyTextKind.BuffFading or FlyTextKind.DebuffFading &&
@@ -312,9 +342,15 @@ public sealed partial class DisplayIDInformation
             return true;
         }
 
-        private bool TryResolveActiveStatus(uint iconID, string name, out uint statusID, out string matchedName)
+        private bool TryResolveActiveStatus
+        (
+            uint       iconID,
+            string     name,
+            out uint   statusID,
+            out string matchedName
+        )
         {
-            statusID = 0;
+            statusID    = 0;
             matchedName = string.Empty;
             var bestLength = -1;
             foreach (var gameObject in DService.Instance().ObjectTable)
@@ -349,18 +385,24 @@ public sealed partial class DisplayIDInformation
                         continue;
                     }
 
-                    statusID = row.RowId;
+                    statusID    = row.RowId;
                     matchedName = rowName;
-                    bestLength = rowName.Length;
+                    bestLength  = rowName.Length;
                 }
             }
 
             return statusID != 0;
         }
 
-        private bool TryResolveStatusFromSheet(uint iconID, string name, out uint statusID, out string matchedName)
+        private bool TryResolveStatusFromSheet
+        (
+            uint       iconID,
+            string     name,
+            out uint   statusID,
+            out string matchedName
+        )
         {
-            statusID = 0;
+            statusID    = 0;
             matchedName = string.Empty;
             if (!GetStatusIconMap().TryGetValue(iconID, out var statuses))
             {
@@ -370,7 +412,12 @@ public sealed partial class DisplayIDInformation
             return TrySelectName(statuses, name, out statusID, out matchedName);
         }
 
-        private void AppendActionID(ref SeString text, int value2, uint iconID)
+        private void AppendActionID
+        (
+            ref SeString text,
+            int          value2,
+            uint         iconID
+        )
         {
             var raw = text.TextValue;
             if (string.IsNullOrWhiteSpace(raw) || raw.Contains('(') && raw.Contains(')'))
@@ -392,16 +439,23 @@ public sealed partial class DisplayIDInformation
             }
         }
 
-        private bool TryResolveActionID(int value2, uint iconID, string name, out uint actionID, out string matchedName)
+        private bool TryResolveActionID
+        (
+            int        value2,
+            uint       iconID,
+            string     name,
+            out uint   actionID,
+            out string matchedName
+        )
         {
-            actionID = 0;
+            actionID    = 0;
             matchedName = string.Empty;
             if (value2 > 0 && GetActionSheet().TryGetRow((uint)value2, out var action))
             {
                 var actionName = action.Name.ToString();
                 if (NameMatches(name, actionName))
                 {
-                    actionID = action.RowId;
+                    actionID    = action.RowId;
                     matchedName = actionName;
                     return true;
                 }
@@ -447,7 +501,7 @@ public sealed partial class DisplayIDInformation
 
                 if (!castActionIdsByName.TryGetValue(actionName, out var ids))
                 {
-                    ids = [];
+                    ids                             = [];
                     castActionIdsByName[actionName] = ids;
                 }
 
@@ -473,7 +527,11 @@ public sealed partial class DisplayIDInformation
             castTextByName.Clear();
         }
 
-        private void OnCastBarAddon(AddonEvent _, AddonArgs args)
+        private void OnCastBarAddon
+        (
+            AddonEvent _,
+            AddonArgs  args
+        )
         {
             var addon = (AtkUnitBase*)args.Addon.Address;
             if (!config.DisplayActionID || !config.DisplayCastBarActionID)
@@ -509,7 +567,11 @@ public sealed partial class DisplayIDInformation
             castNodesVisible = true;
         }
 
-        private bool TryGetActionName(uint actionID, out string name)
+        private bool TryGetActionName
+        (
+            uint       actionID,
+            out string name
+        )
         {
             if (actionNameCache.TryGetValue(actionID, out name!))
             {
@@ -532,7 +594,12 @@ public sealed partial class DisplayIDInformation
             return true;
         }
 
-        private static bool TryFindTextNode(AtkUnitBase* addon, string text, out AtkTextNode* result)
+        private static bool TryFindTextNode
+        (
+            AtkUnitBase*     addon,
+            string           text,
+            out AtkTextNode* result
+        )
         {
             result = null;
             if (addon == null || string.IsNullOrWhiteSpace(text))
@@ -561,8 +628,8 @@ public sealed partial class DisplayIDInformation
                 var exact = string.Equals(trimmed, text, StringComparison.Ordinal);
                 if (result == null || exact && !bestExact || exact == bestExact && trimmed.Length < bestLength)
                 {
-                    result = textNode;
-                    bestExact = exact;
+                    result     = textNode;
+                    bestExact  = exact;
                     bestLength = trimmed.Length;
                 }
             }
@@ -570,11 +637,13 @@ public sealed partial class DisplayIDInformation
             return result != null;
         }
 
-        private void UpdateCastNode(
+        private void UpdateCastNode
+        (
             AtkUnitBase* addon,
             AtkTextNode* nameNode,
-            string idText,
-            bool self)
+            string       idText,
+            bool         self
+        )
         {
             var idNode = EnsureCastNode(addon, nameNode);
             if (idNode == null)
@@ -583,11 +652,11 @@ public sealed partial class DisplayIDInformation
             }
 
             idNode->AtkResNode.ToggleVisibility(true);
-            idNode->TextFlags = (nameNode->TextFlags | TextFlags.AutoAdjustNodeSize) & ~TextFlags.MultiLine;
-            idNode->FontSize = (byte)Math.Max(8, self ? nameNode->FontSize : nameNode->FontSize - 4);
+            idNode->TextFlags        = (nameNode->TextFlags | TextFlags.AutoAdjustNodeSize) & ~TextFlags.MultiLine;
+            idNode->FontSize         = (byte)Math.Max(8, self ? nameNode->FontSize : nameNode->FontSize - 4);
             idNode->AtkResNode.Color = nameNode->AtkResNode.Color;
-            idNode->TextColor = nameNode->TextColor;
-            idNode->EdgeColor = nameNode->EdgeColor;
+            idNode->TextColor        = nameNode->TextColor;
+            idNode->EdgeColor        = nameNode->EdgeColor;
 
             if (self)
             {
@@ -613,7 +682,11 @@ public sealed partial class DisplayIDInformation
                 nameNode->AtkResNode.Y + Math.Max(8f, nameNode->AtkResNode.Height) - 4f));
         }
 
-        private AtkTextNode* EnsureCastNode(AtkUnitBase* addon, AtkTextNode* anchor)
+        private AtkTextNode* EnsureCastNode
+        (
+            AtkUnitBase* addon,
+            AtkTextNode* anchor
+        )
         {
             if (castNodes.TryGetValue((nint)addon, out var existing))
                 return existing;
@@ -624,7 +697,11 @@ public sealed partial class DisplayIDInformation
             return node;
         }
 
-        private void OnCastBarFinalize(AddonEvent _, AddonArgs args) =>
+        private void OnCastBarFinalize
+        (
+            AddonEvent _,
+            AddonArgs  args
+        ) =>
             castNodes.Remove(args.Addon.Address);
 
         private void RemoveCastNodes()
@@ -645,7 +722,11 @@ public sealed partial class DisplayIDInformation
             castNodesVisible = false;
         }
 
-        private void ToggleNode(AtkUnitBase* addon, bool visible)
+        private void ToggleNode
+        (
+            AtkUnitBase* addon,
+            bool         visible
+        )
         {
             if (castNodes.TryGetValue((nint)addon, out var node))
                 node.IsVisible = visible;
@@ -685,7 +766,7 @@ public sealed partial class DisplayIDInformation
 
                 if (!actionIconMap.TryGetValue(action.Icon, out var actions))
                 {
-                    actions = [];
+                    actions                    = [];
                     actionIconMap[action.Icon] = actions;
                 }
 
@@ -713,7 +794,7 @@ public sealed partial class DisplayIDInformation
 
                 if (!statusIconMap.TryGetValue(status.Icon, out var statuses))
                 {
-                    statuses = [];
+                    statuses                   = [];
                     statusIconMap[status.Icon] = statuses;
                 }
 
@@ -723,9 +804,15 @@ public sealed partial class DisplayIDInformation
             return statusIconMap;
         }
 
-        private static bool TrySelectName(IReadOnlyList<IdName> values, string text, out uint id, out string name)
+        private static bool TrySelectName
+        (
+            IReadOnlyList<IdName> values,
+            string                text,
+            out uint              id,
+            out string            name
+        )
         {
-            id = 0;
+            id   = 0;
             name = string.Empty;
             var bestLength = -1;
             var bestIndex = int.MaxValue;
@@ -739,16 +826,20 @@ public sealed partial class DisplayIDInformation
                     continue;
                 }
 
-                id = values[index].ID;
-                name = values[index].Name;
+                id         = values[index].ID;
+                name       = values[index].Name;
                 bestLength = name.Length;
-                bestIndex = matchIndex;
+                bestIndex  = matchIndex;
             }
 
             return id != 0;
         }
 
-        private static bool NameMatches(string text, string name) =>
+        private static bool NameMatches
+        (
+            string text,
+            string name
+        ) =>
             !string.IsNullOrWhiteSpace(name) && text.Contains(name, StringComparison.Ordinal);
 
         private static string TrimFlyTextSign(string text) =>
@@ -769,7 +860,11 @@ public sealed partial class DisplayIDInformation
             return text.Length > 0;
         }
 
-        private static bool TryExtractFirstUInt(string text, out uint value)
+        private static bool TryExtractFirstUInt
+        (
+            string   text,
+            out uint value
+        )
         {
             ulong parsed = 0;
             var started = false;
@@ -778,7 +873,7 @@ public sealed partial class DisplayIDInformation
                 if (text[index] is >= '0' and <= '9')
                 {
                     started = true;
-                    parsed = parsed * 10 + (uint)(text[index] - '0');
+                    parsed  = parsed * 10 + (uint)(text[index] - '0');
                     if (parsed > uint.MaxValue)
                     {
                         value = 0;
@@ -798,7 +893,11 @@ public sealed partial class DisplayIDInformation
             return started && value != 0;
         }
 
-        private static bool ListsEqual(IReadOnlyList<uint> left, IReadOnlyList<uint> right)
+        private static bool ListsEqual
+        (
+            IReadOnlyList<uint> left,
+            IReadOnlyList<uint> right
+        )
         {
             if (left.Count != right.Count)
             {
@@ -816,7 +915,11 @@ public sealed partial class DisplayIDInformation
             return true;
         }
 
-        private readonly record struct IdName(uint ID, string Name);
+        private readonly record struct IdName
+        (
+            uint   ID,
+            string Name
+        );
 
         #region 常量
 

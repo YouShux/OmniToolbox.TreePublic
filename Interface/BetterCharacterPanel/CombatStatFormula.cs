@@ -7,7 +7,12 @@ internal static class CombatStatFormula
 {
     internal static BetterCharacterPanelState.CombatLevelModifier GetLevelModifier(int level) => LevelTable[Math.Clamp(level, 1, 100)];
 
-    internal static double CalculateGcd(int level, int speed, int speedModifier) =>
+    internal static double CalculateGcd
+    (
+        int level,
+        int speed,
+        int speedModifier
+    ) =>
         CalculateGcdValue(250, speed, GetLevelModifier(level), speedModifier) / 100d;
 
     internal static bool IsCaster(int jobID) =>
@@ -30,7 +35,11 @@ internal static class CombatStatFormula
         };
     }
 
-    internal static double GetTraitModifier(int jobID, int level)
+    internal static double GetTraitModifier
+    (
+        int jobID,
+        int level
+    )
     {
         if (jobID == 36)
         {
@@ -81,7 +90,13 @@ internal static class CombatStatFormula
         _ => (level - 90) * 3.4d + 156d
     };
 
-    private static int CalculateGcdValue(int gcd, int speed, BetterCharacterPanelState.CombatLevelModifier modifier, int speedModifier) =>
+    private static int CalculateGcdValue
+    (
+        int                                           gcd,
+        int                                           speed,
+        BetterCharacterPanelState.CombatLevelModifier modifier,
+        int                                           speedModifier
+    ) =>
         (int)Math.Floor(
             Math.Floor((1000d + Math.Ceiling(130d * (modifier.Sub - speed) / modifier.Div)) * gcd / 100d)
             * (100d - speedModifier)

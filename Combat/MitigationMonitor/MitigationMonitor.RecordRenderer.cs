@@ -22,14 +22,28 @@ public sealed partial class MitigationMonitor
 
         private readonly Dictionary<uint, ISharedImmediateTexture> iconTextures = [];
 
-        public float CalculateRowHeight(MitigationRecord record, float statusWidth) =>
+        public float CalculateRowHeight
+        (
+            MitigationRecord record,
+            float            statusWidth
+        ) =>
             MathF.Max(config.Scale(40f), CalculateStatusHeight(record, statusWidth));
 
-        public float CalculateDetailHeight(MitigationRecord record, float width) =>
+        public float CalculateDetailHeight
+        (
+            MitigationRecord record,
+            float            width
+        ) =>
             ImGui.CalcTextSize(MitigationRecordCopyText.Build(record), false, MathF.Max(1f, width - config.Scale(8f))).Y +
             config.Scale(8f) + CalculateStatusHeight(record, width);
 
-        public void DrawDetail(MitigationRecord record, Vector2 position, float width, float height)
+        public void DrawDetail
+        (
+            MitigationRecord record,
+            Vector2          position,
+            float            width,
+            float            height
+        )
         {
             var text = MitigationRecordCopyText.Build(record);
             var textWidth = MathF.Max(1f, width - config.Scale(8f));
@@ -40,15 +54,17 @@ public sealed partial class MitigationMonitor
             DrawStatuses(record, position + new Vector2(0f, statusTop), width, height - statusTop, Vector2.Zero);
         }
 
-        public void Draw(
-            MitigationRecord record,
-            int index,
-            Vector2 rowMin,
-            float width,
-            float rowHeight,
+        public void Draw
+        (
+            MitigationRecord      record,
+            int                   index,
+            Vector2               rowMin,
+            float                 width,
+            float                 rowHeight,
             MitigationTableLayout layout,
-            bool hovered,
-            bool pressed)
+            bool                  hovered,
+            bool                  pressed
+        )
         {
             var rowColor = record.Kind == MitigationRecordKind.Wipe
                 ? KnownColor.DarkGoldenrod.ToVector4() with
@@ -101,14 +117,16 @@ public sealed partial class MitigationMonitor
 
         public void ResetRuntime() => iconTextures.Clear();
 
-        private void DrawText(
-            string text,
-            Vector2 min,
-            float width,
-            float rowHeight,
+        private void DrawText
+        (
+            string   text,
+            Vector2  min,
+            float    width,
+            float    rowHeight,
             Vector4? color = null,
-            bool centered = false,
-            Vector2 offset = default)
+            bool     centered = false,
+            Vector2  offset = default
+        )
         {
             var display = FitText(text, MathF.Max(config.Scale(4f), width - config.Scale(8f)));
             var textSize = ImGui.CalcTextSize(display);
@@ -120,12 +138,14 @@ public sealed partial class MitigationMonitor
                 display);
         }
 
-        private void DrawAction(
+        private void DrawAction
+        (
             MitigationRecord record,
-            Vector2 min,
-            float width,
-            float rowHeight,
-            Vector2 offset)
+            Vector2          min,
+            float            width,
+            float            rowHeight,
+            Vector2          offset
+        )
         {
             var color = record.Kind switch
             {
@@ -160,12 +180,14 @@ public sealed partial class MitigationMonitor
                 display);
         }
 
-        private void DrawTarget(
+        private void DrawTarget
+        (
             MitigationRecord record,
-            Vector2 min,
-            float width,
-            float rowHeight,
-            Vector2 offset)
+            Vector2          min,
+            float            width,
+            float            rowHeight,
+            Vector2          offset
+        )
         {
             if (record.Kind == MitigationRecordKind.Wipe)
             {
@@ -202,12 +224,14 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        private void DrawDamage(
+        private void DrawDamage
+        (
             MitigationRecord record,
-            Vector2 min,
-            float width,
-            float rowHeight,
-            Vector2 offset)
+            Vector2          min,
+            float            width,
+            float            rowHeight,
+            Vector2          offset
+        )
         {
             if (record.Kind == MitigationRecordKind.Wipe)
             {
@@ -248,7 +272,11 @@ public sealed partial class MitigationMonitor
                 display);
         }
 
-        private float CalculateStatusHeight(MitigationRecord record, float statusWidth)
+        private float CalculateStatusHeight
+        (
+            MitigationRecord record,
+            float            statusWidth
+        )
         {
             if (record.Statuses.Length == 0)
             {
@@ -278,12 +306,14 @@ public sealed partial class MitigationMonitor
             return lineCount * lineHeight + (lineCount - 1) * config.Scale(2f) + config.Scale(4f);
         }
 
-        private void DrawStatuses(
+        private void DrawStatuses
+        (
             MitigationRecord record,
-            Vector2 min,
-            float width,
-            float rowHeight,
-            Vector2 offset)
+            Vector2          min,
+            float            width,
+            float            rowHeight,
+            Vector2          offset
+        )
         {
             if (record.Statuses.Length == 0)
             {
@@ -369,7 +399,11 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        private static float GetStatusSlotWidth(ActiveMitigation status, float iconWidth) =>
+        private static float GetStatusSlotWidth
+        (
+            ActiveMitigation status,
+            float            iconWidth
+        ) =>
             MathF.Max(
                 iconWidth,
                 ImGui.CalcTextSize(MathF.Ceiling(status.RemainingSeconds).ToString(
@@ -385,14 +419,18 @@ public sealed partial class MitigationMonitor
 
             if (!iconTextures.TryGetValue(iconID, out var texture))
             {
-                texture = DalamudServices.TextureProvider.GetFromGameIcon(new GameIconLookup(iconID));
+                texture              = DalamudServices.TextureProvider.GetFromGameIcon(new GameIconLookup(iconID));
                 iconTextures[iconID] = texture;
             }
 
             return texture.GetWrapOrDefault()?.Handle;
         }
 
-        private static uint GetTargetIconID(uint jobRowID, MitigationTargetDisplayMode mode)
+        private static uint GetTargetIconID
+        (
+            uint                        jobRowID,
+            MitigationTargetDisplayMode mode
+        )
         {
             if (jobRowID == 0)
             {
@@ -433,7 +471,11 @@ public sealed partial class MitigationMonitor
             };
         }
 
-        internal static string FitText(string text, float width)
+        internal static string FitText
+        (
+            string text,
+            float  width
+        )
         {
             if (string.IsNullOrEmpty(text) || ImGui.CalcTextSize(text).X <= width)
             {

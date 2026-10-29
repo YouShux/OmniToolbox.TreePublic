@@ -4,7 +4,7 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed partial class FloatingInfoOverlay
 {
-    internal sealed class FloatingInfoObject
+    private sealed class FloatingInfoObject
     {
         public uint EntityID { get; init; }
 
@@ -47,4 +47,55 @@ internal sealed partial class FloatingInfoOverlay
         public List<FloatingInfoStatus> Statuses { get; } = [];
     }
 
+    private sealed class FloatingInfoGroup
+    (
+        Vector2            anchorPosition,
+        FloatingInfoObject item
+    )
+    {
+        public Vector2 AnchorPosition { get; private set; } = anchorPosition;
+
+        public List<FloatingInfoObject> Objects { get; } = [item];
+
+        public void Reset
+        (
+            Vector2            anchorPosition,
+            FloatingInfoObject item
+        )
+        {
+            AnchorPosition = anchorPosition;
+            Objects.Clear();
+            Objects.Add(item);
+        }
+    }
+
+    private enum FloatingInfoMarker
+    {
+        None = -1,
+        Attack1,
+        Attack2,
+        Attack3,
+        Attack4,
+        Attack5,
+        Bind1,
+        Bind2,
+        Bind3,
+        Ignore1,
+        Ignore2,
+        Square,
+        Circle,
+        Cross,
+        Triangle,
+        Attack6,
+        Attack7,
+        Attack8
+    }
+
+    private readonly record struct FloatingInfoStatus
+    (
+        uint   StatusID,
+        string Name,
+        float  RemainingTime,
+        ushort Param
+    );
 }

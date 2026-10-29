@@ -14,7 +14,7 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class LockedDutyPreview
 {
-    internal static class LockedDutyPreviewPanel
+    private static class LockedDutyPreviewPanel
     {
         public static bool Draw(Settings config)
         {

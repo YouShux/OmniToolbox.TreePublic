@@ -11,8 +11,8 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class HideMinimapIcons
 {
-    private readonly Dictionary<string, MapIconDiagnosticState> mapDiagnostics = [];
-    private int diagnosticSampleID;
+    private readonly Dictionary<string, MapIconDiagnosticState> mapDiagnostics     = [];
+    private int                                                 diagnosticSampleID;
 
     private void ArmMapDiagnostics(string reason)
     {
@@ -23,7 +23,11 @@ public sealed unsafe partial class HideMinimapIcons
             config.AetherytesOnTop, config.HiddenIconIDs.Count, string.Join(",", config.HiddenIconIDs.Order().Take(64)));
     }
 
-    private void OnMapDiagnosticSetup(AddonEvent _, AddonArgs args)
+    private void OnMapDiagnosticSetup
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         mapDiagnostics.Remove(args.AddonName);
         DalamudServices.PluginLog.Information("[HideMinimapIcons] Setup Addon={Addon} Address=0x{Address:X}",
@@ -41,17 +45,17 @@ public sealed unsafe partial class HideMinimapIcons
         if (diagnostic.LastPreDraw != 0 && now - diagnostic.LastPreDraw > 1_000)
         {
             diagnostic.RemainingSamples = 3;
-            diagnostic.NextSample = 0;
+            diagnostic.NextSample       = 0;
         }
         diagnostic.LastPreDraw = now;
         if (diagnostic.RemainingSamples == 0 || now < diagnostic.NextSample)
             return false;
 
         diagnostic.RemainingSamples--;
-        diagnostic.NextSample = now + 3_000;
-        diagnostic.SampleID = ++diagnosticSampleID;
+        diagnostic.NextSample      = now + 3_000;
+        diagnostic.SampleID        = ++diagnosticSampleID;
         diagnostic.PendingPostDraw = true;
-        diagnostic.PendingRestore = true;
+        diagnostic.PendingRestore  = true;
         return true;
     }
 
@@ -60,7 +64,7 @@ public sealed unsafe partial class HideMinimapIcons
         if (mapDiagnostics.TryGetValue(args.AddonName, out var diagnostic) && diagnostic.Addon == args.Addon.Address)
             return diagnostic;
 
-        diagnostic = new MapIconDiagnosticState
+        diagnostic                     = new MapIconDiagnosticState
         {
             Addon = args.Addon.Address
         };
@@ -68,7 +72,11 @@ public sealed unsafe partial class HideMinimapIcons
         return diagnostic;
     }
 
-    private void OnMapDiagnosticPostDraw(AddonEvent _, AddonArgs args)
+    private void OnMapDiagnosticPostDraw
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         if (!mapDiagnostics.TryGetValue(args.AddonName, out var diagnostic) ||
             diagnostic.Addon != args.Addon.Address || !diagnostic.PendingPostDraw)
@@ -78,7 +86,11 @@ public sealed unsafe partial class HideMinimapIcons
         LogMapDiagnosticSnapshot(args, "PostDraw");
     }
 
-    private void LogMapDiagnosticSnapshot(AddonArgs args, string phase)
+    private void LogMapDiagnosticSnapshot
+    (
+        AddonArgs args,
+        string    phase
+    )
     {
         if (!mapDiagnostics.TryGetValue(args.AddonName, out var diagnostic))
             return;
@@ -159,7 +171,11 @@ public sealed unsafe partial class HideMinimapIcons
             layout.ToString(), nativeState, details.ToString());
         return;
 
-        void CollectMarker(AtkComponentNode* marker, string source)
+        void CollectMarker
+        (
+            AtkComponentNode* marker,
+            string            source
+        )
         {
             if (marker is null || marker->Component is null || nodeCount >= 2_048)
                 return;
@@ -180,7 +196,11 @@ public sealed unsafe partial class HideMinimapIcons
             details.Append(contents).Append("} ");
         }
 
-        void CollectContents(AtkComponentBase* component, int depth)
+        void CollectContents
+        (
+            AtkComponentBase* component,
+            int               depth
+        )
         {
             if (component is null || component->UldManager.NodeList is null || depth >= 8)
                 return;
@@ -234,8 +254,8 @@ public sealed unsafe partial class HideMinimapIcons
         public nint Addon;
         public long LastPreDraw;
         public long NextSample;
-        public int RemainingSamples = 3;
-        public int SampleID;
+        public int  RemainingSamples  = 3;
+        public int  SampleID;
         public bool PendingPostDraw;
         public bool PendingRestore;
         public bool ReportedPreUpdate;

@@ -8,10 +8,10 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class LockedDutyPreview
 {
-    internal sealed unsafe class LockedDutyPreviewResolver
+    private sealed unsafe class LockedDutyPreviewResolver
     {
         private readonly List<LockedDutyPreviewDefinition> definitions = [];
-        private readonly List<LockedDutyPreviewDuty> duties = [];
+        private readonly List<LockedDutyPreviewDuty>       duties      = [];
 
         public IReadOnlyList<LockedDutyPreviewDuty> Duties => duties;
 

@@ -1,8 +1,8 @@
-using TreeToolKit;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Classes;
 using KamiToolKit.Interfaces;
 using KamiToolKit.Nodes;
+using TreeToolKit;
 
 namespace OmniToolbox.TreePublic;
 
@@ -13,8 +13,8 @@ public sealed partial class BetterGlamourManagement
         public static float ItemHeight => 48f;
 
         private readonly BetterGlamourItemIconNode iconNode;
-        private readonly TextNode nameNode;
-        private readonly TextNode levelNode;
+        private readonly TextNode                  nameNode;
+        private readonly TextNode                  levelNode;
 
         public BetterGlamourItemSearchResultNode()
         {
@@ -37,12 +37,12 @@ public sealed partial class BetterGlamourManagement
         protected override void OnSizeChanged()
         {
             base.OnSizeChanged();
-            iconNode.Position = new(4f, 2f);
-            iconNode.Size = new(44f, 44f);
-            nameNode.Position = new(56f, levelNode.IsVisible ? 0f : 12f);
-            nameNode.Size = new(MathF.Max(20f, Width - 60f), 24f);
+            iconNode.Position  = new(4f, 2f);
+            iconNode.Size      = new(44f, 44f);
+            nameNode.Position  = new(56f, levelNode.IsVisible ? 0f : 12f);
+            nameNode.Size      = new(MathF.Max(20f, Width - 60f), 24f);
             levelNode.Position = new(56f, 24f);
-            levelNode.Size = new(MathF.Max(20f, Width - 60f), 20f);
+            levelNode.Size     = new(MathF.Max(20f, Width - 60f), 20f);
         }
 
         protected override void SetNodeData(BetterGlamourItemSearchResult itemData)
@@ -54,7 +54,7 @@ public sealed partial class BetterGlamourManagement
             nameNode.String = itemData.Name;
             this.SetTextTooltip(itemData.Name);
             levelNode.IsVisible = itemData.EquipLevel > 0;
-            levelNode.String = itemData.EquipLevel > 0
+            levelNode.String    = itemData.EquipLevel > 0
                 ? string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.ItemPicker.Level"), itemData.EquipLevel)
                 : string.Empty;
             OnSizeChanged();

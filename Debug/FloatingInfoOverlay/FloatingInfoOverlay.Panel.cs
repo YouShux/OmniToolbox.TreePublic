@@ -11,7 +11,7 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed partial class FloatingInfoOverlay
 {
-    internal sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
+    private sealed class FloatingInfoOverlayPanel(FloatingInfoOverlayConfig config)
     {
         private string filterInput = string.Empty;
 
@@ -434,11 +434,13 @@ internal sealed partial class FloatingInfoOverlay
             return changed;
         }
 
-        private static bool DrawCheckbox(
-            string key,
-            string id,
-            bool value,
-            Action<bool> setValue)
+        private static bool DrawCheckbox
+        (
+            string       key,
+            string       id,
+            bool         value,
+            Action<bool> setValue
+        )
         {
             if (!OmniControls.Checkbox($"{OmniLoc.Get(key)}##floatingInfo{id}", ref value))
             {
@@ -449,14 +451,16 @@ internal sealed partial class FloatingInfoOverlay
             return true;
         }
 
-        private static bool DrawFloatSlider(
-            string key,
-            string id,
+        private static bool DrawFloatSlider
+        (
+            string    key,
+            string    id,
             ref float value,
-            float minimum,
-            float maximum,
-            string format,
-            float trailingWidth = 0f)
+            float     minimum,
+            float     maximum,
+            string    format,
+            float     trailingWidth = 0f
+        )
         {
             var label = OmniLoc.Get(key);
             ImGui.AlignTextToFramePadding();
@@ -473,12 +477,14 @@ internal sealed partial class FloatingInfoOverlay
             return changed;
         }
 
-        private static bool DrawIntSlider(
-            string key,
-            string id,
+        private static bool DrawIntSlider
+        (
+            string  key,
+            string  id,
             ref int value,
-            int minimum,
-            int maximum)
+            int     minimum,
+            int     maximum
+        )
         {
             var label = OmniLoc.Get(key);
             ImGui.AlignTextToFramePadding();
@@ -511,7 +517,11 @@ internal sealed partial class FloatingInfoOverlay
             return true;
         }
 
-        private static bool TryParseDataID(string text, out uint dataID)
+        private static bool TryParseDataID
+        (
+            string   text,
+            out uint dataID
+        )
         {
             text = text.Trim();
             if (text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))

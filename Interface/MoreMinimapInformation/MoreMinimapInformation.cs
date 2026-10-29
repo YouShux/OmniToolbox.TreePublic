@@ -40,17 +40,15 @@ public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation
 
     public override string ModuleName => nameof(MoreMinimapInformation);
 
-    public override bool HasSettings => true;
-
-    private NativeMapOverlayController? mapController;
-    private AddonEventRegistry? addonEvents;
-    private ResNode? minimapRoot;
-    private IDalamudTextureWrap? playerMarkerTexture;
-    private readonly Dictionary<int, Marker> objectMarkers = [];
-    private readonly List<Marker> aetherCurrentMarkers = [];
-    private readonly Dictionary<uint, uint> gatheringIcons = [];
-    private readonly HashSet<uint> enemyHaters = [];
-    private readonly Dictionary<nint, byte> hiddenEnemyNodes = [];
+    private NativeMapOverlayController?      mapController;
+    private AddonEventRegistry?              addonEvents;
+    private ResNode?                         minimapRoot;
+    private IDalamudTextureWrap?             playerMarkerTexture;
+    private readonly Dictionary<int, Marker> objectMarkers        = [];
+    private readonly List<Marker>            aetherCurrentMarkers = [];
+    private readonly Dictionary<uint, uint>  gatheringIcons       = [];
+    private readonly HashSet<uint>           enemyHaters          = [];
+    private readonly Dictionary<nint, byte>  hiddenEnemyNodes     = [];
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -82,14 +80,16 @@ public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation
         var unitManager = RaptureAtkUnitManager.Instance();
         RestoreNativeEnemyMarkers(unitManager is null ? null : (AddonNaviMap*)unitManager->GetAddonByName(MINIMAP_ADDON_NAME));
         minimapRoot?.Dispose();
-        minimapRoot = null;
-        mapController = null;
+        minimapRoot         = null;
+        mapController       = null;
         playerMarkerTexture = null;
         objectMarkers.Clear();
         aetherCurrentMarkers.Clear();
         gatheringIcons.Clear();
         enemyHaters.Clear();
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -179,19 +179,19 @@ public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation
 
     public sealed class Settings
     {
-        public bool Friends = true;
-        public bool Players;
-        public bool Enemies;
-        public bool AetherCurrents = true;
-        public bool GatheringPoints = true;
-        public bool TreasureChests = true;
-        public VirtualKey HideKey = VirtualKey.SHIFT;
+        public bool       Friends         = true;
+        public bool       Players;
+        public bool       Enemies;
+        public bool       AetherCurrents  = true;
+        public bool       GatheringPoints = true;
+        public bool       TreasureChests  = true;
+        public VirtualKey HideKey         = VirtualKey.SHIFT;
     }
 
     #region 常量
 
     private const string MINIMAP_ADDON_NAME = "_NaviMap";
-    private const uint ENEMY_ICON_ID = 60422;
+    private const uint   ENEMY_ICON_ID      = 60422;
 
     #endregion
 }

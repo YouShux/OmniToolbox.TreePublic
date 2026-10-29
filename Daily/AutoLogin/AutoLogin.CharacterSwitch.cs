@@ -22,7 +22,11 @@ public sealed partial class AutoLogin
                           manualTarget is not null || crossDataCenterTravelInProgress;
 
     /// <summary>等待已登记角色实际登录；取消仅停止本次后续操作。</summary>
-    public async Task<CharacterSwitchResult> SwitchCharacterAsync(AutoLoginTarget target, CancellationToken cancellationToken)
+    public async Task<CharacterSwitchResult> SwitchCharacterAsync
+    (
+        AutoLoginTarget   target,
+        CancellationToken cancellationToken
+    )
     {
         CharacterSwitchRequest? request = null;
         try
@@ -59,8 +63,12 @@ public sealed partial class AutoLogin
         }
     }
 
-    private unsafe Task<CharacterSwitchResult> BeginCharacterSwitch(
-        AutoLoginTarget target, CancellationToken cancellationToken, out CharacterSwitchRequest? request)
+    private unsafe Task<CharacterSwitchResult> BeginCharacterSwitch
+    (
+        AutoLoginTarget             target,
+        CancellationToken           cancellationToken,
+        out CharacterSwitchRequest? request
+    )
     {
         request = null;
         if (cancellationToken.IsCancellationRequested)
@@ -125,9 +133,9 @@ public sealed partial class AutoLogin
             }
         }
 
-        characterSwitch = pendingRequest;
-        request = pendingRequest;
-        manualTarget = request.Target;
+        characterSwitch     = pendingRequest;
+        request             = pendingRequest;
+        manualTarget        = request.Target;
         suspendedUntilLogin = false;
         if (loggedIn)
             EnqueueCharacterSwitchLogout(request);
@@ -168,7 +176,13 @@ public sealed partial class AutoLogin
                (AddonHelper.TryGetByName("_CharaSelectListMenu", out var characters) && characters->IsAddonAndNodesReady());
     }
 
-    private void EnqueueLoginStep(CharacterSwitchRequest? request, Func<bool> action, string name, int timeoutMS = 0)
+    private void EnqueueLoginStep
+    (
+        CharacterSwitchRequest? request,
+        Func<bool>              action,
+        string                  name,
+        int                     timeoutMS = 0
+    )
     {
         if (request is null)
         {
@@ -183,7 +197,11 @@ public sealed partial class AutoLogin
             exceptionAction: () => CompleteCharacterSwitch(request, OperationState.Failed, "TaskFailed"));
     }
 
-    private bool RunCharacterSwitchStep(CharacterSwitchRequest request, Func<bool> action)
+    private bool RunCharacterSwitchStep
+    (
+        CharacterSwitchRequest request,
+        Func<bool>             action
+    )
     {
         if (!CanContinueCharacterSwitch(request))
             return true;
@@ -236,8 +254,13 @@ public sealed partial class AutoLogin
         return true;
     }
 
-    private async Task<bool> RequestCharacterSwitchDataCenterAsync(
-        uint dataCenterID, bool requiresDataCenterLogin, CharacterSwitchRequest request, CancellationToken cancellationToken)
+    private async Task<bool> RequestCharacterSwitchDataCenterAsync
+    (
+        uint                   dataCenterID,
+        bool                   requiresDataCenterLogin,
+        CharacterSwitchRequest request,
+        CancellationToken      cancellationToken
+    )
     {
         if (!CanContinueCharacterSwitch(request))
             return true;
@@ -272,7 +295,12 @@ public sealed partial class AutoLogin
         }
     }
 
-    private void CompleteCharacterSwitch(CharacterSwitchRequest request, OperationState state, string error)
+    private void CompleteCharacterSwitch
+    (
+        CharacterSwitchRequest request,
+        OperationState         state,
+        string                 error
+    )
     {
         if (!ReferenceEquals(characterSwitch, request))
             return;
@@ -281,9 +309,9 @@ public sealed partial class AutoLogin
             state = OperationState.Cancelled;
             error = "Cancelled";
         }
-        manualTarget = null;
+        manualTarget        = null;
         suspendedUntilLogin = state != OperationState.Succeeded;
-        request.Result = new(state, error);
+        request.Result      = new(state, error);
         tasks?.Abort();
         if (tasks is not { IsBusy: true })
             PublishCharacterSwitchResult(request);
@@ -306,9 +334,17 @@ public sealed partial class AutoLogin
     private static Task<CharacterSwitchResult> RejectCharacterSwitch(string error) =>
         Task.FromResult(new CharacterSwitchResult(OperationState.Failed, error));
 
-    public readonly record struct CharacterSwitchResult(OperationState State, string Error);
+    public readonly record struct CharacterSwitchResult
+    (
+        OperationState State,
+        string         Error
+    );
 
-    private sealed class CharacterSwitchRequest(AutoLoginTarget target, CancellationToken cancellationToken)
+    private sealed class CharacterSwitchRequest
+    (
+        AutoLoginTarget   target,
+        CancellationToken cancellationToken
+    )
     {
         public AutoLoginTarget Target { get; } = target;
         public CancellationToken CancellationToken { get; } = cancellationToken;

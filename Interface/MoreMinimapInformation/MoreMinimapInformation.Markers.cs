@@ -82,25 +82,31 @@ public sealed unsafe partial class MoreMinimapInformation
             var objectID = obj->GetGameObjectId();
             if (marker.ObjectID != objectID || marker.MapId != agentMap->CurrentMapId)
             {
-                marker.ObjectID = objectID;
+                marker.ObjectID    = objectID;
                 marker.TextTooltip = obj->NameString;
             }
 
-            marker.MapId = agentMap->CurrentMapId;
+            marker.MapId    = agentMap->CurrentMapId;
             marker.Position = new Vector2(obj->Position.X, obj->Position.Z);
-            marker.Size = new Vector2(size);
+            marker.Size     = new Vector2(size);
             if (!isPlayer && marker.IconId != iconID)
                 marker.IconId = iconID;
             marker.MultiplyColor = color.ToVector4().ToVector3();
-            marker.IsVisible = true;
+            marker.IsVisible     = true;
         }
     }
 
-    private bool TryGetAppearance(GameObject* obj, out uint iconID, out KnownColor color, out float size)
+    private bool TryGetAppearance
+    (
+        GameObject*    obj,
+        out uint       iconID,
+        out KnownColor color,
+        out float      size
+    )
     {
         iconID = 0;
-        color = KnownColor.White;
-        size = 16f;
+        color  = KnownColor.White;
+        size   = 16f;
         switch (obj->ObjectKind)
         {
             case ObjectKind.Pc:
@@ -187,7 +193,7 @@ public sealed unsafe partial class MoreMinimapInformation
                 var fill = Math.Clamp((5f - distance) * 4f + 0.5f, 0f, 1f);
                 var shade = (byte)MathF.Round(255f * (0.7f + 0.3f * fill));
                 var offset = (y * TEXTURE_SIZE + x) * 4;
-                pixels[offset] = shade;
+                pixels[offset]     = shade;
                 pixels[offset + 1] = shade;
                 pixels[offset + 2] = shade;
                 pixels[offset + 3] = (byte)MathF.Round(255f * Math.Clamp((7f - distance) * 4f + 0.5f, 0f, 1f));
@@ -199,8 +205,8 @@ public sealed unsafe partial class MoreMinimapInformation
 
     private sealed class Marker : MapMarkerNode
     {
-        public bool IsPlayer;
-        public GameObjectId ObjectID;
+        public bool             IsPlayer;
+        public GameObjectId     ObjectID;
         public SimpleImageNode? MinimapIcon;
     }
 }

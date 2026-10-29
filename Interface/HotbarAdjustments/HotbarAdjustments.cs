@@ -31,8 +31,6 @@ public sealed unsafe partial class HotbarAdjustments(HotbarAdjustments.Settings 
             ["Feature.HotbarAdjustments.UnlockActions.Help"] = "Feature.HotbarAdjustments.UnlockActions.Help"
         });
 
-    public override bool HasSettings => true;
-
     private readonly Dictionary<(string AddonName, int SlotIndex), BackgroundState> slotBackgrounds = [];
 
     protected override void OnStart(FeatureLifetime activation)

@@ -7,11 +7,11 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class HideMinimapIcons
 {
-    private readonly Dictionary<nint, (uint NodeID, ushort Priority, ushort AppliedPriority, nint Addon)> originalMarkerLayers = [];
-    private readonly Dictionary<nint, ushort> markerGroupPriorities = [];
-    private readonly List<nint> pendingAetheryteMarkers = [];
-    private uint aetheryteIconID;
-    private uint aethernetIconID;
+    private readonly Dictionary<nint, (uint NodeID, ushort Priority, ushort AppliedPriority, nint Addon)> originalMarkerLayers    = [];
+    private readonly Dictionary<nint, ushort>                                                             markerGroupPriorities   = [];
+    private readonly List<nint>                                                                           pendingAetheryteMarkers = [];
+    private uint                                                                                          aetheryteIconID;
+    private uint                                                                                          aethernetIconID;
 
     private void ClearMarkerLayers(nint addon)
     {
@@ -19,7 +19,12 @@ public sealed unsafe partial class HideMinimapIcons
             originalMarkerLayers.Remove(key);
     }
 
-    private void ApplyAetherytePriority(AtkUnitBase* addon, string addonName, bool restore)
+    private void ApplyAetherytePriority
+    (
+        AtkUnitBase* addon,
+        string       addonName,
+        bool         restore
+    )
     {
         if (addon is null || !addon->IsFullyLoaded())
             return;
@@ -71,7 +76,13 @@ public sealed unsafe partial class HideMinimapIcons
     private bool IsAetheryteIcon(uint iconID) =>
         iconID != 0 && (iconID == aetheryteIconID || iconID == aethernetIconID);
 
-    private void CollectMarkerLayer(AtkComponentNode* marker, bool aetheryte, bool restore, nint addon)
+    private void CollectMarkerLayer
+    (
+        AtkComponentNode* marker,
+        bool              aetheryte,
+        bool              restore,
+        nint              addon
+    )
     {
         if (marker is null)
             return;
@@ -104,13 +115,21 @@ public sealed unsafe partial class HideMinimapIcons
             pendingAetheryteMarkers.Add((nint)markerNode);
     }
 
-    private ushort GetNativeMarkerPriority(AtkResNode* node, nint addon) =>
+    private ushort GetNativeMarkerPriority
+    (
+        AtkResNode* node,
+        nint        addon
+    ) =>
         originalMarkerLayers.TryGetValue((nint)node, out var original) &&
         original.Addon == addon && original.NodeID == node->NodeId && node->Priority == original.AppliedPriority
             ? original.Priority
             : node->Priority;
 
-    private void RestoreMarkerPriority(AtkResNode* node, nint addon)
+    private void RestoreMarkerPriority
+    (
+        AtkResNode* node,
+        nint        addon
+    )
     {
         if (originalMarkerLayers.Remove((nint)node, out var original) &&
             original.Addon == addon && original.NodeID == node->NodeId && node->Priority == original.AppliedPriority)

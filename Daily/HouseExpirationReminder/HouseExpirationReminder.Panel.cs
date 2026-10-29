@@ -16,9 +16,11 @@ public sealed partial class HouseExpirationReminder
 {
     internal static class Panel
     {
-        public static bool Draw(
+        public static bool Draw
+        (
             HouseExpirationReminderConfig config,
-            HouseExpirationReminder feature)
+            HouseExpirationReminder       feature
+        )
         {
             var changed = DrawNotificationSettings(config, feature);
             ImGui.Spacing();
@@ -28,9 +30,11 @@ public sealed partial class HouseExpirationReminder
             return changed;
         }
 
-        private static bool DrawNotificationSettings(
+        private static bool DrawNotificationSettings
+        (
             HouseExpirationReminderConfig config,
-            HouseExpirationReminder feature)
+            HouseExpirationReminder       feature
+        )
         {
             var changed = false;
             using var table = OmniControls.SettingsTable(
@@ -55,7 +59,7 @@ public sealed partial class HouseExpirationReminder
                     ref chatNotify))
             {
                 config.ChatNotify = chatNotify;
-                changed = true;
+                changed           = true;
             }
 
             ImGui.TableNextColumn();
@@ -65,7 +69,7 @@ public sealed partial class HouseExpirationReminder
                     ref popupNotify))
             {
                 config.PopupNotify = popupNotify;
-                changed = true;
+                changed            = true;
             }
 
             ImGui.TableNextColumn();
@@ -96,9 +100,11 @@ public sealed partial class HouseExpirationReminder
             return changed;
         }
 
-        private static bool DrawHouseRecords(
+        private static bool DrawHouseRecords
+        (
             HouseExpirationReminderConfig config,
-            HouseExpirationReminder feature)
+            HouseExpirationReminder       feature
+        )
         {
             var changed = false;
             var currentRecord = feature.GetCurrentCharacterRecord();
@@ -122,7 +128,7 @@ public sealed partial class HouseExpirationReminder
                     feature))
             {
                 config.PersonalNotify = personalNotify;
-                changed = true;
+                changed               = true;
             }
 
             ImGui.TableNextColumn();
@@ -135,18 +141,20 @@ public sealed partial class HouseExpirationReminder
                     feature))
             {
                 config.FreeCompanyNotify = freeCompanyNotify;
-                changed = true;
+                changed                  = true;
             }
 
             return changed;
         }
 
-        private static bool DrawHouseRecord(
-            string houseType,
-            string notifyLabelKey,
-            DateTime lastVisitUTC,
-            ref bool notify,
-            HouseExpirationReminder feature)
+        private static bool DrawHouseRecord
+        (
+            string                  houseType,
+            string                  notifyLabelKey,
+            DateTime                lastVisitUTC,
+            ref bool                notify,
+            HouseExpirationReminder feature
+        )
         {
             using var wrap = ImRaii.TextWrapPos(0f);
             var changed = OmniControls.Checkbox(OmniLoc.Get(notifyLabelKey), ref notify);
@@ -173,9 +181,11 @@ public sealed partial class HouseExpirationReminder
             return changed;
         }
 
-        private static bool DrawCharacterRecords(
+        private static bool DrawCharacterRecords
+        (
             HouseExpirationReminderConfig config,
-            HouseExpirationReminder feature)
+            HouseExpirationReminder       feature
+        )
         {
             if (config.CharacterRecords.Count == 0)
             {
@@ -238,9 +248,11 @@ public sealed partial class HouseExpirationReminder
             return $"{record.CharacterName}@{record.HomeWorld}";
         }
 
-        private static string FormatHouseInfo(
-            DateTime lastVisitUTC,
-            HouseExpirationReminder feature)
+        private static string FormatHouseInfo
+        (
+            DateTime                lastVisitUTC,
+            HouseExpirationReminder feature
+        )
         {
             lastVisitUTC = HouseExpirationReminder.AsUTC(lastVisitUTC);
             if (lastVisitUTC == DateTime.MinValue)

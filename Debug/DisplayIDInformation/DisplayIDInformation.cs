@@ -10,9 +10,11 @@ using OmniToolbox.UI.Theme;
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-public sealed partial class DisplayIDInformation(
+public sealed partial class DisplayIDInformation
+(
     DisplayIDInformationConfig config,
-    IconBrowser iconBrowser) : OmniModuleBase
+    IconBrowser                iconBrowser
+) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -41,10 +43,8 @@ public sealed partial class DisplayIDInformation(
             ["IconBrowser.Title"] = "IconBrowser.Title"
         });
 
-    public override bool HasSettings => true;
-
     private DisplayIDInformationNativeUI? nativeUI;
-    private DisplayIDInformationCombat? combat;
+    private DisplayIDInformationCombat?   combat;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -52,7 +52,7 @@ public sealed partial class DisplayIDInformation(
         lifetime.Add(() =>
         {
             nativeUI = null;
-            combat = null;
+            combat   = null;
         });
         nativeUI = new(config);
         lifetime.Add(nativeUI.Dispose);
@@ -66,6 +66,8 @@ public sealed partial class DisplayIDInformation(
         lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnUpdate));
         OnUpdate(DService.Instance().Framework);
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings() => DisplayIDInformationPanel.Draw(config, iconBrowser);
 

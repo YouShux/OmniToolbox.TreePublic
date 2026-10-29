@@ -7,13 +7,17 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class AntiCensorship
 {
-    internal sealed class Processor(AntiCensorshipConfig config, Func<string, string> filter)
+    internal sealed class Processor
+    (
+        AntiCensorshipConfig config,
+        Func<string, string> filter
+    )
     {
-        private readonly Dictionary<string, byte[]> highlightCache = new(StringComparer.Ordinal);
-        private readonly Queue<string> highlightOrder = new();
-        private Vector3 cachedHighlightColor;
-        private RawPayload? customColorStart;
-        private RawPayload? customColorEnd;
+        private readonly Dictionary<string, byte[]> highlightCache       = new(StringComparer.Ordinal);
+        private readonly Queue<string>              highlightOrder       = new();
+        private Vector3                             cachedHighlightColor;
+        private RawPayload?                         customColorStart;
+        private RawPayload?                         customColorEnd;
 
         public void Bypass(ref SeString text)
         {
@@ -81,7 +85,11 @@ public sealed partial class AntiCensorship
             return true;
         }
 
-        public void RememberAutoHandledHighlight(SeString handled, SeString original)
+        public void RememberAutoHandledHighlight
+        (
+            SeString handled,
+            SeString original
+        )
         {
             if (!config.EnableColoring || (!config.UseCustomHighlightColor && config.HighlightColor <= 0))
             {
@@ -141,7 +149,7 @@ public sealed partial class AntiCensorship
                     }
 
                     builder.Append(originalText[index..(endIndex + 1)]);
-                    index = endIndex;
+                    index        = endIndex;
                     segmentStart = endIndex + 1;
                     continue;
                 }
@@ -338,8 +346,8 @@ public sealed partial class AntiCensorship
             }
 
             cachedHighlightColor = config.HighlightColorValue;
-            customColorStart = new RawPayload(UIColorPicker.BuildColorPayload(config.HighlightColorValue, false));
-            customColorEnd = new RawPayload(UIColorPicker.BuildColorPayload(config.HighlightColorValue, true));
+            customColorStart     = new RawPayload(UIColorPicker.BuildColorPayload(config.HighlightColorValue, false));
+            customColorEnd       = new RawPayload(UIColorPicker.BuildColorPayload(config.HighlightColorValue, true));
         }
 
         private string ProcessCensoredSegment(string text)
@@ -384,7 +392,7 @@ public sealed partial class AntiCensorship
                         if (nextClearFilteredIndex >= filteredRunes.Count)
                         {
                             ProcessCensoredWord(builder, resultRunes, resultIndex, resultRunes.Count - resultIndex);
-                            resultIndex = resultRunes.Count;
+                            resultIndex   = resultRunes.Count;
                             filteredIndex = filteredRunes.Count;
                             continue;
                         }
@@ -399,7 +407,7 @@ public sealed partial class AntiCensorship
                         if (nextClearResultIndex < resultRunes.Count)
                         {
                             ProcessCensoredWord(builder, resultRunes, resultIndex, nextClearResultIndex - resultIndex);
-                            resultIndex = nextClearResultIndex;
+                            resultIndex   = nextClearResultIndex;
                             filteredIndex = nextClearFilteredIndex;
                             continue;
                         }
@@ -413,14 +421,20 @@ public sealed partial class AntiCensorship
                     }
                 }
 
-                result = builder.ToString();
+                result   = builder.ToString();
                 filtered = filter(result);
             }
 
             return result;
         }
 
-        private void ProcessCensoredWord(StringBuilder builder, IReadOnlyList<Rune> runes, int start, int count)
+        private void ProcessCensoredWord
+        (
+            StringBuilder       builder,
+            IReadOnlyList<Rune> runes,
+            int                 start,
+            int                 count
+        )
         {
             if (count == 1 && IsChineseRune(runes[start]))
             {
@@ -449,7 +463,12 @@ public sealed partial class AntiCensorship
             return runes;
         }
 
-        private static bool TryGetProtectedSpan(string text, int index, out int endIndex)
+        private static bool TryGetProtectedSpan
+        (
+            string  text,
+            int     index,
+            out int endIndex
+        )
         {
             if (text[index] == '<')
             {

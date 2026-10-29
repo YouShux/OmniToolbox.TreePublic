@@ -4,7 +4,7 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class BetterWondrousTails
 {
-    internal sealed class Calculator
+    private sealed class Calculator
     {
         private readonly long[]?[] possibleBoards = new long[]?[1 << 16];
 
@@ -63,7 +63,12 @@ public sealed partial class BetterWondrousTails
         }
     }
 
-    internal readonly record struct Probabilities(double OneLine, double TwoLines, double ThreeLines)
+    private readonly record struct Probabilities
+    (
+        double OneLine,
+        double TwoLines,
+        double ThreeLines
+    )
     {
         internal static readonly Probabilities Unavailable = new(-1, -1, -1);
 

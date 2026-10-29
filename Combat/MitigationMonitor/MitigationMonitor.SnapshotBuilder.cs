@@ -16,7 +16,7 @@ public sealed partial class MitigationMonitor
 {
     internal sealed unsafe class MitigationSnapshotBuilder
     {
-        private static readonly TimeSpan SacredSoilDuration = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan                                     SacredSoilDuration   = TimeSpan.FromSeconds(15);
         private static readonly FrozenDictionary<uint, MitigationDefinition> MitigationByStatusID =
             new MitigationDefinition[]
             {
@@ -57,13 +57,13 @@ public sealed partial class MitigationMonitor
             2496, 2119, 1719, 2114, 3686, 3687
         }.ToFrozenSet();
 
-        private readonly Dictionary<uint, ActionDisplayInfo> actionCache = [];
-        private readonly Dictionary<uint, StatusDisplayInfo> statusCache = [];
-        private readonly HashSet<uint> activeSacredSoilTargets = [];
-        private readonly Dictionary<uint, DateTime> sacredSoilUntilUTC = [];
-        private readonly List<uint> expiredSacredSoilTargets = new(8);
-        private readonly List<ActiveMitigation> mitigationBuilder = new(16);
-        private readonly HashSet<ulong> seenStatusKeys = [];
+        private readonly Dictionary<uint, ActionDisplayInfo> actionCache              = [];
+        private readonly Dictionary<uint, StatusDisplayInfo> statusCache              = [];
+        private readonly HashSet<uint>                       activeSacredSoilTargets  = [];
+        private readonly Dictionary<uint, DateTime>          sacredSoilUntilUTC       = [];
+        private readonly List<uint>                          expiredSacredSoilTargets = new(8);
+        private readonly List<ActiveMitigation>              mitigationBuilder        = new(16);
+        private readonly HashSet<ulong>                      seenStatusKeys           = [];
 
         public void RefreshRuntime(DateTime now)
         {
@@ -82,7 +82,12 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        public void RefreshTarget(IBattleChara? target, IGameObject targetObject, DateTime now)
+        public void RefreshTarget
+        (
+            IBattleChara? target,
+            IGameObject   targetObject,
+            DateTime      now
+        )
         {
             if (target == null)
             {
@@ -109,7 +114,11 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        public void StartSacredSoil(uint targetEntityID, DateTime now)
+        public void StartSacredSoil
+        (
+            uint     targetEntityID,
+            DateTime now
+        )
         {
             if (targetEntityID != 0 && activeSacredSoilTargets.Add(targetEntityID))
             {
@@ -131,11 +140,13 @@ public sealed partial class MitigationMonitor
             return info;
         }
 
-        public DamageActionDisplay ResolveDamageAction(
-            uint actionID,
+        public DamageActionDisplay ResolveDamageAction
+        (
+            uint              actionID,
             ActionDisplayInfo action,
-            IBattleChara? target,
-            IGameObject source)
+            IBattleChara?     target,
+            IGameObject       source
+        )
         {
             if (actionID != 0 && !string.IsNullOrWhiteSpace(action.Name) && action.Name != "0")
             {
@@ -147,12 +158,14 @@ public sealed partial class MitigationMonitor
                 : new(OmniLoc.Get("Feature.MitigationMonitor.Action.AutoAttack"), DamageSourceKind.AutoAttack);
         }
 
-        public ActiveMitigation[] Build(
+        public ActiveMitigation[] Build
+        (
             IBattleChara? target,
-            IBattleChara source,
-            IGameObject targetObject,
-            DamageKind damageKind,
-            DateTime now)
+            IBattleChara  source,
+            IGameObject   targetObject,
+            DamageKind    damageKind,
+            DateTime      now
+        )
         {
             mitigationBuilder.Clear();
             seenStatusKeys.Clear();
@@ -195,12 +208,14 @@ public sealed partial class MitigationMonitor
             ClearTargetWindows();
         }
 
-        private void CollectStatuses(
-            IBattleChara source,
-            IGameObject target,
-            DamageKind damageKind,
+        private void CollectStatuses
+        (
+            IBattleChara               source,
+            IGameObject                target,
+            DamageKind                 damageKind,
             MitigationStatusSourceKind sourceKind,
-            DateTime now)
+            DateTime                   now
+        )
         {
             foreach (var status in source.ToBCStruct()->StatusManager.Status)
             {
@@ -219,15 +234,17 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        private void CollectStatus(
-            uint statusID,
-            uint sourceID,
-            ushort param,
-            float remainingTime,
-            IGameObject target,
-            DamageKind damageKind,
+        private void CollectStatus
+        (
+            uint                       statusID,
+            uint                       sourceID,
+            ushort                     param,
+            float                      remainingTime,
+            IGameObject                target,
+            DamageKind                 damageKind,
             MitigationStatusSourceKind sourceKind,
-            DateTime now)
+            DateTime                   now
+        )
         {
             var sourceStatus = sourceKind == MitigationStatusSourceKind.CurrentSource;
             if (sourceStatus && !SourceDebuffStatusIDs.Contains(statusID) ||
@@ -281,12 +298,14 @@ public sealed partial class MitigationMonitor
                 percentValue > 0));
         }
 
-        private static int ResolveStatusPercentValue(
-            uint statusID,
-            uint sourceID,
+        private static int ResolveStatusPercentValue
+        (
+            uint                 statusID,
+            uint                 sourceID,
             MitigationDefinition definition,
-            IGameObject target,
-            DamageKind damageKind)
+            IGameObject          target,
+            DamageKind           damageKind
+        )
         {
             if (statusID == 2675)
             {
@@ -319,7 +338,12 @@ public sealed partial class MitigationMonitor
             return false;
         }
 
-        private bool TryGetDamageOverTimeStatus(IBattleChara? target, IGameObject source, out StatusDisplayInfo display)
+        private bool TryGetDamageOverTimeStatus
+        (
+            IBattleChara?         target,
+            IGameObject           source,
+            out StatusDisplayInfo display
+        )
         {
             display = default;
             if (target == null)
