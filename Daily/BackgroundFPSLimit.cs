@@ -30,10 +30,8 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
             ["Feature.BackgroundFPSLimit.Target"] = "Feature.BackgroundFPSLimit.Target"
         });
 
-    public override bool HasSettings => true;
-
-    private readonly Stopwatch frameTimer = new();
-    private SafeWaitHandle? frameWaitHandle;
+    private readonly Stopwatch frameTimer      = new();
+    private SafeWaitHandle?    frameWaitHandle;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -72,6 +70,8 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
         frameWaitHandle = null;
         frameTimer.Reset();
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -120,7 +120,11 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
         frameTimer.Restart();
     }
 
-    internal static int GetFrameDelayMilliseconds(int limit, double elapsedMS)
+    internal static int GetFrameDelayMilliseconds
+    (
+        int    limit,
+        double elapsedMS
+    )
     {
         limit = Math.Clamp(limit, 20, short.MaxValue);
         return limit == short.MaxValue
@@ -128,7 +132,11 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
             : (int)Math.Max(0, Math.Ceiling(1000d / limit - elapsedMS));
     }
 
-    private static void WaitForFrame(SafeWaitHandle timer, int delayMS)
+    private static void WaitForFrame
+    (
+        SafeWaitHandle timer,
+        int            delayMS
+    )
     {
         // 负值表示相对等待时间，单位与 TimeSpan.Ticks 相同；等待期间让出 CPU。
         var dueTime = -delayMS * TimeSpan.TicksPerMillisecond;
@@ -140,8 +148,13 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
     }
 
     [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
-    private static extern SafeWaitHandle CreateWaitableTimerExW(
-        nint timerAttributes, nint timerName, uint flags, uint desiredAccess);
+    private static extern SafeWaitHandle CreateWaitableTimerExW
+    (
+        nint timerAttributes,
+        nint timerName,
+        uint flags,
+        uint desiredAccess
+    );
 
     [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -150,7 +163,11 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
         [MarshalAs(UnmanagedType.Bool)] bool resume);
 
     [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
-    private static extern uint WaitForSingleObject(SafeWaitHandle handle, uint milliseconds);
+    private static extern uint WaitForSingleObject
+    (
+        SafeWaitHandle handle,
+        uint           milliseconds
+    );
 
     [DllImport("user32.dll")]
     private static extern nint GetForegroundWindow();

@@ -11,7 +11,7 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class LockedDutyPreview
 {
-    internal sealed class LockedDutyPreviewListItemNode : ListItemNode<LockedDutyPreviewRow>, IListItemNode
+    private sealed class LockedDutyPreviewListItemNode : ListItemNode<LockedDutyPreviewRow>, IListItemNode
     {
         public static float ItemHeight => 28f;
 
@@ -19,10 +19,10 @@ public sealed partial class LockedDutyPreview
         private static Action<LockedDutyPreviewRow>? OnRestore;
         private static Action<LockedDutyPreviewRow>? OnWiki;
 
-        private readonly TextNode nameNode;
+        private readonly TextNode       nameNode;
         private readonly TextButtonNode primaryButton;
         private readonly TextButtonNode wikiButton;
-        private LockedDutyPreviewRow item;
+        private LockedDutyPreviewRow    item;
 
         public LockedDutyPreviewListItemNode()
         {
@@ -58,21 +58,23 @@ public sealed partial class LockedDutyPreview
             wikiButton.AttachNode(this);
         }
 
-        public static void SetCallbacks(
+        public static void SetCallbacks
+        (
             Action<LockedDutyPreviewRow> exclude,
             Action<LockedDutyPreviewRow> restore,
-            Action<LockedDutyPreviewRow> wiki)
+            Action<LockedDutyPreviewRow> wiki
+        )
         {
             OnExclude = exclude;
             OnRestore = restore;
-            OnWiki = wiki;
+            OnWiki    = wiki;
         }
 
         public static void ClearCallbacks()
         {
             OnExclude = null;
             OnRestore = null;
-            OnWiki = null;
+            OnWiki    = null;
         }
 
         protected override void OnSizeChanged()
@@ -82,18 +84,18 @@ public sealed partial class LockedDutyPreview
             var primaryWidth = item.IsExcluded ? 72f : 52f;
             var wikiWidth = item.IsExcluded ? 0f : 52f;
             var rightWidth = primaryWidth + (item.IsExcluded ? 0f : GAP + wikiWidth);
-            nameNode.Position = new(2f, 4f);
-            nameNode.Size = new(MathF.Max(40f, Width - rightWidth - GAP - 4f), Height - 2f);
+            nameNode.Position      = new(2f, 4f);
+            nameNode.Size          = new(MathF.Max(40f, Width - rightWidth - GAP - 4f), Height - 2f);
             primaryButton.Position = new(Width - rightWidth, 0f);
-            primaryButton.Size = new(primaryWidth, 26f);
-            wikiButton.Position = new(Width - wikiWidth, 0f);
-            wikiButton.Size = new(wikiWidth, 26f);
+            primaryButton.Size     = new(primaryWidth, 26f);
+            wikiButton.Position    = new(Width - wikiWidth, 0f);
+            wikiButton.Size        = new(wikiWidth, 26f);
         }
 
         protected override void SetNodeData(LockedDutyPreviewRow itemData)
         {
-            item = itemData;
-            nameNode.String = itemData.Name;
+            item                 = itemData;
+            nameNode.String      = itemData.Name;
             primaryButton.String = OmniLoc.Get(itemData.IsExcluded
                 ? "Feature.LockedDutyPreview.Restore"
                 : "Feature.LockedDutyPreview.Exclude");

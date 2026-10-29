@@ -1,4 +1,3 @@
-using TreeToolKit;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -19,6 +18,7 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Items;
+using TreeToolKit;
 using ContentFinderConditionSheet = Lumina.Excel.Sheets.ContentFinderCondition;
 using InstanceContentSheet = Lumina.Excel.Sheets.InstanceContent;
 
@@ -53,42 +53,43 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
             ["Feature.DutyLootPreview.Unfavorite"] = "Feature.DutyLootPreview.Unfavorite"
         });
 
-    private readonly Config config;
-    private readonly System.Action saveConfig;
+    private readonly Config             config;
+    private readonly System.Action      saveConfig;
     private readonly ItemPreviewService itemPreviewService;
+    private LootWindow?                 window;
+    private NativeOverlayController?    overlayController;
+    private DutyLootTodoOverlayNode?    todoOverlayNode;
+    private DutyLootOverlayNode?        overlayNode;
+    private uint                        activeDutyID;
+    private bool                        exchangeDataPending;
+    private long                        nextExchangeRetryAt;
 
-    public DutyLootPreview(
-        Config config,
-        System.Action saveConfig,
-        ItemPreviewService itemPreviewService)
+    public DutyLootPreview
+    (
+        Config             config,
+        System.Action      saveConfig,
+        ItemPreviewService itemPreviewService
+    )
     {
-        this.config = config;
-        this.saveConfig = saveConfig;
+        this.config             = config;
+        this.saveConfig         = saveConfig;
         this.itemPreviewService = itemPreviewService;
     }
-
-    private LootWindow? window;
-    private NativeOverlayController? overlayController;
-    private DutyLootTodoOverlayNode? todoOverlayNode;
-    private DutyLootOverlayNode? overlayNode;
-    private uint activeDutyID;
-    private bool exchangeDataPending;
-    private long nextExchangeRetryAt;
 
     protected override void OnStart(FeatureLifetime activation)
     {
         var lifetime = Activation;
         lifetime.Add(() =>
         {
-            activeDutyID = 0;
+            activeDutyID        = 0;
             exchangeDataPending = false;
             nextExchangeRetryAt = 0;
-            dropsLoadStep = -1;
+            dropsLoadStep       = -1;
             dropsByDuty.Clear();
             bossRows.Clear();
             bossSources.Clear();
             chestRows.Clear();
-            pendingChestItems = null;
+            pendingChestItems     = null;
             pendingChestItemIndex = 0;
         });
         BeginLoadDrops();
@@ -100,7 +101,7 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
         });
 
         overlayController = new();
-        todoOverlayNode = new(this);
+        todoOverlayNode   = new(this);
         overlayController.AddNode(todoOverlayNode);
         overlayNode = new DutyLootOverlayNode(this);
         overlayController.AddNode(overlayNode);
@@ -218,12 +219,12 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
     // 这些窗口刷新重建时会按自有结构遍历子节点，外来节点会让原生 RequestedUpdate 崩溃。
     private sealed class DutyLootTodoOverlayNode : OverlayNode
     {
-        private readonly IconButtonNode todoButton;
+        private readonly IconButtonNode   todoButton;
         private readonly TextNineGridNode todoTooltip;
 
         public DutyLootTodoOverlayNode(DutyLootPreview module)
         {
-            todoButton = new()
+            todoButton                          = new()
             {
                 IconId = DUTY_LOOT_ICON_ID,
                 Size = new(44f, 44f),
@@ -241,7 +242,7 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
 
         public void HideButtonNow()
         {
-            todoButton.IsVisible = false;
+            todoButton.IsVisible  = false;
             todoTooltip.IsVisible = false;
         }
 
@@ -259,7 +260,7 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
                 addon->RootNode == null || !addon->RootNode->IsVisible() ||
                 (((AtkUnitBase*)addon)->VisibilityFlags & 5) != 0)
             {
-                todoButton.IsVisible = false;
+                todoButton.IsVisible  = false;
                 todoTooltip.IsVisible = false;
                 return;
             }
@@ -335,11 +336,11 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
 
     private sealed class DutyLootOverlayNode : OverlayNode
     {
-        private readonly TextButtonNode finderButton;
-        private readonly TextButtonNode raidFinderButton;
+        private readonly TextButtonNode   finderButton;
+        private readonly TextButtonNode   raidFinderButton;
         private readonly TextNineGridNode finderTooltip;
         private readonly TextNineGridNode raidFinderTooltip;
-        private int buttonTheme = -1;
+        private int                       buttonTheme       = -1;
 
         public DutyLootOverlayNode(DutyLootPreview module)
         {
@@ -358,9 +359,9 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
 
         public void HideButtonsNow()
         {
-            finderButton.IsVisible = false;
-            finderTooltip.IsVisible = false;
-            raidFinderButton.IsVisible = false;
+            finderButton.IsVisible      = false;
+            finderTooltip.IsVisible     = false;
+            raidFinderButton.IsVisible  = false;
             raidFinderTooltip.IsVisible = false;
         }
 
@@ -382,9 +383,9 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
                     foreach (var button in new[] { finderButton, raidFinderButton })
                     {
                         ((SimpleNineGridNode)button.BackgroundNode).TexturePath = "ui/uld/ButtonA.tex";
-                        button.LabelNode.TextColor = ColorHelper.GetColor(50);
-                        button.LabelNode.TextOutlineColor = ColorHelper.GetColor(7);
-                        button.LabelNode.TextFlags = theme == 0
+                        button.LabelNode.TextColor                              = ColorHelper.GetColor(50);
+                        button.LabelNode.TextOutlineColor                       = ColorHelper.GetColor(7);
+                        button.LabelNode.TextFlags                              = theme == 0
                             ? button.LabelNode.TextFlags | TextFlags.Emboss
                             : button.LabelNode.TextFlags & ~TextFlags.Emboss;
                     }
@@ -399,7 +400,7 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
                 AddonHelper.TryGetByName<AddonContentsFinder>("ContentsFinder", out var contentsFinder) &&
                 ((AtkUnitBase*)contentsFinder)->IsAddonAndNodesReady())
             {
-                contentsAddon = (AtkUnitBase*)contentsFinder;
+                contentsAddon  = (AtkUnitBase*)contentsFinder;
                 contentsAnchor = contentsFinder->ClearSelectionButton;
             }
 
@@ -417,7 +418,7 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
                 AddonHelper.TryGetByName<AddonRaidFinder>("RaidFinder", out var raidFinder) &&
                 ((AtkUnitBase*)raidFinder)->IsAddonAndNodesReady())
             {
-                raidAddon = (AtkUnitBase*)raidFinder;
+                raidAddon  = (AtkUnitBase*)raidFinder;
                 raidAnchor = raidFinder->UnselectButton;
             }
 
@@ -436,11 +437,13 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
             IsVisible = false
         };
 
-        private void UpdateFinderButton(
-            AtkUnitBase* addon,
+        private void UpdateFinderButton
+        (
+            AtkUnitBase*        addon,
             AtkComponentButton* anchorButton,
-            TextButtonNode button,
-            bool hasSelectedDuty)
+            TextButtonNode      button,
+            bool                hasSelectedDuty
+        )
         {
             var anchor = anchorButton != null ? anchorButton->OwnerNode : null;
             button.IsVisible = addon != null && addon->IsVisible && anchor != null && anchor->IsVisible();
@@ -452,14 +455,14 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
 
             var anchorNode = (AtkResNode*)anchor;
             var anchorScale = anchorNode->GetScale();
-            button.Size = new(112f, anchor->Height);
-            button.Scale = anchorScale;
+            button.Size     = new(112f, anchor->Height);
+            button.Scale    = anchorScale;
             button.Position = new(
                 anchorNode->ScreenX - (button.Width + 6f) * anchorScale.X,
                 anchorNode->ScreenY);
             if (GameWindowClip.IsCoveredByWindow(addon, button.Position, button.Position + button.Size * button.Scale))
             {
-                button.IsVisible = false;
+                button.IsVisible             = false;
                 GetTooltip(button).IsVisible = false;
                 return;
             }
@@ -478,28 +481,36 @@ public sealed unsafe partial class DutyLootPreview : OmniModuleBase
                (unitManager != null && unitManager->IsEditingHudLayout);
     }
 
-    private static TextNineGridNode CreateTooltip(NodeBase parent, NodeBase button)
+    private static TextNineGridNode CreateTooltip
+    (
+        NodeBase parent,
+        NodeBase button
+    )
     {
         var tooltip = new TextNineGridNode
         {
             String = OmniLoc.Get("Feature.DutyLootPreview.ButtonTooltip"),
             IsVisible = false
         };
-        tooltip.AlignmentType = AlignmentType.Center;
-        tooltip.TextColor = ColorHelper.GetColor(50);
+        tooltip.AlignmentType    = AlignmentType.Center;
+        tooltip.TextColor        = ColorHelper.GetColor(50);
         tooltip.TextOutlineColor = ColorHelper.GetColor(7);
-        tooltip.FontType = FontType.Axis;
-        tooltip.FontSize = 18;
-        tooltip.Size = tooltip.TextNode.GetTextDrawSize(false) + new Vector2(16f, 8f);
+        tooltip.FontType         = FontType.Axis;
+        tooltip.FontSize         = 18;
+        tooltip.Size             = tooltip.TextNode.GetTextDrawSize(false) + new Vector2(16f, 8f);
         tooltip.AttachNode(parent);
         button.AddEvent(AtkEventType.MouseOver, () => tooltip.IsVisible = button.IsVisible);
         button.AddEvent(AtkEventType.MouseOut, () => tooltip.IsVisible = false);
         return tooltip;
     }
 
-    private static void PositionTooltip(TextNineGridNode tooltip, NodeBase button)
+    private static void PositionTooltip
+    (
+        TextNineGridNode tooltip,
+        NodeBase         button
+    )
     {
-        tooltip.Scale = Vector2.One;
+        tooltip.Scale    = Vector2.One;
         tooltip.Position = button.Position + new Vector2(
             (button.Width * button.Scale.X - tooltip.Width) * 0.5f,
             -tooltip.Height - 4f);

@@ -16,31 +16,33 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed partial class FloatingInfoOverlay
 {
-    internal sealed unsafe class FloatingInfoOverlayState : IDisposable
+    private sealed unsafe class FloatingInfoOverlayState : IDisposable
     {
-        private readonly FloatingInfoOverlayConfig config;
-        private readonly NonEntityTargetVisibility targetVisibility;
-        private readonly List<FloatingInfoObject> objects = [];
-        private readonly Dictionary<uint, Vector2> screenPositions = [];
-        private readonly Dictionary<uint, FloatingInfoGroup> groups = [];
-        private readonly List<FloatingInfoGroup> groupBuffer = [];
-        private readonly Dictionary<uint, Vector2> smoothedPositions = [];
-        private readonly Dictionary<uint, Vector2> stablePixelPositions = [];
-        private readonly Dictionary<uint, int> lastSeenFrames = [];
-        private readonly Dictionary<uint, NonEntityTargetInfo> nonEntityTargets = [];
-        private readonly Dictionary<uint, string> statusNameCache = [];
-        private readonly HashSet<uint> seenEntityIds = [];
-        private readonly List<uint> removeBuffer = [];
-        private int updateFrame;
-        private long nextScanTick;
-        private bool lastShowNonEntityTargets;
-        private bool disposed;
+        private readonly FloatingInfoOverlayConfig             config;
+        private readonly NonEntityTargetVisibility             targetVisibility;
+        private readonly List<FloatingInfoObject>              objects                  = [];
+        private readonly Dictionary<uint, Vector2>             screenPositions          = [];
+        private readonly Dictionary<uint, FloatingInfoGroup>   groups                   = [];
+        private readonly List<FloatingInfoGroup>               groupBuffer              = [];
+        private readonly Dictionary<uint, Vector2>             smoothedPositions        = [];
+        private readonly Dictionary<uint, Vector2>             stablePixelPositions     = [];
+        private readonly Dictionary<uint, int>                 lastSeenFrames           = [];
+        private readonly Dictionary<uint, NonEntityTargetInfo> nonEntityTargets         = [];
+        private readonly Dictionary<uint, string>              statusNameCache          = [];
+        private readonly HashSet<uint>                         seenEntityIds            = [];
+        private readonly List<uint>                            removeBuffer             = [];
+        private int                                            updateFrame;
+        private long                                           nextScanTick;
+        private bool                                           lastShowNonEntityTargets;
+        private bool                                           disposed;
 
-        public FloatingInfoOverlayState(
+        public FloatingInfoOverlayState
+        (
             FloatingInfoOverlayConfig config,
-            NonEntityTargetVisibility targetVisibility)
+            NonEntityTargetVisibility targetVisibility
+        )
         {
-            this.config = config;
+            this.config           = config;
             this.targetVisibility = targetVisibility;
             targetVisibility.NonEntityTargetDetected += OnNonEntityTargetDetected;
         }
@@ -226,7 +228,7 @@ internal sealed partial class FloatingInfoOverlay
                     var distanceSquared = Vector3.DistanceSquared(item.Position, pair.Value.Objects[0].Position);
                     if (distanceSquared < mergeDistanceSquared && distanceSquared < nearestDistanceSquared)
                     {
-                        nearestGroupID = pair.Key;
+                        nearestGroupID         = pair.Key;
                         nearestDistanceSquared = distanceSquared;
                     }
                 }
@@ -256,7 +258,11 @@ internal sealed partial class FloatingInfoOverlay
             PruneStalePositions();
         }
 
-        private bool ShouldShowObject(IGameObject gameObject, IGameObject localPlayer) =>
+        private bool ShouldShowObject
+        (
+            IGameObject gameObject,
+            IGameObject localPlayer
+        ) =>
             gameObject.ObjectKind switch
             {
                 ObjectKind.Pc when gameObject.EntityID == localPlayer.EntityID => config.ShowLocalPlayer,
@@ -279,7 +285,11 @@ internal sealed partial class FloatingInfoOverlay
             return config.UseDataIDWhitelist ? contains : !contains;
         }
 
-        private FloatingInfoObject CreateObjectInfo(IGameObject gameObject, float distance)
+        private FloatingInfoObject CreateObjectInfo
+        (
+            IGameObject gameObject,
+            float       distance
+        )
         {
             var item = new FloatingInfoObject
             {
@@ -302,21 +312,21 @@ internal sealed partial class FloatingInfoOverlay
             if (config.ShowHealth)
             {
                 item.CurrentHp = battleChara.CurrentHp;
-                item.MaxHp = battleChara.MaxHp;
+                item.MaxHp     = battleChara.MaxHp;
             }
 
             if (config.ShowMana)
             {
                 item.CurrentMp = battleChara.CurrentMp;
-                item.MaxMp = battleChara.MaxMp;
+                item.MaxMp     = battleChara.MaxMp;
             }
 
             if (config.ShowCastInfo || config.OnlyCasting)
             {
-                item.IsCasting = battleChara.IsCasting;
-                item.CastActionID = battleChara.CastActionID;
+                item.IsCasting       = battleChara.IsCasting;
+                item.CastActionID    = battleChara.CastActionID;
                 item.CurrentCastTime = battleChara.CurrentCastTime;
-                item.TotalCastTime = battleChara.TotalCastTime;
+                item.TotalCastTime   = battleChara.TotalCastTime;
             }
 
             if (config.ShowCastInfo && battleChara.IsCasting && battleChara.Address != nint.Zero)
@@ -353,16 +363,20 @@ internal sealed partial class FloatingInfoOverlay
             var castInfo = ((CSCharacter*)target.Address)->GetCastInfo();
             if (castInfo != null && castInfo->IsCasting && castInfo->ActionId != 0)
             {
-                item.IsCasting = true;
-                item.CastActionID = castInfo->ActionId;
+                item.IsCasting       = true;
+                item.CastActionID    = castInfo->ActionId;
                 item.CurrentCastTime = castInfo->CurrentCastTime;
-                item.TotalCastTime = castInfo->TotalCastTime;
+                item.TotalCastTime   = castInfo->TotalCastTime;
             }
 
             return item;
         }
 
-        private void FillStatuses(IBattleChara battleChara, List<FloatingInfoStatus> statuses)
+        private void FillStatuses
+        (
+            IBattleChara             battleChara,
+            List<FloatingInfoStatus> statuses
+        )
         {
             statuses.Clear();
             foreach (var status in battleChara.StatusList)
@@ -393,7 +407,7 @@ internal sealed partial class FloatingInfoOverlay
                 return name;
             }
 
-            name = LuminaGetter.TryGetRow<LuminaStatus>(statusID, out var status)
+            name                      = LuminaGetter.TryGetRow<LuminaStatus>(statusID, out var status)
                 ? status.Name.ToString()
                 : string.Empty;
             statusNameCache[statusID] = name;
@@ -414,10 +428,12 @@ internal sealed partial class FloatingInfoOverlay
                 Math.Clamp(config.Range, 5f, 200f));
         }
 
-        private bool TryAddOrUpdateNonEntityTarget(
+        private bool TryAddOrUpdateNonEntityTarget
+        (
             FFXIVClientStructs.FFXIV.Client.Game.Object.GameObject* gameObject,
-            Vector3 localPosition,
-            float range)
+            Vector3                                                 localPosition,
+            float                                                   range
+        )
         {
             var character = (CSCharacter*)gameObject;
             if (!NonEntityTargetVisibility.IsNonEntityTreasureTarget(character) || character->EntityId == 0)
@@ -441,7 +457,11 @@ internal sealed partial class FloatingInfoOverlay
             return true;
         }
 
-        private void RefreshNonEntityTargets(Vector3 localPosition, float range)
+        private void RefreshNonEntityTargets
+        (
+            Vector3 localPosition,
+            float   range
+        )
         {
             removeBuffer.Clear();
             foreach (var entityId in nonEntityTargets.Keys)
@@ -481,12 +501,17 @@ internal sealed partial class FloatingInfoOverlay
             removeBuffer.Clear();
         }
 
-        private Vector2 UpdateSmoothedPosition(uint entityID, Vector2 rawPosition, float alpha)
+        private Vector2 UpdateSmoothedPosition
+        (
+            uint    entityID,
+            Vector2 rawPosition,
+            float   alpha
+        )
         {
             if (!smoothedPositions.TryGetValue(entityID, out var previous))
             {
                 smoothedPositions[entityID] = rawPosition;
-                lastSeenFrames[entityID] = updateFrame;
+                lastSeenFrames[entityID]    = updateFrame;
                 return rawPosition;
             }
 
@@ -495,11 +520,15 @@ internal sealed partial class FloatingInfoOverlay
                 ? rawPosition
                 : Vector2.Lerp(previous, rawPosition, alpha);
             smoothedPositions[entityID] = smoothed;
-            lastSeenFrames[entityID] = updateFrame;
+            lastSeenFrames[entityID]    = updateFrame;
             return smoothed;
         }
 
-        private Vector2 GetStablePixelPosition(uint entityID, Vector2 smoothedPosition)
+        private Vector2 GetStablePixelPosition
+        (
+            uint    entityID,
+            Vector2 smoothedPosition
+        )
         {
             if (!stablePixelPositions.TryGetValue(entityID, out var previous))
             {
@@ -572,7 +601,11 @@ internal sealed partial class FloatingInfoOverlay
             return Math.Clamp(1f - MathF.Exp(-deltaTime / 0.04f), 0.05f, 1f);
         }
 
-        private static float StableSnap(float value, float previousPixel)
+        private static float StableSnap
+        (
+            float value,
+            float previousPixel
+        )
         {
             var delta = value - previousPixel;
             if (MathF.Abs(delta) >= 3f)
@@ -612,13 +645,15 @@ internal sealed partial class FloatingInfoOverlay
             return FloatingInfoMarker.None;
         }
 
-        private readonly record struct NonEntityTargetInfo(
-            uint EntityID,
-            uint DataID,
+        private readonly record struct NonEntityTargetInfo
+        (
+            uint    EntityID,
+            uint    DataID,
             Vector3 Position,
             Vector2 ScreenPosition,
-            float Distance,
-            nint Address);
+            float   Distance,
+            nint    Address
+        );
 
         #region 常量
 

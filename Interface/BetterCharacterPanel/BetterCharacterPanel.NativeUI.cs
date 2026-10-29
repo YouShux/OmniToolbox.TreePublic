@@ -1,4 +1,3 @@
-using TreeToolKit;
 using Dalamud.Game;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
@@ -18,6 +17,7 @@ using KamiToolKit.Nodes.Simplified;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
+using TreeToolKit;
 
 namespace OmniToolbox.TreePublic;
 
@@ -25,26 +25,26 @@ public sealed partial class BetterCharacterPanel
 {
     internal sealed unsafe partial class BetterCharacterPanelNativeUI : IDisposable
     {
-        private readonly BetterCharacterPanelConfig config;
-        private readonly AddonEventRegistry addonEvents;
-        private readonly FeatureLifetime lifetime = new();
-        private readonly BetterCharacterPanelStatusUI statusUI;
+        private readonly BetterCharacterPanelConfig                              config;
+        private readonly AddonEventRegistry                                      addonEvents;
+        private readonly FeatureLifetime                                         lifetime              = new();
+        private readonly BetterCharacterPanelStatusUI                            statusUI;
         private readonly NativeListController<AddonGearSetList, GearSetListItem> gearSetListController;
-        private readonly Dictionary<uint, GearSetReorderButtons> gearSetButtons = [];
-        private readonly Dictionary<nint, EquipmentLayoutSnapshot> equipmentLayouts = [];
-        private readonly Dictionary<nint, short> childAddonPositions = [];
+        private readonly Dictionary<uint, GearSetReorderButtons>                 gearSetButtons        = [];
+        private readonly Dictionary<nint, EquipmentLayoutSnapshot>               equipmentLayouts      = [];
+        private readonly Dictionary<nint, short>                                 childAddonPositions   = [];
 
-        private AddonCharacter* reversedCharacterAddon;
-        private float originalCharacterNodeX;
-        private AtkUnitBase* adjustedGearSetList;
+        private AddonCharacter*     reversedCharacterAddon;
+        private float               originalCharacterNodeX;
+        private AtkUnitBase*        adjustedGearSetList;
         private GearSetListSnapshot gearSetListSnapshot;
-        private bool gearSetListAdjusted;
+        private bool                gearSetListAdjusted;
 
         public BetterCharacterPanelNativeUI(BetterCharacterPanelConfig config)
         {
-            this.config = config;
-            statusUI = new(config);
-            addonEvents = new(DalamudServices.AddonLifecycle);
+            this.config           = config;
+            statusUI              = new(config);
+            addonEvents           = new(DalamudServices.AddonLifecycle);
             gearSetListController = new()
             {
                 AddonName = GEAR_SET_LIST_ADDON_NAME,
@@ -183,7 +183,11 @@ public sealed partial class BetterCharacterPanel
             }
         }
 
-        private void OnCharacterStatusAddon(AddonEvent eventType, AddonArgs args)
+        private void OnCharacterStatusAddon
+        (
+            AddonEvent eventType,
+            AddonArgs  args
+        )
         {
             if (eventType == AddonEvent.PreFinalize)
             {
@@ -200,7 +204,11 @@ public sealed partial class BetterCharacterPanel
             statusUI.Refresh();
         }
 
-        private void OnCharacterAddon(AddonEvent eventType, AddonArgs args)
+        private void OnCharacterAddon
+        (
+            AddonEvent eventType,
+            AddonArgs  args
+        )
         {
             var character = (AddonCharacter*)args.Addon.Address;
             switch (eventType)
@@ -219,14 +227,18 @@ public sealed partial class BetterCharacterPanel
             }
         }
 
-        private void OnCharacterInspectAddon(AddonEvent eventType, AddonArgs args)
+        private void OnCharacterInspectAddon
+        (
+            AddonEvent eventType,
+            AddonArgs  args
+        )
         {
             var inspect = (AtkUnitBase*)args.Addon.Address;
             if (eventType == AddonEvent.PreFinalize)
             {
                 RestoreEquipmentLayout(inspect);
-                inspectItemLevelDisplay = null;
-                inspectItemLevelText = null;
+                inspectItemLevelDisplay   = null;
+                inspectItemLevelText      = null;
                 displayedInspectItemLevel = -1;
                 return;
             }
@@ -237,7 +249,11 @@ public sealed partial class BetterCharacterPanel
             UpdateInspectItemLevel(inspect);
         }
 
-        private void OnGearSetListAddon(AddonEvent eventType, AddonArgs args)
+        private void OnGearSetListAddon
+        (
+            AddonEvent eventType,
+            AddonArgs  args
+        )
         {
             var gearSetList = (AtkUnitBase*)args.Addon.Address;
             switch (eventType)
@@ -405,7 +421,13 @@ public sealed partial class BetterCharacterPanel
             }
         }
 
-        private static bool MoveNode(EquipmentLayoutSnapshot snapshot, uint nodeID, float x, float y)
+        private static bool MoveNode
+        (
+            EquipmentLayoutSnapshot snapshot,
+            uint                    nodeID,
+            float                   x,
+            float                   y
+        )
         {
             var node = snapshot.Addon->GetNodeById(nodeID);
             if (node == null)
@@ -418,12 +440,14 @@ public sealed partial class BetterCharacterPanel
             return true;
         }
 
-        private static bool ShiftUp(
+        private static bool ShiftUp
+        (
             EquipmentLayoutSnapshot snapshot,
-            uint firstNodeID,
-            float firstNodeX,
-            float firstNodeY,
-            ReadOnlySpan<uint> moveNodeIds)
+            uint                    firstNodeID,
+            float                   firstNodeX,
+            float                   firstNodeY,
+            ReadOnlySpan<uint>      moveNodeIds
+        )
         {
             var firstNode = snapshot.Addon->GetNodeById(firstNodeID);
             if (firstNode == null)
@@ -524,7 +548,7 @@ public sealed partial class BetterCharacterPanel
             }
 
             listNode->SetWidth((ushort)(listNode->Width + GEAR_SET_REORDER_EXTRA_WIDTH));
-            gearSetList->Size = new(width + GEAR_SET_REORDER_EXTRA_WIDTH, height);
+            gearSetList->Size   = new(width + GEAR_SET_REORDER_EXTRA_WIDTH, height);
             adjustedGearSetList = gearSetList;
             gearSetListAdjusted = true;
         }
@@ -579,7 +603,11 @@ public sealed partial class BetterCharacterPanel
             gearSetListAdjusted = false;
         }
 
-        private void UpdateGearSetListElement(AddonGearSetList* gearSetList, GearSetListItem item)
+        private void UpdateGearSetListElement
+        (
+            AddonGearSetList* gearSetList,
+            GearSetListItem   item
+        )
         {
             var renderer = item.Renderer;
             var ownerNode = renderer == null ? null : renderer->OwnerNode;
@@ -603,7 +631,7 @@ public sealed partial class BetterCharacterPanel
             if (!gearSetButtons.TryGetValue(item.NodeId, out var buttons))
             {
                 var buttonX = collisionNode->AtkResNode.Width - GEAR_SET_REORDER_EXTRA_WIDTH - 6f;
-                buttons = new(ownerNode, buttonX);
+                buttons                     = new(ownerNode, buttonX);
                 gearSetButtons[item.NodeId] = buttons;
                 buttons.Attach(ownerNode);
                 ownerNode->AtkResNode.SetWidth((ushort)Math.Max(0, ownerNode->AtkResNode.Width - 60));
@@ -665,30 +693,34 @@ public sealed partial class BetterCharacterPanel
 
         private sealed unsafe class GearSetReorderButtons : IDisposable
         {
-            private readonly AtkComponentNode* ownerNode;
-            private readonly ushort originalWidth;
+            private readonly AtkComponentNode*   ownerNode;
+            private readonly ushort              originalWidth;
             private readonly SimpleComponentNode container;
-            private readonly CircleButtonNode upButton;
-            private readonly CircleButtonNode downButton;
-            private int gearSetID;
+            private readonly CircleButtonNode    upButton;
+            private readonly CircleButtonNode    downButton;
+            private int                          gearSetID;
 
-            public GearSetReorderButtons(AtkComponentNode* ownerNode, float x)
+            public GearSetReorderButtons
+            (
+                AtkComponentNode* ownerNode,
+                float             x
+            )
             {
                 this.ownerNode = ownerNode;
-                originalWidth = ownerNode->AtkResNode.Width;
-                container = new()
+                originalWidth  = ownerNode->AtkResNode.Width;
+                container      = new()
                 {
                     Size = new(GEAR_SET_REORDER_EXTRA_WIDTH - 4f, 28f),
                     Position = new(x, 0f)
                 };
-                upButton = new()
+                upButton       = new()
                 {
                     Icon = CircleButtonIcon.UpArrow,
                     Size = new(GEAR_SET_REORDER_BUTTON_SIZE, GEAR_SET_REORDER_BUTTON_SIZE),
                     OnClick = MoveUp,
                     IsEnabled = false
                 };
-                downButton = new()
+                downButton     = new()
                 {
                     Icon = CircleButtonIcon.ArrowDown,
                     Size = new(GEAR_SET_REORDER_BUTTON_SIZE, GEAR_SET_REORDER_BUTTON_SIZE),
@@ -704,13 +736,18 @@ public sealed partial class BetterCharacterPanel
 
             public void Attach(AtkComponentNode* target) => container.AttachNode(target, NodePosition.AsLastChild);
 
-            public void Update(int id, int itemIndex, bool selected)
+            public void Update
+            (
+                int  id,
+                int  itemIndex,
+                bool selected
+            )
             {
-                gearSetID = id;
+                gearSetID          = id;
                 upButton.IsEnabled = itemIndex > 0;
                 var gearsetModule = RaptureGearsetModule.Instance();
                 downButton.IsEnabled = gearsetModule != null && itemIndex < gearsetModule->NumGearsets - 1;
-                container.IsVisible = selected;
+                container.IsVisible  = selected;
             }
 
             public void RestoreWidth()
@@ -760,17 +797,24 @@ public sealed partial class BetterCharacterPanel
             }
         }
 
-        private readonly record struct NodePositionSnapshot(nint Address, float X, float Y);
+        private readonly record struct NodePositionSnapshot
+        (
+            nint  Address,
+            float X,
+            float Y
+        );
 
-        private readonly record struct GearSetListSnapshot(
+        private readonly record struct GearSetListSnapshot
+        (
             ushort Width,
             ushort Height,
-            nint HelpButton,
-            float HelpButtonX,
-            nint CountText,
-            float CountTextX,
-            nint ListNode,
-            ushort ListWidth);
+            nint   HelpButton,
+            float  HelpButtonX,
+            nint   CountText,
+            float  CountTextX,
+            nint   ListNode,
+            ushort ListWidth
+        );
 
         #region 常量
 

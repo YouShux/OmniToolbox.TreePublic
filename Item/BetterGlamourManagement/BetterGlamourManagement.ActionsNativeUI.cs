@@ -21,43 +21,49 @@ public sealed partial class BetterGlamourManagement
         private TextButtonNode? exportButton;
         private TextButtonNode? managerButton;
         private TextButtonNode? clearButton;
-        private Vector2 layoutSize;
-        private Vector2 layoutStart;
+        private Vector2         layoutSize;
+        private Vector2         layoutStart;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-        public BetterGlamourActionsNativeUI(
+        public BetterGlamourActionsNativeUI
+        (
             Action onTryOnAll,
             Action onSave,
             Action onExport,
             Action onManager,
-            Action onClear)
+            Action onClear
+        )
         {
-            InternalName = "OmniBetterGlamourActions";
-            Title = OmniLoc.Get("BetterGlamourManagementTitle");
-            Subtitle = string.Empty;
-            Size = new(300f, 168f);
-            ContentPadding = new(8f, 8f);
+            InternalName          = "OmniBetterGlamourActions";
+            Title                 = OmniLoc.Get("BetterGlamourManagementTitle");
+            Subtitle              = string.Empty;
+            Size                  = new(300f, 168f);
+            ContentPadding        = new(8f, 8f);
             RememberClosePosition = false;
-            CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
-            EnableContextMenu = false;
-            RespectCloseAll = false;
-            DisableClose = true;
-            this.onTryOnAll = onTryOnAll;
-            this.onSave = onSave;
-            this.onExport = onExport;
-            this.onManager = onManager;
-            this.onClear = onClear;
+            CreateWindowNode      = static () => new WindowNode { ShowCloseButton = false };
+            EnableContextMenu     = false;
+            RespectCloseAll       = false;
+            DisableClose          = true;
+            this.onTryOnAll       = onTryOnAll;
+            this.onSave           = onSave;
+            this.onExport         = onExport;
+            this.onManager        = onManager;
+            this.onClear          = onClear;
         }
 
-        protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
+        protected override unsafe void OnSetup
+        (
+            AtkUnitBase*   addon,
+            Span<AtkValue> atkValueSpan
+        )
         {
             if (AddonHelper.TryGetByName("CharacterInspect", out var inspectAddon) && inspectAddon->WindowNode != null)
                 addon->SetScale(inspectAddon->WindowNode->GetScale().X / AtkUnitBase.GetGlobalUIScale(), true);
             tryOnAllButton = CreateButton("Feature.BetterGlamourManagement.TryOnAll", onTryOnAll);
-            saveButton = CreateButton("Feature.BetterGlamourManagement.Save", onSave);
-            exportButton = CreateButton("Feature.BetterGlamourManagement.Export", onExport);
-            managerButton = CreateButton("Feature.BetterGlamourManagement.OpenSaved", onManager);
-            clearButton = CreateButton("Feature.BetterGlamourManagement.Clear", onClear);
+            saveButton     = CreateButton("Feature.BetterGlamourManagement.Save", onSave);
+            exportButton   = CreateButton("Feature.BetterGlamourManagement.Export", onExport);
+            managerButton  = CreateButton("Feature.BetterGlamourManagement.OpenSaved", onManager);
+            clearButton    = CreateButton("Feature.BetterGlamourManagement.Clear", onClear);
             ResizeContent();
         }
 
@@ -66,15 +72,19 @@ public sealed partial class BetterGlamourManagement
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
             tryOnAllButton = null;
-            saveButton = null;
-            exportButton = null;
-            managerButton = null;
-            clearButton = null;
-            layoutSize = Vector2.Zero;
-            layoutStart = Vector2.Zero;
+            saveButton     = null;
+            exportButton   = null;
+            managerButton  = null;
+            clearButton    = null;
+            layoutSize     = Vector2.Zero;
+            layoutStart    = Vector2.Zero;
         }
 
-        private TextButtonNode CreateButton(string textKey, Action onClick)
+        private TextButtonNode CreateButton
+        (
+            string textKey,
+            Action onClick
+        )
         {
             var button = new TextButtonNode
             {
@@ -91,7 +101,7 @@ public sealed partial class BetterGlamourManagement
             var start = ContentStartPosition;
             if (layoutSize == size && layoutStart == start)
                 return;
-            layoutSize = size;
+            layoutSize  = size;
             layoutStart = start;
             const float GAP = 6f;
             var width = MathF.Max(80f, (size.X - GAP) / 2f);
@@ -104,7 +114,13 @@ public sealed partial class BetterGlamourManagement
             PositionButton(clearButton, x, y + 68f, size.X);
         }
 
-        private static void PositionButton(TextButtonNode? button, float x, float y, float width)
+        private static void PositionButton
+        (
+            TextButtonNode? button,
+            float           x,
+            float           y,
+            float           width
+        )
         {
             if (button is null)
             {
@@ -112,7 +128,7 @@ public sealed partial class BetterGlamourManagement
             }
 
             button.Position = new(x, y);
-            button.Size = new(width, 28f);
+            button.Size     = new(width, 28f);
         }
     }
 

@@ -1,16 +1,16 @@
-using TreeToolKit;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using Lumina.Data;
 using OmenTools.Extensions;
+using TreeToolKit;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed partial class BetterGlamourManagement
 {
-    private static readonly Lazy<byte[]> HairColorData = new(() =>
+    private static readonly Lazy<byte[]>                                                   HairColorData = new(() =>
     {
         try
         {
@@ -21,9 +21,15 @@ public sealed partial class BetterGlamourManagement
             return [];
         }
     });
-    private static readonly Dictionary<(byte Tribe, byte Sex, bool Highlights), Vector4[]> HairPalettes = [];
+    private static readonly Dictionary<(byte Tribe, byte Sex, bool Highlights), Vector4[]> HairPalettes  = [];
 
-    private static bool TryGetHairPalette(byte tribe, byte sex, bool highlights, out Vector4[] colors)
+    private static bool TryGetHairPalette
+    (
+        byte          tribe,
+        byte          sex,
+        bool          highlights,
+        out Vector4[] colors
+    )
     {
         colors = [];
         if (tribe == 0 || sex > 1)
@@ -56,45 +62,47 @@ public sealed partial class BetterGlamourManagement
 
     internal sealed class BetterGlamourHairColorNativeUI : NativeAddon
     {
-        private readonly Vector4[][] colors = [[], []];
-        private readonly byte[] selectedIDs = new byte[2];
-        private readonly byte[] originalIDs = new byte[2];
-        private readonly List<HairColorSwatchNode>[] swatches = [[], []];
-        private readonly HairColorSwatchNode?[,] previewNodes = new HairColorSwatchNode?[2, 2];
-        private readonly TextNode?[,] previewLabels = new TextNode?[2, 2];
-        private readonly SimpleImageNode?[] selectionFrames = new SimpleImageNode?[2];
-        private Action<int, byte>? onSelected;
-        private Vector2 lastContentPosition;
-        private Vector2 lastContentSize;
+        private readonly Vector4[][]                 colors              = [[], []];
+        private readonly byte[]                      selectedIDs         = new byte[2];
+        private readonly byte[]                      originalIDs         = new byte[2];
+        private readonly List<HairColorSwatchNode>[] swatches            = [[], []];
+        private readonly HairColorSwatchNode?[,]     previewNodes        = new HairColorSwatchNode?[2, 2];
+        private readonly TextNode?[,]                previewLabels       = new TextNode?[2, 2];
+        private readonly SimpleImageNode?[]          selectionFrames     = new SimpleImageNode?[2];
+        private Action<int, byte>?                   onSelected;
+        private Vector2                              lastContentPosition;
+        private Vector2                              lastContentSize;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
         public BetterGlamourHairColorNativeUI()
         {
-            InternalName = "OmniBetterGlamourHairColor";
-            Title = OmniLoc.Get("Feature.BetterGlamourManagement.HairColors.Title");
-            Subtitle = string.Empty;
-            Size = new(340f, 360f);
-            ContentPadding = new(10f, 8f);
+            InternalName          = "OmniBetterGlamourHairColor";
+            Title                 = OmniLoc.Get("Feature.BetterGlamourManagement.HairColors.Title");
+            Subtitle              = string.Empty;
+            Size                  = new(340f, 360f);
+            ContentPadding        = new(10f, 8f);
             RememberClosePosition = true;
-            CreateWindowNode = static () => new WindowNode { ShowCloseButton = true };
+            CreateWindowNode      = static () => new WindowNode { ShowCloseButton = true };
         }
 
-        public void OpenFor(
-            Vector4[] hairPalette,
-            Vector4[] highlightPalette,
-            byte hairColor,
-            byte highlightColor,
-            byte originalHairColor,
-            byte originalHighlightColor,
-            Action<int, byte> selected)
+        public void OpenFor
+        (
+            Vector4[]         hairPalette,
+            Vector4[]         highlightPalette,
+            byte              hairColor,
+            byte              highlightColor,
+            byte              originalHairColor,
+            byte              originalHighlightColor,
+            Action<int, byte> selected
+        )
         {
-            colors[0] = hairPalette;
-            colors[1] = highlightPalette;
+            colors[0]      = hairPalette;
+            colors[1]      = highlightPalette;
             selectedIDs[0] = hairColor;
             selectedIDs[1] = highlightColor;
             originalIDs[0] = originalHairColor;
             originalIDs[1] = originalHighlightColor;
-            onSelected = selected;
+            onSelected     = selected;
             if (!IsOpen)
             {
                 Size = GetRequiredContentSize() + new Vector2(ContentPadding.X * 2f + 8f, ContentPadding.Y + 54f);
@@ -104,7 +112,11 @@ public sealed partial class BetterGlamourManagement
                 RebuildPalettes();
         }
 
-        public void RefreshAppearance(byte hairColor, byte highlightColor)
+        public void RefreshAppearance
+        (
+            byte hairColor,
+            byte highlightColor
+        )
         {
             if (!IsOpen)
                 return;
@@ -113,7 +125,11 @@ public sealed partial class BetterGlamourManagement
             RefreshSelection();
         }
 
-        protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
+        protected override unsafe void OnSetup
+        (
+            AtkUnitBase*   addon,
+            Span<AtkValue> atkValueSpan
+        )
         {
             for (var channel = 0; channel < colors.Length; channel++)
             {
@@ -159,7 +175,7 @@ public sealed partial class BetterGlamourManagement
                 swatches[channel].Clear();
                 colors[channel] = [];
             }
-            onSelected = null;
+            onSelected          = null;
             lastContentPosition = lastContentSize = Vector2.Zero;
         }
 
@@ -210,7 +226,11 @@ public sealed partial class BetterGlamourManagement
             ResizeContent();
         }
 
-        private void SelectColor(int channel, byte colorID)
+        private void SelectColor
+        (
+            int  channel,
+            byte colorID
+        )
         {
             if (colorID >= colors[channel].Length || onSelected is null)
                 return;
@@ -225,7 +245,7 @@ public sealed partial class BetterGlamourManagement
             {
                 foreach (var swatch in swatches[channel])
                 {
-                    swatch.Alpha = 1f;
+                    swatch.Alpha                             = 1f;
                     swatch.CollisionNode.ShowClickableCursor = true;
                 }
                 if (selectionFrames[channel] is { } frame)
@@ -256,7 +276,7 @@ public sealed partial class BetterGlamourManagement
             if (lastContentPosition == ContentStartPosition && lastContentSize == ContentSize)
                 return;
             lastContentPosition = ContentStartPosition;
-            lastContentSize = ContentSize;
+            lastContentSize     = ContentSize;
             var comparisonY = ContentStartPosition.Y + requiredSize.Y - 46f;
             for (var channel = 0; channel < colors.Length; channel++)
             {
@@ -264,7 +284,7 @@ public sealed partial class BetterGlamourManagement
                 for (var index = 0; index < swatches[channel].Count; index++)
                 {
                     swatches[channel][index].Position = start + new Vector2(index % COLUMN_COUNT * SWATCH_WIDTH, index / COLUMN_COUNT * SWATCH_HEIGHT);
-                    swatches[channel][index].Size = new(SWATCH_WIDTH, SWATCH_HEIGHT);
+                    swatches[channel][index].Size     = new(SWATCH_WIDTH, SWATCH_HEIGHT);
                 }
                 for (var comparison = 0; comparison < 2; comparison++)
                 {
@@ -272,12 +292,12 @@ public sealed partial class BetterGlamourManagement
                     if (previewLabels[channel, comparison] is { } label)
                     {
                         label.Position = position;
-                        label.Size = new((GRID_WIDTH - 4f) / 2f, 20f);
+                        label.Size     = new((GRID_WIDTH - 4f) / 2f, 20f);
                     }
                     if (previewNodes[channel, comparison] is { } preview)
                     {
                         preview.Position = position + new Vector2(0f, 20f);
-                        preview.Size = new((GRID_WIDTH - 4f) / 2f, 24f);
+                        preview.Size     = new((GRID_WIDTH - 4f) / 2f, 24f);
                     }
                 }
             }
@@ -309,11 +329,11 @@ public sealed partial class BetterGlamourManagement
 
         #region 常量
 
-        private const int COLUMN_COUNT = 8;
-        private const float SWATCH_WIDTH = 24f;
+        private const int   COLUMN_COUNT  = 8;
+        private const float SWATCH_WIDTH  = 24f;
         private const float SWATCH_HEIGHT = 18f;
-        private const float GRID_WIDTH = COLUMN_COUNT * SWATCH_WIDTH;
-        private const float PANEL_GAP = 20f;
+        private const float GRID_WIDTH    = COLUMN_COUNT * SWATCH_WIDTH;
+        private const float PANEL_GAP     = 20f;
 
         #endregion
     }

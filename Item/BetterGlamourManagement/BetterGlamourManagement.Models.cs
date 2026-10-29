@@ -7,12 +7,14 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class BetterGlamourManagement
 {
-    internal readonly record struct BetterGlamourItemSearchResult(
-        uint ItemID,
-        string Name,
-        uint IconID,
-        uint EquipLevel = 0,
-        BetterGlamourEditorItemKind Kind = BetterGlamourEditorItemKind.Item);
+    internal readonly record struct BetterGlamourItemSearchResult
+    (
+        uint                        ItemID,
+        string                      Name,
+        uint                        IconID,
+        uint                        EquipLevel = 0,
+        BetterGlamourEditorItemKind Kind = BetterGlamourEditorItemKind.Item
+    );
 
     internal enum BetterGlamourEditorItemKind
     {
@@ -21,29 +23,37 @@ public sealed partial class BetterGlamourManagement
         Glasses
     }
 
-    internal sealed record BetterGlamourEditorRow(
-        string PartName,
-        BetterGlamourPreset Preset,
-        BetterGlamourItem? Item,
+    internal sealed record BetterGlamourEditorRow
+    (
+        string                      PartName,
+        BetterGlamourPreset         Preset,
+        BetterGlamourItem?          Item,
         BetterGlamourEditorItemKind Kind,
-        Action OpenItem,
-        Action<int>? OpenDye = null,
-        Action<bool>? SetHighlights = null,
-        CustomizeData? HairAppearance = null,
-        Action<int>? ClearDye = null,
-        Action? ClearItem = null,
-        Action? UndoItem = null,
-        Action<int>? UndoDye = null,
-        Action? SwapDyes = null);
+        Action                      OpenItem,
+        Action<int>?                OpenDye = null,
+        Action<bool>?               SetHighlights = null,
+        CustomizeData?              HairAppearance = null,
+        Action<int>?                ClearDye = null,
+        Action?                     ClearItem = null,
+        Action?                     UndoItem = null,
+        Action<int>?                UndoDye = null,
+        Action?                     SwapDyes = null
+    );
 
-    internal sealed record BetterGlamourEditorPair(BetterGlamourEditorRow Left, BetterGlamourEditorRow Right);
+    internal sealed record BetterGlamourEditorPair
+    (
+        BetterGlamourEditorRow Left,
+        BetterGlamourEditorRow Right
+    );
 
-    internal sealed record BetterGlamourDyeGridRow(
-        List<GlamourDyeOption> Options,
-        byte SelectedID,
-        Action<GlamourDyeOption> OnSelected,
+    internal sealed record BetterGlamourDyeGridRow
+    (
+        List<GlamourDyeOption>    Options,
+        byte                      SelectedID,
+        Action<GlamourDyeOption>  OnSelected,
         Action<GlamourDyeOption>? ContextRequested = null,
-        byte OriginalID = 0);
+        byte                      OriginalID = 0
+    );
 
     internal sealed class OmniPreviewContext
     {

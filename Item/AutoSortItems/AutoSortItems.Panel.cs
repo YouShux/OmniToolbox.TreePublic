@@ -27,7 +27,7 @@ public sealed partial class AutoSortItems
                             ref sortArmouryOnJobChange))
                     {
                         config.SortArmouryOnJobChange = sortArmouryOnJobChange;
-                        changed = true;
+                        changed                       = true;
                     }
 
                     ImGui.TableNextColumn();
@@ -35,7 +35,7 @@ public sealed partial class AutoSortItems
                     if (OmniControls.Checkbox(OmniLoc.Get("Feature.AutoSortItems.AutoMerge"), ref autoMerge))
                     {
                         config.AutoMerge = autoMerge;
-                        changed = true;
+                        changed          = true;
                     }
                 }
             }
@@ -145,12 +145,14 @@ public sealed partial class AutoSortItems
             return changed;
         }
 
-        private static void DrawCategoryHeader(
+        private static void DrawCategoryHeader
+        (
             Settings config,
-            string category,
-            float rowContentHeight,
-            bool detailLayout,
-            ref bool changed)
+            string   category,
+            float    rowContentHeight,
+            bool     detailLayout,
+            ref bool changed
+        )
         {
             using var id = ImRaii.PushId(category);
             ImGui.TableNextRow(ImGuiTableRowFlags.None, detailLayout ? 0f : rowContentHeight);
@@ -206,14 +208,16 @@ public sealed partial class AutoSortItems
             }
         }
 
-        private static void DrawRule(
+        private static void DrawRule
+        (
             Settings config,
-            int index,
-            float rowContentHeight,
-            Vector2 deleteSize,
-            bool detailLayout,
-            ref int removeIndex,
-            ref bool changed)
+            int      index,
+            float    rowContentHeight,
+            Vector2  deleteSize,
+            bool     detailLayout,
+            ref int  removeIndex,
+            ref bool changed
+        )
         {
             var rule = config.Rules![index];
             using var id = ImRaii.PushId(index);
@@ -248,7 +252,7 @@ public sealed partial class AutoSortItems
                     Condition = condition,
                     Order = order
                 };
-                changed = true;
+                changed             = true;
             }
 
             OmniControls.NextTableField(OmniLoc.Get("Feature.AutoSortItems.Column.Actions"), detailLayout);
@@ -263,17 +267,30 @@ public sealed partial class AutoSortItems
             }
         }
 
-        private static Settings.CategoryHeader GetCategoryHeader(Settings config, string category) =>
+        private static Settings.CategoryHeader GetCategoryHeader
+        (
+            Settings config,
+            string   category
+        ) =>
             config.CategoryHeaders!.FirstOrDefault(header => header.Category == category) ??
             new(category, category is "inventory" or "saddlebag" or "rightsaddlebag");
 
-        private static bool IsCategoryEnabled(Settings config, string? category) =>
+        private static bool IsCategoryEnabled
+        (
+            Settings config,
+            string?  category
+        ) =>
             category is null ||
             !config.Rules!.Any(rule => string.Equals(rule.Category, category, StringComparison.Ordinal)) ||
             config.Rules!.Any(rule =>
                 rule.Enabled && string.Equals(rule.Category, category, StringComparison.Ordinal));
 
-        private static void SetCategoryEnabled(Settings config, string category, bool enabled)
+        private static void SetCategoryEnabled
+        (
+            Settings config,
+            string   category,
+            bool     enabled
+        )
         {
             for (var index = 0; index < config.Rules!.Count; index++)
             {
@@ -287,7 +304,11 @@ public sealed partial class AutoSortItems
             }
         }
 
-        private static void SetAllCategoriesEnabled(Settings config, bool enabled)
+        private static void SetAllCategoriesEnabled
+        (
+            Settings config,
+            bool     enabled
+        )
         {
             for (var index = 0; index < config.Rules!.Count; index++)
             {
@@ -301,7 +322,12 @@ public sealed partial class AutoSortItems
             }
         }
 
-        private static void SetCategoryTab(Settings config, string category, bool tab)
+        private static void SetCategoryTab
+        (
+            Settings config,
+            string   category,
+            bool     tab
+        )
         {
             for (var index = 0; index < config.CategoryHeaders!.Count; index++)
             {
@@ -315,17 +341,23 @@ public sealed partial class AutoSortItems
             config.CategoryHeaders.Add(new(category, tab));
         }
 
-        private static string GetRuleOptionLabel(string? category, IReadOnlyList<AutoSortItems.RuleOption> options) =>
+        private static string GetRuleOptionLabel
+        (
+            string?                                 category,
+            IReadOnlyList<AutoSortItems.RuleOption> options
+        ) =>
             options.FirstOrDefault(option => option.Key == category) is { } option
                 ? OmniLoc.Get(option.LocalizationKey)
                 : OmniLoc.Get("Feature.AutoSortItems.Unset");
 
-        private static bool DrawRuleCombo(
-            string id,
-            string? current,
+        private static bool DrawRuleCombo
+        (
+            string                                  id,
+            string?                                 current,
             IReadOnlyList<AutoSortItems.RuleOption> options,
-            float width,
-            out string? selected)
+            float                                   width,
+            out string?                             selected
+        )
         {
             selected = current;
             var preview = options.FirstOrDefault(option => option.Key == current) is { } selectedOption
@@ -342,7 +374,7 @@ public sealed partial class AutoSortItems
                 if (ImGui.Selectable(OmniLoc.Get(option.LocalizationKey), current == option.Key))
                 {
                     selected = option.Key;
-                    changed = true;
+                    changed  = true;
                 }
             }
 

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 using System.Collections.Concurrent;
 using System.IO;
-using System.Text.Json.Serialization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Addon.Lifecycle;
+using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Plugin.Ipc;
 using Dalamud.Plugin.Services;
@@ -22,10 +22,10 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Classes;
 using OmenTools.Interop.Game.Helpers;
 using OmniToolbox.Items;
+using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;
 using CharaMakeCustomize = Lumina.Excel.Sheets.CharaMakeCustomize;
 using Glasses = Lumina.Excel.Sheets.Glasses;
 using Item = Lumina.Excel.Sheets.Item;
-using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;
 
 namespace OmniToolbox.TreePublic;
 
@@ -33,66 +33,66 @@ public sealed partial class BetterGlamourManagement
 {
     internal sealed unsafe class BetterGlamourPortraitPreview(FeatureLifetime lifetime) : IAsyncDisposable
     {
-        private OmniPreviewContext? context;
-        private bool currentTextureValid;
-        private Task nativeStop = Task.CompletedTask;
-        private readonly RemotePreviewFrames phoneFrames = new(lifetime);
-        private string cachedPhoneStatus = "{\"ready\":false}";
-        private volatile bool enabled;
-        private Func<IReadOnlyList<BetterGlamourPreset>> getPresets = null!;
-        private Func<CustomizeData?>? getBaseHairAppearance;
-        private CustomizeData? baselineHairAppearance;
-        private readonly object commandLock = new();
-        private Plan? pendingPreset;
-        private long due;
-        private int generation;
-        private int selected;
-        private readonly ConcurrentQueue<Action> commands = new();
-        private Plan[] plans = [];
-        private nint ownedTryon;
-        private bool ownsTryon;
-        private bool modelSubmitted;
-        private bool outfitVerified;
-        private bool previousSaveOutfit;
-        private bool previousDisplayGear;
-        private AgentTryon.TryOnItem[]? savedTryonItems;
-        private nint player;
-        private nint texture;
-        private nint image;
-        private nint hiddenTryonRoot;
-        private bool savedDisableShowOnOpen;
-        private bool savedDisableFocusOnShow;
-        private bool savedDisableFocusability;
-        private bool savedTryonClickThrough;
-        private bool closingTryon;
-        private byte savedTryonAlpha;
-        private nint guardedTryonAddon;
-        private int suppressedDraws;
-        private uint renderIndex;
-        private bool shown;
-        private int frameWidth;
-        private int frameHeight;
-        private int verifiedFrames;
-        private double loadingSeconds;
-        private double customizationRetryAt;
-        private int customizationAttempts;
-        private float ratio = 0.75f;
-        private float yaw;
-        private float pitch;
-        private float zoom;
-        private float panX;
-        private float panY;
-        private CharaViewModelData desired;
-        private readonly bool[] mask = new bool[10];
-        private string phase = "idle";
-        private string message = OmniLoc.Get("Feature.BetterGlamourManagement.Preview.Hint");
-        private string currentPlan = string.Empty;
-        private long requestID;
-        private ICallGateProvider<string>? listIpc;
-        private ICallGateProvider<string>? statusIpc;
-        private ICallGateProvider<string, string>? requestIpc;
+        private OmniPreviewContext?                              context;
+        private bool                                             currentTextureValid;
+        private Task                                             nativeStop               = Task.CompletedTask;
+        private readonly RemotePreviewFrames                     phoneFrames              = new(lifetime);
+        private string                                           cachedPhoneStatus        = "{\"ready\":false}";
+        private volatile bool                                    enabled;
+        private Func<IReadOnlyList<BetterGlamourPreset>>         getPresets               = null!;
+        private Func<CustomizeData?>?                            getBaseHairAppearance;
+        private CustomizeData?                                   baselineHairAppearance;
+        private readonly object                                  commandLock              = new();
+        private Plan?                                            pendingPreset;
+        private long                                             due;
+        private int                                              generation;
+        private int                                              selected;
+        private readonly ConcurrentQueue<Action>                 commands                 = new();
+        private Plan[]                                           plans                    = [];
+        private nint                                             ownedTryon;
+        private bool                                             ownsTryon;
+        private bool                                             modelSubmitted;
+        private bool                                             outfitVerified;
+        private bool                                             previousSaveOutfit;
+        private bool                                             previousDisplayGear;
+        private AgentTryon.TryOnItem[]?                          savedTryonItems;
+        private nint                                             player;
+        private nint                                             texture;
+        private nint                                             image;
+        private nint                                             hiddenTryonRoot;
+        private bool                                             savedDisableShowOnOpen;
+        private bool                                             savedDisableFocusOnShow;
+        private bool                                             savedDisableFocusability;
+        private bool                                             savedTryonClickThrough;
+        private bool                                             closingTryon;
+        private byte                                             savedTryonAlpha;
+        private nint                                             guardedTryonAddon;
+        private int                                              suppressedDraws;
+        private uint                                             renderIndex;
+        private bool                                             shown;
+        private int                                              frameWidth;
+        private int                                              frameHeight;
+        private int                                              verifiedFrames;
+        private double                                           loadingSeconds;
+        private double                                           customizationRetryAt;
+        private int                                              customizationAttempts;
+        private float                                            ratio                    = 0.75f;
+        private float                                            yaw;
+        private float                                            pitch;
+        private float                                            zoom;
+        private float                                            panX;
+        private float                                            panY;
+        private CharaViewModelData                               desired;
+        private readonly bool[]                                  mask                     = new bool[10];
+        private string                                           phase                    = "idle";
+        private string                                           message                  = OmniLoc.Get("Feature.BetterGlamourManagement.Preview.Hint");
+        private string                                           currentPlan              = string.Empty;
+        private long                                             requestID;
+        private ICallGateProvider<string>?                       listIpc;
+        private ICallGateProvider<string>?                       statusIpc;
+        private ICallGateProvider<string, string>?               requestIpc;
         private ICallGateProvider<nint, int, int, long, object>? frameIpc;
-        private static readonly JsonSerializerOptions JSON = new()
+        private static readonly JsonSerializerOptions            JSON                     = new()
         {
             IncludeFields = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -121,15 +121,20 @@ public sealed partial class BetterGlamourManagement
         public float AspectRatio => ratio > 0 ? ratio : 0.75f;
         public string Message => pendingPreset == null ? message : OmniLoc.Get("Feature.BetterGlamourManagement.Preview.Loading");
 
-        public void Initialize(OmniPreviewContext previewContext, Func<IReadOnlyList<BetterGlamourPreset>> presets, Func<CustomizeData?>? baseHairAppearance = null)
+        public void Initialize
+        (
+            OmniPreviewContext                       previewContext,
+            Func<IReadOnlyList<BetterGlamourPreset>> presets,
+            Func<CustomizeData?>?                    baseHairAppearance = null
+        )
         {
             ArgumentNullException.ThrowIfNull(previewContext);
             ArgumentNullException.ThrowIfNull(previewContext.PluginInterface);
             ArgumentNullException.ThrowIfNull(previewContext.Framework);
             ArgumentNullException.ThrowIfNull(previewContext.AddonLifecycle);
             ArgumentNullException.ThrowIfNull(presets);
-            context = previewContext;
-            getPresets = presets;
+            context               = previewContext;
+            getPresets            = presets;
             getBaseHairAppearance = baseHairAppearance;
         }
 
@@ -141,10 +146,10 @@ public sealed partial class BetterGlamourManagement
             generation++;
             try
             {
-                listIpc = context.PluginInterface.GetIpcProvider<string>("Omni.BetterGlamourPreview.List.V1");
-                statusIpc = context.PluginInterface.GetIpcProvider<string>("Omni.BetterGlamourPreview.Status.V1");
+                listIpc    = context.PluginInterface.GetIpcProvider<string>("Omni.BetterGlamourPreview.List.V1");
+                statusIpc  = context.PluginInterface.GetIpcProvider<string>("Omni.BetterGlamourPreview.Status.V1");
                 requestIpc = context.PluginInterface.GetIpcProvider<string, string>("Omni.BetterGlamourPreview.Request.V1");
-                frameIpc = context.PluginInterface.GetIpcProvider<nint, int, int, long, object>("Omni.BetterGlamourPreview.Frame.V1");
+                frameIpc   = context.PluginInterface.GetIpcProvider<nint, int, int, long, object>("Omni.BetterGlamourPreview.Frame.V1");
                 listIpc.RegisterFunc(() => JsonSerializer.Serialize(plans, JSON));
                 statusIpc.RegisterFunc(Status);
                 requestIpc.RegisterFunc(Submit);
@@ -187,10 +192,10 @@ public sealed partial class BetterGlamourManagement
             listIpc?.UnregisterFunc();
             statusIpc?.UnregisterFunc();
             requestIpc?.UnregisterFunc();
-            listIpc = null;
-            statusIpc = null;
+            listIpc    = null;
+            statusIpc  = null;
             requestIpc = null;
-            frameIpc = null;
+            frameIpc   = null;
             if (context.Framework.IsInFrameworkUpdateThread)
                 StopAndUnregister();
             else
@@ -265,7 +270,7 @@ public sealed partial class BetterGlamourManagement
         {
             if (!enabled)
                 return;
-            pendingPreset = ToPlan(preset);
+            pendingPreset       = ToPlan(preset);
             currentTextureValid = false;
             phoneFrames.Reset();
             due = Environment.TickCount64 + 150;
@@ -287,9 +292,9 @@ public sealed partial class BetterGlamourManagement
 
             if (pendingPreset is { } plan)
             {
-                customize.HairColor = plan.HairColor ?? customize.HairColor;
+                customize.HairColor       = plan.HairColor ?? customize.HairColor;
                 customize.HighlightsColor = plan.HighlightColor ?? customize.HighlightsColor;
-                customize.Highlights = plan.HighlightsEnabled ?? customize.Highlights;
+                customize.Highlights      = plan.HighlightsEnabled ?? customize.Highlights;
             }
 
             return true;
@@ -307,7 +312,13 @@ public sealed partial class BetterGlamourManagement
             Stop();
         }
 
-        public void CameraPixels(float rotation, float x, float y, float wheel)
+        public void CameraPixels
+        (
+            float rotation,
+            float x,
+            float y,
+            float wheel
+        )
         {
             if (!shown || View == null)
                 return;
@@ -347,7 +358,7 @@ public sealed partial class BetterGlamourManagement
                 }
             };
             customizationAttempts = 0;
-            customizationRetryAt = loadingSeconds + 0.25;
+            customizationRetryAt  = loadingSeconds + 0.25;
             owner->DispatchEvent(&nativeEvent);
         }
 
@@ -375,7 +386,7 @@ public sealed partial class BetterGlamourManagement
                 catch (Exception error)
                 {
                     Stop();
-                    phase = "error";
+                    phase   = "error";
                     message = error.Message;
                 }
             }
@@ -395,20 +406,24 @@ public sealed partial class BetterGlamourManagement
             }
         }
 
-        private void OnTryonLifecycle(AddonEvent type, AddonArgs args)
+        private void OnTryonLifecycle
+        (
+            AddonEvent type,
+            AddonArgs  args
+        )
         {
             var addon = (AtkUnitBase*)args.Addon.Address;
             if (addon == null || (nint)addon != guardedTryonAddon || hiddenTryonRoot == 0 || addon->RootNode == null || (nint)addon->RootNode != hiddenTryonRoot)
                 return;
             if (type == AddonEvent.PreFinalize)
             {
-                addon->DisableShowOnOpen = savedDisableShowOnOpen;
-                addon->DisableFocusOnShow = savedDisableFocusOnShow;
+                addon->DisableShowOnOpen   = savedDisableShowOnOpen;
+                addon->DisableFocusOnShow  = savedDisableFocusOnShow;
                 addon->DisableFocusability = savedDisableFocusability;
                 FlagHelper.UpdateFlag(ref addon->Flags1A3, TRYON_CLICK_THROUGH_FLAG, savedTryonClickThrough);
                 addon->SetAlpha(savedTryonAlpha);
                 hiddenTryonRoot = guardedTryonAddon = 0;
-                closingTryon = false;
+                closingTryon    = false;
                 return;
             }
 
@@ -476,15 +491,15 @@ public sealed partial class BetterGlamourManagement
                         var previous = (KernelTexture*)texture;
                         if (previous != nativeTexture)
                             nativeTexture->IncRef();
-                        texture = (nint)nativeTexture;
-                        image = (nint)nativeTexture->D3D11ShaderResourceView;
-                        frameWidth = (int)nativeTexture->ActualWidth;
+                        texture     = (nint)nativeTexture;
+                        image       = (nint)nativeTexture->D3D11ShaderResourceView;
+                        frameWidth  = (int)nativeTexture->ActualWidth;
                         frameHeight = (int)nativeTexture->ActualHeight;
-                        ratio = (float)frameWidth / frameHeight;
+                        ratio       = (float)frameWidth / frameHeight;
                         if (previous != null && previous != nativeTexture)
                             previous->DecRef();
                         currentTextureValid = true;
-                        shown = true;
+                        shown               = true;
                     }
                 }
                 else
@@ -529,7 +544,7 @@ public sealed partial class BetterGlamourManagement
                 {
                 }
 
-                phase = "error";
+                phase   = "error";
                 message = error.Message;
             }
         }
@@ -571,9 +586,9 @@ public sealed partial class BetterGlamourManagement
 
         private void ReadPlans()
         {
-            plans = getPresets().Select(ToPlan).ToArray();
+            plans    = getPresets().Select(ToPlan).ToArray();
             selected = 0;
-            message = string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.Preview.Loaded"), plans.Length);
+            message  = string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.Preview.Loaded"), plans.Length);
         }
 
         private void PreviewSelected()
@@ -614,17 +629,17 @@ public sealed partial class BetterGlamourManagement
                 throw new InvalidOperationException("请先关闭游戏中的职业套装预览。");
             if (context?.ObjectTable.LocalPlayer is not { } localPlayer)
                 throw new InvalidOperationException("预览角色不可用。");
-            player = localPlayer.Address;
+            player  = localPlayer.Address;
             desired = default;
             desired.CopyFromCharacter((Character*)player);
             baselineHairAppearance ??= getBaseHairAppearance == null
                 ? desired.CustomizeData
                 : getBaseHairAppearance() ?? throw new InvalidOperationException(OmniLoc.Get("Feature.BetterGlamourManagement.Preview.HairAppearanceUnavailable"));
             var hairAppearance = baselineHairAppearance.Value;
-            desired.CustomizeData.Hairstyle = hairAppearance.Hairstyle;
-            desired.CustomizeData.HairColor = plan.HairColor ?? hairAppearance.HairColor;
+            desired.CustomizeData.Hairstyle       = hairAppearance.Hairstyle;
+            desired.CustomizeData.HairColor       = plan.HairColor ?? hairAppearance.HairColor;
             desired.CustomizeData.HighlightsColor = plan.HighlightColor ?? hairAppearance.HighlightsColor;
-            desired.CustomizeData.Highlights = plan.HighlightsEnabled ?? hairAppearance.Highlights;
+            desired.CustomizeData.Highlights      = plan.HighlightsEnabled ?? hairAppearance.Highlights;
             Array.Fill(mask, false);
             foreach (var part in plan.Items)
             {
@@ -676,11 +691,11 @@ public sealed partial class BetterGlamourManagement
 
                 if (seed == null)
                     throw new InvalidOperationException(OmniLoc.Get("Feature.BetterGlamourManagement.Preview.EquipmentUnavailable"));
-                savedTryonItems = tryon->TryOnItems.ToArray();
-                previousSaveOutfit = tryon->SaveDeleteOutfit;
+                savedTryonItems     = tryon->TryOnItems.ToArray();
+                previousSaveOutfit  = tryon->SaveDeleteOutfit;
                 previousDisplayGear = tryon->DisplayGear;
-                ownedTryon = (nint)tryon;
-                ownsTryon = true;
+                ownedTryon          = (nint)tryon;
+                ownsTryon           = true;
                 if (!AgentTryon.TryOn(0, Normalize(seed.ItemID), seed.Dye0, seed.Dye1))
                     throw new InvalidOperationException("游戏拒绝打开此装备的试衣间。");
                 HideTryonChrome();
@@ -688,7 +703,7 @@ public sealed partial class BetterGlamourManagement
 
             ResetNativeTryonItems(tryon->TryOnItems);
             tryon->SaveDeleteOutfit = true;
-            tryon->DisplayGear = false;
+            tryon->DisplayGear      = false;
             foreach (var part in plan.Items.Where(x => x.ItemID != 0).OrderBy(x => x.Slot))
             {
                 if (!AgentTryon.TryOn(0, Normalize(part.ItemID), part.Dye0, part.Dye1))
@@ -704,11 +719,11 @@ public sealed partial class BetterGlamourManagement
                 AddGlassesCache(tryon->TryOnItems, plan.Glasses, (uint)glasses.Value.Icon);
             }
 
-            customizationAttempts = 0;
-            customizationRetryAt = 0;
-            tryon->TryOnItemsChanged = true;
+            customizationAttempts               = 0;
+            customizationRetryAt                = 0;
+            tryon->TryOnItemsChanged            = true;
             tryon->CharaView.HideOtherEquipment = false;
-            tryon->CharaView.DoUpdate = true;
+            tryon->CharaView.DoUpdate           = true;
             HideTryonChrome();
             var view = &tryon->CharaView.CharaView;
             renderIndex = PREVIEW_RENDER_SLOT;
@@ -717,8 +732,8 @@ public sealed partial class BetterGlamourManagement
             modelSubmitted = false;
             outfitVerified = false;
             verifiedFrames = 0;
-            currentPlan = plan.Name;
-            phase = "loading";
+            currentPlan    = plan.Name;
+            phase          = "loading";
             loadingSeconds = 0;
             requestID++;
             message = OmniLoc.Get("Feature.BetterGlamourManagement.Preview.Loading");
@@ -728,12 +743,12 @@ public sealed partial class BetterGlamourManagement
         {
             phoneFrames.Reset();
             currentTextureValid = false;
-            image = 0;
-            shown = false;
-            yaw = pitch = zoom = panX = panY = 0;
+            image               = 0;
+            shown               = false;
+            yaw                 = pitch = zoom = panX = panY = 0;
             var oldAgent = Tryon;
             var closeOwned = ownsTryon;
-            ownsTryon = false;
+            ownsTryon  = false;
             ownedTryon = 0;
             if (closeOwned && oldAgent != null)
             {
@@ -752,24 +767,24 @@ public sealed partial class BetterGlamourManagement
                 if (savedTryonItems != null)
                     savedTryonItems.AsSpan().CopyTo(oldAgent->TryOnItems);
                 oldAgent->SaveDeleteOutfit = previousSaveOutfit;
-                oldAgent->DisplayGear = previousDisplayGear;
+                oldAgent->DisplayGear      = previousDisplayGear;
             }
 
             savedTryonItems = null;
-            modelSubmitted = false;
-            outfitVerified = false;
-            verifiedFrames = 0;
+            modelSubmitted  = false;
+            outfitVerified  = false;
+            verifiedFrames  = 0;
             var oldTexture = (KernelTexture*)texture;
             texture = 0;
             if (oldTexture != null)
                 oldTexture->DecRef();
-            player = 0;
+            player                 = 0;
             baselineHairAppearance = null;
-            renderIndex = 0;
-            frameWidth = frameHeight = 0;
-            phase = "idle";
-            currentPlan = string.Empty;
-            message = OmniLoc.Get("Feature.BetterGlamourManagement.Preview.Hint");
+            renderIndex            = 0;
+            frameWidth             = frameHeight = 0;
+            phase                  = "idle";
+            currentPlan            = string.Empty;
+            message                = OmniLoc.Get("Feature.BetterGlamourManagement.Preview.Hint");
             Volatile.Write(ref cachedPhoneStatus, Status());
         }
 
@@ -785,7 +800,11 @@ public sealed partial class BetterGlamourManagement
             }
         }
 
-        private void ApplyPreviewCustomization(Character* character, Human* human)
+        private void ApplyPreviewCustomization
+        (
+            Character* character,
+            Human*     human
+        )
         {
             var view = View;
             if (view == null || !CanCustomizePreview(ownsTryon, view->ClientObjectIndex, view->ClientObjectId, (nint)character, player))
@@ -801,10 +820,10 @@ public sealed partial class BetterGlamourManagement
             if (hairChanged)
             {
                 var customize = character->DrawData.CustomizeData;
-                customize.Hairstyle = desired.CustomizeData.Hairstyle;
-                customize.HairColor = desired.CustomizeData.HairColor;
+                customize.Hairstyle       = desired.CustomizeData.Hairstyle;
+                customize.HairColor       = desired.CustomizeData.HairColor;
                 customize.HighlightsColor = desired.CustomizeData.HighlightsColor;
-                customize.Highlights = desired.CustomizeData.Highlights;
+                customize.Highlights      = desired.CustomizeData.Highlights;
                 var data = new Human.DrawData
                 {
                     CustomizeData = customize
@@ -825,18 +844,18 @@ public sealed partial class BetterGlamourManagement
             var root = addon->RootNode;
             if (hiddenTryonRoot != (nint)root)
             {
-                hiddenTryonRoot = (nint)root;
-                guardedTryonAddon = (nint)addon;
-                savedTryonAlpha = addon->Alpha;
-                closingTryon = false;
-                savedDisableShowOnOpen = addon->DisableShowOnOpen;
-                savedDisableFocusOnShow = addon->DisableFocusOnShow;
+                hiddenTryonRoot          = (nint)root;
+                guardedTryonAddon        = (nint)addon;
+                savedTryonAlpha          = addon->Alpha;
+                closingTryon             = false;
+                savedDisableShowOnOpen   = addon->DisableShowOnOpen;
+                savedDisableFocusOnShow  = addon->DisableFocusOnShow;
                 savedDisableFocusability = addon->DisableFocusability;
-                savedTryonClickThrough = FlagHelper.ReadFlag(ref addon->Flags1A3, TRYON_CLICK_THROUGH_FLAG);
+                savedTryonClickThrough   = FlagHelper.ReadFlag(ref addon->Flags1A3, TRYON_CLICK_THROUGH_FLAG);
             }
 
-            addon->DisableShowOnOpen = true;
-            addon->DisableFocusOnShow = true;
+            addon->DisableShowOnOpen   = true;
+            addon->DisableFocusOnShow  = true;
             addon->DisableFocusability = true;
             FlagHelper.SetFlag(ref addon->Flags1A3, TRYON_CLICK_THROUGH_FLAG);
             if (root->IsVisible())
@@ -855,7 +874,7 @@ public sealed partial class BetterGlamourManagement
             {
                 addon->RootNode->ToggleVisibility(false);
                 addon->UpdateCollisionNodeList(true);
-                addon->DisableShowOnOpen = savedDisableShowOnOpen;
+                addon->DisableShowOnOpen  = savedDisableShowOnOpen;
                 addon->DisableFocusOnShow = savedDisableFocusOnShow;
                 addon->Hide(true, false, 0);
                 addon->DisableFocusability = savedDisableFocusability;
@@ -932,7 +951,13 @@ public sealed partial class BetterGlamourManagement
         }
 
         internal static float RotationPixels(float radians) => radians * 100f;
-        internal static bool Matches(ref CharaViewModelData expected, Human* actual, bool[] slots, bool hiddenHead)
+        internal static bool Matches
+        (
+            ref CharaViewModelData expected,
+            Human*                 actual,
+            bool[]                 slots,
+            bool                   hiddenHead
+        )
         {
             for (var i = 0; i < 10; i++)
             {
@@ -947,11 +972,16 @@ public sealed partial class BetterGlamourManagement
             return true;
         }
 
-        internal static void SetPackedModel(ref CharaViewModelData model, Part part, ulong packed)
+        internal static void SetPackedModel
+        (
+            ref CharaViewModelData model,
+            Part                   part,
+            ulong                  packed
+        )
         {
             if (part.Slot is 0 or 1)
             {
-                model.WeaponModelIds[part.Slot] = *(WeaponModelId*)&packed;
+                model.WeaponModelIds[part.Slot]        = *(WeaponModelId*)&packed;
                 model.WeaponModelIds[part.Slot].Stain0 = part.Dye0;
                 model.WeaponModelIds[part.Slot].Stain1 = part.Dye1;
             }
@@ -974,7 +1004,12 @@ public sealed partial class BetterGlamourManagement
                 items[i].EquipSlotCategory = 14;
         }
 
-        internal static void AddGlassesCache(Span<AgentTryon.TryOnItem> items, ushort id, uint icon)
+        internal static void AddGlassesCache
+        (
+            Span<AgentTryon.TryOnItem> items,
+            ushort                     id,
+            uint                       icon
+        )
         {
             if (id == 0)
                 return;
@@ -994,9 +1029,25 @@ public sealed partial class BetterGlamourManagement
             throw new InvalidOperationException("试衣间面部装饰缓存已满。");
         }
 
-        internal static bool CanCustomizePreview(bool owned, uint slot, uint id, nint actor, nint localPlayer) => owned && IsExpectedTryonMapping(slot, id) && actor != 0 && localPlayer != 0 && actor != localPlayer;
-        internal static bool CanPresentNativeFrame(uint state, bool hasTexture, bool nativeActorReady) => state == 6 && hasTexture && nativeActorReady;
-        internal static bool IsExpectedTryonMapping(uint slot, uint id) => slot == PREVIEW_RENDER_SLOT && id == PREVIEW_OBJECT_ID;
+        internal static bool CanCustomizePreview
+        (
+            bool owned,
+            uint slot,
+            uint id,
+            nint actor,
+            nint localPlayer
+        ) => owned && IsExpectedTryonMapping(slot, id) && actor != 0 && localPlayer != 0 && actor != localPlayer;
+        internal static bool CanPresentNativeFrame
+        (
+            uint state,
+            bool hasTexture,
+            bool nativeActorReady
+        ) => state == 6 && hasTexture && nativeActorReady;
+        internal static bool IsExpectedTryonMapping
+        (
+            uint slot,
+            uint id
+        ) => slot == PREVIEW_RENDER_SLOT && id == PREVIEW_OBJECT_ID;
         internal static bool ValidSlot(int slot) => slot is 0 or 1 or 2 or 3 or 4 or 6 or 7 or 8 or 9 or 10 or 11 or 12;
         internal static int ModelSlot(int slot) => slot switch
         {
@@ -1019,32 +1070,32 @@ public sealed partial class BetterGlamourManagement
 
         public sealed class Plan
         {
-            public string Name = string.Empty;
+            public string Name              = string.Empty;
             public ushort Glasses;
-            public uint Hairstyle;
-            public byte? HairColor;
-            public byte? HighlightColor;
-            public bool? HighlightsEnabled;
-            public Part[] Items = [];
+            public uint   Hairstyle;
+            public byte?  HairColor;
+            public byte?  HighlightColor;
+            public bool?  HighlightsEnabled;
+            public Part[] Items             = [];
         }
 
         public sealed class Request
         {
-            public string Command = string.Empty;
-            public int PresetIndex;
-            public Plan? Plan;
-            public float Yaw;
-            public float Pitch;
-            public float Zoom;
-            public float PanX;
-            public float PanY;
+            public string Command     = string.Empty;
+            public int    PresetIndex;
+            public Plan?  Plan;
+            public float  Yaw;
+            public float  Pitch;
+            public float  Zoom;
+            public float  PanX;
+            public float  PanY;
         }
 
         #region 常量
 
-        internal const uint PREVIEW_RENDER_SLOT = 2;
-        internal const ushort PREVIEW_OBJECT_ID = 242;
-        private const int TRYON_CLICK_THROUGH_FLAG = 0x40;
+        internal const uint   PREVIEW_RENDER_SLOT      = 2;
+        internal const ushort PREVIEW_OBJECT_ID        = 242;
+        private const int     TRYON_CLICK_THROUGH_FLAG = 0x40;
 
         #endregion
     }

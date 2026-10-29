@@ -176,21 +176,25 @@ public sealed partial class AutoIshgardRestoration : OmniModuleBase
             ["Feature.AutoIshgardRestoration.WaitingForTurnIn"] = "Feature.AutoIshgardRestoration.WaitingForTurnIn"
         });
 
-    public override bool HasSettings => true;
-
-    private readonly Config config;
-    private readonly Action saveConfig;
+    private readonly Config             config;
+    private readonly Action             saveConfig;
     private readonly Func<string, bool> tryTeleport;
-    private readonly Func<bool> isTeleportBusy;
-    private readonly Action cancelTeleport;
-    private bool startPending;
+    private readonly Func<bool>         isTeleportBusy;
+    private readonly Action             cancelTeleport;
+    private bool                        startPending;
 
-    public AutoIshgardRestoration(Config config, Action saveConfig, Func<string, bool> tryTeleport,
-        Func<bool> isTeleportBusy, Action cancelTeleport)
+    public AutoIshgardRestoration
+    (
+        Config             config,
+        Action             saveConfig,
+        Func<string, bool> tryTeleport,
+        Func<bool>         isTeleportBusy,
+        Action             cancelTeleport
+    )
     {
-        this.config = config;
-        this.saveConfig = saveConfig;
-        this.tryTeleport = tryTeleport;
+        this.config         = config;
+        this.saveConfig     = saveConfig;
+        this.tryTeleport    = tryTeleport;
         this.isTeleportBusy = isTeleportBusy;
         this.cancelTeleport = cancelTeleport;
     }
@@ -229,25 +233,31 @@ public sealed partial class AutoIshgardRestoration : OmniModuleBase
 
     public override bool TryHandleCommand(string arguments) => HandleCommandArguments(arguments);
 
-    public override bool TryHandleCommand(string command, string arguments)
+    public override bool TryHandleCommand
+    (
+        string command,
+        string arguments
+    )
     {
         return string.Equals(command, "ishgardrestoration", StringComparison.OrdinalIgnoreCase) &&
             HandleCommandArguments(arguments);
     }
 
+    public override bool HasSettings => true;
+
     public override bool ResetSettings()
     {
         var defaults = new Config();
-        config.SelectedRecipeID = defaults.SelectedRecipeID;
-        config.TicketThreshold = defaults.TicketThreshold;
-        config.AutoBuyScrips = defaults.AutoBuyScrips;
+        config.SelectedRecipeID   = defaults.SelectedRecipeID;
+        config.TicketThreshold    = defaults.TicketThreshold;
+        config.AutoBuyScrips      = defaults.AutoBuyScrips;
         config.ScripStopThreshold = defaults.ScripStopThreshold;
-        config.ScripThreshold = defaults.ScripThreshold;
-        config.ScripShopID = defaults.ScripShopID;
-        config.ScripItemID = defaults.ScripItemID;
-        config.ScripQuantity = defaults.ScripQuantity;
+        config.ScripThreshold     = defaults.ScripThreshold;
+        config.ScripShopID        = defaults.ScripShopID;
+        config.ScripItemID        = defaults.ScripItemID;
+        config.ScripQuantity      = defaults.ScripQuantity;
         config.ExpandedWindowSize = defaults.ExpandedWindowSize;
-        windowSizePending = true;
+        windowSizePending         = true;
         saveConfig();
         return true;
     }
@@ -281,8 +291,8 @@ public sealed partial class AutoIshgardRestoration : OmniModuleBase
             return;
         }
 
-        lastError = string.Empty;
-        status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.StartPending");
+        lastError    = string.Empty;
+        status       = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.StartPending");
         startPending = true;
     }
 }

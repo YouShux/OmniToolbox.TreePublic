@@ -69,7 +69,7 @@ public sealed partial class AutoIshgardRestoration
 
         scripProducts.AddRange(products.OrderBy(x => x.ShopID).ThenBy(x => x.Name));
         scripCatalogLoaded = true;
-        scripCatalogError = string.Empty;
+        scripCatalogError  = string.Empty;
     }
 
     private static List<ScripProduct> ReadScripProducts(SpecialShop shop)
@@ -113,19 +113,26 @@ public sealed partial class AutoIshgardRestoration
             recipe.Level, recipe.IsExpert ? OmniLoc.Get("Feature.AutoIshgardRestoration.UI.ExpertRecipe") : string.Empty, recipe.ItemName) +
         (recipe.Level == 80 ? OmniLoc.Get("Feature.AutoIshgardRestoration.UI.RecipeVoucher") : string.Empty);
 
-    private readonly record struct RecipeOption(
-        uint RecipeID,
-        uint ItemID,
-        uint JobID,
-        int Level,
-        bool IsExpert,
-        string ItemName,
-        ScripRewards Rewards);
+    private readonly record struct RecipeOption
+    (
+        uint         RecipeID,
+        uint         ItemID,
+        uint         JobID,
+        int          Level,
+        bool         IsExpert,
+        string       ItemName,
+        ScripRewards Rewards
+    );
 
-    private readonly record struct ScripRewards(
-        ushort BaseRating, ushort BaseScrips,
-        ushort MidRating, ushort MidScrips,
-        ushort HighRating, ushort HighScrips)
+    private readonly record struct ScripRewards
+    (
+        ushort BaseRating,
+        ushort BaseScrips,
+        ushort MidRating,
+        ushort MidScrips,
+        ushort HighRating,
+        ushort HighScrips
+    )
     {
         public int GetScrips(uint collectability)
         {
@@ -135,7 +142,15 @@ public sealed partial class AutoIshgardRestoration
         }
     }
 
-    private sealed record ScripProduct(uint ShopID, uint ItemID, string Name, int Price, int StackSize, bool Unique);
+    private sealed record ScripProduct
+    (
+        uint   ShopID,
+        uint   ItemID,
+        string Name,
+        int    Price,
+        int    StackSize,
+        bool   Unique
+    );
 
     #region 预置数据
 

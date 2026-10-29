@@ -67,18 +67,16 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             ["Feature.RaiseDispelEnhancement.WorldTextScale"] = "Feature.RaiseDispelEnhancement.WorldTextScale"
         });
 
-    public override bool HasSettings => true;
-
-    private static readonly HashSet<uint> PartialDisplayJobs =
+    private static readonly HashSet<uint>                           PartialDisplayJobs =
         [23, 24, 25, 27, 28, 31, 33, 35, 36, 40];
-    private static readonly string[] DisplayColumns =
+    private static readonly string[]                                DisplayColumns     =
         ["Party", "Alliance", "ShowWorldIcon", "ShowWorldText", "CasterName", "CastProgress", "List"];
-    private readonly Dictionary<ulong, ActorState> states = [];
-    private readonly Dictionary<ulong, string> names = [];
-    private readonly Dictionary<ulong, (int Index, ulong ObjectID)> actorObjects = [];
-    private readonly Dictionary<uint, ISharedImmediateTexture> statusIconTextures = [];
-    private ISharedImmediateTexture? dispelIcon;
-    private uint defaultRaiseIconID;
+    private readonly Dictionary<ulong, ActorState>                  states             = [];
+    private readonly Dictionary<ulong, string>                      names              = [];
+    private readonly Dictionary<ulong, (int Index, ulong ObjectID)> actorObjects       = [];
+    private readonly Dictionary<uint, ISharedImmediateTexture>      statusIconTextures = [];
+    private ISharedImmediateTexture?                                dispelIcon;
+    private uint                                                    defaultRaiseIconID;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -99,6 +97,8 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         lifetime.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawOverlay);
         DalamudServices.PluginInterface.UiBuilder.Draw += DrawOverlay;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -157,7 +157,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                                 OmniLoc.Get(this, $"Feature.RaiseDispelEnhancement.DisplayRange.{option}"), selected))
                         {
                             config.DisplayRange = option;
-                            changed = true;
+                            changed             = true;
                         }
 
                         if (selected)
@@ -217,7 +217,11 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         ImGui.TextUnformatted(label);
     }
 
-    private static bool DrawReminderRow(string kind, RaiseDispelDisplayOptions options)
+    private static bool DrawReminderRow
+    (
+        string                    kind,
+        RaiseDispelDisplayOptions options
+    )
     {
         using var id = ImRaii.PushId(kind);
         ImGui.TableNextRow();
@@ -232,7 +236,12 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         return changed;
     }
 
-    private static bool DrawMatrixCheckbox(string id, bool value, Action<bool> setter)
+    private static bool DrawMatrixCheckbox
+    (
+        string       id,
+        bool         value,
+        Action<bool> setter
+    )
     {
         ImGui.TableNextColumn();
         if (ImGui.TableGetColumnCount() == 1)
@@ -260,11 +269,13 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         return true;
     }
 
-    private static bool DrawColorEdit(
-        uint current,
-        string labelKey,
-        string id,
-        Action<uint> setter)
+    private static bool DrawColorEdit
+    (
+        uint         current,
+        string       labelKey,
+        string       id,
+        Action<uint> setter
+    )
     {
         var color = ImGui.ColorConvertU32ToFloat4(current);
         ImGui.AlignTextToFramePadding();
@@ -276,11 +287,13 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         return ImGui.IsItemDeactivatedAfterEdit();
     }
 
-    private static bool DrawScaleSlider(
-        float current,
-        string labelKey,
-        string id,
-        Action<float> setter)
+    private static bool DrawScaleSlider
+    (
+        float         current,
+        string        labelKey,
+        string        id,
+        Action<float> setter
+    )
     {
         var value = Math.Clamp(current <= 0f ? 1f : current, 0.3f, 3f);
         ImGui.AlignTextToFramePadding();
@@ -353,7 +366,12 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
     }
 
-    private void DrawActor(ImDrawListPtr drawList, ulong actorKey, ActorState state)
+    private void DrawActor
+    (
+        ImDrawListPtr drawList,
+        ulong         actorKey,
+        ActorState    state
+    )
     {
         var drawRaise = config.GetRaiseOptions().Enabled && (state.HasRaisedStatus || state.Type == CastType.Raise);
         var drawDispel = config.GetDispelOptions().Enabled && (state.HasDispellableStatus || state.Type == CastType.Dispel);
@@ -382,7 +400,12 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
     }
 
-    private void DrawWorldMarker(ImDrawListPtr drawList, Vector2 screenPosition, ActorState state)
+    private void DrawWorldMarker
+    (
+        ImDrawListPtr drawList,
+        Vector2       screenPosition,
+        ActorState    state
+    )
     {
         var (type, text) = GetWorldText(state);
         if (type == CastType.None)
@@ -435,7 +458,14 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         DrawShadowedText(drawList, text, textMin + padding, textScale);
     }
 
-    private void DrawFrameMarker(ImDrawListPtr drawList, ulong actorKey, ActorState state, uint color, CastType type)
+    private void DrawFrameMarker
+    (
+        ImDrawListPtr drawList,
+        ulong         actorKey,
+        ActorState    state,
+        uint          color,
+        CastType      type
+    )
     {
         var position = GetHudPosition(actorKey);
         if (position is null)
@@ -474,12 +504,14 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
     }
 
-    private static void DrawPartyRect(
+    private static void DrawPartyRect
+    (
         ImDrawListPtr drawList,
-        int index,
-        uint color,
-        byte progress,
-        string casterName)
+        int           index,
+        uint          color,
+        byte          progress,
+        string        casterName
+    )
     {
         var partyList = OmenTools.Interop.Game.Helpers.AddonHelper.GetByName<AddonPartyList>("_PartyList");
         if (index is < 0 or > 7 || partyList == null || !IsActuallyVisible(&partyList->AtkUnitBase))
@@ -512,13 +544,15 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         DrawCasterName(drawList, min, size, casterName);
     }
 
-    private static void DrawAllianceRect(
+    private static void DrawAllianceRect
+    (
         ImDrawListPtr drawList,
-        string addonName,
-        int index,
-        uint color,
-        byte progress,
-        string casterName)
+        string        addonName,
+        int           index,
+        uint          color,
+        byte          progress,
+        string        casterName
+    )
     {
         var allianceList = OmenTools.Interop.Game.Helpers.AddonHelper.GetByName<AddonAllianceListX>(addonName);
         if (index is < 0 or > 7 || allianceList == null || !IsActuallyVisible(&allianceList->AtkUnitBase))
@@ -542,13 +576,15 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         DrawCasterName(drawList, min, size, casterName);
     }
 
-    private static void DrawCrossWorldAllianceRect(
+    private static void DrawCrossWorldAllianceRect
+    (
         ImDrawListPtr drawList,
-        int allianceIndex,
-        int memberIndex,
-        uint color,
-        byte progress,
-        string casterName)
+        int           allianceIndex,
+        int           memberIndex,
+        uint          color,
+        byte          progress,
+        string        casterName
+    )
     {
         var allianceList = OmenTools.Interop.Game.Helpers.AddonHelper.GetByName<AddonAlliance48>("Alliance48");
         if (allianceIndex is < 1 or > 5 ||
@@ -575,13 +611,15 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         DrawCasterName(drawList, min, size, casterName);
     }
 
-    private static void DrawProgressRect(
+    private static void DrawProgressRect
+    (
         ImDrawListPtr drawList,
-        Vector2 min,
-        Vector2 max,
-        uint color,
-        byte progress,
-        float rounding)
+        Vector2       min,
+        Vector2       max,
+        uint          color,
+        byte          progress,
+        float         rounding
+    )
     {
         progress = Math.Clamp(progress, (byte)0, (byte)100);
         if (progress >= 100)
@@ -607,7 +645,13 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         drawList.AddRect(min, max, color | 0xFF000000, rounding, ImDrawFlags.None, 1.5f);
     }
 
-    private static void DrawCasterName(ImDrawListPtr drawList, Vector2 min, Vector2 size, string text)
+    private static void DrawCasterName
+    (
+        ImDrawListPtr drawList,
+        Vector2       min,
+        Vector2       size,
+        string        text
+    )
     {
         if (string.IsNullOrWhiteSpace(text))
         {
@@ -621,7 +665,13 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         DrawShadowedText(drawList, text, position, 1f);
     }
 
-    private static void DrawShadowedText(ImDrawListPtr drawList, string text, Vector2 position, float scale)
+    private static void DrawShadowedText
+    (
+        ImDrawListPtr drawList,
+        string        text,
+        Vector2       position,
+        float         scale
+    )
     {
         var font = ImGui.GetFont();
         var fontSize = ImGui.GetFontSize() * MathF.Max(0.1f, scale);
@@ -682,7 +732,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         foreach (var player in CombatCharacterSnapshot.Players)
         {
             var actorKey = GetActorKey(player);
-            names[actorKey] = player.Name;
+            names[actorKey]        = player.Name;
             actorObjects[actorKey] = (player.ObjectIndex, player.GameObjectID);
 
             if (player.IsDead)
@@ -720,7 +770,12 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
     }
 
-    private void MarkRaised(ulong actorKey, uint iconID, bool raisedByLocalPlayer)
+    private void MarkRaised
+    (
+        ulong actorKey,
+        uint  iconID,
+        bool  raisedByLocalPlayer
+    )
     {
         var state = GetState(actorKey);
         states[actorKey] = state with
@@ -740,7 +795,13 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         };
     }
 
-    private void MarkCast(ulong actorKey, ulong casterKey, CastType type, byte percentage)
+    private void MarkCast
+    (
+        ulong    actorKey,
+        ulong    casterKey,
+        CastType type,
+        byte     percentage
+    )
     {
         var state = GetState(actorKey);
         states[actorKey] = state with
@@ -756,7 +817,13 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             ? state
             : new(0, CastType.None, false, false, false, 100, 0);
 
-    private bool TryGetListColor(ulong actorKey, ActorState state, out uint color, out CastType type)
+    private bool TryGetListColor
+    (
+        ulong        actorKey,
+        ActorState   state,
+        out uint     color,
+        out CastType type
+    )
     {
         var hud = GetHudPosition(actorKey);
         var isParty = hud?.GroupNumber == 0;
@@ -764,24 +831,28 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         var raise = config.GetRaiseOptions();
         if (config.ShowDispelOnList && (isParty ? dispel.ShowPartyFrame : dispel.ShowAllianceFrame) && (state.HasDispellableStatus || state.Type == CastType.Dispel))
         {
-            type = CastType.Dispel;
+            type  = CastType.Dispel;
             color = config.DispelListColor;
             return true;
         }
 
         if (config.ShowRaiseOnList && (isParty ? raise.ShowPartyFrame : raise.ShowAllianceFrame) && (state.HasRaisedStatus || state.Type == CastType.Raise))
         {
-            type = CastType.Raise;
+            type  = CastType.Raise;
             color = config.RaiseListColor;
             return true;
         }
 
-        type = CastType.None;
+        type  = CastType.None;
         color = 0;
         return false;
     }
 
-    private ImTextureID GetWorldIconHandle(CastType type, ActorState state)
+    private ImTextureID GetWorldIconHandle
+    (
+        CastType   type,
+        ActorState state
+    )
     {
         var iconID = type == CastType.Dispel
             ? DISPEL_ICON_ID
@@ -798,7 +869,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
         else if (!statusIconTextures.TryGetValue(iconID, out texture))
         {
-            texture = DService.Instance().Texture.GetFromGameIcon(new GameIconLookup(iconID));
+            texture                    = DService.Instance().Texture.GetFromGameIcon(new GameIconLookup(iconID));
             statusIconTextures[iconID] = texture;
         }
 
@@ -901,9 +972,14 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         return null;
     }
 
-    private static bool TryGetRaiseStatus(IBattleChara player, out uint iconID, out uint sourceID)
+    private static bool TryGetRaiseStatus
+    (
+        IBattleChara player,
+        out uint     iconID,
+        out uint     sourceID
+    )
     {
-        iconID = 0;
+        iconID   = 0;
         sourceID = 0;
         foreach (var status in player.StatusList)
         {
@@ -913,7 +989,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                 continue;
             }
 
-            iconID = row.Icon;
+            iconID   = row.Icon;
             sourceID = status.SourceID;
             return true;
         }
@@ -1017,16 +1093,23 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         Dispel
     }
 
-    private readonly record struct ActorState(
-        ulong Caster,
+    private readonly record struct ActorState
+    (
+        ulong    Caster,
         CastType Type,
-        bool HasRaisedStatus,
-        bool RaisedByLocalPlayer,
-        bool HasDispellableStatus,
-        byte Percentage,
-        uint RaiseIconID);
+        bool     HasRaisedStatus,
+        bool     RaisedByLocalPlayer,
+        bool     HasDispellableStatus,
+        byte     Percentage,
+        uint     RaiseIconID
+    );
 
-    private readonly struct PartyListPosition(bool crossWorld, int groupNumber, int memberIndex)
+    private readonly struct PartyListPosition
+    (
+        bool crossWorld,
+        int  groupNumber,
+        int  memberIndex
+    )
     {
         public bool CrossWorld { get; } = crossWorld;
 

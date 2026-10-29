@@ -11,10 +11,18 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class MoreMinimapInformation
 {
-    private void OnMinimapPreUpdate(AddonEvent _, AddonArgs args) =>
+    private void OnMinimapPreUpdate
+    (
+        AddonEvent _,
+        AddonArgs  args
+    ) =>
         RestoreNativeEnemyMarkers((AddonNaviMap*)args.Addon.Address);
 
-    private void OnMinimapUpdate(AddonEvent _, AddonArgs args)
+    private void OnMinimapUpdate
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         var addon = (AddonNaviMap*)args.Addon.Address;
         var agentMap = AgentMap.Instance();
@@ -78,7 +86,11 @@ public sealed unsafe partial class MoreMinimapInformation
         hiddenEnemyNodes.Clear();
     }
 
-    private void OnMinimapFinalize(AddonEvent _, AddonArgs args)
+    private void OnMinimapFinalize
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         hiddenEnemyNodes.Clear();
         minimapRoot = null;
@@ -88,8 +100,16 @@ public sealed unsafe partial class MoreMinimapInformation
             marker.MinimapIcon = null;
     }
 
-    private void UpdateMinimapIcon(Marker marker, uint mapID, Vector2 halfSize, Vector2 center,
-        float scaling, Matrix3x2 transform, bool circular)
+    private void UpdateMinimapIcon
+    (
+        Marker    marker,
+        uint      mapID,
+        Vector2   halfSize,
+        Vector2   center,
+        float     scaling,
+        Matrix3x2 transform,
+        bool      circular
+    )
     {
         if (!marker.IsVisible || marker.MapId != mapID)
         {
@@ -134,13 +154,13 @@ public sealed unsafe partial class MoreMinimapInformation
         var icon = marker.MinimapIcon;
         if (icon is IconImageNode gameIcon)
             gameIcon.IconId = marker.IconId.GetValueOrDefault();
-        icon.Size = marker.Size;
+        icon.Size          = marker.Size;
         icon.MultiplyColor = marker.MultiplyColor;
         var limits = Vector2.Max(Vector2.One, halfSize - icon.Size / 2f);
         var normalized = offset / limits;
         var edgeScale = circular ? normalized.Length() : MathF.Max(MathF.Abs(normalized.X), MathF.Abs(normalized.Y));
         offset /= MathF.Max(1f, edgeScale);
-        icon.Position = halfSize + offset - icon.Size / 2f;
+        icon.Position  = halfSize + offset - icon.Size / 2f;
         icon.IsVisible = true;
     }
 }

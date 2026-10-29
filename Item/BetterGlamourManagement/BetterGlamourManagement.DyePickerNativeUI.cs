@@ -1,16 +1,16 @@
-using TreeToolKit;
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using KamiToolKit.Classes;
 using KamiToolKit.BaseTypes;
+using KamiToolKit.Classes;
 using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
+using TreeToolKit;
 using Item = Lumina.Excel.Sheets.Item;
 using Stain = Lumina.Excel.Sheets.Stain;
 
@@ -43,78 +43,85 @@ public sealed partial class BetterGlamourManagement
             "Feature.BetterGlamourManagement.DyeCategory.Special"
         ];
 
-        private readonly List<DyeCategoryNode> categoryNodes = [];
-        private readonly List<BetterGlamourDyeGridRowNode> rowNodes = [];
-        private readonly DyeChannelNode?[] channelNodes = new DyeChannelNode?[2];
-        private readonly DyeColorPreviewNode?[,] previews = new DyeColorPreviewNode?[2, 2];
-        private readonly TextNode?[,] previewLabels = new TextNode?[2, 2];
-        private readonly SimpleNineGridNode?[] comparisonBackgrounds = new SimpleNineGridNode?[2];
-        private readonly TextureButtonNode?[] comparisonButtons = new TextureButtonNode?[2];
-        private readonly TextNode?[] comparisonTitles = new TextNode?[2];
-        private readonly DyeSourceNode?[] dyeSources = new DyeSourceNode?[2];
-        private readonly byte[] originalStains = new byte[2];
-        private readonly byte[] candidateStains = new byte[2];
-        private BetterGlamourItem? item;
-        private Action<int, byte>? onSelected;
-        private Action<int>? onUndo;
-        private Action? onSwap;
-        private Func<int, bool>? canUndo;
-        private TextNode? equipmentLabel;
-        private SimpleNineGridNode? equipmentBackground;
-        private SimpleNineGridNode? paletteBackground;
-        private SimpleNineGridNode? selectionBackground;
-        private SimpleNineGridNode? categoryBackground;
-        private SimpleNineGridNode? channelFrame;
-        private SimpleNineGridNode? categoryLine;
-        private SimpleNineGridNode? channelIndicator;
-        private BetterGlamourItemIconNode? equipmentIcon;
-        private TextNode? equipmentName;
-        private TextNode? categoryLabel;
-        private TextNode? colorLabel;
-        private TextNode? sourceLabel;
-        private HorizontalLineNode? footerLine;
-        private TextButtonNode? backButton;
-        private TextureButtonNode? undoButton;
-        private TextureButtonNode? redoButton;
-        private TextureButtonNode? swapButton;
-        private byte? redoStain;
-        private int redoChannel;
-        private int selectedStain;
-        private int selectedCategory;
-        private int dyeCount = 2;
-        private int visibleRows;
-        private bool pendingRowsRebuild;
+        private readonly List<DyeCategoryNode>             categoryNodes         = [];
+        private readonly List<BetterGlamourDyeGridRowNode> rowNodes              = [];
+        private readonly DyeChannelNode?[]                 channelNodes          = new DyeChannelNode?[2];
+        private readonly DyeColorPreviewNode?[,]           previews              = new DyeColorPreviewNode?[2, 2];
+        private readonly TextNode?[,]                      previewLabels         = new TextNode?[2, 2];
+        private readonly SimpleNineGridNode?[]             comparisonBackgrounds = new SimpleNineGridNode?[2];
+        private readonly TextureButtonNode?[]              comparisonButtons     = new TextureButtonNode?[2];
+        private readonly TextNode?[]                       comparisonTitles      = new TextNode?[2];
+        private readonly DyeSourceNode?[]                  dyeSources            = new DyeSourceNode?[2];
+        private readonly byte[]                            originalStains        = new byte[2];
+        private readonly byte[]                            candidateStains       = new byte[2];
+        private BetterGlamourItem?                         item;
+        private Action<int, byte>?                         onSelected;
+        private Action<int>?                               onUndo;
+        private Action?                                    onSwap;
+        private Func<int, bool>?                           canUndo;
+        private TextNode?                                  equipmentLabel;
+        private SimpleNineGridNode?                        equipmentBackground;
+        private SimpleNineGridNode?                        paletteBackground;
+        private SimpleNineGridNode?                        selectionBackground;
+        private SimpleNineGridNode?                        categoryBackground;
+        private SimpleNineGridNode?                        channelFrame;
+        private SimpleNineGridNode?                        categoryLine;
+        private SimpleNineGridNode?                        channelIndicator;
+        private BetterGlamourItemIconNode?                 equipmentIcon;
+        private TextNode?                                  equipmentName;
+        private TextNode?                                  categoryLabel;
+        private TextNode?                                  colorLabel;
+        private TextNode?                                  sourceLabel;
+        private HorizontalLineNode?                        footerLine;
+        private TextButtonNode?                            backButton;
+        private TextureButtonNode?                         undoButton;
+        private TextureButtonNode?                         redoButton;
+        private TextureButtonNode?                         swapButton;
+        private byte?                                      redoStain;
+        private int                                        redoChannel;
+        private int                                        selectedStain;
+        private int                                        selectedCategory;
+        private int                                        dyeCount              = 2;
+        private int                                        visibleRows;
+        private bool                                       pendingRowsRebuild;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
         public BetterGlamourDyePickerNativeUI()
         {
-            InternalName = "OmniBetterGlamourDyePicker";
-            Title = OmniLoc.Get("Feature.BetterGlamourManagement.Dye");
-            Subtitle = string.Empty;
-            Size = new(416f, 700f);
-            ContentPadding = new(12f, 8f);
+            InternalName          = "OmniBetterGlamourDyePicker";
+            Title                 = OmniLoc.Get("Feature.BetterGlamourManagement.Dye");
+            Subtitle              = string.Empty;
+            Size                  = new(416f, 700f);
+            ContentPadding        = new(12f, 8f);
             RememberClosePosition = true;
-            CreateWindowNode = static () => new WindowNode { ShowCloseButton = true };
+            CreateWindowNode      = static () => new WindowNode { ShowCloseButton = true };
         }
 
-        public void OpenFor(BetterGlamourItem glamourItem, int channel, Action<int, byte> selected,
-            Action<int> undo, Action swap, Func<int, bool> undoAvailable)
+        public void OpenFor
+        (
+            BetterGlamourItem glamourItem,
+            int               channel,
+            Action<int, byte> selected,
+            Action<int>       undo,
+            Action            swap,
+            Func<int, bool>   undoAvailable
+        )
         {
             if (!IsOpen || !ReferenceEquals(item, glamourItem))
             {
                 originalStains[0] = glamourItem.Stain0;
                 originalStains[1] = glamourItem.Stain1;
-                redoStain = null;
+                redoStain         = null;
             }
-            item = glamourItem;
-            onSelected = selected;
-            onUndo = undo;
-            onSwap = swap;
-            canUndo = undoAvailable;
-            dyeCount = LuminaGetter.TryGetRow<Item>(ItemUtil.GetBaseId(item.ItemID).ItemId, out var equipment)
+            item             = glamourItem;
+            onSelected       = selected;
+            onUndo           = undo;
+            onSwap           = swap;
+            canUndo          = undoAvailable;
+            dyeCount         = LuminaGetter.TryGetRow<Item>(ItemUtil.GetBaseId(item.ItemID).ItemId, out var equipment)
                 ? Math.Clamp((int)equipment.DyeCount, 1, 2)
                 : 2;
-            selectedStain = Math.Clamp(channel, 0, dyeCount - 1);
+            selectedStain    = Math.Clamp(channel, 0, dyeCount - 1);
             selectedCategory = GetCategory(selectedStain == 0 ? item.Stain0 : item.Stain1);
             if (!IsOpen)
                 Open();
@@ -125,28 +132,32 @@ public sealed partial class BetterGlamourManagement
         {
             if (ReferenceEquals(item, changedItem))
             {
-                redoStain = null;
+                redoStain          = null;
                 pendingRowsRebuild = true;
             }
         }
 
-        protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
+        protected override unsafe void OnSetup
+        (
+            AtkUnitBase*   addon,
+            Span<AtkValue> atkValueSpan
+        )
         {
             var native = AtkStage.Instance()->RaptureAtkUnitManager->GetAddonByName("ColorantColoring");
             if (native is not null && native->IsVisible)
                 addon->SetScale(native->Scale / AtkUnitBase.GetGlobalUIScale(), true);
             equipmentBackground = CreateBackground("ui/uld/BgParts.tex", new(34f, 38f), new(26f), 8f);
-            paletteBackground = CreateBackground("ui/uld/BgParts.tex", new(34f, 38f), new(26f), 12f);
+            paletteBackground   = CreateBackground("ui/uld/BgParts.tex", new(34f, 38f), new(26f), 12f);
             selectionBackground = CreateBackground("ui/uld/BgParts.tex", new(34f, 38f), new(26f), 12f);
-            categoryBackground = CreateBackground("ui/uld/BgParts.tex", new(34f, 38f), new(26f), 8f);
-            equipmentLabel = CreateLabel(LuminaWrapper.GetAddonText(4702));
-            equipmentIcon = new(false) { Size = new(48f) };
+            categoryBackground  = CreateBackground("ui/uld/BgParts.tex", new(34f, 38f), new(26f), 8f);
+            equipmentLabel      = CreateLabel(LuminaWrapper.GetAddonText(4702));
+            equipmentIcon       = new(false) { Size = new(48f) };
             equipmentIcon.AttachNode(this);
             equipmentName = CreateLabel(string.Empty, 14, 2);
             categoryLabel = CreateLabel(LuminaWrapper.GetAddonText(4703));
-            colorLabel = CreateLabel(LuminaWrapper.GetAddonText(15992));
-            sourceLabel = CreateLabel(string.Empty);
-            categoryLine = new()
+            colorLabel    = CreateLabel(LuminaWrapper.GetAddonText(15992));
+            sourceLabel   = CreateLabel(string.Empty);
+            categoryLine  = new()
             {
                 TexturePath = "ui/uld/ColorantBgBase.tex",
                 TextureCoordinates = new(0f, 10f),
@@ -190,11 +201,11 @@ public sealed partial class BetterGlamourManagement
             {
                 var original = comparison == 1;
                 var background = CreateBackground("ui/uld/ConfigLogFilter.tex", new(48f, 0f), new(24f), 10f);
-                background.Alpha = 63f / 255f;
-                background.AddColor = new(120f / 255f);
+                background.Alpha                  = 63f / 255f;
+                background.AddColor               = new(120f / 255f);
                 comparisonBackgrounds[comparison] = background;
-                comparisonTitles[comparison] = CreateLabel(LuminaWrapper.GetAddonText(original ? 15989U : 15990U));
-                comparisonButtons[comparison] = CreateTextureButton(original ? 36f : 0f, LuminaWrapper.GetAddonText(original ? 15974U : 15991U),
+                comparisonTitles[comparison]      = CreateLabel(LuminaWrapper.GetAddonText(original ? 15989U : 15990U));
+                comparisonButtons[comparison]     = CreateTextureButton(original ? 36f : 0f, LuminaWrapper.GetAddonText(original ? 15974U : 15991U),
                     () =>
                     {
                         var stains = original ? originalStains : candidateStains;
@@ -226,7 +237,7 @@ public sealed partial class BetterGlamourManagement
                     preview.AttachNode(this);
                     previews[comparison, index] = preview;
                     var label = CreateLabel(LuminaWrapper.GetAddonText(index == 0 ? 15970U : 15971U), color: 2);
-                    label.AlignmentType = AlignmentType.Right;
+                    label.AlignmentType              = AlignmentType.Right;
                     previewLabels[comparison, index] = label;
                 }
             }
@@ -270,24 +281,24 @@ public sealed partial class BetterGlamourManagement
             RootNode.HideTooltip();
             foreach (var row in rowNodes)
                 row.ClearHover();
-            item = null;
+            item       = null;
             onSelected = null;
-            onUndo = null;
-            onSwap = null;
-            canUndo = null;
+            onUndo     = null;
+            onSwap     = null;
+            canUndo    = null;
         }
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
-            equipmentLabel = null;
+            equipmentLabel      = null;
             equipmentBackground = paletteBackground = selectionBackground = categoryBackground = null;
-            channelFrame = null;
-            categoryLine = channelIndicator = null;
-            equipmentIcon = null;
-            equipmentName = categoryLabel = colorLabel = sourceLabel = null;
-            footerLine = null;
-            backButton = null;
-            undoButton = redoButton = swapButton = null;
+            channelFrame        = null;
+            categoryLine        = channelIndicator = null;
+            equipmentIcon       = null;
+            equipmentName       = categoryLabel = colorLabel = sourceLabel = null;
+            footerLine          = null;
+            backButton          = null;
+            undoButton          = redoButton = swapButton = null;
             Array.Clear(channelNodes);
             Array.Clear(previews);
             Array.Clear(previewLabels);
@@ -297,12 +308,12 @@ public sealed partial class BetterGlamourManagement
             Array.Clear(dyeSources);
             categoryNodes.Clear();
             rowNodes.Clear();
-            item = null;
-            onSelected = null;
-            onUndo = null;
-            onSwap = null;
-            canUndo = null;
-            redoStain = null;
+            item               = null;
+            onSelected         = null;
+            onUndo             = null;
+            onSwap             = null;
+            canUndo            = null;
+            redoStain          = null;
             pendingRowsRebuild = false;
         }
 
@@ -310,7 +321,7 @@ public sealed partial class BetterGlamourManagement
         {
             if (channel >= dyeCount || item is null)
                 return;
-            selectedStain = channel;
+            selectedStain    = channel;
             selectedCategory = GetCategory(channel == 0 ? item.Stain0 : item.Stain1);
             RebuildRows();
         }
@@ -363,7 +374,7 @@ public sealed partial class BetterGlamourManagement
                         if (!ReferenceEquals(item, ownerItem))
                             return;
                         candidateStains[candidateChannel] = option.ID;
-                        pendingRowsRebuild = true;
+                        pendingRowsRebuild                = true;
                     }
                 });
             }
@@ -394,7 +405,7 @@ public sealed partial class BetterGlamourManagement
             var stain = channel == 0 ? item.Stain0 : item.Stain1;
             onUndo?.Invoke(channel);
             redoChannel = channel;
-            redoStain = stain;
+            redoStain   = stain;
         }
 
         private void Redo()
@@ -450,7 +461,7 @@ public sealed partial class BetterGlamourManagement
             }
             equipmentIcon.SetItem(item.ItemID, item.Stain0, item.Stain1);
             equipmentName.String = GetItemName(item.ItemID);
-            sourceLabel.String = string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.DyePicker.Source"), selectedStain + 1);
+            sourceLabel.String   = string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.DyePicker.Source"), selectedStain + 1);
             undoButton.IsEnabled = canUndo?.Invoke(selectedStain) == true;
             redoButton.IsEnabled = redoStain.HasValue;
             if (swapButton is not null)
@@ -479,51 +490,51 @@ public sealed partial class BetterGlamourManagement
                 SetWindowSize(targetSize);
             var start = ContentStartPosition - new Vector2(0f, 2f);
             var width = ContentSize.X;
-            equipmentLabel.Position = start + new Vector2(4f, 0f);
-            equipmentLabel.Size = new(width - 8f, 16f);
+            equipmentLabel.Position      = start + new Vector2(4f, 0f);
+            equipmentLabel.Size          = new(width - 8f, 16f);
             equipmentBackground.Position = start + new Vector2(0f, 16f);
-            equipmentBackground.Size = new(width, 84f);
-            equipmentIcon.Position = start + new Vector2(2f, 20f);
-            equipmentName.Position = start + new Vector2(52f, 33f);
-            equipmentName.Size = new(width - 60f, 24f);
-            channelFrame.Position = start + new Vector2(0f, 102f);
-            channelFrame.Size = new(dyeCount > 1 ? width + 1f : width / 2f + 1f, 29f);
+            equipmentBackground.Size     = new(width, 84f);
+            equipmentIcon.Position       = start + new Vector2(2f, 20f);
+            equipmentName.Position       = start + new Vector2(52f, 33f);
+            equipmentName.Size           = new(width - 60f, 24f);
+            channelFrame.Position        = start + new Vector2(0f, 102f);
+            channelFrame.Size            = new(dyeCount > 1 ? width + 1f : width / 2f + 1f, 29f);
             for (var index = 0; index < channelNodes.Length; index++)
             {
                 if (channelNodes[index] is { } node)
                 {
                     node.Position = start + new Vector2(index * width / 2f, 102f);
-                    node.Size = new(width / 2f, 28f);
+                    node.Size     = new(width / 2f, 28f);
                 }
             }
             categoryBackground.Position = start + new Vector2(0f, 132f);
-            categoryBackground.Size = new(width, 24f);
-            categoryLabel.Position = start + new Vector2(6f, 132f);
-            categoryLabel.Size = new(width - 12f, 18f);
-            categoryLine.Position = start + new Vector2(0f, 148f);
-            categoryLine.Size = new(width, 4f);
+            categoryBackground.Size     = new(width, 24f);
+            categoryLabel.Position      = start + new Vector2(6f, 132f);
+            categoryLabel.Size          = new(width - 12f, 18f);
+            categoryLine.Position       = start + new Vector2(0f, 148f);
+            categoryLine.Size           = new(width, 4f);
             var indicatorWidth = dyeCount > 1 ? width / 2f : width;
-            channelIndicator.Position = start + new Vector2(selectedStain * indicatorWidth, 148f);
-            channelIndicator.Size = new(indicatorWidth, 4f);
+            channelIndicator.Position           = start + new Vector2(selectedStain * indicatorWidth, 148f);
+            channelIndicator.Size               = new(indicatorWidth, 4f);
             channelIndicator.TextureCoordinates = new(selectedStain == 0 ? 0f : 14f, 2f);
-            channelIndicator.TextureSize = new(dyeCount > 1 ? 14f : 28f, 4f);
-            channelIndicator.LeftOffset = selectedStain == 0 ? 12f : 0f;
-            channelIndicator.RightOffset = dyeCount == 1 || selectedStain == 1 ? 12f : 0f;
+            channelIndicator.TextureSize        = new(dyeCount > 1 ? 14f : 28f, 4f);
+            channelIndicator.LeftOffset         = selectedStain == 0 ? 12f : 0f;
+            channelIndicator.RightOffset        = dyeCount == 1 || selectedStain == 1 ? 12f : 0f;
             for (var index = 0; index < categoryNodes.Count; index++)
             {
                 categoryNodes[index].Position = start + new Vector2((width - 384f) / 2f + index * 48f, 152f);
-                categoryNodes[index].Size = new(48f);
+                categoryNodes[index].Size     = new(48f);
             }
-            paletteBackground.Position = start + new Vector2(0f, 146f);
-            paletteBackground.Size = new(width, footerY - 146f);
+            paletteBackground.Position   = start + new Vector2(0f, 146f);
+            paletteBackground.Size       = new(width, footerY - 146f);
             selectionBackground.Position = start + new Vector2(0f, 202f);
-            selectionBackground.Size = new(width, sourceY + 18f - 202f);
-            colorLabel.Position = start + new Vector2(8f, 202f);
-            colorLabel.Size = new(width - 12f, 18f);
+            selectionBackground.Size     = new(width, sourceY + 18f - 202f);
+            colorLabel.Position          = start + new Vector2(8f, 202f);
+            colorLabel.Size              = new(width - 12f, 18f);
             for (var index = 0; index < rowNodes.Count; index++)
             {
                 rowNodes[index].Position = start + new Vector2(8f, GRID_TOP + index * BetterGlamourDyeGridRowNode.ItemHeight);
-                rowNodes[index].Width = SWATCHES_PER_ROW * BetterGlamourDyeGridRowNode.ItemHeight;
+                rowNodes[index].Width    = SWATCHES_PER_ROW * BetterGlamourDyeGridRowNode.ItemHeight;
             }
             for (var comparison = 0; comparison < 2; comparison++)
             {
@@ -532,51 +543,56 @@ public sealed partial class BetterGlamourManagement
                 if (comparisonBackgrounds[comparison] is { } background)
                 {
                     background.Position = start + new Vector2(80f, y + 12f + inset);
-                    background.Size = new(300f, 44f);
+                    background.Size     = new(300f, 44f);
                 }
                 if (comparisonTitles[comparison] is { } title)
                 {
                     title.Position = start + new Vector2(84f, y + inset);
-                    title.Size = new(296f, 18f);
+                    title.Size     = new(296f, 18f);
                 }
                 if (comparisonButtons[comparison] is { } swap)
                 {
                     swap.Position = start + new Vector2(84f, y + 16f + inset);
-                    swap.Size = new(36f);
+                    swap.Size     = new(36f);
                 }
                 for (var index = 0; index < 2; index++)
                 {
                     if (previewLabels[comparison, index] is { } label && previews[comparison, index] is { } preview)
                     {
                         var x = 124f + index * 128f;
-                        label.Position = start + new Vector2(x, y + 26f + inset);
-                        label.Size = new(88f, 16f);
+                        label.Position   = start + new Vector2(x, y + 26f + inset);
+                        label.Size       = new(88f, 16f);
                         preview.Position = start + new Vector2(x + 92f, y + 18f + inset);
-                        preview.Size = new(30f);
+                        preview.Size     = new(30f);
                     }
                 }
             }
-            undoButton.Position = start + new Vector2(8f, comparisonY + 16f);
-            redoButton.Position = start + new Vector2(44f, comparisonY + 16f);
-            swapButton.Position = start + new Vector2(8f, comparisonY + 72f);
-            undoButton.Size = redoButton.Size = swapButton.Size = new(36f);
+            undoButton.Position  = start + new Vector2(8f, comparisonY + 16f);
+            redoButton.Position  = start + new Vector2(44f, comparisonY + 16f);
+            swapButton.Position  = start + new Vector2(8f, comparisonY + 72f);
+            undoButton.Size      = redoButton.Size = swapButton.Size = new(36f);
             sourceLabel.Position = start + new Vector2(4f, sourceY);
-            sourceLabel.Size = new(width - 8f, 18f);
+            sourceLabel.Size     = new(width - 8f, 18f);
             for (var index = 0; index < dyeSources.Length; index++)
             {
                 if (dyeSources[index] is { } source)
                 {
                     source.Position = start + new Vector2(0f, sourceY + 16f + index * 60f);
-                    source.Size = new(width, 60f);
+                    source.Size     = new(width, 60f);
                 }
             }
             footerLine.Position = start + new Vector2(0f, footerY);
-            footerLine.Size = new(width, 2f);
+            footerLine.Size     = new(width, 2f);
             backButton.Position = start + new Vector2(width - 160f, footerY + 10f);
-            backButton.Size = new(160f, 28f);
+            backButton.Size     = new(160f, 28f);
         }
 
-        private TextNode CreateLabel(string text, uint size = 12, uint color = 3)
+        private TextNode CreateLabel
+        (
+            string text,
+            uint   size = 12,
+            uint   color = 3
+        )
         {
             var node = new TextNode
             {
@@ -589,7 +605,13 @@ public sealed partial class BetterGlamourManagement
             return node;
         }
 
-        private SimpleNineGridNode CreateBackground(string path, Vector2 coordinates, Vector2 textureSize, float inset)
+        private SimpleNineGridNode CreateBackground
+        (
+            string  path,
+            Vector2 coordinates,
+            Vector2 textureSize,
+            float   inset
+        )
         {
             var node = new SimpleNineGridNode
             {
@@ -605,7 +627,12 @@ public sealed partial class BetterGlamourManagement
             return node;
         }
 
-        private TextureButtonNode CreateTextureButton(float u, string tooltip, Action clicked)
+        private TextureButtonNode CreateTextureButton
+        (
+            float  u,
+            string tooltip,
+            Action clicked
+        )
         {
             var node = new TextureButtonNode
             {
@@ -629,15 +656,19 @@ public sealed partial class BetterGlamourManagement
             private readonly SimpleImageNode selectedFrame;
             private readonly SimpleImageNode selectedCheck;
 
-            public unsafe DyeCategoryNode(Vector4? color, Action selected)
+            public unsafe DyeCategoryNode
+            (
+                Vector4? color,
+                Action   selected
+            )
             {
                 fill = CreateImage(color.HasValue ? Vector2.Zero : new(0f, 88f), new(48f));
                 if (color is { } tint)
                     fill.Color = tint;
-                frame = CreateImage(new(48f, 0f), new(48f));
-                selectedFrame = CreateImage(new(96f, 0f), new(48f));
-                selectedCheck = CreateImage(new(120f, 64f), new(16f));
-                selectedCheck.Position = new(29f, 4f);
+                frame                             = CreateImage(new(48f, 0f), new(48f));
+                selectedFrame                     = CreateImage(new(96f, 0f), new(48f));
+                selectedCheck                     = CreateImage(new(120f, 64f), new(16f));
+                selectedCheck.Position            = new(29f, 4f);
                 CollisionNode.ShowClickableCursor = true;
                 CollisionNode.AddEvent(AtkEventType.MouseClick, (_, _, _, _, eventData) =>
                 {
@@ -646,7 +677,11 @@ public sealed partial class BetterGlamourManagement
                 });
             }
 
-            public void SetSelected(bool selected, bool original)
+            public void SetSelected
+            (
+                bool selected,
+                bool original
+            )
             {
                 selectedFrame.IsVisible = selected;
                 selectedCheck.IsVisible = original;
@@ -658,7 +693,11 @@ public sealed partial class BetterGlamourManagement
                 fill.Size = frame.Size = selectedFrame.Size = Size;
             }
 
-            private SimpleImageNode CreateImage(Vector2 coordinates, Vector2 size)
+            private SimpleImageNode CreateImage
+            (
+                Vector2 coordinates,
+                Vector2 size
+            )
             {
                 var node = new SimpleImageNode
                 {
@@ -675,13 +714,13 @@ public sealed partial class BetterGlamourManagement
 
         private sealed class DyeColorPreviewNode : SimpleComponentNode
         {
-            private readonly bool isChannel;
+            private readonly bool                       isChannel;
             private readonly BetterGlamourDyeSwatchNode swatch;
 
             public DyeColorPreviewNode(bool isChannel = false)
             {
                 this.isChannel = isChannel;
-                swatch = new(0) { Size = new(30f) };
+                swatch         = new(0) { Size = new(30f) };
                 swatch.CollisionNode.RemoveNodeFlags(NodeFlags.HasCollision);
                 swatch.AttachNode(this);
                 if (isChannel)
@@ -703,25 +742,29 @@ public sealed partial class BetterGlamourManagement
             protected override void OnSizeChanged()
             {
                 base.OnSizeChanged();
-                swatch.Scale = Size / (isChannel ? 40f : 30f);
+                swatch.Scale    = Size / (isChannel ? 40f : 30f);
                 swatch.Position = isChannel ? Size / 8f : Vector2.Zero;
             }
         }
 
         private sealed class DyeChannelNode : SimpleComponentNode
         {
-            private readonly int channel;
-            private readonly SimpleNineGridNode background;
-            private readonly SimpleImageNode bucket;
-            private readonly TextNode label;
+            private readonly int                 channel;
+            private readonly SimpleNineGridNode  background;
+            private readonly SimpleImageNode     bucket;
+            private readonly TextNode            label;
             private readonly DyeColorPreviewNode originalPreview;
-            private readonly SimpleImageNode changeArrow;
+            private readonly SimpleImageNode     changeArrow;
             private readonly DyeColorPreviewNode preview;
 
-            public unsafe DyeChannelNode(int channel, Action selected)
+            public unsafe DyeChannelNode
+            (
+                int    channel,
+                Action selected
+            )
             {
                 this.channel = channel;
-                background = new()
+                background   = new()
                 {
                     TexturePath = "ui/uld/ToggleButton.tex",
                     TextureCoordinates = new(170f, 0f),
@@ -772,17 +815,23 @@ public sealed partial class BetterGlamourManagement
                 });
             }
 
-            public void SetDye(byte stainID, byte originalID, bool selected, bool dual)
+            public void SetDye
+            (
+                byte stainID,
+                byte originalID,
+                bool selected,
+                bool dual
+            )
             {
                 background.TextureCoordinates = dual
                     ? new(channel == 0 ? 0f : 25f, selected ? 32f : 0f)
                     : new(selected ? 202f : 170f, 0f);
-                background.TextureSize = new(dual ? 25f : 32f, 32f);
-                background.MultiplyColor = new(selected ? 1f : 0.5f);
-                bucket.TextureCoordinates = new(selected ? 299f : 281f, 40f);
-                label.Alpha = bucket.Alpha = selected ? 1f : 0.5f;
+                background.TextureSize        = new(dual ? 25f : 32f, 32f);
+                background.MultiplyColor      = new(selected ? 1f : 0.5f);
+                bucket.TextureCoordinates     = new(selected ? 299f : 281f, 40f);
+                label.Alpha                   = bucket.Alpha = selected ? 1f : 0.5f;
                 originalPreview.SetDye(originalID);
-                originalPreview.IsVisible = changeArrow.IsVisible = stainID != originalID;
+                originalPreview.IsVisible     = changeArrow.IsVisible = stainID != originalID;
                 originalPreview.MultiplyColor = preview.MultiplyColor = new(selected ? 1f : 0.5f);
                 preview.SetDye(stainID);
                 OnSizeChanged();
@@ -791,23 +840,23 @@ public sealed partial class BetterGlamourManagement
             protected override void OnSizeChanged()
             {
                 base.OnSizeChanged();
-                background.Position = new(channel == 0 ? 2f : 0f, 3f);
-                background.Size = new(MathF.Max(1f, Width - 2f), 24f);
-                label.Size = new(114f, 18f);
+                background.Position      = new(channel == 0 ? 2f : 0f, 3f);
+                background.Size          = new(MathF.Max(1f, Width - 2f), 24f);
+                label.Size               = new(114f, 18f);
                 originalPreview.Position = new(Width - 64f, 4f);
-                changeArrow.Position = new(Width - 42f, 9f);
-                preview.Position = new(Width - (changeArrow.IsVisible ? 34f : 64f), 4f);
-                originalPreview.Size = preview.Size = new(20f);
+                changeArrow.Position     = new(Width - 42f, 9f);
+                preview.Position         = new(Width - (changeArrow.IsVisible ? 34f : 64f), 4f);
+                originalPreview.Size     = preview.Size = new(20f);
             }
         }
 
         private sealed class DyeSourceNode : SimpleComponentNode
         {
-            private readonly SimpleNineGridNode background;
+            private readonly SimpleNineGridNode        background;
             private readonly BetterGlamourItemIconNode icon;
-            private readonly SimpleImageNode emptySlot;
-            private readonly TextNode name;
-            private readonly TextNode count;
+            private readonly SimpleImageNode           emptySlot;
+            private readonly TextNode                  name;
+            private readonly TextNode                  count;
 
             public DyeSourceNode()
             {
@@ -856,15 +905,15 @@ public sealed partial class BetterGlamourManagement
             {
                 var hasItem = itemID != 0;
                 background.IsVisible = icon.IsVisible = name.IsVisible = count.IsVisible = hasItem;
-                emptySlot.IsVisible = !hasItem;
+                emptySlot.IsVisible  = !hasItem;
                 if (!hasItem)
                     return;
                 icon.SetItem(itemID);
-                name.String = GetItemName(itemID);
+                name.String    = GetItemName(itemID);
                 name.TextColor = ColorHelper.GetColor(ItemUtil.GetItemRarityColorType(itemID));
                 var inventory = InventoryManager.Instance();
                 var quantity = inventory == null ? 0 : inventory->GetInventoryItemCount(itemID, checkEquipped: false, checkArmory: false);
-                count.String = quantity == 0
+                count.String    = quantity == 0
                     ? OmniLoc.Get("Feature.BetterGlamourManagement.DyePicker.MissingDye")
                     : string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.DyePicker.Quantity"), quantity);
                 count.TextColor = quantity == 0 ? ColorHelper.GetColor(15) : ColorHelper.GetColor(2);
@@ -879,8 +928,8 @@ public sealed partial class BetterGlamourManagement
 
         #region 常量
 
-        private const int SWATCHES_PER_ROW = 12;
-        private const float GRID_TOP = 218f;
+        private const int   SWATCHES_PER_ROW = 12;
+        private const float GRID_TOP         = 218f;
 
         #endregion
     }

@@ -15,20 +15,22 @@ using OmenTools.Interop.Game.AgentEvent;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
-using TreeTools.Threading;
 using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Operations;
 using OmniToolbox.UI.Theme;
+using TreeTools.Threading;
 
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-public sealed unsafe partial class AutoLogin(
+public sealed unsafe partial class AutoLogin
+(
     AutoLogin.Settings config,
-    System.Action saveConfig) : OmniModuleBase
+    System.Action      saveConfig
+) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -55,17 +57,15 @@ public sealed unsafe partial class AutoLogin(
             ["Feature.AutoLogin.Delete"] = "Feature.AutoLogin.Delete"
         });
 
-    public override bool HasSettings => true;
-
-    private TaskHelper tasks = null!;
-    private readonly IPCSubscriber<string, Task<bool>> selectDataCenterAndLogin = new(
+    private TaskHelper                                 tasks                           = null!;
+    private readonly IPCSubscriber<string, Task<bool>> selectDataCenterAndLogin        = new(
         "DCTravelerX.SelectDCAndLogin",
         static () => Task.FromException<bool>(
             new InvalidOperationException("DCTravelerX.SelectDCAndLogin IPC is unavailable.")));
-    private AddonEventRegistry? addonEvents;
-    private AutoLoginTarget? manualTarget;
-    private bool suspendedUntilLogin;
-    private bool crossDataCenterTravelInProgress;
+    private AddonEventRegistry?                        addonEvents;
+    private AutoLoginTarget?                           manualTarget;
+    private bool                                       suspendedUntilLogin;
+    private bool                                       crossDataCenterTravelInProgress;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -114,9 +114,9 @@ public sealed unsafe partial class AutoLogin(
             CompleteCharacterSwitch(request, OperationState.Cancelled, "ModuleStopped");
             PublishCharacterSwitchResult(request);
         }
-        tasks = null!;
-        addonEvents = null;
-        manualTarget = null;
+        tasks                           = null!;
+        addonEvents                     = null;
+        manualTarget                    = null;
         crossDataCenterTravelInProgress = false;
     }
 
@@ -141,6 +141,8 @@ public sealed unsafe partial class AutoLogin(
     {
         selectDataCenterAndLogin.Dispose();
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -168,7 +170,7 @@ public sealed unsafe partial class AutoLogin(
         var worldWidth = ImGui.GetFontSize() * 6f;
         foreach (var target in config.Targets)
         {
-            nameWidth = MathF.Max(nameWidth, ImGui.CalcTextSize(target.CharacterName).X);
+            nameWidth  = MathF.Max(nameWidth, ImGui.CalcTextSize(target.CharacterName).X);
             worldWidth = MathF.Max(worldWidth, ImGui.CalcTextSize(LuminaWrapper.GetWorldName(target.WorldID)).X + ImGui.GetTextLineHeight());
         }
         using (var table = OmniControls.DataTable(
@@ -228,7 +230,7 @@ public sealed unsafe partial class AutoLogin(
                 if (OmniControls.Checkbox("##enabled", ref enabled))
                 {
                     target.Enabled = enabled;
-                    changed = true;
+                    changed        = true;
                 }
 
                 OmniControls.NextTableField(OmniLoc.Get(this, "Feature.AutoLogin.Column.CharacterName"), detailLayout);
@@ -301,7 +303,7 @@ public sealed unsafe partial class AutoLogin(
             manualTarget = null;
         }
         crossDataCenterTravelInProgress = false;
-        suspendedUntilLogin = false;
+        suspendedUntilLogin             = false;
         GetCurrentAccountTargets();
     }
 
@@ -336,7 +338,7 @@ public sealed unsafe partial class AutoLogin(
                 continue;
 
             target.AccountID = accountID;
-            changed = true;
+            changed          = true;
         }
 
         if (changed)
@@ -395,7 +397,11 @@ public sealed unsafe partial class AutoLogin(
         return true;
     }
 
-    public override bool TryHandleCommand(string command, string arguments)
+    public override bool TryHandleCommand
+    (
+        string command,
+        string arguments
+    )
     {
         if (!TryParseTarget(arguments, out var target))
         {
@@ -406,9 +412,17 @@ public sealed unsafe partial class AutoLogin(
         return true;
     }
 
-    private void OnLobbyTravel(AddonEvent eventType, AddonArgs args) => SuspendUntilNextLogin();
+    private void OnLobbyTravel
+    (
+        AddonEvent eventType,
+        AddonArgs  args
+    ) => SuspendUntilNextLogin();
 
-    private void OnTitleMenu(AddonEvent eventType, AddonArgs? args)
+    private void OnTitleMenu
+    (
+        AddonEvent eventType,
+        AddonArgs? args
+    )
     {
         if (suspendedUntilLogin || crossDataCenterTravelInProgress)
         {
@@ -427,7 +441,11 @@ public sealed unsafe partial class AutoLogin(
         EnqueueLogin(target);
     }
 
-    private void EnqueueLogin(AutoLoginTarget? target, CharacterSwitchRequest? request = null)
+    private void EnqueueLogin
+    (
+        AutoLoginTarget?        target,
+        CharacterSwitchRequest? request = null
+    )
     {
         if (request is not null)
             request.AwaitingLogin = true;
@@ -773,7 +791,11 @@ public sealed unsafe partial class AutoLogin(
         return true;
     }
 
-    private static bool TryParseTarget(string text, out AutoLoginTarget target)
+    private static bool TryParseTarget
+    (
+        string              text,
+        out AutoLoginTarget target
+    )
     {
         target = null!;
         var separator = text.LastIndexOf('@');

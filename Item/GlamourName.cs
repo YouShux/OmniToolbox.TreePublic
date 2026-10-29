@@ -25,7 +25,7 @@ public sealed class GlamourName : OmniModuleBase
         });
 
     private readonly TooltipManager.ItemTooltipUpdateDelegate tooltipHandler;
-    private TooltipManager? tooltipManager;
+    private TooltipManager?                                   tooltipManager;
 
     public GlamourName()
     {
@@ -47,10 +47,12 @@ public sealed class GlamourName : OmniModuleBase
         tooltipManager = null;
     }
 
-    private void OnItemTooltip(
-        ItemKind itemKind,
-        uint itemID,
-        ref List<TooltipItemModification> modifications)
+    private void OnItemTooltip
+    (
+        ItemKind                          itemKind,
+        uint                              itemID,
+        ref List<TooltipItemModification> modifications
+    )
     {
         if (itemKind == ItemKind.EventItem || itemID is 0 or 46982)
         {

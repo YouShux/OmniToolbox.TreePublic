@@ -36,14 +36,14 @@ public sealed unsafe partial class BetterWondrousTails : OmniModuleBase
             ["OpenDutyHelp"] = "Feature.BetterWondrousTails.OpenDuty.Help"
         });
 
-    private Settings config = new();
-    private Calculator? calculator;
-    private readonly Dictionary<uint, RewardSnapshot> snapshots = [];
-    private readonly string[] suffixes = [string.Empty, string.Empty, string.Empty];
-    private nint addonAddress;
-    private int lastMask = -1;
-    private bool centerContentListPending;
-    private Hook<DutySlot.Delegates.ReceiveEvent>? DutySlotReceiveEventHook;
+    private Settings                                  config                   = new();
+    private Calculator?                               calculator;
+    private readonly Dictionary<uint, RewardSnapshot> snapshots                = [];
+    private readonly string[]                         suffixes                 = [string.Empty, string.Empty, string.Empty];
+    private nint                                      addonAddress;
+    private int                                       lastMask                 = -1;
+    private bool                                      centerContentListPending;
+    private Hook<DutySlot.Delegates.ReceiveEvent>?    DutySlotReceiveEventHook;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -110,9 +110,9 @@ public sealed unsafe partial class BetterWondrousTails : OmniModuleBase
         if (config.LineProbability && config.ShuffleProbability && config.OpenDuty)
             return false;
 
-        config.LineProbability = true;
+        config.LineProbability    = true;
         config.ShuffleProbability = true;
-        config.OpenDuty = true;
+        config.OpenDuty           = true;
         if (IsEnabled)
             RefreshSettings();
         return true;
@@ -131,7 +131,11 @@ public sealed unsafe partial class BetterWondrousTails : OmniModuleBase
             Refresh(addon);
     }
 
-    private void OnAddonEvent(AddonEvent eventType, AddonArgs args)
+    private void OnAddonEvent
+    (
+        AddonEvent eventType,
+        AddonArgs  args
+    )
     {
         if (eventType == AddonEvent.PreFinalize)
         {
@@ -196,7 +200,12 @@ public sealed unsafe partial class BetterWondrousTails : OmniModuleBase
             UpdateRewardText(addon, RewardNodeIDs[index], suffixes[index]);
     }
 
-    private void UpdateRewardText(AtkUnitBase* addon, uint nodeID, string suffix)
+    private void UpdateRewardText
+    (
+        AtkUnitBase* addon,
+        uint         nodeID,
+        string       suffix
+    )
     {
         var node = addon->GetTextNodeById(nodeID);
         if (node == null || node->Type != NodeType.Text)
@@ -209,7 +218,7 @@ public sealed unsafe partial class BetterWondrousTails : OmniModuleBase
         snapshots.TryGetValue(nodeID, out var snapshot);
         if (snapshot == null || snapshot.NodeAddress != (nint)node)
         {
-            snapshot = new((nint)node, current, node->Width, node->TextFlags);
+            snapshot          = new((nint)node, current, node->Width, node->TextFlags);
             snapshots[nodeID] = snapshot;
         }
         else if (!current.SequenceEqual(snapshot.AppliedText))
@@ -231,10 +240,10 @@ public sealed unsafe partial class BetterWondrousTails : OmniModuleBase
         ushort textHeight = 0;
         node->GetTextDrawSize(&textWidth, &textHeight);
         node->AtkResNode.SetWidth(Math.Max(snapshot.OriginalWidth, textWidth));
-        snapshot.AppliedText = node->NodeText.AsSpan().ToArray();
+        snapshot.AppliedText  = node->NodeText.AsSpan().ToArray();
         snapshot.AppliedWidth = node->Width;
         snapshot.AppliedFlags = node->TextFlags;
-        snapshot.Suffix = suffix;
+        snapshot.Suffix       = suffix;
     }
 
     private void RestoreAndClear()
@@ -268,33 +277,39 @@ public sealed unsafe partial class BetterWondrousTails : OmniModuleBase
     {
         snapshots.Clear();
         addonAddress = nint.Zero;
-        lastMask = -1;
+        lastMask     = -1;
     }
 
     private sealed class Settings
     {
-        public bool LineProbability = true;
+        public bool LineProbability    = true;
         public bool ShuffleProbability = true;
-        public bool OpenDuty = true;
+        public bool OpenDuty           = true;
     }
 
-    private sealed class RewardSnapshot(nint nodeAddress, ReadOnlySpan<byte> originalText, ushort originalWidth, TextFlags originalFlags)
+    private sealed class RewardSnapshot
+    (
+        nint               nodeAddress,
+        ReadOnlySpan<byte> originalText,
+        ushort             originalWidth,
+        TextFlags          originalFlags
+    )
     {
-        internal readonly nint NodeAddress = nodeAddress;
-        internal byte[] OriginalText = RewardText.GetNativeText(originalText).ToArray();
-        internal byte[] AppliedText = [];
-        internal string Suffix = string.Empty;
-        internal ushort OriginalWidth = originalWidth;
-        internal ushort AppliedWidth;
-        internal TextFlags OriginalFlags = originalFlags;
-        internal TextFlags AppliedFlags;
+        internal readonly nint NodeAddress   = nodeAddress;
+        internal byte[]        OriginalText  = RewardText.GetNativeText(originalText).ToArray();
+        internal byte[]        AppliedText   = [];
+        internal string        Suffix        = string.Empty;
+        internal ushort        OriginalWidth = originalWidth;
+        internal ushort        AppliedWidth;
+        internal TextFlags     OriginalFlags = originalFlags;
+        internal TextFlags     AppliedFlags;
     }
 
     private static readonly uint[] RewardNodeIDs = [78, 89, 100];
 
     #region 常量
 
-    private const string ADDON_NAME = "WeeklyBingo";
+    private const string ADDON_NAME              = "WeeklyBingo";
     private const string CONTENT_LIST_ADDON_NAME = "WeeklyBingoContentList";
 
     #endregion

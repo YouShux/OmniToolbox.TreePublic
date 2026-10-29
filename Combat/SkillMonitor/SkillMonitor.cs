@@ -62,14 +62,12 @@ public sealed partial class SkillMonitor : OmniModuleBase
             ["Feature.SkillMonitor.WeaponSheathed"] = "Feature.SkillMonitor.WeaponSheathed"
         });
 
-    public override bool HasSettings => true;
-
     private readonly SkillMonitorConfig config;
-    private readonly SkillMonitorPanel panel = new();
-    private SkillMonitorDefinition[] definitions;
-    private SkillMonitorTracker tracker;
-    private SkillMonitorOverlay overlay;
-    private FeatureLifetime? runtimeLifetime;
+    private readonly SkillMonitorPanel  panel           = new();
+    private SkillMonitorDefinition[]    definitions;
+    private SkillMonitorTracker         tracker;
+    private SkillMonitorOverlay         overlay;
+    private FeatureLifetime?            runtimeLifetime;
 
     public SkillMonitor(SkillMonitorConfig config)
     {
@@ -103,6 +101,8 @@ public sealed partial class SkillMonitor : OmniModuleBase
         lifetime.OnStopping(() => windowManager.PostDraw -= overlay.Draw);
     }
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings()
     {
         var changed = panel.Draw(config, definitions, out var definitionsChanged);
@@ -117,21 +117,21 @@ public sealed partial class SkillMonitor : OmniModuleBase
     public override bool ResetSettings()
     {
         var defaults = new SkillMonitorConfig();
-        config.Offset = defaults.Offset;
-        config.IconScale = defaults.IconScale;
-        config.IconSpacing = defaults.IconSpacing;
-        config.IconsPerRow = defaults.IconsPerRow;
-        config.Font = defaults.Font;
-        config.Alignment = defaults.Alignment;
-        config.ShowActive = defaults.ShowActive;
-        config.ShowOnCooldown = defaults.ShowOnCooldown;
-        config.ShowOffCooldown = defaults.ShowOffCooldown;
-        config.HideOutOfCombat = defaults.HideOutOfCombat;
-        config.HideWeaponSheathed = defaults.HideWeaponSheathed;
+        config.Offset                 = defaults.Offset;
+        config.IconScale              = defaults.IconScale;
+        config.IconSpacing            = defaults.IconSpacing;
+        config.IconsPerRow            = defaults.IconsPerRow;
+        config.Font                   = defaults.Font;
+        config.Alignment              = defaults.Alignment;
+        config.ShowActive             = defaults.ShowActive;
+        config.ShowOnCooldown         = defaults.ShowOnCooldown;
+        config.ShowOffCooldown        = defaults.ShowOffCooldown;
+        config.HideOutOfCombat        = defaults.HideOutOfCombat;
+        config.HideWeaponSheathed     = defaults.HideWeaponSheathed;
         config.ShowGeneralSkillsFirst = defaults.ShowGeneralSkillsFirst;
-        config.CustomActions = [];
-        config.JobActionOrder = [];
-        config.JobDisabledActions = defaults.JobDisabledActions;
+        config.CustomActions          = [];
+        config.JobActionOrder         = [];
+        config.JobDisabledActions     = defaults.JobDisabledActions;
         NormalizeConfig();
         RebuildRuntime();
         return true;
@@ -139,7 +139,7 @@ public sealed partial class SkillMonitor : OmniModuleBase
 
     private void NormalizeConfig()
     {
-        config.IconScale = Math.Clamp(
+        config.IconScale   = Math.Clamp(
             config.IconScale <= 0f ? SkillMonitorConfig.DEFAULT_ICON_SCALE : config.IconScale,
             SkillMonitorConfig.DEFAULT_ICON_SCALE * 0.5f,
             SkillMonitorConfig.DEFAULT_ICON_SCALE * 2f);
@@ -176,17 +176,21 @@ public sealed partial class SkillMonitor : OmniModuleBase
         }
     }
 
-    private void NormalizeScope(uint scopeID, SkillMonitorGroup group)
+    private void NormalizeScope
+    (
+        uint              scopeID,
+        SkillMonitorGroup group
+    )
     {
         if (!config.JobActionOrder.TryGetValue(scopeID, out var order))
         {
-            order = [];
+            order                          = [];
             config.JobActionOrder[scopeID] = order;
         }
 
         if (!config.JobDisabledActions.TryGetValue(scopeID, out var disabled))
         {
-            disabled = [];
+            disabled                           = [];
             config.JobDisabledActions[scopeID] = disabled;
         }
 
@@ -271,7 +275,12 @@ public sealed partial class SkillMonitor : OmniModuleBase
         return indexesByJob;
     }
 
-    private void AddScopeIndexes(List<int> indexes, uint scopeID, uint jobID)
+    private void AddScopeIndexes
+    (
+        List<int> indexes,
+        uint      scopeID,
+        uint      jobID
+    )
     {
         if (!config.JobActionOrder.TryGetValue(scopeID, out var order) ||
             !config.JobDisabledActions.TryGetValue(scopeID, out var disabled))

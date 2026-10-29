@@ -5,15 +5,17 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class DisplayIDInformation
 {
-    internal static class DisplayIDInformationFormatter
+    private static class DisplayIDInformationFormatter
     {
-        public static string FormatActionSuffix(
+        public static string FormatActionSuffix
+        (
             uint originalID,
             uint resolvedID,
             bool showResolved,
             bool showOriginal,
             uint iconID,
-            bool showIcon)
+            bool showIcon
+        )
         {
             var suffix = showResolved && !showOriginal
                 ? $" [{resolvedID}]"
@@ -23,10 +25,21 @@ public sealed partial class DisplayIDInformation
             return showIcon && iconID != 0 ? $"{suffix}/[{iconID}]" : suffix;
         }
 
-        public static string FormatIDSuffix(uint id, uint iconID, bool showIcon) =>
+        public static string FormatIDSuffix
+        (
+            uint id,
+            uint iconID,
+            bool showIcon
+        ) =>
             showIcon && iconID != 0 ? $" [{id}]/[{iconID}]" : $" [{id}]";
 
-        public static string AppendStatusTooltipID(string text, uint statusID, uint iconID, bool showIcon)
+        public static string AppendStatusTooltipID
+        (
+            string text,
+            uint   statusID,
+            uint   iconID,
+            bool   showIcon
+        )
         {
             var suffix = $" {FormatIDSuffix(statusID, iconID, showIcon)}";
             var newlineIndex = text.IndexOf('\n');
@@ -41,7 +54,14 @@ public sealed partial class DisplayIDInformation
                 : text.Insert(newlineIndex, suffix);
         }
 
-        public static string? FormatDtr(bool showZone, bool showWeather, uint mapID, uint territoryID, uint weatherID)
+        public static string? FormatDtr
+        (
+            bool showZone,
+            bool showWeather,
+            uint mapID,
+            uint territoryID,
+            uint weatherID
+        )
         {
             if (!showZone || mapID == 0 || territoryID == 0)
             {
@@ -57,7 +77,11 @@ public sealed partial class DisplayIDInformation
                 weatherID);
         }
 
-        public static bool ShouldDisplayTarget(ObjectKind objectKind, DisplayIDInformationConfig config) => objectKind switch
+        public static bool ShouldDisplayTarget
+        (
+            ObjectKind                 objectKind,
+            DisplayIDInformationConfig config
+        ) => objectKind switch
         {
             ObjectKind.Pc => false,
             ObjectKind.BattleNpc => config.DisplayTargetIDBattleNPC,
@@ -87,7 +111,12 @@ public sealed partial class DisplayIDInformation
             FlyTextKind.HpDrain or
             FlyTextKind.MpDrain;
 
-        public static string InsertFlyTextID(string text, string matchedName, uint id)
+        public static string InsertFlyTextID
+        (
+            string text,
+            string matchedName,
+            uint   id
+        )
         {
             var suffix = $"({id})";
             if (text.Contains(suffix, StringComparison.Ordinal))

@@ -103,22 +103,24 @@ public sealed partial class MitigationMonitor : OmniModuleBase
             ["Feature.MitigationMonitor.Unlock"] = "Feature.MitigationMonitor.Unlock"
         });
 
-    public override bool HasSettings => true;
-
-    private readonly MitigationMonitorConfig config;
-    private readonly MitigationCombatLog combatLog;
-    private readonly MitigationRecorder recorder;
-    private readonly MitigationMonitorHotkey hotkey;
+    private readonly MitigationMonitorConfig  config;
+    private readonly MitigationCombatLog      combatLog;
+    private readonly MitigationRecorder       recorder;
+    private readonly MitigationMonitorHotkey  hotkey;
     private readonly MitigationMonitorOverlay overlay;
 
-    public MitigationMonitor(MitigationMonitorConfig config, Action saveConfig)
+    public MitigationMonitor
+    (
+        MitigationMonitorConfig config,
+        Action                  saveConfig
+    )
     {
         this.config = config;
         NormalizeConfig();
         combatLog = new(config.ReplaySaveCount);
-        recorder = new(combatLog);
-        hotkey = new(config, saveConfig);
-        overlay = new(config, combatLog, new(), saveConfig);
+        recorder  = new(combatLog);
+        hotkey    = new(config, saveConfig);
+        overlay   = new(config, combatLog, new(), saveConfig);
     }
 
     protected override void OnStart(FeatureLifetime activation)
@@ -141,28 +143,30 @@ public sealed partial class MitigationMonitor : OmniModuleBase
         windowManager.PostDraw += overlay.Draw;
     }
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings() => Panel.Draw(this, config, hotkey);
 
     public override bool ResetSettings()
     {
         var defaults = new MitigationMonitorConfig();
-        config.Visible = defaults.Visible;
-        config.Locked = defaults.Locked;
-        config.Collapsed = defaults.Collapsed;
-        config.Position = defaults.Position;
-        config.CollapsedPosition = defaults.CollapsedPosition;
-        config.Size = defaults.Size;
-        config.ReplaySaveCount = defaults.ReplaySaveCount;
-        config.GlobalScale = defaults.GlobalScale;
-        config.Opacity = defaults.Opacity;
-        config.ShowDotDamage = defaults.ShowDotDamage;
-        config.HideHotkey = defaults.HideHotkey;
-        config.HideHotkeyModifier = defaults.HideHotkeyModifier;
-        config.TargetDisplayMode = defaults.TargetDisplayMode;
-        config.TimeColumnWidth = defaults.TimeColumnWidth;
-        config.ActionColumnWidth = defaults.ActionColumnWidth;
-        config.TargetColumnWidth = defaults.TargetColumnWidth;
-        config.DamageColumnWidth = defaults.DamageColumnWidth;
+        config.Visible               = defaults.Visible;
+        config.Locked                = defaults.Locked;
+        config.Collapsed             = defaults.Collapsed;
+        config.Position              = defaults.Position;
+        config.CollapsedPosition     = defaults.CollapsedPosition;
+        config.Size                  = defaults.Size;
+        config.ReplaySaveCount       = defaults.ReplaySaveCount;
+        config.GlobalScale           = defaults.GlobalScale;
+        config.Opacity               = defaults.Opacity;
+        config.ShowDotDamage         = defaults.ShowDotDamage;
+        config.HideHotkey            = defaults.HideHotkey;
+        config.HideHotkeyModifier    = defaults.HideHotkeyModifier;
+        config.TargetDisplayMode     = defaults.TargetDisplayMode;
+        config.TimeColumnWidth       = defaults.TimeColumnWidth;
+        config.ActionColumnWidth     = defaults.ActionColumnWidth;
+        config.TargetColumnWidth     = defaults.TargetColumnWidth;
+        config.DamageColumnWidth     = defaults.DamageColumnWidth;
         config.MitigationColumnWidth = defaults.MitigationColumnWidth;
         NormalizeConfig();
         overlay.RequestLayoutRestore();
@@ -196,8 +200,8 @@ public sealed partial class MitigationMonitor : OmniModuleBase
         }
 
         config.ReplaySaveCount = Math.Clamp(config.ReplaySaveCount, 1, 300);
-        config.GlobalScale = Math.Clamp(config.GlobalScale, 0f, 3f);
-        config.Opacity = Math.Clamp(config.Opacity, 0f, 1f);
+        config.GlobalScale     = Math.Clamp(config.GlobalScale, 0f, 3f);
+        config.Opacity         = Math.Clamp(config.Opacity, 0f, 1f);
         if (!MitigationMonitorHotkey.IsBindable(config.HideHotkey))
         {
             config.HideHotkey = 0;
@@ -213,10 +217,10 @@ public sealed partial class MitigationMonitor : OmniModuleBase
             config.TargetDisplayMode = MitigationTargetDisplayMode.JobIcon;
         }
 
-        config.TimeColumnWidth = Math.Clamp(config.TimeColumnWidth <= 0f ? 54f : config.TimeColumnWidth, 44f, 220f);
-        config.ActionColumnWidth = Math.Clamp(config.ActionColumnWidth <= 0f ? 80f : config.ActionColumnWidth, 70f, 420f);
-        config.TargetColumnWidth = Math.Clamp(config.TargetColumnWidth <= 0f ? 64f : config.TargetColumnWidth, 60f, 240f);
-        config.DamageColumnWidth = Math.Clamp(config.DamageColumnWidth <= 0f ? 88f : config.DamageColumnWidth, 42f, 260f);
+        config.TimeColumnWidth       = Math.Clamp(config.TimeColumnWidth <= 0f ? 54f : config.TimeColumnWidth, 44f, 220f);
+        config.ActionColumnWidth     = Math.Clamp(config.ActionColumnWidth <= 0f ? 80f : config.ActionColumnWidth, 70f, 420f);
+        config.TargetColumnWidth     = Math.Clamp(config.TargetColumnWidth <= 0f ? 64f : config.TargetColumnWidth, 60f, 240f);
+        config.DamageColumnWidth     = Math.Clamp(config.DamageColumnWidth <= 0f ? 88f : config.DamageColumnWidth, 42f, 260f);
         config.MitigationColumnWidth = Math.Clamp(config.MitigationColumnWidth <= 0f ? 64f : config.MitigationColumnWidth, 34f, 180f);
     }
 }

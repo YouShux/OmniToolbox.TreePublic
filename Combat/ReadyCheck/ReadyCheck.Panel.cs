@@ -59,7 +59,7 @@ public sealed partial class ReadyCheck
                 ref partyOffset,
                 ref partyScale);
             config.PartyIconOffset = partyOffset;
-            config.PartyIconScale = partyScale;
+            config.PartyIconScale  = partyScale;
 
             var allianceOffset = config.AllianceIconOffset;
             var allianceScale = config.AllianceIconScale;
@@ -69,7 +69,7 @@ public sealed partial class ReadyCheck
                 ref allianceOffset,
                 ref allianceScale);
             config.AllianceIconOffset = allianceOffset;
-            config.AllianceIconScale = allianceScale;
+            config.AllianceIconScale  = allianceScale;
 
             var crossWorldAllianceOffset = config.CrossWorldAllianceIconOffset;
             var crossWorldAllianceScale = config.CrossWorldAllianceIconScale;
@@ -79,7 +79,7 @@ public sealed partial class ReadyCheck
                 ref crossWorldAllianceOffset,
                 ref crossWorldAllianceScale);
             config.CrossWorldAllianceIconOffset = crossWorldAllianceOffset;
-            config.CrossWorldAllianceIconScale = crossWorldAllianceScale;
+            config.CrossWorldAllianceIconScale  = crossWorldAllianceScale;
             return changed;
         }
 
@@ -112,7 +112,7 @@ public sealed partial class ReadyCheck
                     out var clearOnTerritoryChanged))
             {
                 config.ClearOnTerritoryChanged = clearOnTerritoryChanged;
-                changed = true;
+                changed                        = true;
             }
 
             ImGui.TableNextColumn();
@@ -123,7 +123,7 @@ public sealed partial class ReadyCheck
                     out var clearOnCombat))
             {
                 config.ClearOnCombat = clearOnCombat;
-                changed = true;
+                changed              = true;
             }
 
             ImGui.TableNextColumn();
@@ -134,7 +134,7 @@ public sealed partial class ReadyCheck
                     out var clearOnInstancedCombat))
             {
                 config.ClearOnInstancedCombat = clearOnInstancedCombat;
-                changed = true;
+                changed                       = true;
             }
 
             ImGui.TableNextColumn();
@@ -145,7 +145,7 @@ public sealed partial class ReadyCheck
                     out var clearAfterTime))
             {
                 config.ClearAfterTime = clearAfterTime;
-                changed = true;
+                changed               = true;
             }
 
             OmniControls.SameLineOrWrap(OmniControls.MeasureInput("900", secondsInputWidth).X +
@@ -168,21 +168,25 @@ public sealed partial class ReadyCheck
             return changed;
         }
 
-        private static bool DrawCheckbox(
-            string labelKey,
-            string id,
-            bool current,
-            out bool value)
+        private static bool DrawCheckbox
+        (
+            string   labelKey,
+            string   id,
+            bool     current,
+            out bool value
+        )
         {
             value = current;
             return OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##readyCheckClear{id}", ref value);
         }
 
-        private static bool DrawIconSettings(
-            string id,
-            string labelKey,
+        private static bool DrawIconSettings
+        (
+            string      id,
+            string      labelKey,
             ref Vector2 offset,
-            ref float scale)
+            ref float   scale
+        )
         {
             var changed = false;
             ImGui.TableNextRow();

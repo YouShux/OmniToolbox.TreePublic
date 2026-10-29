@@ -19,15 +19,15 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class BetterGlamourManagement
 {
-    private ICallGateProvider<string, string>? remoteGate;
+    private ICallGateProvider<string, string>?       remoteGate;
     private ICallGateProvider<string, Task<string>>? asyncManagementGate;
     private ICallGateProvider<string, Task<string>>? asyncFrameGate;
-    private ICallGateProvider<string, string>? frameCacheGate;
-    private long remoteUntil;
-    private volatile bool remoteEnabled;
-    private string phoneSelectedID = string.Empty;
-    private bool remoteActive;
-    private string? nativeButtonAtlas;
+    private ICallGateProvider<string, string>?       frameCacheGate;
+    private long                                     remoteUntil;
+    private volatile bool                            remoteEnabled;
+    private string                                   phoneSelectedID     = string.Empty;
+    private bool                                     remoteActive;
+    private string?                                  nativeButtonAtlas;
 
     private void EnableRemote()
     {
@@ -52,7 +52,7 @@ public sealed unsafe partial class BetterGlamourManagement
         frameCacheGate?.UnregisterFunc();
         frameCacheGate = null;
         remoteGate?.UnregisterFunc();
-        remoteGate = null;
+        remoteGate   = null;
         remoteActive = false;
         Volatile.Write(ref phoneSelectedID, string.Empty);
     }
@@ -111,7 +111,11 @@ public sealed unsafe partial class BetterGlamourManagement
             portraitPreview?.CancelPreview();
     }
 
-    internal static string Revision(IEnumerable<BetterGlamourPreset> entries, ulong contentID = 0) =>
+    internal static string Revision
+    (
+        IEnumerable<BetterGlamourPreset> entries,
+        ulong                            contentID = 0
+    ) =>
         Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new
         {
             ContentID = contentID,
@@ -270,13 +274,13 @@ public sealed unsafe partial class BetterGlamourManagement
                     var oldHighlightsEnabled = preset.HighlightsEnabled;
                     var oldGlasses = preset.GlassesID;
                     var oldItems = preset.Items;
-                    preset.Name = incoming.Name;
-                    preset.HairstyleID = incoming.HairstyleID;
-                    preset.HairColor = incoming.HairColor;
-                    preset.HighlightColor = incoming.HighlightColor;
+                    preset.Name              = incoming.Name;
+                    preset.HairstyleID       = incoming.HairstyleID;
+                    preset.HairColor         = incoming.HairColor;
+                    preset.HighlightColor    = incoming.HighlightColor;
                     preset.HighlightsEnabled = incoming.HighlightsEnabled;
-                    preset.GlassesID = incoming.GlassesID;
-                    preset.Items = incoming.Items;
+                    preset.GlassesID         = incoming.GlassesID;
+                    preset.Items             = incoming.Items;
                     try
                     {
                         if (gearsetIndices is null)
@@ -286,13 +290,13 @@ public sealed unsafe partial class BetterGlamourManagement
                     }
                     catch
                     {
-                        preset.Name = oldName;
-                        preset.HairstyleID = oldHair;
-                        preset.HairColor = oldHairColor;
-                        preset.HighlightColor = oldHighlightColor;
+                        preset.Name              = oldName;
+                        preset.HairstyleID       = oldHair;
+                        preset.HairColor         = oldHairColor;
+                        preset.HighlightColor    = oldHighlightColor;
                         preset.HighlightsEnabled = oldHighlightsEnabled;
-                        preset.GlassesID = oldGlasses;
-                        preset.Items = oldItems;
+                        preset.GlassesID         = oldGlasses;
+                        preset.Items             = oldItems;
                         throw;
                     }
 
@@ -367,7 +371,11 @@ public sealed unsafe partial class BetterGlamourManagement
     private bool IsSelectedRemotePreset(string id) =>
         id.Length > 0 && selectedPresetIndex >= 0 && selectedPresetIndex < config.Presets.Count && config.Presets[selectedPresetIndex].ID == id;
 
-    private static float ReadCameraDelta(JsonElement request, string key)
+    private static float ReadCameraDelta
+    (
+        JsonElement request,
+        string      key
+    )
     {
         var value = request.TryGetProperty(key, out var property) ? property.GetSingle() : 0;
         if (!float.IsFinite(value) || Math.Abs(value) > 100)
@@ -492,7 +500,11 @@ public sealed unsafe partial class BetterGlamourManagement
             throw new InvalidDataException("发型不存在。");
     }
 
-    internal static bool FitsSlot(Item item, int slot)
+    internal static bool FitsSlot
+    (
+        Item item,
+        int  slot
+    )
     {
         if (item.EquipSlotCategory.RowId == 0)
             return false;
@@ -589,7 +601,11 @@ public sealed unsafe partial class BetterGlamourManagement
         return GlamourClipboard.PrepareImportedPreset(result);
     }
 
-    private static byte ReadWebsiteDye(JsonElement dyes, int index)
+    private static byte ReadWebsiteDye
+    (
+        JsonElement dyes,
+        int         index
+    )
     {
         if (index >= dyes.GetArrayLength())
             return 0;

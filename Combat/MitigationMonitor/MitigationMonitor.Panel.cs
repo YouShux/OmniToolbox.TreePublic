@@ -8,10 +8,12 @@ public sealed partial class MitigationMonitor
 {
     private static class Panel
     {
-        public static bool Draw(
-            MitigationMonitor feature,
+        public static bool Draw
+        (
+            MitigationMonitor       feature,
             MitigationMonitorConfig config,
-            MitigationMonitorHotkey hotkey)
+            MitigationMonitorHotkey hotkey
+        )
         {
             var changed = false;
             using var table = ImRaii.Table(
@@ -33,7 +35,7 @@ public sealed partial class MitigationMonitor
                     ref showDotDamage))
             {
                 config.ShowDotDamage = showDotDamage;
-                changed = true;
+                changed              = true;
             }
 
             var targetLabel = OmniLoc.Get("Feature.MitigationMonitor.TargetDisplayMode");
@@ -178,10 +180,12 @@ public sealed partial class MitigationMonitor
             return changed;
         }
 
-        private static bool DrawTargetMode(
-            MitigationMonitorConfig config,
+        private static bool DrawTargetMode
+        (
+            MitigationMonitorConfig     config,
             MitigationTargetDisplayMode mode,
-            string labelKey)
+            string                      labelKey
+        )
         {
             if (!OmniControls.SmallButton(OmniLoc.Get(labelKey), config.TargetDisplayMode == mode))
             {
@@ -192,11 +196,13 @@ public sealed partial class MitigationMonitor
             return true;
         }
 
-        private static bool DrawTargetIconMode(
-            MitigationMonitorConfig config,
+        private static bool DrawTargetIconMode
+        (
+            MitigationMonitorConfig     config,
             MitigationTargetDisplayMode mode,
-            uint iconID,
-            string tooltipKey)
+            uint                        iconID,
+            string                      tooltipKey
+        )
         {
             var height = MathF.Max(OmniTheme.SmallButtonSize().Y, ImGui.GetFrameHeight());
             var size = new Vector2(height);

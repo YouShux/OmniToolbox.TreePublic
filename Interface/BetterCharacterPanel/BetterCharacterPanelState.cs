@@ -30,7 +30,12 @@ internal static unsafe partial class BetterCharacterPanelState
         Haste = 47
     }
 
-    internal static double CalculateGcd(int level, int speed, int speedModifier) =>
+    internal static double CalculateGcd
+    (
+        int level,
+        int speed,
+        int speedModifier
+    ) =>
         CombatStatFormula.CalculateGcd(level, speed, speedModifier);
 
     public static Stats Calculate(PlayerState* playerState)
@@ -153,9 +158,11 @@ internal static unsafe partial class BetterCharacterPanelState
 
     public static bool IsCaster(int jobID) => CombatStatFormula.IsCaster(jobID);
 
-    public static ReadOnlySeString BuildTooltip(
+    public static ReadOnlySeString BuildTooltip
+    (
         BetterCharacterPanelTooltip tooltip,
-        in Stats stats) => tooltip switch
+        in Stats                    stats
+    ) => tooltip switch
         {
             BetterCharacterPanelTooltip.MainStat => OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.MainStat"),
             BetterCharacterPanelTooltip.Vitality => OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.Vitality"),
@@ -206,13 +213,15 @@ internal static unsafe partial class BetterCharacterPanelState
             _ => throw new ArgumentOutOfRangeException(nameof(tooltip), tooltip, null)
         };
 
-    private static StatInfo CalculateTier(
-        int currentValue,
-        int baseValue,
-        int div,
+    private static StatInfo CalculateTier
+    (
+        int    currentValue,
+        int    baseValue,
+        int    div,
         double coefficient,
         double offset,
-        double displayScale)
+        double displayScale
+    )
     {
         var displayValue = Math.Floor(coefficient * (currentValue - baseValue) / div + offset) / displayScale;
         var previousTier = (int)Math.Ceiling(
@@ -222,7 +231,11 @@ internal static unsafe partial class BetterCharacterPanelState
         return new(displayValue, currentValue, previousTier, Math.Max(currentValue + 1, nextTier), div / coefficient);
     }
 
-    private static StatInfo CalculateDefense(int defense, CombatLevelModifier modifier)
+    private static StatInfo CalculateDefense
+    (
+        int                 defense,
+        CombatLevelModifier modifier
+    )
     {
         var displayValue = Math.Floor(15d * defense / modifier.Div) / 100d;
         var previousTier = (int)Math.Ceiling(displayValue * 100d * modifier.Div / 15d);
@@ -230,7 +243,11 @@ internal static unsafe partial class BetterCharacterPanelState
         return new(displayValue, defense, previousTier, Math.Max(defense + 1, nextTier), modifier.Div / 15d);
     }
 
-    private static StatInfo CalculatePiety(int piety, CombatLevelModifier modifier)
+    private static StatInfo CalculatePiety
+    (
+        int                 piety,
+        CombatLevelModifier modifier
+    )
     {
         var extraMp = Math.Floor(150d * (piety - modifier.Main) / modifier.Div);
         var previousTier = (int)Math.Ceiling(extraMp * modifier.Div / 150d + modifier.Main);
@@ -238,21 +255,31 @@ internal static unsafe partial class BetterCharacterPanelState
         return new(extraMp + 200d, piety, previousTier, Math.Max(piety + 1, nextTier), modifier.Div / 150d);
     }
 
-    private static SpeedCalculation CalculateSpeed(
-        int speed,
+    private static SpeedCalculation CalculateSpeed
+    (
+        int                 speed,
         CombatLevelModifier modifier,
-        AlternateGcd? alternateGcd,
-        GcdModifier? gcdModifier)
+        AlternateGcd?       alternateGcd,
+        GcdModifier?        gcdModifier
+    )
     {
         var speedModifier = gcdModifier?.Modifier ?? 0;
 
-        int SpeedValue(int gcd, double value) =>
+        int SpeedValue
+        (
+            int    gcd,
+            double value
+        ) =>
             (int)Math.Floor(
                 Math.Floor((1000d + Math.Ceiling(130d * (modifier.Sub - value) / modifier.Div)) * gcd / 100d)
                 * (100d - speedModifier)
                 / 1000d);
 
-        int TierValue(double currentGcd, int gcd) =>
+        int TierValue
+        (
+            double currentGcd,
+            int    gcd
+        ) =>
             -(int)Math.Floor(
                 Math.Floor(
                     Math.Ceiling(currentGcd * 100d * 1000d / (100d - speedModifier) - 0.01d)
@@ -293,17 +320,19 @@ internal static unsafe partial class BetterCharacterPanelState
         return new(speedBonus, mainGcd, alternateGcd, alternateInfo, gcdModifier);
     }
 
-    private static ExpectedOutput CalculateExpectedOutput(
-        int jobID,
-        int level,
-        int attackPower,
-        int weaponBaseDamage,
-        double determination,
-        double criticalMultiplier,
-        double criticalRate,
-        double directRate,
-        double tenacity,
-        CombatLevelModifier modifier) => CalculateExpectedOutput(
+    private static ExpectedOutput CalculateExpectedOutput
+    (
+        int                 jobID,
+        int                 level,
+        int                 attackPower,
+        int                 weaponBaseDamage,
+        double              determination,
+        double              criticalMultiplier,
+        double              criticalRate,
+        double              directRate,
+        double              tenacity,
+        CombatLevelModifier modifier
+    ) => CalculateExpectedOutput(
         level,
         attackPower,
         weaponBaseDamage,
@@ -318,20 +347,22 @@ internal static unsafe partial class BetterCharacterPanelState
         tenacity,
         modifier);
 
-    internal static ExpectedOutput CalculateExpectedOutput(
-        int level,
-        int attackPower,
-        int weaponBaseDamage,
-        int attackModifier,
-        bool usesTenacity,
-        bool isCaster,
-        double traitDamageMultiplier,
-        double determination,
-        double criticalMultiplier,
-        double criticalRate,
-        double directRate,
-        double tenacity,
-        CombatLevelModifier modifier)
+    internal static ExpectedOutput CalculateExpectedOutput
+    (
+        int                 level,
+        int                 attackPower,
+        int                 weaponBaseDamage,
+        int                 attackModifier,
+        bool                usesTenacity,
+        bool                isCaster,
+        double              traitDamageMultiplier,
+        double              determination,
+        double              criticalMultiplier,
+        double              criticalRate,
+        double              directRate,
+        double              tenacity,
+        CombatLevelModifier modifier
+    )
     {
         if (weaponBaseDamage <= 0)
         {
@@ -369,7 +400,11 @@ internal static unsafe partial class BetterCharacterPanelState
             Math.Floor(normalHeal * criticalMultiplier));
     }
 
-    private static int GetWeaponBaseDamage(PlayerState* playerState, int jobID)
+    private static int GetWeaponBaseDamage
+    (
+        PlayerState* playerState,
+        int          jobID
+    )
     {
         var inventoryManager = InventoryManager.Instance();
         if (inventoryManager == null)
@@ -420,7 +455,12 @@ internal static unsafe partial class BetterCharacterPanelState
         });
     }
 
-    private static GcdModifier? GetGcdModifier(int jobID, int level, int haste)
+    private static GcdModifier? GetGcdModifier
+    (
+        int jobID,
+        int level,
+        int haste
+    )
     {
         // 星空彩绘只影响星空领域内支持的技能。
         if (jobID == 42
@@ -456,7 +496,11 @@ internal static unsafe partial class BetterCharacterPanelState
         return new(100 - haste, abbreviationKey);
     }
 
-    private static AlternateGcd? GetAlternateGcd(int jobID, int level) =>
+    private static AlternateGcd? GetAlternateGcd
+    (
+        int jobID,
+        int level
+    ) =>
         (jobID, level) switch
         {
             (25, >= 35) => new(350, "Feature.BetterCharacterPanel.AlternateGcd.FireIII"),
@@ -473,14 +517,20 @@ internal static unsafe partial class BetterCharacterPanelState
         _ => (level - 80) * 2.5d + 120.8d
     };
 
-    private static int GetAttribute(PlayerState* playerState, Attribute attribute) =>
+    private static int GetAttribute
+    (
+        PlayerState* playerState,
+        Attribute    attribute
+    ) =>
         playerState->Attributes[(int)attribute];
 
-    private static ReadOnlySeString BuildTierTooltip(
-        string titleKey,
-        string bodyKey,
+    private static ReadOnlySeString BuildTierTooltip
+    (
+        string   titleKey,
+        string   bodyKey,
         StatInfo info,
-        double pointsPerTier)
+        double   pointsPerTier
+    )
     {
         using var rented = new RentedSeStringBuilder();
         AppendColored(rented, OmniLoc.Get(titleKey), TOOLTIP_TITLE_COLOR);
@@ -489,9 +539,11 @@ internal static unsafe partial class BetterCharacterPanelState
         return rented.Builder.ToReadOnlySeString();
     }
 
-    private static ReadOnlySeString BuildTenacityTooltip(
+    private static ReadOnlySeString BuildTenacityTooltip
+    (
         StatInfo mitigation,
-        StatInfo damage)
+        StatInfo damage
+    )
     {
         using var rented = new RentedSeStringBuilder();
         AppendColored(
@@ -509,9 +561,11 @@ internal static unsafe partial class BetterCharacterPanelState
         return rented.Builder.ToReadOnlySeString();
     }
 
-    private static ReadOnlySeString BuildSpeedTooltip(
+    private static ReadOnlySeString BuildSpeedTooltip
+    (
         SpeedCalculation speed,
-        bool caster)
+        bool             caster
+    )
     {
         var modifier = speed.Modifier?.AbbreviationKey is { } abbreviationKey
             ? Format(
@@ -549,12 +603,14 @@ internal static unsafe partial class BetterCharacterPanelState
         return rented.Builder.ToReadOnlySeString();
     }
 
-    private static ReadOnlySeString BuildExpectedTooltip(
+    private static ReadOnlySeString BuildExpectedTooltip
+    (
         string titleKey,
         string bodyKey,
         double normal,
         double critical,
-        double average)
+        double average
+    )
     {
         using var rented = new RentedSeStringBuilder();
         AppendColored(rented, OmniLoc.Get(titleKey), TOOLTIP_TITLE_COLOR);
@@ -566,9 +622,11 @@ internal static unsafe partial class BetterCharacterPanelState
         return rented.Builder.ToReadOnlySeString();
     }
 
-    private static void AppendTierLine(
+    private static void AppendTierLine
+    (
         RentedSeStringBuilder rented,
-        StatInfo info)
+        StatInfo              info
+    )
     {
         var wasted = Math.Max(0, info.CurrentValue - info.PrevTier);
         rented.Builder.Append("\n").Append(OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.Tier.Wasted"));
@@ -584,9 +642,18 @@ internal static unsafe partial class BetterCharacterPanelState
         rented.Builder.Append(OmniLoc.Get("Feature.BetterCharacterPanel.Tooltip.Tier.Suffix"));
     }
 
-    private static void AppendColored(RentedSeStringBuilder rented, string text, ushort color) => rented.Builder.PushColorType(color).Append(text).PopColorType();
+    private static void AppendColored
+    (
+        RentedSeStringBuilder rented,
+        string                text,
+        ushort                color
+    ) => rented.Builder.PushColorType(color).Append(text).PopColorType();
 
-    private static string Format(string key, params object[] values) =>
+    private static string Format
+    (
+        string          key,
+        params object[] values
+    ) =>
         string.Format(CultureInfo.CurrentCulture, OmniLoc.Get(key), values);
 
     #region 常量

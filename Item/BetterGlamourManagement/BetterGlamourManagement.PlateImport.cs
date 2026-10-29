@@ -7,11 +7,11 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Data;
 using OmenTools.Interop.Game.Lumina;
-using TreeTools.Threading;
 using OmniToolbox.Items;
 using OmniToolbox.Notifications;
-using Cabinet = Lumina.Excel.Sheets.Cabinet;
+using TreeTools.Threading;
 using GameCabinet = FFXIVClientStructs.FFXIV.Client.Game.UI.Cabinet;
+using Cabinet = Lumina.Excel.Sheets.Cabinet;
 using Item = Lumina.Excel.Sheets.Item;
 using Stain = Lumina.Excel.Sheets.Stain;
 using static FFXIVClientStructs.FFXIV.Client.UI.Agent.AgentMiragePrismMiragePlateData;
@@ -141,7 +141,7 @@ public sealed unsafe partial class BetterGlamourManagement
                         slot.Source.ItemID,
                         slot.Source.Stain0,
                         slot.Source.Stain1);
-                editor->Data->HasChanges = true;
+                editor->Data->HasChanges          = true;
                 editor->CharaView.IsUpdatePending = true;
             });
             plateImportTaskHelper.Enqueue(() =>
@@ -163,7 +163,7 @@ public sealed unsafe partial class BetterGlamourManagement
                     current.Flags |= ItemFlag.HasStain1;
                     editor->SetItemStain(slot.Index, slot.Stain1, GetPlateImportDyeItem(dye1), dye1.Item.ItemId, 1);
                 }
-                editor->Data->HasChanges = true;
+                editor->Data->HasChanges          = true;
                 editor->CharaView.IsUpdatePending = true;
                 return true;
             });
@@ -209,7 +209,11 @@ public sealed unsafe partial class BetterGlamourManagement
                agent->DialogAddonId == 0 && manager != null && manager->PrismBoxLoaded;
     }
 
-    private AgentMiragePrismMiragePlate* GetPlateImportEditor(uint plateIndex, ulong contentID)
+    private AgentMiragePrismMiragePlate* GetPlateImportEditor
+    (
+        uint  plateIndex,
+        ulong contentID
+    )
     {
         if (TryGetPlateImportEditor(out var agent) &&
             agent->Data->SelectedMiragePlateIndex == plateIndex &&
@@ -225,16 +229,18 @@ public sealed unsafe partial class BetterGlamourManagement
         string.Format(OmniLoc.Get(this, "Feature.BetterGlamourManagement.PlateImport.Failed"), reason),
         NotificationType.Warning);
 
-    private static PlateImportSource FindPlateImportSource(
+    private static PlateImportSource FindPlateImportSource
+    (
         MirageManager* manager,
-        GameCabinet* cabinet,
-        uint itemID,
-        int slot,
-        byte stain0,
-        byte stain1,
-        byte dyeCount,
-        int available0,
-        int available1)
+        GameCabinet*   cabinet,
+        uint           itemID,
+        int            slot,
+        byte           stain0,
+        byte           stain1,
+        byte           dyeCount,
+        int            available0,
+        int            available1
+    )
     {
         var best = default(PlateImportSource);
         var bestCost = int.MaxValue;
@@ -284,16 +290,18 @@ public sealed unsafe partial class BetterGlamourManagement
                 : Math.Max(0, need0 - available0) + Math.Max(0, need1 - available1);
             if (missing > bestMissing || missing == bestMissing && cost >= bestCost)
                 return;
-            best = source;
-            bestCost = cost;
+            best        = source;
+            bestCost    = cost;
             bestMissing = missing;
         }
     }
 
-    private static int GetAvailablePlateImportDyes(
-        byte stainID,
-        List<InventoryItem> inventory,
-        Dictionary<(InventoryType, short), PlateImportDye> reserved)
+    private static int GetAvailablePlateImportDyes
+    (
+        byte                                               stainID,
+        List<InventoryItem>                                inventory,
+        Dictionary<(InventoryType, short), PlateImportDye> reserved
+    )
     {
         if (!LuminaGetter.TryGetRow<Stain>(stainID, out var stain))
             return 0;
@@ -308,11 +316,13 @@ public sealed unsafe partial class BetterGlamourManagement
         return count;
     }
 
-    private static PlateImportDye? ReservePlateImportDye(
-        byte stainID,
-        List<InventoryItem> inventory,
+    private static PlateImportDye? ReservePlateImportDye
+    (
+        byte                                               stainID,
+        List<InventoryItem>                                inventory,
         Dictionary<(InventoryType, short), PlateImportDye> reserved,
-        Dictionary<byte, int> missing)
+        Dictionary<byte, int>                              missing
+    )
     {
         if (LuminaGetter.TryGetRow<Stain>(stainID, out var stain) &&
             TryReservePlateImportDye(stain.Item[0].RowId, stain.Item[1].RowId, inventory, reserved) is { } reservation)
@@ -321,14 +331,23 @@ public sealed unsafe partial class BetterGlamourManagement
         return null;
     }
 
-    private static int GetPlateImportDyeCost(byte source0, byte source1, byte target0, byte target1, byte dyeCount) =>
+    private static int GetPlateImportDyeCost
+    (
+        byte source0,
+        byte source1,
+        byte target0,
+        byte target1,
+        byte dyeCount
+    ) =>
         (dyeCount > 0 && source0 != target0 ? 1 : 0) + (dyeCount > 1 && source1 != target1 ? 1 : 0);
 
-    private static PlateImportDye? TryReservePlateImportDye(
-        uint firstItemID,
-        uint secondItemID,
-        List<InventoryItem> inventory,
-        Dictionary<(InventoryType, short), PlateImportDye> reserved)
+    private static PlateImportDye? TryReservePlateImportDye
+    (
+        uint                                               firstItemID,
+        uint                                               secondItemID,
+        List<InventoryItem>                                inventory,
+        Dictionary<(InventoryType, short), PlateImportDye> reserved
+    )
     {
         foreach (var dyeID in new[] { firstItemID, secondItemID })
         {
@@ -390,15 +409,24 @@ public sealed unsafe partial class BetterGlamourManagement
             throw new InvalidOperationException();
     }
 
-    private readonly record struct PlateImportSource(
+    private readonly record struct PlateImportSource
+    (
         ItemSource Kind,
-        uint SourceID,
-        uint ItemID,
-        uint StoredItemID,
-        byte Stain0,
-        byte Stain1);
+        uint       SourceID,
+        uint       ItemID,
+        uint       StoredItemID,
+        byte       Stain0,
+        byte       Stain1
+    );
 
-    private sealed record PlateImportSlot(uint Index, PlateImportSource Source, byte Stain0, byte Stain1, byte DyeCount)
+    private sealed record PlateImportSlot
+    (
+        uint              Index,
+        PlateImportSource Source,
+        byte              Stain0,
+        byte              Stain1,
+        byte              DyeCount
+    )
     {
         public PlateImportDye? Dye0;
         public PlateImportDye? Dye1;

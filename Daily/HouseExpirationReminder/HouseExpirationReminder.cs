@@ -13,9 +13,11 @@ using OmniToolbox.UI.Theme;
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-public sealed unsafe partial class HouseExpirationReminder(
+public sealed unsafe partial class HouseExpirationReminder
+(
     HouseExpirationReminderConfig config,
-    Action saveConfig) : OmniModuleBase
+    Action                        saveConfig
+) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -53,10 +55,8 @@ public sealed unsafe partial class HouseExpirationReminder(
             ["Feature.HouseExpirationReminder.WarnDays"] = "Feature.HouseExpirationReminder.WarnDays"
         });
 
-    public override bool HasSettings => true;
-
     private ulong lastDetectedHouseID;
-    private bool lastInsideOwnedHouse;
+    private bool  lastInsideOwnedHouse;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -71,8 +71,10 @@ public sealed unsafe partial class HouseExpirationReminder(
     protected override void OnStop()
     {
         lastInsideOwnedHouse = false;
-        lastDetectedHouseID = 0;
+        lastDetectedHouseID  = 0;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings() => Panel.Draw(config, this);
 
@@ -145,7 +147,7 @@ public sealed unsafe partial class HouseExpirationReminder(
             manager->IsInWorkshop())
         {
             lastInsideOwnedHouse = false;
-            lastDetectedHouseID = currentID;
+            lastDetectedHouseID  = currentID;
             return;
         }
 
@@ -164,10 +166,14 @@ public sealed unsafe partial class HouseExpirationReminder(
         }
 
         lastInsideOwnedHouse = false;
-        lastDetectedHouseID = currentID;
+        lastDetectedHouseID  = currentID;
     }
 
-    private void RecordHouseEntry(bool personal, ulong houseID)
+    private void RecordHouseEntry
+    (
+        bool  personal,
+        ulong houseID
+    )
     {
         if (lastInsideOwnedHouse && lastDetectedHouseID == houseID)
         {
@@ -178,26 +184,26 @@ public sealed unsafe partial class HouseExpirationReminder(
         if (record is null)
         {
             lastInsideOwnedHouse = false;
-            lastDetectedHouseID = houseID;
+            lastDetectedHouseID  = houseID;
             return;
         }
 
         if (personal)
         {
             record.PersonalLastVisitUTC = DateTime.UtcNow;
-            record.PersonalHouseID = houseID;
+            record.PersonalHouseID      = houseID;
             RemoveReminderKeys(GetReminderKeyPrefix(record, "personal"));
         }
         else
         {
             record.FreeCompanyLastVisitUTC = DateTime.UtcNow;
-            record.FreeCompanyHouseID = houseID;
+            record.FreeCompanyHouseID      = houseID;
             RemoveReminderKeys(GetReminderKeyPrefix(record, "freecompany"));
         }
 
         saveConfig();
         lastInsideOwnedHouse = true;
-        lastDetectedHouseID = houseID;
+        lastDetectedHouseID  = houseID;
     }
 
     private void CheckExpirationReminders()
@@ -237,12 +243,14 @@ public sealed unsafe partial class HouseExpirationReminder(
         }
     }
 
-    private void CheckHouseReminder(
+    private void CheckHouseReminder
+    (
         HouseExpirationReminderCharacterRecord record,
-        string houseType,
-        string houseName,
-        DateTime lastVisitUTC,
-        int warnDays)
+        string                                 houseType,
+        string                                 houseName,
+        DateTime                               lastVisitUTC,
+        int                                    warnDays
+    )
     {
         var reminderPrefix = GetReminderKeyPrefix(record, houseType);
         lastVisitUTC = AsUTC(lastVisitUTC);
@@ -284,7 +292,11 @@ public sealed unsafe partial class HouseExpirationReminder(
                 remaining));
     }
 
-    private void TrySendDataRefreshReminder(string key, string details)
+    private void TrySendDataRefreshReminder
+    (
+        string key,
+        string details
+    )
     {
         if (AddReminderKey(key))
         {
@@ -338,20 +350,22 @@ public sealed unsafe partial class HouseExpirationReminder(
         }
 
         record.CharacterName = name;
-        record.HomeWorld = world;
-        record.ContentID = contentId;
+        record.HomeWorld     = world;
+        record.ContentID     = contentId;
         return record;
     }
 
-    private static bool TryGetCurrentCharacter(
+    private static bool TryGetCurrentCharacter
+    (
         out string key,
         out string name,
         out string world,
-        out ulong contentID)
+        out ulong  contentID
+    )
     {
-        key = string.Empty;
-        name = string.Empty;
-        world = string.Empty;
+        key       = string.Empty;
+        name      = string.Empty;
+        world     = string.Empty;
         contentID = 0;
 
         var services = DService.Instance();
@@ -363,8 +377,8 @@ public sealed unsafe partial class HouseExpirationReminder(
             return false;
         }
 
-        name = localPlayer.Name;
-        world = homeWorld.Name.ToString();
+        name      = localPlayer.Name;
+        world     = homeWorld.Name.ToString();
         contentID = services.PlayerState.ContentId;
         if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(world))
         {
@@ -377,7 +391,11 @@ public sealed unsafe partial class HouseExpirationReminder(
         return true;
     }
 
-    private void SendReminder(string title, string details)
+    private void SendReminder
+    (
+        string title,
+        string details
+    )
     {
         if (config.ChatNotify)
         {
@@ -393,15 +411,17 @@ public sealed unsafe partial class HouseExpirationReminder(
     private void ResetHousingState()
     {
         lastInsideOwnedHouse = false;
-        lastDetectedHouseID = 0;
+        lastDetectedHouseID  = 0;
     }
 
     internal static int NormalizeWarnDays(int warnDays) =>
         Math.Clamp(warnDays <= 0 ? DefaultWarnDays : warnDays, 1, AutoDemolitionDays);
 
-    private static string GetReminderKeyPrefix(
+    private static string GetReminderKeyPrefix
+    (
         HouseExpirationReminderCharacterRecord record,
-        string houseType) =>
+        string                                 houseType
+    ) =>
         $"character:{record.CharacterKey}:{houseType}:";
 
     internal static DateTime AsUTC(DateTime value) =>

@@ -10,10 +10,19 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class AutoSwitchConfiguration
 {
-    private static uint? DrawSelectionButton<T>(string id, string preview, ref string search,
-        LuminaSearcher<T> searcher, uint selectedID, int columnCount, System.Action setupColumns,
-        System.Action drawHeaders, Func<T, bool, bool> drawColumns,
-        Func<List<T>, IReadOnlyList<T>>? orderResults = null) where T : struct, IExcelRow<T>
+    private static uint? DrawSelectionButton<T>
+    (
+        string                           id,
+        string                           preview,
+        ref string                       search,
+        LuminaSearcher<T>                searcher,
+        uint                             selectedID,
+        int                              columnCount,
+        System.Action                    setupColumns,
+        System.Action                    drawHeaders,
+        Func<T, bool, bool>              drawColumns,
+        Func<List<T>, IReadOnlyList<T>>? orderResults = null
+    ) where T : struct, IExcelRow<T>
     {
         using var scope = ImRaii.PushId(id);
         if (OmniControls.SmallButton($"{preview}###select", false))
@@ -93,7 +102,7 @@ public sealed partial class AutoSwitchConfiguration
     private sealed class JobSelectionButton(string id) : JobSelectCombo(id)
     {
         private List<ClassJob>? searchResults;
-        private List<ClassJob> orderedResults = [];
+        private List<ClassJob>  orderedResults = [];
 
         public bool DrawButton(string preview)
         {
@@ -112,7 +121,7 @@ public sealed partial class AutoSwitchConfiguration
             if (ReferenceEquals(searchResults, results))
                 return orderedResults;
 
-            searchResults = results;
+            searchResults  = results;
             orderedResults = new(results);
             orderedResults.Sort(static (left, right) =>
             {

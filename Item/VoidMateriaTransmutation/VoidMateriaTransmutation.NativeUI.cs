@@ -7,8 +7,8 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class VoidMateriaTransmutation
 {
-    private TextButtonNode? batchButton;
-    private bool displayedRunning;
+    private TextButtonNode?                                                                                    batchButton;
+    private bool                                                                                               displayedRunning;
     private (Vector2 Position, ushort Width, ushort LabelWidth, ushort BackgroundWidth, ushort CollisionWidth) manualButtonLayout;
 
     private void UpdateBatchButton(AtkUnitBase* addon)
@@ -37,8 +37,8 @@ public sealed unsafe partial class VoidMateriaTransmutation
             manual->ButtonTextNode->SetWidth((ushort)(manualButtonLayout.LabelWidth + delta));
             manual->ButtonBGNode->SetWidth((ushort)(manualButtonLayout.BackgroundWidth + delta));
             collision->SetWidth((ushort)(manualButtonLayout.CollisionWidth + delta));
-            displayedRunning = running;
-            batchButton = new()
+            displayedRunning               = running;
+            batchButton                    = new()
             {
                 Position = new(MARGIN + width + GAP, manualButtonLayout.Position.Y),
                 Size = new(width, node->Height),
@@ -53,7 +53,7 @@ public sealed unsafe partial class VoidMateriaTransmutation
 
         if (displayedRunning != running)
         {
-            displayedRunning = running;
+            displayedRunning   = running;
             batchButton.String = OmniLoc.Get(this, running
                 ? "Feature.VoidMateriaTransmutation.BatchStop"
                 : "Feature.VoidMateriaTransmutation.BatchStart");

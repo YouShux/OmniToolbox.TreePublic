@@ -1,4 +1,3 @@
-using TreeToolKit;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Utility;
@@ -10,12 +9,13 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Info.Game.Data;
 using OmenTools.OmenService;
-using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Items;
 using OmniToolbox.UI.Theme;
+using TreeToolKit;
+using TreeTools.Threading;
 
 namespace OmniToolbox.TreePublic;
 
@@ -38,9 +38,7 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
             ["Feature.OneClickLowerQuality.Menu"] = "Feature.OneClickLowerQuality.Menu"
         });
 
-    public override bool HasSettings => true;
-
-    private readonly Panel panel = new();
+    private readonly Panel                  panel               = new();
     private static readonly InventoryType[] InventoryContainers =
     [
         InventoryType.Inventory1,
@@ -78,17 +76,17 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
         InventoryType.RetainerPage7
     ];
 
-    private readonly Queue<InventorySlot> pendingSlots = new();
-    private TaskHelper? taskHelper;
-    private AddonEventRegistry? addonEvents;
-    private LowerQualityMenuEntry? menuEntry;
-    private InventorySlot currentSlot;
-    private uint ownerAddonID;
-    private ushort confirmationAddonID;
-    private nint confirmationAddonAddress;
-    private bool awaitingWindow;
-    private bool checkboxSent;
-    private bool confirmationClosed;
+    private readonly Queue<InventorySlot> pendingSlots             = new();
+    private TaskHelper?                   taskHelper;
+    private AddonEventRegistry?           addonEvents;
+    private LowerQualityMenuEntry?        menuEntry;
+    private InventorySlot                 currentSlot;
+    private uint                          ownerAddonID;
+    private ushort                        confirmationAddonID;
+    private nint                          confirmationAddonAddress;
+    private bool                          awaitingWindow;
+    private bool                          checkboxSent;
+    private bool                          confirmationClosed;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -114,8 +112,8 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
     {
         if (menuEntry != null)
             ContextMenuManager.Instance().Unreg(menuEntry);
-        menuEntry = null;
-        addonEvents = null;
+        menuEntry      = null;
+        addonEvents    = null;
         awaitingWindow = false;
         pendingSlots.Clear();
         taskHelper?.Abort();
@@ -135,9 +133,15 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
         return true;
     }
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings() => panel.Draw(config);
 
-    private void Begin(uint itemID, InventoryType sourceContainer)
+    private void Begin
+    (
+        uint          itemID,
+        InventoryType sourceContainer
+    )
     {
         if (taskHelper is null || taskHelper.IsBusy)
         {
@@ -181,11 +185,11 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
             return;
         }
 
-        confirmationAddonID = 0;
+        confirmationAddonID      = 0;
         confirmationAddonAddress = 0;
-        awaitingWindow = false;
-        checkboxSent = false;
-        confirmationClosed = false;
+        awaitingWindow           = false;
+        checkboxSent             = false;
+        confirmationClosed       = false;
         taskHelper.Enqueue(OpenCurrent);
         taskHelper.Enqueue(ConfirmCurrent);
         taskHelper.Enqueue(WaitCurrentApplied);
@@ -219,7 +223,11 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
         return true;
     }
 
-    private void OnConfirmation(AddonEvent type, AddonArgs args)
+    private void OnConfirmation
+    (
+        AddonEvent type,
+        AddonArgs  args
+    )
     {
         var addon = (AtkUnitBase*)args.Addon.Address;
         if (type == AddonEvent.PreFinalize)
@@ -237,9 +245,9 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
             return;
         }
 
-        confirmationAddonID = addon->Id;
+        confirmationAddonID      = addon->Id;
         confirmationAddonAddress = (nint)addon;
-        awaitingWindow = false;
+        awaitingWindow           = false;
     }
 
     private bool ConfirmCurrent()
@@ -302,7 +310,11 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
         return false;
     }
 
-    private void CollectSlots(InventoryType sourceContainer, uint itemID)
+    private void CollectSlots
+    (
+        InventoryType sourceContainer,
+        uint          itemID
+    )
     {
         var containers = Array.IndexOf(InventoryContainers, sourceContainer) >= 0
             ? InventoryContainers
@@ -324,7 +336,11 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
         }
     }
 
-    private void CollectSlotsFromContainer(InventoryType inventoryType, uint itemID)
+    private void CollectSlotsFromContainer
+    (
+        InventoryType inventoryType,
+        uint          itemID
+    )
     {
         var manager = InventoryManager.Instance();
         if (manager == null)
@@ -381,7 +397,12 @@ public sealed unsafe partial class OneClickLowerQuality(OneClickLowerQuality.Set
         }
     }
 
-    private readonly record struct InventorySlot(InventoryType Container, ushort Slot, uint ItemID);
+    private readonly record struct InventorySlot
+    (
+        InventoryType Container,
+        ushort        Slot,
+        uint          ItemID
+    );
 
     public sealed class Settings
     {

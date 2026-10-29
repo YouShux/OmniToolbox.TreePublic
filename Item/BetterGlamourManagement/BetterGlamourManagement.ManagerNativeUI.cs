@@ -1,16 +1,16 @@
-using Item = Lumina.Excel.Sheets.Item;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
-using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Input;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
 using KamiToolKit.Nodes;
 using KamiToolKit.Nodes.Simplified;
-using OmenTools.Interop.Game.Lumina;
 using OmenTools;
+using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Collections;
 using OmniToolbox.Items;
 using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;
+using Item = Lumina.Excel.Sheets.Item;
 
 #pragma warning disable KTKExperimental_TextureImageNode
 
@@ -20,30 +20,30 @@ public sealed partial class BetterGlamourManagement
 {
     internal sealed class BetterGlamourManagerNativeUI : NativeAddon
     {
-        private readonly Action<BetterGlamourPreset> onSelected;
-        private readonly Action<BetterGlamourPreset> onChanged;
-        private readonly Action<BetterGlamourPreset, int> onGearsetChanged;
-        private readonly Action<BetterGlamourPreset> onApply;
-        private readonly Func<BetterGlamourPreset, bool> isTryingOn;
-        private readonly Action<BetterGlamourPreset> onExport;
-        private readonly Action<BetterGlamourPreset> onDelete;
-        private readonly Action onImport;
-        private readonly Action onCreate;
-        private readonly BetterGlamourPortraitPreview portraitPreview;
-        private readonly ItemPatchMap itemPatchMap;
-        private readonly CollectionSourceService collectionSourceService;
-        private readonly Func<uint, bool> isInGlamourDresser;
-        private readonly Func<uint, bool> isInArmoire;
-        private readonly Func<long> getInventoryRevision;
-        private TextureImageNode? previewImage;
-        private readonly List<TextureButtonNode> previewButtons = [];
-        private readonly List<SimpleImageNode> previewButtonRings = [];
-        private SimpleNineGridNode? previewBorder;
-        private CollisionNode? previewInput;
-        private bool previewDragLeft;
-        private bool previewDragRight;
-        private bool previewHovered;
-        private static readonly (uint NodeID, uint TooltipID, Vector2 Coordinates)[] PreviewButtonData =
+        private readonly Action<BetterGlamourPreset>                                 onSelected;
+        private readonly Action<BetterGlamourPreset>                                 onChanged;
+        private readonly Action<BetterGlamourPreset, int>                            onGearsetChanged;
+        private readonly Action<BetterGlamourPreset>                                 onApply;
+        private readonly Func<BetterGlamourPreset, bool>                             isTryingOn;
+        private readonly Action<BetterGlamourPreset>                                 onExport;
+        private readonly Action<BetterGlamourPreset>                                 onDelete;
+        private readonly Action                                                      onImport;
+        private readonly Action                                                      onCreate;
+        private readonly BetterGlamourPortraitPreview                                portraitPreview;
+        private readonly ItemPatchMap                                                itemPatchMap;
+        private readonly CollectionSourceService                                     collectionSourceService;
+        private readonly Func<uint, bool>                                            isInGlamourDresser;
+        private readonly Func<uint, bool>                                            isInArmoire;
+        private readonly Func<long>                                                  getInventoryRevision;
+        private TextureImageNode?                                                    previewImage;
+        private readonly List<TextureButtonNode>                                     previewButtons          = [];
+        private readonly List<SimpleImageNode>                                       previewButtonRings      = [];
+        private SimpleNineGridNode?                                                  previewBorder;
+        private CollisionNode?                                                       previewInput;
+        private bool                                                                 previewDragLeft;
+        private bool                                                                 previewDragRight;
+        private bool                                                                 previewHovered;
+        private static readonly (uint NodeID, uint TooltipID, Vector2 Coordinates)[] PreviewButtonData       =
         [
             (32, 2424, new(96, 112)),
             (33, 2423, new(72, 112)),
@@ -52,78 +52,84 @@ public sealed partial class BetterGlamourManagement
             (38, 3271, new(24, 136)),
             (39, 3270, new(48, 136))
         ];
-        private Vector2 previewLastMouse;
-        private nint boundPreviewTexture;
-        private readonly List<BetterGlamourEditorPair> editorRows = [];
-        private readonly List<GearsetOption> gearsetOptions = [];
-        private readonly Dictionary<BetterGlamourItem, uint> previousItems = [];
-        private readonly Dictionary<(BetterGlamourItem Item, int Channel), byte> previousDyes = [];
-        private List<BetterGlamourPreset> presets = [];
-        private BetterGlamourPreset? selectedPreset;
-        private bool pendingEditorRefresh;
-        private bool pendingGearsetRefresh;
-        private ulong gearsetContentID;
-        private ListNode<BetterGlamourPreset, BetterGlamourPresetListItemNode>? presetListNode;
-        private VerticalLineNode? separatorNode;
-        private TextNode? emptyNode;
-        private TextNode? nameLabelNode;
-        private TextInputNode? nameInputNode;
-        private TextNode? gearsetLabelNode;
-        private StringDropDownNode? gearsetDropDownNode;
-        private ListNode<BetterGlamourEditorPair, BetterGlamourEditorListItemNode>? itemListNode;
-        private TextButtonNode? applyButton;
-        private TextButtonNode? exportButton;
-        private TextButtonNode? deleteButton;
-        private TextButtonNode? importButton;
-        private TextButtonNode? createButton;
-        private BetterGlamourDyePickerNativeUI? dyePicker;
-        private BetterGlamourItemPickerNativeUI? itemPicker;
-        private BetterGlamourHairColorNativeUI? hairColorPicker;
-        private CustomizeData? editorHairAppearance;
+        private Vector2                                                              previewLastMouse;
+        private nint                                                                 boundPreviewTexture;
+        private readonly List<BetterGlamourEditorPair>                               editorRows              = [];
+        private readonly List<GearsetOption>                                         gearsetOptions          = [];
+        private readonly Dictionary<BetterGlamourItem, uint>                         previousItems           = [];
+        private readonly Dictionary<(BetterGlamourItem Item, int Channel), byte>     previousDyes            = [];
+        private List<BetterGlamourPreset>                                            presets                 = [];
+        private BetterGlamourPreset?                                                 selectedPreset;
+        private bool                                                                 pendingEditorRefresh;
+        private bool                                                                 pendingGearsetRefresh;
+        private ulong                                                                gearsetContentID;
+        private ListNode<BetterGlamourPreset, BetterGlamourPresetListItemNode>?      presetListNode;
+        private VerticalLineNode?                                                    separatorNode;
+        private TextNode?                                                            emptyNode;
+        private TextNode?                                                            nameLabelNode;
+        private TextInputNode?                                                       nameInputNode;
+        private TextNode?                                                            gearsetLabelNode;
+        private StringDropDownNode?                                                  gearsetDropDownNode;
+        private ListNode<BetterGlamourEditorPair, BetterGlamourEditorListItemNode>?  itemListNode;
+        private TextButtonNode?                                                      applyButton;
+        private TextButtonNode?                                                      exportButton;
+        private TextButtonNode?                                                      deleteButton;
+        private TextButtonNode?                                                      importButton;
+        private TextButtonNode?                                                      createButton;
+        private BetterGlamourDyePickerNativeUI?                                      dyePicker;
+        private BetterGlamourItemPickerNativeUI?                                     itemPicker;
+        private BetterGlamourHairColorNativeUI?                                      hairColorPicker;
+        private CustomizeData?                                                       editorHairAppearance;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-        public BetterGlamourManagerNativeUI(
-            Action<BetterGlamourPreset> onSelected,
-            Action<BetterGlamourPreset> onChanged,
+        public BetterGlamourManagerNativeUI
+        (
+            Action<BetterGlamourPreset>      onSelected,
+            Action<BetterGlamourPreset>      onChanged,
             Action<BetterGlamourPreset, int> onGearsetChanged,
-            Action<BetterGlamourPreset> onApply,
-            Func<BetterGlamourPreset, bool> isTryingOn,
-            Action<BetterGlamourPreset> onExport,
-            Action<BetterGlamourPreset> onDelete,
-            Action onImport,
-            Action onCreate,
-            BetterGlamourPortraitPreview portraitPreview,
-            ItemPatchMap itemPatchMap,
-            CollectionSourceService collectionSourceService,
-            Func<uint, bool> isInGlamourDresser,
-            Func<uint, bool> isInArmoire,
-            Func<long> getInventoryRevision)
+            Action<BetterGlamourPreset>      onApply,
+            Func<BetterGlamourPreset, bool>  isTryingOn,
+            Action<BetterGlamourPreset>      onExport,
+            Action<BetterGlamourPreset>      onDelete,
+            Action                           onImport,
+            Action                           onCreate,
+            BetterGlamourPortraitPreview     portraitPreview,
+            ItemPatchMap                     itemPatchMap,
+            CollectionSourceService          collectionSourceService,
+            Func<uint, bool>                 isInGlamourDresser,
+            Func<uint, bool>                 isInArmoire,
+            Func<long>                       getInventoryRevision
+        )
         {
-            InternalName = "OmniBetterGlamourManager";
-            Title = OmniLoc.Get("Feature.BetterGlamourManagement.WindowTitle");
-            Subtitle = FormatPresetCount(0);
-            Size = new(1100f, 600f);
-            ContentPadding = new(10f, 8f);
-            RememberClosePosition = true;
-            CreateWindowNode = static () => new WindowNode { ShowCloseButton = true };
-            this.onSelected = onSelected;
-            this.onChanged = onChanged;
-            this.onGearsetChanged = onGearsetChanged;
-            this.onApply = onApply;
-            this.isTryingOn = isTryingOn;
-            this.onExport = onExport;
-            this.onDelete = onDelete;
-            this.onImport = onImport;
-            this.onCreate = onCreate;
-            this.portraitPreview = portraitPreview;
-            this.itemPatchMap = itemPatchMap;
+            InternalName                 = "OmniBetterGlamourManager";
+            Title                        = OmniLoc.Get("Feature.BetterGlamourManagement.WindowTitle");
+            Subtitle                     = FormatPresetCount(0);
+            Size                         = new(1100f, 600f);
+            ContentPadding               = new(10f, 8f);
+            RememberClosePosition        = true;
+            CreateWindowNode             = static () => new WindowNode { ShowCloseButton = true };
+            this.onSelected              = onSelected;
+            this.onChanged               = onChanged;
+            this.onGearsetChanged        = onGearsetChanged;
+            this.onApply                 = onApply;
+            this.isTryingOn              = isTryingOn;
+            this.onExport                = onExport;
+            this.onDelete                = onDelete;
+            this.onImport                = onImport;
+            this.onCreate                = onCreate;
+            this.portraitPreview         = portraitPreview;
+            this.itemPatchMap            = itemPatchMap;
             this.collectionSourceService = collectionSourceService;
-            this.isInGlamourDresser = isInGlamourDresser;
-            this.isInArmoire = isInArmoire;
-            this.getInventoryRevision = getInventoryRevision;
+            this.isInGlamourDresser      = isInGlamourDresser;
+            this.isInArmoire             = isInArmoire;
+            this.getInventoryRevision    = getInventoryRevision;
         }
 
-        protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
+        protected override unsafe void OnSetup
+        (
+            AtkUnitBase*   addon,
+            Span<AtkValue> atkValueSpan
+        )
         {
             presetListNode = new()
             {
@@ -167,10 +173,10 @@ public sealed partial class BetterGlamourManagement
                 windowNode.SubtitleNode.FontType = FontType.MiedingerMed;
                 windowNode.SubtitleNode.FontSize = 14;
                 windowNode.SubtitleNode.Position = new(windowNode.SubtitleNode.X, 13f);
-                windowNode.SubtitleNode.Size = new(64f, 19f);
+                windowNode.SubtitleNode.Size     = new(64f, 19f);
             }
 
-            gearsetLabelNode = CreateLabel("Feature.BetterGlamourManagement.BindGearset");
+            gearsetLabelNode    = CreateLabel("Feature.BetterGlamourManagement.BindGearset");
             gearsetDropDownNode = new()
             {
                 Options = [],
@@ -189,7 +195,7 @@ public sealed partial class BetterGlamourManagement
             };
             itemListNode.AttachNode(this);
 
-            applyButton = CreateButton("Feature.BetterGlamourManagement.Apply", () => Invoke(onApply));
+            applyButton  = CreateButton("Feature.BetterGlamourManagement.Apply", () => Invoke(onApply));
             exportButton = CreateButton("Feature.BetterGlamourManagement.SharePreset", () => Invoke(onExport));
             importButton = CreateButton("Feature.BetterGlamourManagement.ImportClipboard", onImport);
             createButton = CreateButton("Feature.BetterGlamourManagement.NewPreset", onCreate);
@@ -252,7 +258,7 @@ public sealed partial class BetterGlamourManagement
             if (pendingGearsetRefresh || contentID != gearsetContentID)
             {
                 pendingGearsetRefresh = false;
-                gearsetContentID = contentID;
+                gearsetContentID      = contentID;
                 RefreshGearsets();
                 presetListNode?.FullRebuild();
             }
@@ -318,36 +324,36 @@ public sealed partial class BetterGlamourManagement
             portraitPreview.CancelPreview();
             previewButtons.Clear();
             previewButtonRings.Clear();
-            previewInput = null;
-            previewBorder = null;
-            previewDragLeft = false;
+            previewInput     = null;
+            previewBorder    = null;
+            previewDragLeft  = false;
             previewDragRight = false;
-            previewHovered = false;
+            previewHovered   = false;
             ClosePickers();
             dyePicker?.Dispose();
             itemPicker?.Dispose();
             hairColorPicker?.Dispose();
-            dyePicker = null;
-            itemPicker = null;
-            hairColorPicker = null;
-            editorHairAppearance = null;
-            pendingEditorRefresh = false;
+            dyePicker             = null;
+            itemPicker            = null;
+            hairColorPicker       = null;
+            editorHairAppearance  = null;
+            pendingEditorRefresh  = false;
             pendingGearsetRefresh = false;
             previousItems.Clear();
             previousDyes.Clear();
-            presetListNode = null;
-            separatorNode = null;
-            emptyNode = null;
-            nameLabelNode = null;
-            nameInputNode = null;
-            gearsetLabelNode = null;
+            presetListNode      = null;
+            separatorNode       = null;
+            emptyNode           = null;
+            nameLabelNode       = null;
+            nameInputNode       = null;
+            gearsetLabelNode    = null;
             gearsetDropDownNode = null;
-            itemListNode = null;
-            applyButton = null;
-            exportButton = null;
-            deleteButton = null;
-            importButton = null;
-            createButton = null;
+            itemListNode        = null;
+            applyButton         = null;
+            exportButton        = null;
+            deleteButton        = null;
+            importButton        = null;
+            createButton        = null;
         }
 
         private unsafe void StartPreviewDrag()
@@ -357,7 +363,7 @@ public sealed partial class BetterGlamourManagement
             var cursor = input->CursorInputs;
             if (!cursor.IsGameWindowFocused) return;
             var buttons = cursor.MouseButtonHeldFlags | cursor.MouseButtonPressedFlags;
-            previewDragLeft = (buttons & MouseButtonFlags.LBUTTON) != 0;
+            previewDragLeft  = (buttons & MouseButtonFlags.LBUTTON) != 0;
             previewDragRight = (buttons & MouseButtonFlags.RBUTTON) != 0;
             previewLastMouse = new(cursor.PositionX, cursor.PositionY);
         }
@@ -367,7 +373,7 @@ public sealed partial class BetterGlamourManagement
             var input = UIInputData.Instance();
             if (portraitPreview.Texture == 0 || input == null || !input->CursorInputs.IsGameWindowFocused)
             {
-                previewDragLeft = false;
+                previewDragLeft  = false;
                 previewDragRight = false;
                 return;
             }
@@ -390,7 +396,7 @@ public sealed partial class BetterGlamourManagement
         {
             var oldImage = previewImage;
             var oldTexture = (KernelTexture*)boundPreviewTexture;
-            previewImage = null;
+            previewImage        = null;
             boundPreviewTexture = 0;
             try
             {
@@ -436,11 +442,15 @@ public sealed partial class BetterGlamourManagement
             }
         }
 
-        public void UpdateData(List<BetterGlamourPreset> newPresets, int selectedIndex)
+        public void UpdateData
+        (
+            List<BetterGlamourPreset> newPresets,
+            int                       selectedIndex
+        )
         {
             previousItems.Clear();
             previousDyes.Clear();
-            presets = newPresets;
+            presets        = newPresets;
             selectedPreset = presets.Count == 0
                 ? null
                 : presets[Math.Clamp(selectedIndex, 0, presets.Count - 1)];
@@ -458,7 +468,11 @@ public sealed partial class BetterGlamourManagement
             return node;
         }
 
-        private TextButtonNode CreateButton(string textKey, Action onClick)
+        private TextButtonNode CreateButton
+        (
+            string textKey,
+            Action onClick
+        )
         {
             var button = new TextButtonNode
             {
@@ -511,7 +525,7 @@ public sealed partial class BetterGlamourManagement
                 return;
             }
 
-            selectedPreset.Name = nameInputNode.String.ExtractText().Trim();
+            selectedPreset.Name  = nameInputNode.String.ExtractText().Trim();
             nameInputNode.String = selectedPreset.Name;
             onChanged(selectedPreset);
             presetListNode?.FullRebuild();
@@ -532,7 +546,7 @@ public sealed partial class BetterGlamourManagement
                 return;
             }
 
-            Subtitle = FormatPresetCount(presets.Count);
+            Subtitle                   = FormatPresetCount(presets.Count);
             presetListNode.OptionsList = presets;
             ApplySelection();
         }
@@ -600,7 +614,7 @@ public sealed partial class BetterGlamourManagement
             gearsetDropDownNode.SelectedOption = indices.Count > 0
                 ? string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.BoundGearsets"), string.Join(", ", indices.Select(static index => index + 1)))
                 : OmniLoc.Get("Feature.BetterGlamourManagement.Unbound");
-            gearsetDropDownNode.TextTooltip = preset.GearsetIndex >= 0
+            gearsetDropDownNode.TextTooltip    = preset.GearsetIndex >= 0
                 ? string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.LegacyGearsetHint"), preset.GearsetIndex + 1)
                 : OmniLoc.Get("Feature.BetterGlamourManagement.BindGearsetHint");
             if (indices.Count > 0)
@@ -646,7 +660,12 @@ public sealed partial class BetterGlamourManagement
                     CreateItemRow(owner, Parts[index + 5].TextKey, Parts[index + 5].Slot)));
         }
 
-        private BetterGlamourEditorRow CreateItemRow(BetterGlamourPreset owner, string textKey, int slot)
+        private BetterGlamourEditorRow CreateItemRow
+        (
+            BetterGlamourPreset owner,
+            string              textKey,
+            int                 slot
+        )
         {
             var item = GetOrCreateItem(owner, slot);
             return new(
@@ -667,9 +686,9 @@ public sealed partial class BetterGlamourManagement
         {
             if (selectedPreset is not { } preset || !portraitPreview.TryGetHairAppearance(out var appearance))
                 return null;
-            appearance.HairColor = preset.HairColor ?? appearance.HairColor;
+            appearance.HairColor       = preset.HairColor ?? appearance.HairColor;
             appearance.HighlightsColor = preset.HighlightColor ?? appearance.HighlightsColor;
-            appearance.Highlights = preset.HighlightsEnabled ?? appearance.Highlights;
+            appearance.Highlights      = preset.HighlightsEnabled ?? appearance.Highlights;
             return appearance;
         }
 
@@ -686,7 +705,12 @@ public sealed partial class BetterGlamourManagement
                 hairColorPicker.RefreshAppearance(appearance.HairColor, appearance.HighlightsColor);
         }
 
-        private void OpenItemPicker(BetterGlamourPreset owner, BetterGlamourEditorItemKind kind, BetterGlamourItem? item)
+        private void OpenItemPicker
+        (
+            BetterGlamourPreset         owner,
+            BetterGlamourEditorItemKind kind,
+            BetterGlamourItem?          item
+        )
         {
             if (!IsCurrentPreset(owner))
                 return;
@@ -703,7 +727,13 @@ public sealed partial class BetterGlamourManagement
                 result => SetItemSelection(owner, kind, item, result.ItemID));
         }
 
-        private void SetItemSelection(BetterGlamourPreset owner, BetterGlamourEditorItemKind kind, BetterGlamourItem? item, uint itemID)
+        private void SetItemSelection
+        (
+            BetterGlamourPreset         owner,
+            BetterGlamourEditorItemKind kind,
+            BetterGlamourItem?          item,
+            uint                        itemID
+        )
         {
             if (!IsCurrentPreset(owner))
                 return;
@@ -728,7 +758,12 @@ public sealed partial class BetterGlamourManagement
             NotifyPresetChanged(owner);
         }
 
-        private void ClearItemSelection(BetterGlamourPreset owner, BetterGlamourEditorItemKind kind, BetterGlamourItem? item)
+        private void ClearItemSelection
+        (
+            BetterGlamourPreset         owner,
+            BetterGlamourEditorItemKind kind,
+            BetterGlamourItem?          item
+        )
         {
             if (!IsCurrentPreset(owner))
                 return;
@@ -736,7 +771,12 @@ public sealed partial class BetterGlamourManagement
             itemPicker?.ClearSelection(kind, item?.Slot ?? -1);
         }
 
-        private void OpenDyePicker(BetterGlamourPreset owner, BetterGlamourItem item, int channel)
+        private void OpenDyePicker
+        (
+            BetterGlamourPreset owner,
+            BetterGlamourItem   item,
+            int                 channel
+        )
         {
             if (!IsCurrentPreset(owner))
                 return;
@@ -750,7 +790,11 @@ public sealed partial class BetterGlamourManagement
                 selectedChannel => previousDyes.ContainsKey((item, selectedChannel)));
         }
 
-        private void UndoItem(BetterGlamourPreset owner, BetterGlamourItem item)
+        private void UndoItem
+        (
+            BetterGlamourPreset owner,
+            BetterGlamourItem   item
+        )
         {
             if (!IsCurrentPreset(owner) || !previousItems.Remove(item, out var itemID))
                 return;
@@ -759,7 +803,13 @@ public sealed partial class BetterGlamourManagement
             NotifyPresetChanged(owner);
         }
 
-        private void SetDye(BetterGlamourPreset owner, BetterGlamourItem item, int channel, byte stainID)
+        private void SetDye
+        (
+            BetterGlamourPreset owner,
+            BetterGlamourItem   item,
+            int                 channel,
+            byte                stainID
+        )
         {
             if (!IsCurrentPreset(owner))
                 return;
@@ -775,7 +825,12 @@ public sealed partial class BetterGlamourManagement
             NotifyPresetChanged(owner);
         }
 
-        private void UndoDye(BetterGlamourPreset owner, BetterGlamourItem item, int channel)
+        private void UndoDye
+        (
+            BetterGlamourPreset owner,
+            BetterGlamourItem   item,
+            int                 channel
+        )
         {
             if (!IsCurrentPreset(owner) || !previousDyes.Remove((item, channel), out var stainID))
                 return;
@@ -787,12 +842,16 @@ public sealed partial class BetterGlamourManagement
             NotifyPresetChanged(owner);
         }
 
-        private void SwapDyes(BetterGlamourPreset owner, BetterGlamourItem item)
+        private void SwapDyes
+        (
+            BetterGlamourPreset owner,
+            BetterGlamourItem   item
+        )
         {
             if (!IsCurrentPreset(owner) || item.Stain0 == item.Stain1)
                 return;
-            previousDyes[(item, 0)] = item.Stain0;
-            previousDyes[(item, 1)] = item.Stain1;
+            previousDyes[(item, 0)]    = item.Stain0;
+            previousDyes[(item, 1)]    = item.Stain1;
             (item.Stain0, item.Stain1) = (item.Stain1, item.Stain0);
             dyePicker?.RefreshItem(item);
             NotifyPresetChanged(owner);
@@ -871,43 +930,43 @@ public sealed partial class BetterGlamourManagement
             if (previewImage is not null)
             {
                 previewImage.Position = imagePosition;
-                previewImage.Size = imageSize;
+                previewImage.Size     = imageSize;
             }
             if (previewBorder is not null)
             {
                 previewBorder.Position = imagePosition - new Vector2(4, 3);
-                previewBorder.Size = imageSize + new Vector2(8, 8);
+                previewBorder.Size     = imageSize + new Vector2(8, 8);
             }
             if (previewInput is not null)
             {
                 previewInput.Position = imagePosition;
-                previewInput.Size = imageSize;
+                previewInput.Size     = imageSize;
             }
             var buttonStart = previewX + (previewWidth - previewButtons.Count * 28f) / 2f;
             for (var i = 0; i < previewButtons.Count; i++)
             {
                 var buttonPosition = new Vector2(buttonStart + i * 28f, contentY + ContentSize.Y - 28f);
-                previewButtons[i].Position = buttonPosition;
-                previewButtons[i].Size = new(24, 24);
+                previewButtons[i].Position     = buttonPosition;
+                previewButtons[i].Size         = new(24, 24);
                 previewButtonRings[i].Position = buttonPosition - new Vector2(2, 2);
             }
 
             if (presetListNode is not null)
             {
                 presetListNode.Position = new(contentX, contentY);
-                presetListNode.Size = new(PRESET_WIDTH, ContentSize.Y - 36f);
+                presetListNode.Size     = new(PRESET_WIDTH, ContentSize.Y - 36f);
             }
 
             if (separatorNode is not null)
             {
                 separatorNode.Position = new(contentX + PRESET_WIDTH, contentY);
-                separatorNode.Size = new(4f, ContentSize.Y);
+                separatorNode.Size     = new(4f, ContentSize.Y);
             }
 
             if (emptyNode is not null)
             {
                 emptyNode.Position = new(detailX, contentY);
-                emptyNode.Size = new(detailWidth, ContentSize.Y);
+                emptyNode.Size     = new(detailWidth, ContentSize.Y);
             }
 
             PositionLabeledControl(nameLabelNode, nameInputNode, detailX, contentY, detailWidth, LABEL_WIDTH);
@@ -918,7 +977,7 @@ public sealed partial class BetterGlamourManagement
             if (itemListNode is not null)
             {
                 itemListNode.Position = new(detailX, headerY);
-                itemListNode.Size = new(detailWidth, MathF.Max(100f, buttonY - headerY - 10f));
+                itemListNode.Size     = new(detailWidth, MathF.Max(100f, buttonY - headerY - 10f));
             }
 
             var buttonWidth = (detailX + detailWidth - contentX - BUTTON_GAP * 4f) / 5f;
@@ -932,28 +991,36 @@ public sealed partial class BetterGlamourManagement
         private static string FormatPresetCount(int presetCount) =>
             $"{presetCount}/{BetterGlamourManagement.MAX_PRESET_COUNT}";
 
-        private static void PositionLabeledControl(
+        private static void PositionLabeledControl
+        (
             TextNode? label,
             NodeBase? control,
-            float x,
-            float y,
-            float width,
-            float labelWidth)
+            float     x,
+            float     y,
+            float     width,
+            float     labelWidth
+        )
         {
             if (label is not null)
             {
                 label.Position = new(x, y + 2f);
-                label.Size = new(labelWidth, 28f);
+                label.Size     = new(labelWidth, 28f);
             }
 
             if (control is not null)
             {
                 control.Position = new(x + labelWidth + 4f, y + 2f);
-                control.Size = new(width - labelWidth - 4f, 28f);
+                control.Size     = new(width - labelWidth - 4f, 28f);
             }
         }
 
-        private static void PositionButton(TextButtonNode? button, float x, float y, float width)
+        private static void PositionButton
+        (
+            TextButtonNode? button,
+            float           x,
+            float           y,
+            float           width
+        )
         {
             if (button is null)
             {
@@ -961,10 +1028,14 @@ public sealed partial class BetterGlamourManagement
             }
 
             button.Position = new(x, y);
-            button.Size = new(width, 28f);
+            button.Size     = new(width, 28f);
         }
 
-        private readonly record struct GearsetOption(int Index, string Label);
+        private readonly record struct GearsetOption
+        (
+            int    Index,
+            string Label
+        );
     }
 
 }

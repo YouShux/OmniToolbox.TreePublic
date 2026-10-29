@@ -14,10 +14,10 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class VoidMateriaTransmutation
 {
-    private TaskHelper? batchTasks;
-    private HashSet<uint> materiaIDs = [];
-    private readonly InventoryItemRef[] batchMaterials = new InventoryItemRef[5];
-    private readonly int[] quantitiesBeforeSubmission = new int[5];
+    private TaskHelper?                 batchTasks;
+    private HashSet<uint>               materiaIDs                 = [];
+    private readonly InventoryItemRef[] batchMaterials             = new InventoryItemRef[5];
+    private readonly int[]              quantitiesBeforeSubmission = new int[5];
 
     private void InitializeBatch()
     {

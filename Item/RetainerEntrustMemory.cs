@@ -6,8 +6,8 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Excel.Sheets;
 using OmenTools.Extensions;
-using OmenTools.Interop.Game.Lumina;
 using OmenTools.Interop.Game.Helpers;
+using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -15,9 +15,11 @@ using OmniToolbox.Common.Module.Models;
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-public sealed unsafe partial class RetainerEntrustMemory(
+public sealed unsafe partial class RetainerEntrustMemory
+(
     RetainerEntrustMemory.Settings config,
-    System.Action saveConfig) : OmniModuleBase
+    System.Action                  saveConfig
+) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -33,9 +35,9 @@ public sealed unsafe partial class RetainerEntrustMemory(
             ["Description"] = "RetainerEntrustMemoryDescription"
         });
 
-    private readonly Dictionary<uint, bool> itemStates = [];
-    private AddonEventRegistry? addonEvents;
-    private Dictionary<string, uint>? itemIDsByName;
+    private readonly Dictionary<uint, bool> itemStates    = [];
+    private AddonEventRegistry?             addonEvents;
+    private Dictionary<string, uint>?       itemIDsByName;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -56,7 +58,11 @@ public sealed unsafe partial class RetainerEntrustMemory(
         itemStates.Clear();
     }
 
-    private void OnPostSetup(AddonEvent eventType, AddonArgs args) =>
+    private void OnPostSetup
+    (
+        AddonEvent eventType,
+        AddonArgs  args
+    ) =>
         ApplyExcludedItems((AddonRetainerItemTransferList*)args.Addon.Address);
 
     private void ApplyExcludedItems(AddonRetainerItemTransferList* addon)
@@ -89,7 +95,11 @@ public sealed unsafe partial class RetainerEntrustMemory(
         CaptureItemStates();
     }
 
-    private void OnPostUpdate(AddonEvent eventType, AddonArgs args) => SaveChangedItemStates();
+    private void OnPostUpdate
+    (
+        AddonEvent eventType,
+        AddonArgs  args
+    ) => SaveChangedItemStates();
 
     private void SaveChangedItemStates()
     {
@@ -136,7 +146,11 @@ public sealed unsafe partial class RetainerEntrustMemory(
         }
     }
 
-    private void OnPreFinalize(AddonEvent eventType, AddonArgs args)
+    private void OnPreFinalize
+    (
+        AddonEvent eventType,
+        AddonArgs  args
+    )
     {
         SaveChangedItemStates();
         itemStates.Clear();
@@ -218,7 +232,12 @@ public sealed unsafe partial class RetainerEntrustMemory(
         return result;
     }
 
-    internal static bool SetExcluded(HashSet<uint> excludedItemIDs, uint itemID, bool enabled) =>
+    internal static bool SetExcluded
+    (
+        HashSet<uint> excludedItemIDs,
+        uint          itemID,
+        bool          enabled
+    ) =>
         enabled ? excludedItemIDs.Remove(itemID) : excludedItemIDs.Add(itemID);
 
     #region 常量

@@ -7,7 +7,11 @@ public sealed partial class BetterUserMacro
 {
     internal static class Parser
     {
-        public static bool TryFindCustomIcon(ReadOnlySpan<byte> text, out uint iconID)
+        public static bool TryFindCustomIcon
+        (
+            ReadOnlySpan<byte> text,
+            out uint           iconID
+        )
         {
             iconID = 0;
             while (!text.IsEmpty)
@@ -30,10 +34,14 @@ public sealed partial class BetterUserMacro
             return false;
         }
 
-        public static bool TryParseCustomIcon(ReadOnlySpan<byte> line, out uint iconID)
+        public static bool TryParseCustomIcon
+        (
+            ReadOnlySpan<byte> line,
+            out uint           iconID
+        )
         {
             iconID = 0;
-            line = Trim(line);
+            line   = Trim(line);
             if (!ConsumeCommand(ref line, "/omni"u8))
             {
                 return false;
@@ -90,7 +98,11 @@ public sealed partial class BetterUserMacro
             return true;
         }
 
-        public static bool TryParseActionName(string line, out string actionName)
+        public static bool TryParseActionName
+        (
+            string     line,
+            out string actionName
+        )
         {
             actionName = string.Empty;
             if (string.IsNullOrWhiteSpace(line))
@@ -140,7 +152,11 @@ public sealed partial class BetterUserMacro
             return value.IsEmpty ? string.Empty : Encoding.UTF8.GetString(value);
         }
 
-        private static bool ConsumeCommand(ref ReadOnlySpan<char> line, string command)
+        private static bool ConsumeCommand
+        (
+            ref ReadOnlySpan<char> line,
+            string                 command
+        )
         {
             if (!line.StartsWith(command.AsSpan(), StringComparison.OrdinalIgnoreCase))
             {
@@ -156,7 +172,11 @@ public sealed partial class BetterUserMacro
             return true;
         }
 
-        private static bool ConsumeCommand(ref ReadOnlySpan<byte> line, ReadOnlySpan<byte> command)
+        private static bool ConsumeCommand
+        (
+            ref ReadOnlySpan<byte> line,
+            ReadOnlySpan<byte>     command
+        )
         {
             if (!line.StartsWith(command))
             {

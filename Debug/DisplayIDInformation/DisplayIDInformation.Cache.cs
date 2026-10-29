@@ -2,12 +2,17 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class DisplayIDInformation
 {
-    internal sealed class DisplayIDInformationCache
+    private sealed class DisplayIDInformationCache
     {
-        private readonly List<ActionEntry> actions = [];
+        private readonly List<ActionEntry> actions  = [];
         private readonly List<StatusEntry> statuses = [];
 
-        public void RememberAction(uint actionID, uint value, long timestamp)
+        public void RememberAction
+        (
+            uint actionID,
+            uint value,
+            long timestamp
+        )
         {
             if (actionID == 0 || value == 0)
             {
@@ -18,7 +23,12 @@ public sealed partial class DisplayIDInformation
             Trim(actions, 512);
         }
 
-        public bool TryTakeAction(uint value, long now, out uint actionID)
+        public bool TryTakeAction
+        (
+            uint     value,
+            long     now,
+            out uint actionID
+        )
         {
             PruneActions(now);
             for (var index = actions.Count - 1; index >= 0; index--)
@@ -37,7 +47,13 @@ public sealed partial class DisplayIDInformation
             return false;
         }
 
-        public void RememberStatus(uint iconID, uint statusID, string name, long timestamp)
+        public void RememberStatus
+        (
+            uint   iconID,
+            uint   statusID,
+            string name,
+            long   timestamp
+        )
         {
             if (iconID == 0 || statusID == 0 || string.IsNullOrWhiteSpace(name))
             {
@@ -60,7 +76,14 @@ public sealed partial class DisplayIDInformation
             Trim(statuses, 128);
         }
 
-        public bool TryGetStatus(uint iconID, string text, long now, out uint statusID, out string name)
+        public bool TryGetStatus
+        (
+            uint       iconID,
+            string     text,
+            long       now,
+            out uint   statusID,
+            out string name
+        )
         {
             PruneStatuses(now);
             for (var index = statuses.Count - 1; index >= 0; index--)
@@ -73,12 +96,12 @@ public sealed partial class DisplayIDInformation
                 }
 
                 statusID = status.StatusID;
-                name = status.Name;
+                name     = status.Name;
                 return true;
             }
 
             statusID = 0;
-            name = string.Empty;
+            name     = string.Empty;
             return false;
         }
 
@@ -110,7 +133,11 @@ public sealed partial class DisplayIDInformation
             }
         }
 
-        private static void Trim<T>(List<T> entries, int maxCount)
+        private static void Trim<T>
+        (
+            List<T> entries,
+            int     maxCount
+        )
         {
             if (entries.Count > maxCount)
             {
@@ -118,9 +145,20 @@ public sealed partial class DisplayIDInformation
             }
         }
 
-        private readonly record struct ActionEntry(uint ActionID, uint Value, long Timestamp);
+        private readonly record struct ActionEntry
+        (
+            uint ActionID,
+            uint Value,
+            long Timestamp
+        );
 
-        private readonly record struct StatusEntry(uint IconID, uint StatusID, string Name, long Timestamp);
+        private readonly record struct StatusEntry
+        (
+            uint   IconID,
+            uint   StatusID,
+            string Name,
+            long   Timestamp
+        );
     }
 
 }

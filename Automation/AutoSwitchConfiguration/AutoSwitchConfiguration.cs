@@ -5,10 +5,10 @@ using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.OmenService;
-using TreeTools.Threading;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
+using TreeTools.Threading;
 
 namespace OmniToolbox.TreePublic;
 
@@ -61,20 +61,23 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
             ["Feature.AutoSwitchConfiguration.SendCommand"] = "Feature.AutoSwitchConfiguration.SendCommand"
         });
 
-    public override bool HasSettings => true;
-
-    private readonly Config config;
-    private readonly System.Action saveConfig;
+    private readonly Config                         config;
+    private readonly System.Action                  saveConfig;
     private readonly IAutoSwitchConfigurationSource source;
-    private TaskHelper? taskHelper;
-    private CancellationTokenSource? flowCancellation;
-    private uint triggeredTerritory;
+    private TaskHelper?                             taskHelper;
+    private CancellationTokenSource?                flowCancellation;
+    private uint                                    triggeredTerritory;
 
-    public AutoSwitchConfiguration(Config config, System.Action saveConfig, IAutoSwitchConfigurationSource source)
+    public AutoSwitchConfiguration
+    (
+        Config                         config,
+        System.Action                  saveConfig,
+        IAutoSwitchConfigurationSource source
+    )
     {
-        this.config = config;
+        this.config     = config;
         this.saveConfig = saveConfig;
-        this.source = source;
+        this.source     = source;
         if (config.MigrateLegacy())
             saveConfig();
     }
@@ -93,8 +96,8 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
             taskHelper = null;
         });
         Activation.OnStopping(CancelFlow);
-        taskHelper.TaskTimeout += _ => Fail("Timed out.");
-        taskHelper.TaskGetException += _ => Fail("Task execution failed.");
+        taskHelper.TaskTimeout += _ => CancelFlow();
+        taskHelper.TaskGetException += _ => CancelFlow();
         var clientState = DService.Instance().ClientState;
         Activation.OnStopping(() => clientState.TerritoryChanged -= OnTerritoryChanged);
         clientState.TerritoryChanged += OnTerritoryChanged;
@@ -124,7 +127,11 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
 
     private void OnLogin() => QueueMatchingRule(DService.Instance().ClientState.TerritoryType);
 
-    private void OnLogout(int logoutType, int logoutCode)
+    private void OnLogout
+    (
+        int logoutType,
+        int logoutCode
+    )
     {
         CancelFlow();
         triggeredTerritory = 0;
@@ -154,7 +161,12 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
         });
     }
 
-    private void QueueRule(Rule rule, uint territory, CancellationToken token)
+    private void QueueRule
+    (
+        Rule              rule,
+        uint              territory,
+        CancellationToken token
+    )
     {
         var tasks = taskHelper!;
         var gearsetID = rule.GearsetID;
@@ -168,7 +180,7 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
                     return false;
                 if (!TryResolveGearset(rule.ClassJobID, gearsetID, out var resolvedGearset))
                 {
-                    Fail("The target job has no matching available gearset.");
+                    CancelFlow();
                     return true;
                 }
 
@@ -176,7 +188,7 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
                 if (IsGearsetEquipped(gearsetID, rule.ClassJobID))
                     return true;
                 if (!LocalPlayerState.SwitchGearset(resolvedGearset))
-                    Fail("The target job has no matching available gearset.");
+                    CancelFlow();
                 return true;
             });
             tasks.Enqueue(() => !IsCurrentFlow(token, territory) ||
@@ -224,7 +236,7 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
                     if (!collectionTask.IsCompleted)
                         return false;
                     if (!collectionTask.GetAwaiter().GetResult())
-                        Fail("Plugin collection operation failed.");
+                        CancelFlow();
                     return true;
                 }
                 catch (OperationCanceledException) when (token.IsCancellationRequested)
@@ -233,7 +245,7 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
                 }
                 catch (Exception)
                 {
-                    Fail("Plugin collection operation failed.");
+                    CancelFlow();
                     return true;
                 }
             });
@@ -254,19 +266,23 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
         taskHelper?.Abort();
     }
 
-    private void Fail(string reason)
-    {
-        CancelFlow();
-    }
-
-    private bool IsCurrentFlow(CancellationToken token, uint territory) => !token.IsCancellationRequested &&
+    private bool IsCurrentFlow
+    (
+        CancellationToken token,
+        uint              territory
+    ) => !token.IsCancellationRequested &&
         IsEnabled && !DalamudServices.IsUnloading && DService.Instance().ClientState.IsLoggedIn &&
         DService.Instance().ClientState.TerritoryType == territory;
 
     private static bool IsReady() => !DalamudServices.IsUnloading && GameState.IsLoggedIn && LocalPlayerState.Object is not null &&
         GameState.IsTerritoryLoaded && !DService.Instance().Condition.IsBetweenAreas && UIModule.IsScreenReady();
 
-    private static unsafe bool TryResolveGearset(uint classJobID, int selectedGearset, out byte gearsetID)
+    private static unsafe bool TryResolveGearset
+    (
+        uint     classJobID,
+        int      selectedGearset,
+        out byte gearsetID
+    )
     {
         gearsetID = 0;
         if (selectedGearset < 0)
@@ -280,7 +296,11 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
         return true;
     }
 
-    private static unsafe bool IsGearsetEquipped(int gearsetID, uint classJobID)
+    private static unsafe bool IsGearsetEquipped
+    (
+        int  gearsetID,
+        uint classJobID
+    )
     {
         var module = RaptureGearsetModule.Instance();
         return module != null && module->CurrentGearsetIndex == gearsetID && LocalPlayerState.ClassJob == classJobID;

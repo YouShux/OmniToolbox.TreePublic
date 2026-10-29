@@ -14,13 +14,13 @@ using OmenTools.Interop.Game.ExecuteCommand.Implementations;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using OmenTools.Threading;
-using TreeTools.Threading;
 using OmniToolbox.Collections;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Config;
 using OmniToolbox.Items;
+using TreeTools.Threading;
 
 namespace OmniToolbox.TreePublic;
 
@@ -44,21 +44,21 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
             ["Feature.AutoUseUncollectedItems.SecretRecipeBooks"] = "Feature.AutoUseUncollectedItems.SecretRecipeBooks"
         });
 
-    private readonly Config config;
-    private readonly CollectionSourceService sourceService;
-    private readonly Dictionary<uint, CollectionType> itemTypes = [];
-    private readonly Dictionary<uint, long> blindBoxRetryAt = [];
-    private readonly Throttler<ulong> fieldNoteRequests = new();
-    private TaskHelper? taskHelper;
+    private readonly Config                           config;
+    private readonly CollectionSourceService          sourceService;
+    private readonly Dictionary<uint, CollectionType> itemTypes         = [];
+    private readonly Dictionary<uint, long>           blindBoxRetryAt   = [];
+    private readonly Throttler<ulong>                 fieldNoteRequests = new();
+    private TaskHelper?                               taskHelper;
 
-    public override bool HasSettings => true;
-
-    public AutoUseUncollectedItems(
-        TreeHouseConfig configStore,
+    public AutoUseUncollectedItems
+    (
+        TreeHouseConfig                                      configStore,
         Func<CollectionType, IReadOnlyList<CollectionEntry>> getCollections,
-        CollectionSourceService sourceService)
+        CollectionSourceService                              sourceService
+    )
     {
-        config = configStore.GetOrCreate<Config>(ModuleName);
+        config             = configStore.GetOrCreate<Config>(ModuleName);
         this.sourceService = sourceService;
         foreach (var type in SupportedTypes)
         {
@@ -91,6 +91,8 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
     {
         taskHelper = null;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -289,9 +291,9 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
         public HashSet<CollectionType> EnabledTypes = [.. SupportedTypes];
 
         public bool UseSecretRecipeBooks = true;
-        public bool UseFolkloreTomes = true;
-        public bool UseFieldNotes = true;
-        public bool UseSoulShards = true;
+        public bool UseFolkloreTomes     = true;
+        public bool UseFieldNotes        = true;
+        public bool UseSoulShards        = true;
     }
 
     private enum ItemActionKind : uint

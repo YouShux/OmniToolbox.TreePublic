@@ -8,7 +8,11 @@ public sealed partial class FoodReminder
     {
         private static readonly TerritorySelector TerritorySelector = new("foodReminderTerritory");
 
-        public static bool Draw(FoodReminderConfig config, System.Action sendTestReminder)
+        public static bool Draw
+        (
+            FoodReminderConfig config,
+            System.Action      sendTestReminder
+        )
         {
             var changed = DrawReminderSettings(config);
             changed |= DrawPartyMessage(config, sendTestReminder);
@@ -27,20 +31,20 @@ public sealed partial class FoodReminder
                 config.WhitelistTerritoryIds.UnionWith(config.AllowedTerritoryIds);
                 config.AllowedTerritoryIds.Clear();
                 config.UseWhitelist = true;
-                changed = true;
+                changed             = true;
             }
 
             if (config.TargetNameMode is < 0 or > 1)
             {
                 config.TargetNameMode = Math.Clamp(config.TargetNameMode, 0, 1);
-                changed = true;
+                changed               = true;
             }
 
             var threshold = Math.Clamp(config.ThresholdSeconds, 0, 7200);
             if (threshold != config.ThresholdSeconds)
             {
                 config.ThresholdSeconds = threshold;
-                changed = true;
+                changed                 = true;
             }
 
             return changed;
@@ -63,7 +67,7 @@ public sealed partial class FoodReminder
                     ref characterName))
             {
                 config.TargetNameMode = characterName ? 0 : 1;
-                changed = true;
+                changed               = true;
             }
 
             ImGui.SameLine();
@@ -73,7 +77,7 @@ public sealed partial class FoodReminder
                     ref jobName))
             {
                 config.TargetNameMode = jobName ? 1 : 0;
-                changed = true;
+                changed               = true;
             }
 
             ImGui.SameLine(0f, OmniTheme.Scale(4f));
@@ -104,7 +108,11 @@ public sealed partial class FoodReminder
             return changed;
         }
 
-        private static bool DrawPartyMessage(FoodReminderConfig config, System.Action sendTestReminder)
+        private static bool DrawPartyMessage
+        (
+            FoodReminderConfig config,
+            System.Action      sendTestReminder
+        )
         {
             ImGui.Spacing();
             ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.PartyMessage"));
@@ -126,7 +134,7 @@ public sealed partial class FoodReminder
             if (OmniControls.SmallButton(OmniLoc.Get("Feature.FoodReminder.Reset"), false))
             {
                 config.PartyMessage = OmniLoc.Get("Feature.FoodReminder.DefaultPartyMessage");
-                changed = true;
+                changed             = true;
             }
 
             ImGui.SameLine();
@@ -150,7 +158,7 @@ public sealed partial class FoodReminder
                     !config.UseWhitelist))
             {
                 config.UseWhitelist = false;
-                changed = true;
+                changed             = true;
             }
 
             ImGui.SameLine();
@@ -159,7 +167,7 @@ public sealed partial class FoodReminder
                     config.UseWhitelist))
             {
                 config.UseWhitelist = true;
-                changed = true;
+                changed             = true;
             }
 
             ImGui.SameLine();

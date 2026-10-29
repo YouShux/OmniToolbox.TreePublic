@@ -36,46 +36,62 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
             ["Feature.AntiCensorship.Separator"] = "Feature.AntiCensorship.Separator"
         });
 
-    public override bool HasSettings => true;
-
     private static readonly CompSig GetFilteredUtf8StringSig = new(
         "48 89 74 24 ?? 57 48 83 EC ?? 48 83 79 ?? ?? 48 8B FA 48 8B F1 0F 84 ?? ?? ?? ?? 48 89 5C 24");
+    private delegate void GetFilteredUtf8StringDelegate
+    (
+        nint        vulgarInstance,
+        Utf8String* text
+    );
+    private Hook<GetFilteredUtf8StringDelegate>? GetFilteredUtf8StringHook;
+
     private static readonly CompSig VulgarInstanceOffsetSig = new(
         "48 8B 81 ?? ?? ?? ?? 48 85 C0 74 ?? 48 8B D3");
+
     private static readonly CompSig LocalMessageDisplaySig = new(
         "40 53 48 83 EC ?? 48 8D 99 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 48 8B 0D");
+    private delegate nint LocalMessageDisplayDelegate
+    (
+        nint        context,
+        Utf8String* source
+    );
+    private Hook<LocalMessageDisplayDelegate>? LocalMessageDisplayHook;
+
     private static readonly CompSig PartyFinderMessageDisplaySig = new(
         "48 89 5C 24 ?? 57 48 83 EC ?? 48 8D 99 ?? ?? ?? ?? 48 8B F9 48 8B CB E8");
+    private delegate nint PartyFinderMessageDisplayDelegate
+    (
+        nint        context,
+        Utf8String* source
+    );
+    private Hook<PartyFinderMessageDisplayDelegate>? PartyFinderMessageDisplayHook;
+
     private static readonly CompSig LookingForGroupConditionReceiveEventSig = new(
         "E8 ?? ?? ?? ?? 0F B6 F8 E9 ?? ?? ?? ?? 45 8B C2 48 8B D6 48 8B CB E8 ?? ?? ?? ?? 0F B6 F8 E9 ?? ?? ?? ?? 45 8B C2 48 8B D6 48 8B CB E8 ?? ?? ?? ?? 0F B6 F8 E9 ?? ?? ?? ?? 48 8B CE");
+    private delegate byte LookingForGroupConditionReceiveEventDelegate
+    (
+        nint      context,
+        AtkValue* values
+    );
+    private Hook<LookingForGroupConditionReceiveEventDelegate>? LookingForGroupConditionReceiveEventHook;
+
     private static readonly CompSig TextInputReceiveEventSig = new(
         "4C 8B DC 55 53 57 41 54 41 57 49 8D AB ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05 ?? ?? ?? ?? 48 33 C4 48 89 85 ?? ?? ?? ?? 48 8B 9D");
+    private delegate void TextInputReceiveDelegate
+    (
+        AtkComponentTextInput* textInput,
+        AtkEventType           eventType,
+        int                    eventParam,
+        AtkEvent*              atkEvent,
+        AtkEventData*          atkEventData
+    );
+    private Hook<TextInputReceiveDelegate>? TextInputReceiveEventHook;
 
     [ThreadStatic]
     private static bool AllowFilterCall;
 
     private Processor? processor;
-    private Hook<GetFilteredUtf8StringDelegate>? getFilteredUtf8StringHook;
-    private Hook<LocalMessageDisplayDelegate>? localMessageDisplayHook;
-    private Hook<PartyFinderMessageDisplayDelegate>? partyFinderMessageDisplayHook;
-    private Hook<LookingForGroupConditionReceiveEventDelegate>? lookingForGroupConditionReceiveEventHook;
-    private Hook<TextInputReceiveDelegate>? textInputReceiveEventHook;
-    private int vulgarInstanceOffset;
-
-    private delegate void GetFilteredUtf8StringDelegate(nint vulgarInstance, Utf8String* text);
-
-    private delegate nint LocalMessageDisplayDelegate(nint context, Utf8String* source);
-
-    private delegate nint PartyFinderMessageDisplayDelegate(nint context, Utf8String* source);
-
-    private delegate byte LookingForGroupConditionReceiveEventDelegate(nint context, AtkValue* values);
-
-    private delegate void TextInputReceiveDelegate(
-        AtkComponentTextInput* textInput,
-        AtkEventType eventType,
-        int eventParam,
-        AtkEvent* atkEvent,
-        AtkEventData* atkEventData);
+    private int        vulgarInstanceOffset;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -90,30 +106,32 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
             throw new InvalidOperationException("Anti-censorship vulgar instance offset signature was not found.");
         }
 
-        vulgarInstanceOffset = *(int*)(offsetAddress + 3);
-        getFilteredUtf8StringHook = EnableHook<GetFilteredUtf8StringDelegate>(
+        vulgarInstanceOffset      = *(int*)(offsetAddress + 3);
+        GetFilteredUtf8StringHook = EnableHook<GetFilteredUtf8StringDelegate>(
             GetFilteredUtf8StringSig,
             GetFilteredUtf8StringDetour,
             lifetime);
-        processor = new(config, GetFilteredString);
+        processor                 = new(config, GetFilteredString);
         lifetime.Add(processor.Clear);
-        localMessageDisplayHook = EnableHook<LocalMessageDisplayDelegate>(
+        LocalMessageDisplayHook                  = EnableHook<LocalMessageDisplayDelegate>(
             LocalMessageDisplaySig,
             LocalMessageDisplayDetour,
             lifetime);
-        partyFinderMessageDisplayHook = EnableHook<PartyFinderMessageDisplayDelegate>(
+        PartyFinderMessageDisplayHook            = EnableHook<PartyFinderMessageDisplayDelegate>(
             PartyFinderMessageDisplaySig,
             PartyFinderMessageDisplayDetour,
             lifetime);
-        lookingForGroupConditionReceiveEventHook = EnableHook<LookingForGroupConditionReceiveEventDelegate>(
+        LookingForGroupConditionReceiveEventHook = EnableHook<LookingForGroupConditionReceiveEventDelegate>(
             LookingForGroupConditionReceiveEventSig,
             LookingForGroupConditionReceiveEventDetour,
             lifetime);
-        textInputReceiveEventHook = EnableHook<TextInputReceiveDelegate>(
+        TextInputReceiveEventHook                = EnableHook<TextInputReceiveDelegate>(
             TextInputReceiveEventSig,
             TextInputReceiveEventDetour,
             lifetime);
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -122,7 +140,7 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
         if (OmniControls.Checkbox($"{OmniLoc.Get(this, "Feature.AntiCensorship.AutoHandle")}##antiCensorshipAutoHandle", ref autoHandle))
         {
             config.EnableAutoHandle = autoHandle;
-            changed = true;
+            changed                 = true;
         }
 
         ImGui.SameLine();
@@ -133,7 +151,7 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
                 ref separator,
                 8))
         {
-            separator = separator.Trim();
+            separator        = separator.Trim();
             config.Separator = string.IsNullOrWhiteSpace(separator) || separator == "*"
                 ? '.'
                 : separator[0];
@@ -148,7 +166,7 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
         if (OmniControls.Checkbox($"{OmniLoc.Get(this, "Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))
         {
             config.EnableColoring = coloring;
-            changed = true;
+            changed               = true;
         }
 
         ImGui.SameLine();
@@ -162,7 +180,7 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
                 ref color,
                 ImGuiColorEditFlags.DisplayRgb))
         {
-            config.HighlightColorValue = color;
+            config.HighlightColorValue     = color;
             config.UseCustomHighlightColor = true;
             processor?.Clear();
         }
@@ -179,7 +197,12 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
         return true;
     }
 
-    private static Hook<T> EnableHook<T>(CompSig signature, T detour, FeatureLifetime lifetime) where T : Delegate
+    private static Hook<T> EnableHook<T>
+    (
+        CompSig         signature,
+        T               detour,
+        FeatureLifetime lifetime
+    ) where T : Delegate
     {
         var hook = signature.GetHook(detour);
         lifetime.Add(hook.Dispose);
@@ -188,27 +211,43 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
         return hook;
     }
 
-    private void GetFilteredUtf8StringDetour(nint vulgarInstance, Utf8String* text)
+    private void GetFilteredUtf8StringDetour
+    (
+        nint        vulgarInstance,
+        Utf8String* text
+    )
     {
         if (AllowFilterCall || vulgarInstance == nint.Zero || text == null)
         {
-            getFilteredUtf8StringHook!.Original(vulgarInstance, text);
+            GetFilteredUtf8StringHook!.Original(vulgarInstance, text);
         }
     }
 
-    private nint LocalMessageDisplayDetour(nint context, Utf8String* source)
+    private nint LocalMessageDisplayDetour
+    (
+        nint        context,
+        Utf8String* source
+    )
     {
         HighlightMessage(source);
-        return localMessageDisplayHook!.Original(context, source);
+        return LocalMessageDisplayHook!.Original(context, source);
     }
 
-    private nint PartyFinderMessageDisplayDetour(nint context, Utf8String* source)
+    private nint PartyFinderMessageDisplayDetour
+    (
+        nint        context,
+        Utf8String* source
+    )
     {
         HighlightMessage(source);
-        return partyFinderMessageDisplayHook!.Original(context, source);
+        return PartyFinderMessageDisplayHook!.Original(context, source);
     }
 
-    private byte LookingForGroupConditionReceiveEventDetour(nint context, AtkValue* values)
+    private byte LookingForGroupConditionReceiveEventDetour
+    (
+        nint      context,
+        AtkValue* values
+    )
     {
         if (config.EnableAutoHandle && processor is not null)
         {
@@ -243,17 +282,19 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
             }
         }
 
-        return lookingForGroupConditionReceiveEventHook!.Original(context, values);
+        return LookingForGroupConditionReceiveEventHook!.Original(context, values);
     }
 
-    private void TextInputReceiveEventDetour(
+    private void TextInputReceiveEventDetour
+    (
         AtkComponentTextInput* textInput,
-        AtkEventType eventType,
-        int eventParam,
-        AtkEvent* atkEvent,
-        AtkEventData* atkEventData)
+        AtkEventType           eventType,
+        int                    eventParam,
+        AtkEvent*              atkEvent,
+        AtkEventData*          atkEventData
+    )
     {
-        textInputReceiveEventHook!.Original(textInput, eventType, eventParam, atkEvent, atkEventData);
+        TextInputReceiveEventHook!.Original(textInput, eventType, eventParam, atkEvent, atkEventData);
         if (!config.EnableAutoHandle || processor is null || eventType != AtkEventType.FocusStop || textInput == null)
         {
             return;
@@ -313,7 +354,7 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
     private string GetFilteredString(string text)
     {
         var framework = Framework.Instance();
-        if (framework == null || getFilteredUtf8StringHook is null || vulgarInstanceOffset == 0)
+        if (framework == null || GetFilteredUtf8StringHook is null || vulgarInstanceOffset == 0)
         {
             return text;
         }
@@ -328,7 +369,7 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
         try
         {
             AllowFilterCall = true;
-            getFilteredUtf8StringHook.Original(vulgarInstance, utf8String);
+            GetFilteredUtf8StringHook.Original(vulgarInstance, utf8String);
             return utf8String->ToString();
         }
         finally
@@ -340,12 +381,12 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
 
     private void ClearRuntimeReferences()
     {
-        processor = null;
-        getFilteredUtf8StringHook = null;
-        localMessageDisplayHook = null;
-        partyFinderMessageDisplayHook = null;
-        lookingForGroupConditionReceiveEventHook = null;
-        textInputReceiveEventHook = null;
-        vulgarInstanceOffset = 0;
+        processor                                = null;
+        GetFilteredUtf8StringHook                = null;
+        LocalMessageDisplayHook                  = null;
+        PartyFinderMessageDisplayHook            = null;
+        LookingForGroupConditionReceiveEventHook = null;
+        TextInputReceiveEventHook                = null;
+        vulgarInstanceOffset                     = 0;
     }
 }

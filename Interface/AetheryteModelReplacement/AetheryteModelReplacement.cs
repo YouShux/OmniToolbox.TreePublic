@@ -27,9 +27,11 @@ using OmniModuleBase = OmniToolbox.Common.Module.Abstractions.OmniModuleBase;
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-public sealed unsafe partial class AetheryteModelReplacement(
+public sealed unsafe partial class AetheryteModelReplacement
+(
     AetheryteModelReplacement.Settings config,
-    System.Action saveConfig) : OmniModuleBase
+    System.Action                      saveConfig
+) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -52,20 +54,18 @@ public sealed unsafe partial class AetheryteModelReplacement(
             ["Feature.AetheryteModelReplacement.Target"] = "Feature.AetheryteModelReplacement.Target"
         });
 
-    public override bool HasSettings => true;
-
-    private static PresetScanResult? presetScanCache;
-    private static string presetScanCacheVersion = string.Empty;
-    private IReadOnlyList<AetherytePreset> presets = [];
-    private PresetScanProgress? presetScanProgress;
-    private bool presetScanFailed;
-    private string gameDataVersion = string.Empty;
-    private Hook<ResourceManager.Delegates.GetResourceSync>? getResourceSyncHook;
-    private Hook<ResourceManager.Delegates.GetResourceAsync>? getResourceAsyncHook;
-    private bool redirectSharedGroup;
-    private Dictionary<RedirectKey, string> redirectTargets = [];
-    private bool redirectsDirty = true;
-    private uint currentTerritoryID;
+    private static PresetScanResult?                          presetScanCache;
+    private static string                                     presetScanCacheVersion = string.Empty;
+    private IReadOnlyList<AetherytePreset>                    presets                = [];
+    private PresetScanProgress?                               presetScanProgress;
+    private bool                                              presetScanFailed;
+    private string                                            gameDataVersion        = string.Empty;
+    private Hook<ResourceManager.Delegates.GetResourceSync>?  GetResourceSyncHook;
+    private Hook<ResourceManager.Delegates.GetResourceAsync>? GetResourceAsyncHook;
+    private bool                                              redirectSharedGroup;
+    private Dictionary<RedirectKey, string>                   redirectTargets        = [];
+    private bool                                              redirectsDirty         = true;
+    private uint                                              currentTerritoryID;
 
     internal bool IsPresetScanPending => presetScanCache is null && !presetScanFailed;
 
@@ -76,10 +76,10 @@ public sealed unsafe partial class AetheryteModelReplacement(
             saveConfig();
         }
 
-        presets = [];
+        presets            = [];
         presetScanProgress = null;
-        presetScanFailed = false;
-        gameDataVersion = GetGameDataVersion();
+        presetScanFailed   = false;
+        gameDataVersion    = GetGameDataVersion();
         if (gameDataVersion.Length > 0 &&
             config.PresetCacheSchemaVersion == PRESET_CACHE_SCHEMA_VERSION &&
             string.Equals(config.PresetCacheGameDataVersion, gameDataVersion, StringComparison.Ordinal) &&
@@ -88,7 +88,7 @@ public sealed unsafe partial class AetheryteModelReplacement(
             presets = cached.Presets;
             if (cached.IsComplete)
             {
-                presetScanCache = cached;
+                presetScanCache        = cached;
                 presetScanCacheVersion = gameDataVersion;
             }
             else if (cached.ScannedTerritories > 0)
@@ -115,25 +115,27 @@ public sealed unsafe partial class AetheryteModelReplacement(
         }
 
         lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
-        getResourceSyncHook = DService.Instance().Hook.HookFromMemberFunction(
+        GetResourceSyncHook = DService.Instance().Hook.HookFromMemberFunction(
             typeof(ResourceManager.MemberFunctionPointers),
             "GetResourceSync",
             (ResourceManager.Delegates.GetResourceSync)GetResourceSyncDetour);
         lifetime.Add(ReleaseResourceHooks);
-        getResourceAsyncHook = DService.Instance().Hook.HookFromMemberFunction(
+        GetResourceAsyncHook = DService.Instance().Hook.HookFromMemberFunction(
             typeof(ResourceManager.MemberFunctionPointers),
             "GetResourceAsync",
             (ResourceManager.Delegates.GetResourceAsync)GetResourceAsyncDetour);
-        lifetime.OnStopping(getResourceSyncHook.Disable);
-        getResourceSyncHook.Enable();
-        lifetime.OnStopping(getResourceAsyncHook.Disable);
-        getResourceAsyncHook.Enable();
+        lifetime.OnStopping(GetResourceSyncHook.Disable);
+        GetResourceSyncHook.Enable();
+        lifetime.OnStopping(GetResourceAsyncHook.Disable);
+        GetResourceAsyncHook.Enable();
         Volatile.Write(ref currentTerritoryID, DService.Instance().ClientState.TerritoryType);
         UpdateResourceRedirect(true);
         var clientState = DService.Instance().ClientState;
         lifetime.OnStopping(() => clientState.TerritoryChanged -= OnTerritoryChanged);
         clientState.TerritoryChanged += OnTerritoryChanged;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -144,16 +146,16 @@ public sealed unsafe partial class AetheryteModelReplacement(
 
     public override bool ResetSettings()
     {
-        config.Rules = [];
-        redirectsDirty = true;
-        config.PresetCacheSchemaVersion = 0;
+        config.Rules                      = [];
+        redirectsDirty                    = true;
+        config.PresetCacheSchemaVersion   = 0;
         config.PresetCacheGameDataVersion = string.Empty;
-        config.CachedPresetScan = null;
-        presetScanCache = null;
-        presetScanCacheVersion = string.Empty;
-        presets = [];
-        presetScanProgress = null;
-        presetScanFailed = false;
+        config.CachedPresetScan           = null;
+        presetScanCache                   = null;
+        presetScanCacheVersion            = string.Empty;
+        presets                           = [];
+        presetScanProgress                = null;
+        presetScanFailed                  = false;
         saveConfig();
         DisableResourceRedirect();
         return true;
@@ -240,16 +242,16 @@ public sealed unsafe partial class AetheryteModelReplacement(
             }
 
             var completedScan = presetScanProgress.BuildResult();
-            presetScanProgress = null;
-            presets = completedScan.Presets;
-            presetScanCache = completedScan;
+            presetScanProgress     = null;
+            presets                = completedScan.Presets;
+            presetScanCache        = completedScan;
             presetScanCacheVersion = gameDataVersion;
             SavePresetScanCheckpoint(completedScan);
         }
         catch (Exception)
         {
             presetScanProgress = null;
-            presetScanFailed = true;
+            presetScanFailed   = true;
         }
     }
 
@@ -261,31 +263,33 @@ public sealed unsafe partial class AetheryteModelReplacement(
             return;
         }
 
-        config.PresetCacheSchemaVersion = PRESET_CACHE_SCHEMA_VERSION;
+        config.PresetCacheSchemaVersion   = PRESET_CACHE_SCHEMA_VERSION;
         config.PresetCacheGameDataVersion = gameDataVersion;
-        config.CachedPresetScan = scan;
+        config.CachedPresetScan           = scan;
         saveConfig();
     }
 
     private sealed class PresetScanProgress
     {
         private readonly List<IGrouping<uint, LuminaAetheryte>> rowsByTerritory;
-        private readonly List<AetherytePreset> result = [];
-        private int territoryIndex;
-        private int bgFiles;
-        private int eventFiles;
-        private int aetheryteInstances;
-        private int sharedGroupCount;
-        private int pathMatches;
-        private int boundMatches;
+        private readonly List<AetherytePreset>                  result             = [];
+        private int                                             territoryIndex;
+        private int                                             bgFiles;
+        private int                                             eventFiles;
+        private int                                             aetheryteInstances;
+        private int                                             sharedGroupCount;
+        private int                                             pathMatches;
+        private int                                             boundMatches;
 
-        private PresetScanProgress(
+        private PresetScanProgress
+        (
             List<IGrouping<uint, LuminaAetheryte>> rowsByTerritory,
-            int territoryIndex,
-            IEnumerable<AetherytePreset> cachedPresets)
+            int                                    territoryIndex,
+            IEnumerable<AetherytePreset>           cachedPresets
+        )
         {
             this.rowsByTerritory = rowsByTerritory;
-            this.territoryIndex = territoryIndex;
+            this.territoryIndex  = territoryIndex;
             result.AddRange(cachedPresets);
         }
 
@@ -402,15 +406,19 @@ public sealed unsafe partial class AetheryteModelReplacement(
     private static string NormalizeAssetPath(string path) =>
         path.Trim().Replace('\\', '/').ToLowerInvariant();
 
-    private static LgbFile? TryGetLgb(LuminaTerritoryType territory, LGBFileType fileType) =>
+    private static LgbFile? TryGetLgb
+    (
+        LuminaTerritoryType territory,
+        LGBFileType         fileType
+    ) =>
         LgbFile.TryGet(territory, fileType, out var file) ? file : null;
 
     private void ReleaseResourceHooks()
     {
-        getResourceSyncHook?.Dispose();
-        getResourceSyncHook = null;
-        getResourceAsyncHook?.Dispose();
-        getResourceAsyncHook = null;
+        GetResourceSyncHook?.Dispose();
+        GetResourceSyncHook = null;
+        GetResourceAsyncHook?.Dispose();
+        GetResourceAsyncHook = null;
     }
 
     internal bool EnsureRules()
@@ -419,7 +427,7 @@ public sealed unsafe partial class AetheryteModelReplacement(
         if (config.Rules is null)
         {
             config.Rules = [];
-            changed = true;
+            changed      = true;
         }
 
         var seenSources = new HashSet<(uint TerritoryID, uint RowID)>();
@@ -483,38 +491,44 @@ public sealed unsafe partial class AetheryteModelReplacement(
         redirectsDirty = false;
     }
 
-    private ResourceHandle* GetResourceSyncDetour(
-        ResourceManager* manager,
+    private ResourceHandle* GetResourceSyncDetour
+    (
+        ResourceManager*  manager,
         ResourceCategory* category,
-        uint* type,
-        uint* hash,
-        CStringPointer path,
-        void* unknown,
-        void* unkDebugPtr,
-        uint unkDebugInt) => GetResource(true, manager, category, type, hash, path, unknown, false, unkDebugPtr, unkDebugInt);
+        uint*             type,
+        uint*             hash,
+        CStringPointer    path,
+        void*             unknown,
+        void*             unkDebugPtr,
+        uint              unkDebugInt
+    ) => GetResource(true, manager, category, type, hash, path, unknown, false, unkDebugPtr, unkDebugInt);
 
-    private ResourceHandle* GetResourceAsyncDetour(
-        ResourceManager* manager,
+    private ResourceHandle* GetResourceAsyncDetour
+    (
+        ResourceManager*  manager,
         ResourceCategory* category,
-        uint* type,
-        uint* hash,
-        CStringPointer path,
-        void* unknown,
-        bool isUnknown,
-        void* unkDebugPtr,
-        uint unkDebugInt) => GetResource(false, manager, category, type, hash, path, unknown, isUnknown, unkDebugPtr, unkDebugInt);
+        uint*             type,
+        uint*             hash,
+        CStringPointer    path,
+        void*             unknown,
+        bool              isUnknown,
+        void*             unkDebugPtr,
+        uint              unkDebugInt
+    ) => GetResource(false, manager, category, type, hash, path, unknown, isUnknown, unkDebugPtr, unkDebugInt);
 
-    private ResourceHandle* GetResource(
-        bool synchronous,
-        ResourceManager* manager,
+    private ResourceHandle* GetResource
+    (
+        bool              synchronous,
+        ResourceManager*  manager,
         ResourceCategory* category,
-        uint* type,
-        uint* hash,
-        CStringPointer path,
-        void* unknown,
-        bool isUnknown,
-        void* unkDebugPtr,
-        uint unkDebugInt)
+        uint*             type,
+        uint*             hash,
+        CStringPointer    path,
+        void*             unknown,
+        bool              isUnknown,
+        void*             unkDebugPtr,
+        uint              unkDebugInt
+    )
     {
         var sourcePath = path.HasValue ? path.ToString().Trim() : string.Empty;
         var redirects = Volatile.Read(ref redirectTargets);
@@ -529,15 +543,15 @@ public sealed unsafe partial class AetheryteModelReplacement(
             if (targetLength > 0 && targetLength < utf8Path.Length)
             {
                 utf8Path[targetLength] = 0;
-                path = (byte*)Unsafe.AsPointer(ref utf8Path[0]);
+                path                   = (byte*)Unsafe.AsPointer(ref utf8Path[0]);
                 var targetHash = ComputeResourceHash(targetPath);
                 *hash = targetHash;
             }
         }
 
         return synchronous
-            ? getResourceSyncHook!.Original(manager, category, type, hash, path, unknown, unkDebugPtr, unkDebugInt)
-            : getResourceAsyncHook!.Original(manager, category, type, hash, path, unknown, isUnknown, unkDebugPtr, unkDebugInt);
+            ? GetResourceSyncHook!.Original(manager, category, type, hash, path, unknown, unkDebugPtr, unkDebugInt)
+            : GetResourceAsyncHook!.Original(manager, category, type, hash, path, unknown, isUnknown, unkDebugPtr, unkDebugInt);
     }
 
     private static bool IsSharedGroupPath(string path)
@@ -577,7 +591,11 @@ public sealed unsafe partial class AetheryteModelReplacement(
         return ~crc;
     }
 
-    private readonly record struct RedirectKey(uint TerritoryID, string SourcePath);
+    private readonly record struct RedirectKey
+    (
+        uint   TerritoryID,
+        string SourcePath
+    );
 
     #region 常量
 

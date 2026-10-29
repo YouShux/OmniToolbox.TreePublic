@@ -14,6 +14,8 @@ public sealed unsafe partial class BetterGlamourManagement
 {
     private BetterGlamourPlateExportNativeUI? plateExportNativeUI;
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings()
     {
         var enabled = config.EnableGlamourPlateExport;
@@ -63,7 +65,11 @@ public sealed unsafe partial class BetterGlamourManagement
         ui.Dispose();
     }
 
-    private void RefreshPlateExport(AtkUnitBase* plateAddon, bool refreshState)
+    private void RefreshPlateExport
+    (
+        AtkUnitBase* plateAddon,
+        bool         refreshState
+    )
     {
         if (!config.EnableGlamourPlateExport ||
             plateExportNativeUI is null ||
@@ -191,59 +197,65 @@ public sealed unsafe partial class BetterGlamourManagement
 
     internal sealed class BetterGlamourPlateExportNativeUI : NativeAddon
     {
-        private readonly Action onExport;
-        private readonly Action onOpenManager;
-        private readonly Func<bool> canExport;
+        private readonly Action                                   onExport;
+        private readonly Action                                   onOpenManager;
+        private readonly Func<bool>                               canExport;
         private readonly Func<IReadOnlyList<BetterGlamourPreset>> getPresets;
-        private readonly Func<BetterGlamourPreset?> getSelectedPreset;
-        private readonly Action<BetterGlamourPreset> onSelectPreset;
-        private readonly Action<BetterGlamourPreset> onImport;
-        private readonly Func<bool> canImport;
-        private readonly Action onAbortImport;
-        private TextNode? presetLabel;
-        private DropDownNode<BetterGlamourPreset>? presetDropDown;
-        private TextButtonNode? importButton;
-        private string? displayedPresetName;
-        private TextButtonNode? exportButton;
-        private TextButtonNode? openManagerButton;
-        private bool selectedPresetHasItems;
-        private Vector2 layoutSize;
-        private Vector2 layoutStart;
+        private readonly Func<BetterGlamourPreset?>               getSelectedPreset;
+        private readonly Action<BetterGlamourPreset>              onSelectPreset;
+        private readonly Action<BetterGlamourPreset>              onImport;
+        private readonly Func<bool>                               canImport;
+        private readonly Action                                   onAbortImport;
+        private TextNode?                                         presetLabel;
+        private DropDownNode<BetterGlamourPreset>?                presetDropDown;
+        private TextButtonNode?                                   importButton;
+        private string?                                           displayedPresetName;
+        private TextButtonNode?                                   exportButton;
+        private TextButtonNode?                                   openManagerButton;
+        private bool                                              selectedPresetHasItems;
+        private Vector2                                           layoutSize;
+        private Vector2                                           layoutStart;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-        public BetterGlamourPlateExportNativeUI(
-            Action onExport,
-            Action onOpenManager,
-            Func<bool> canExport,
+        public BetterGlamourPlateExportNativeUI
+        (
+            Action                                   onExport,
+            Action                                   onOpenManager,
+            Func<bool>                               canExport,
             Func<IReadOnlyList<BetterGlamourPreset>> getPresets,
-            Func<BetterGlamourPreset?> getSelectedPreset,
-            Action<BetterGlamourPreset> onSelectPreset,
-            Action<BetterGlamourPreset> onImport,
-            Func<bool> canImport,
-            Action onAbortImport)
+            Func<BetterGlamourPreset?>               getSelectedPreset,
+            Action<BetterGlamourPreset>              onSelectPreset,
+            Action<BetterGlamourPreset>              onImport,
+            Func<bool>                               canImport,
+            Action                                   onAbortImport
+        )
         {
-            InternalName = "OmniBetterGlamourPlateExport";
-            Title = OmniLoc.Get("Feature.BetterGlamourManagement.PlateExport");
-            Subtitle = string.Empty;
-            Size = new(260f, 230f);
-            ContentPadding = new(8f, 8f);
-            RememberClosePosition = false;
-            CreateWindowNode = static () => new WindowNode { ShowCloseButton = false };
-            EnableContextMenu = false;
-            RespectCloseAll = false;
-            DisableClose = true;
-            this.onExport = onExport;
-            this.onOpenManager = onOpenManager;
-            this.canExport = canExport;
-            this.getPresets = getPresets;
+            InternalName           = "OmniBetterGlamourPlateExport";
+            Title                  = OmniLoc.Get("Feature.BetterGlamourManagement.PlateExport");
+            Subtitle               = string.Empty;
+            Size                   = new(260f, 230f);
+            ContentPadding         = new(8f, 8f);
+            RememberClosePosition  = false;
+            CreateWindowNode       = static () => new WindowNode { ShowCloseButton = false };
+            EnableContextMenu      = false;
+            RespectCloseAll        = false;
+            DisableClose           = true;
+            this.onExport          = onExport;
+            this.onOpenManager     = onOpenManager;
+            this.canExport         = canExport;
+            this.getPresets        = getPresets;
             this.getSelectedPreset = getSelectedPreset;
-            this.onSelectPreset = onSelectPreset;
-            this.onImport = onImport;
-            this.canImport = canImport;
-            this.onAbortImport = onAbortImport;
+            this.onSelectPreset    = onSelectPreset;
+            this.onImport          = onImport;
+            this.canImport         = canImport;
+            this.onAbortImport     = onAbortImport;
         }
 
-        protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
+        protected override unsafe void OnSetup
+        (
+            AtkUnitBase*   addon,
+            Span<AtkValue> atkValueSpan
+        )
         {
             presetLabel = new()
             {
@@ -312,15 +324,15 @@ public sealed unsafe partial class BetterGlamourManagement
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
             onAbortImport();
-            presetLabel = null;
-            presetDropDown = null;
-            importButton = null;
-            displayedPresetName = null;
-            exportButton = null;
-            openManagerButton = null;
+            presetLabel            = null;
+            presetDropDown         = null;
+            importButton           = null;
+            displayedPresetName    = null;
+            exportButton           = null;
+            openManagerButton      = null;
             selectedPresetHasItems = false;
-            layoutSize = Vector2.Zero;
-            layoutStart = Vector2.Zero;
+            layoutSize             = Vector2.Zero;
+            layoutStart            = Vector2.Zero;
         }
 
         internal void RefreshState()
@@ -339,12 +351,12 @@ public sealed unsafe partial class BetterGlamourManagement
             if (presetDropDown is null)
                 return;
             var selected = getSelectedPreset();
-            presetDropDown.Options = [.. getPresets()];
+            presetDropDown.Options        = [.. getPresets()];
             presetDropDown.SelectedOption = selected;
-            presetDropDown.IsEnabled = presetDropDown.Options.Count > 0;
-            presetDropDown.TextTooltip = selected?.Name ?? string.Empty;
-            displayedPresetName = selected?.Name;
-            selectedPresetHasItems = selected?.Items.Exists(static item => item.ItemID != 0) == true;
+            presetDropDown.IsEnabled      = presetDropDown.Options.Count > 0;
+            presetDropDown.TextTooltip    = selected?.Name ?? string.Empty;
+            displayedPresetName           = selected?.Name;
+            selectedPresetHasItems        = selected?.Items.Exists(static item => item.ItemID != 0) == true;
         }
 
         private void ResizeContent()
@@ -358,23 +370,23 @@ public sealed unsafe partial class BetterGlamourManagement
             var start = ContentStartPosition;
             if (layoutSize == size && layoutStart == start)
                 return;
-            layoutSize = size;
+            layoutSize  = size;
             layoutStart = start;
 
             const float BUTTON_HEIGHT = 30f;
             const float BUTTON_GAP = 6f;
-            presetLabel.Position = ContentStartPosition;
-            presetLabel.Size = new(ContentSize.X, 22f);
-            presetDropDown.Position = ContentStartPosition + new Vector2(0f, 24f);
-            presetDropDown.Size = new(ContentSize.X, 28f);
-            importButton.Position = ContentStartPosition + new Vector2(0f, 58f);
-            importButton.Size = new(ContentSize.X, BUTTON_HEIGHT);
-            exportButton.Position = ContentStartPosition + new Vector2(0f, 58f + BUTTON_HEIGHT + BUTTON_GAP);
-            exportButton.Size = new(ContentSize.X, BUTTON_HEIGHT);
+            presetLabel.Position       = ContentStartPosition;
+            presetLabel.Size           = new(ContentSize.X, 22f);
+            presetDropDown.Position    = ContentStartPosition + new Vector2(0f, 24f);
+            presetDropDown.Size        = new(ContentSize.X, 28f);
+            importButton.Position      = ContentStartPosition + new Vector2(0f, 58f);
+            importButton.Size          = new(ContentSize.X, BUTTON_HEIGHT);
+            exportButton.Position      = ContentStartPosition + new Vector2(0f, 58f + BUTTON_HEIGHT + BUTTON_GAP);
+            exportButton.Size          = new(ContentSize.X, BUTTON_HEIGHT);
             openManagerButton.Position = new(
                 ContentStartPosition.X,
                 ContentStartPosition.Y + 58f + (BUTTON_HEIGHT + BUTTON_GAP) * 2f);
-            openManagerButton.Size = new(ContentSize.X, BUTTON_HEIGHT);
+            openManagerButton.Size     = new(ContentSize.X, BUTTON_HEIGHT);
         }
     }
 

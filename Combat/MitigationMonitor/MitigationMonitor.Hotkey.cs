@@ -7,9 +7,11 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class MitigationMonitor
 {
-    internal sealed class MitigationMonitorHotkey(
+    internal sealed class MitigationMonitorHotkey
+    (
         MitigationMonitorConfig config,
-        Action saveConfig)
+        Action                  saveConfig
+    )
     {
         private static readonly MitigationHotkeyModifier[] Modifiers =
         [
@@ -62,7 +64,7 @@ public sealed partial class MitigationMonitor
                     if (ImGui.Selectable(GetModifierName(modifier), modifier == config.HideHotkeyModifier))
                     {
                         config.HideHotkeyModifier = modifier;
-                        changed = true;
+                        changed                   = true;
                     }
                 }
 
@@ -90,10 +92,10 @@ public sealed partial class MitigationMonitor
             OmniControls.SameLineOrWrap(OmniControls.CompactButtonSize(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Clear")).X);
             if (OmniControls.SmallButton($"{OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Clear")}##MitigationHideHotkeyClear", false))
             {
-                capturing = false;
-                hotkeyHeld = false;
+                capturing         = false;
+                hotkeyHeld        = false;
                 config.HideHotkey = 0;
-                changed = true;
+                changed           = true;
             }
 
             if (capturing)
@@ -106,7 +108,7 @@ public sealed partial class MitigationMonitor
 
         public void Reset()
         {
-            capturing = false;
+            capturing  = false;
             hotkeyHeld = false;
         }
 
@@ -136,7 +138,7 @@ public sealed partial class MitigationMonitor
                 return;
             }
 
-            hotkeyHeld = true;
+            hotkeyHeld     = true;
             config.Visible = !config.Visible;
             if (config.Visible)
             {
@@ -161,7 +163,7 @@ public sealed partial class MitigationMonitor
                     continue;
                 }
 
-                capturing = false;
+                capturing         = false;
                 config.HideHotkey = key;
                 return true;
             }

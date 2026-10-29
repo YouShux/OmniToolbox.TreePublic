@@ -1,10 +1,10 @@
-using TreeToolKit;
 using System.Drawing;
 using Dalamud.Interface;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.OmenService;
 using OmniToolbox.UI.Theme;
+using TreeToolKit;
 
 namespace OmniToolbox.TreePublic;
 
@@ -13,29 +13,31 @@ public sealed partial class MitigationMonitor
     internal sealed class MitigationMonitorOverlay
     {
         private readonly MitigationMonitorConfig config;
-        private readonly MitigationHistoryMenu historyMenu;
-        private readonly MitigationRecordTable recordTable;
-        private readonly Action saveConfig;
-        private Action? openSettingsAction;
-        private float lastScale;
-        private Vector2 lastViewportSize;
-        private bool restoreLayoutNextDraw;
-        private bool geometryDirty;
-        private bool collapsedIconDragged;
-        private DateTime? expansionStartUTC;
-        private Vector2 expansionFromPosition;
-        private Vector2 expansionFromSize;
+        private readonly MitigationHistoryMenu   historyMenu;
+        private readonly MitigationRecordTable   recordTable;
+        private readonly Action                  saveConfig;
+        private Action?                          openSettingsAction;
+        private float                            lastScale;
+        private Vector2                          lastViewportSize;
+        private bool                             restoreLayoutNextDraw;
+        private bool                             geometryDirty;
+        private bool                             collapsedIconDragged;
+        private DateTime?                        expansionStartUTC;
+        private Vector2                          expansionFromPosition;
+        private Vector2                          expansionFromSize;
 
-        public MitigationMonitorOverlay(
+        public MitigationMonitorOverlay
+        (
             MitigationMonitorConfig config,
-            MitigationCombatLog combatLog,
-            MitigationReplayStore replayStore,
-            Action saveConfig)
+            MitigationCombatLog     combatLog,
+            MitigationReplayStore   replayStore,
+            Action                  saveConfig
+        )
         {
-            this.config = config;
+            this.config     = config;
             this.saveConfig = saveConfig;
-            historyMenu = new(config, combatLog, replayStore);
-            recordTable = new(config, combatLog, saveConfig);
+            historyMenu     = new(config, combatLog, replayStore);
+            recordTable     = new(config, combatLog, saveConfig);
         }
 
         public void SetOpenSettingsAction(Action action) => openSettingsAction = action;
@@ -70,8 +72,8 @@ public sealed partial class MitigationMonitor
                 if (progress < 1f)
                 {
                     var eased = progress * progress * (3f - 2f * progress);
-                    targetPosition = Vector2.Lerp(expansionFromPosition, targetPosition, eased);
-                    targetSize = Vector2.Lerp(expansionFromSize, targetSize, eased);
+                    targetPosition     = Vector2.Lerp(expansionFromPosition, targetPosition, eased);
+                    targetSize         = Vector2.Lerp(expansionFromSize, targetSize, eased);
                     animatingExpansion = true;
                 }
                 else
@@ -80,10 +82,10 @@ public sealed partial class MitigationMonitor
                 }
 
                 positionCondition = ImGuiCond.Always;
-                sizeCondition = ImGuiCond.Always;
+                sizeCondition     = ImGuiCond.Always;
             }
 
-            targetSize = OmniTheme.ClampWindowSize(targetSize);
+            targetSize     = OmniTheme.ClampWindowSize(targetSize);
             targetPosition = OmniTheme.ClampWindowPosition(targetPosition, targetSize);
             ImGui.SetNextWindowPos(targetPosition, positionCondition);
             ImGui.SetNextWindowSize(
@@ -93,7 +95,7 @@ public sealed partial class MitigationMonitor
                 OmniTheme.ClampWindowSize(config.Scale(new Vector2(MinimumWidth, 160f))),
                 viewportSize);
             restoreLayoutNextDraw = false;
-            lastScale = config.ScaleValue;
+            lastScale             = config.ScaleValue;
 
             var flags = ImGuiWindowFlags.NoSavedSettings |
                         ImGuiWindowFlags.NoTitleBar |
@@ -145,22 +147,22 @@ public sealed partial class MitigationMonitor
         {
             historyMenu.ResetRuntime();
             recordTable.ResetRuntime();
-            geometryDirty = false;
+            geometryDirty        = false;
             collapsedIconDragged = false;
-            expansionStartUTC = null;
+            expansionStartUTC    = null;
         }
 
         public void RequestLayoutRestore()
         {
             restoreLayoutNextDraw = true;
-            lastScale = 0f;
+            lastScale             = 0f;
         }
 
         private void Collapse(Vector2 buttonPosition)
         {
             config.CollapsedPosition = buttonPosition;
-            expansionStartUTC = null;
-            config.Collapsed = true;
+            expansionStartUTC        = null;
+            config.Collapsed         = true;
             saveConfig();
         }
 
@@ -221,9 +223,9 @@ public sealed partial class MitigationMonitor
                     else if (ImGui.IsItemHovered())
                     {
                         expansionFromPosition = ImGui.GetWindowPos();
-                        expansionFromSize = config.Scale(new Vector2(34f));
-                        expansionStartUTC = DateTime.UtcNow;
-                        config.Collapsed = false;
+                        expansionFromSize     = config.Scale(new Vector2(34f));
+                        expansionStartUTC     = DateTime.UtcNow;
+                        config.Collapsed      = false;
                         restoreLayoutNextDraw = true;
                         saveConfig();
                     }
@@ -241,7 +243,12 @@ public sealed partial class MitigationMonitor
             ImGui.End();
         }
 
-        private static void DrawCenteredIcon(FontAwesomeIcon icon, Vector2 min, Vector2 size)
+        private static void DrawCenteredIcon
+        (
+            FontAwesomeIcon icon,
+            Vector2         min,
+            Vector2         size
+        )
         {
             var text = icon.ToIconString();
             var textSize = ImGui.CalcTextSize(text);
@@ -265,12 +272,12 @@ public sealed partial class MitigationMonitor
             if (Vector2.DistanceSquared(position, config.Position) > 0.25f)
             {
                 config.Position = position;
-                geometryDirty = true;
+                geometryDirty   = true;
             }
 
             if (Vector2.DistanceSquared(size, config.Size) > 0.25f)
             {
-                config.Size = new(
+                config.Size   = new(
                     MathF.Max(size.X, MinimumWidth),
                     MathF.Max(size.Y, 160f));
                 geometryDirty = true;

@@ -47,61 +47,65 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             ["Feature.BetterUserMacro.Tooltips.Help"] = "Feature.BetterUserMacro.Tooltips.Help"
         });
 
-    public override bool HasSettings => true;
-
     private static readonly Vector2 MacroInputSizeOffset = new(20f, 150f);
 
-    private readonly List<TextNode> lineNumberNodes = new(MACRO_LINE_COUNT);
-    private readonly MacroDropTarget?[] macroDropTargets = new MacroDropTarget?[(int)MACRO_SLOTS_PER_PAGE];
-    private readonly Dictionary<string, uint> actionCache = new(StringComparer.OrdinalIgnoreCase);
-    private Hook<AddonActionBarBase.Delegates.ShowTooltip>? tooltipHook;
-    private Hook<AtkDragDropManager.Delegates.Drop>? macroDropHook;
-    private Hook<RaptureMacroModule.Delegates.SetSavePendingFlag>? macroSaveHook;
-    private delegate InputCallbackResult MacroInputCallbackDelegate(
-        AtkUnitBase* addon, InputCallbackType type, CStringPointer rawString, CStringPointer evaluatedString, int eventKind);
+    private readonly List<TextNode>                                lineNumberNodes  = new(MACRO_LINE_COUNT);
+    private readonly MacroDropTarget?[]                            macroDropTargets = new MacroDropTarget?[(int)MACRO_SLOTS_PER_PAGE];
+    private readonly Dictionary<string, uint>                      actionCache      = new(StringComparer.OrdinalIgnoreCase);
+    private Hook<AddonActionBarBase.Delegates.ShowTooltip>?        ShowTooltipHook;
+    private Hook<AtkDragDropManager.Delegates.Drop>?               MacroDropHook;
+    private Hook<RaptureMacroModule.Delegates.SetSavePendingFlag>? MacroSaveHook;
+    private delegate InputCallbackResult MacroInputCallbackDelegate
+    (
+        AtkUnitBase*      addon,
+        InputCallbackType type,
+        CStringPointer    rawString,
+        CStringPointer    evaluatedString,
+        int               eventKind
+    );
     private Hook<MacroInputCallbackDelegate>? MacroInputCallbackHook;
-    private bool macroIconsDirty = true;
-    private AddonMacro* lineNumberAddon;
-    private bool macroInputRepositioned;
-    private nint macroDropAddonAddress;
-    private MacroSlot pendingSource;
-    private MacroSlot pendingTarget;
-    private uint pendingSourceIcon;
-    private uint pendingTargetIcon;
-    private int pendingRefreshFrames;
-    private long macroScanRetryUntil;
+    private bool                              macroIconsDirty        = true;
+    private AddonMacro*                       lineNumberAddon;
+    private bool                              macroInputRepositioned;
+    private nint                              macroDropAddonAddress;
+    private MacroSlot                         pendingSource;
+    private MacroSlot                         pendingTarget;
+    private uint                              pendingSourceIcon;
+    private uint                              pendingTargetIcon;
+    private int                               pendingRefreshFrames;
+    private long                              macroScanRetryUntil;
 
     protected override void OnStart(FeatureLifetime activation)
     {
         var lifetime = Activation;
         lifetime.Add(() =>
         {
-            tooltipHook = null;
-            macroDropHook = null;
-            macroSaveHook = null;
+            ShowTooltipHook = null;
+            MacroDropHook   = null;
+            MacroSaveHook   = null;
             MacroInputCallbackHook?.Dispose();
             MacroInputCallbackHook = null;
         });
         lifetime.OnStopping(() => MacroInputCallbackHook?.Disable());
-        tooltipHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.ShowTooltip>(
+        ShowTooltipHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.ShowTooltip>(
             AddonActionBarBase.MemberFunctionPointers.ShowTooltip,
             OnShowTooltip);
-        lifetime.Add(tooltipHook.Dispose);
-        lifetime.OnStopping(tooltipHook.Disable);
-        tooltipHook.Enable();
+        lifetime.Add(ShowTooltipHook.Dispose);
+        lifetime.OnStopping(ShowTooltipHook.Disable);
+        ShowTooltipHook.Enable();
 
-        macroDropHook = DService.Instance().Hook.HookFromAddress<AtkDragDropManager.Delegates.Drop>(
+        MacroDropHook = DService.Instance().Hook.HookFromAddress<AtkDragDropManager.Delegates.Drop>(
             AtkDragDropManager.MemberFunctionPointers.Drop,
             OnMacroDrop);
-        lifetime.Add(macroDropHook.Dispose);
-        lifetime.OnStopping(macroDropHook.Disable);
-        macroDropHook.Enable();
-        macroSaveHook = DService.Instance().Hook.HookFromAddress<RaptureMacroModule.Delegates.SetSavePendingFlag>(
+        lifetime.Add(MacroDropHook.Dispose);
+        lifetime.OnStopping(MacroDropHook.Disable);
+        MacroDropHook.Enable();
+        MacroSaveHook = DService.Instance().Hook.HookFromAddress<RaptureMacroModule.Delegates.SetSavePendingFlag>(
             RaptureMacroModule.MemberFunctionPointers.SetSavePendingFlag, OnMacroSavePending);
-        lifetime.Add(macroSaveHook.Dispose);
-        lifetime.OnStopping(macroSaveHook.Disable);
-        macroSaveHook.Enable();
-        macroIconsDirty = true;
+        lifetime.Add(MacroSaveHook.Dispose);
+        lifetime.OnStopping(MacroSaveHook.Disable);
+        MacroSaveHook.Enable();
+        macroIconsDirty     = true;
         macroScanRetryUntil = Environment.TickCount64 + 30_000;
 
         var condition = DService.Instance().Condition;
@@ -132,6 +136,8 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             RefreshMacroUI(addon);
         OnFrameworkUpdate(DService.Instance().Framework);
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -196,13 +202,15 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         RefreshPendingMacroSwap(addon);
     }
 
-    private void OnShowTooltip(
+    private void OnShowTooltip
+    (
         AddonActionBarBase* actionBar,
-        AtkResNode* macroResNode,
-        NumberArrayData* numberArray,
-        StringArrayData* stringArray,
-        int numberArrayIndex,
-        int stringArrayIndex)
+        AtkResNode*         macroResNode,
+        NumberArrayData*    numberArray,
+        StringArrayData*    stringArray,
+        int                 numberArrayIndex,
+        int                 stringArrayIndex
+    )
     {
         if (config.Tooltips &&
             TryShowMacroActionTooltip(macroResNode, stringArray, stringArrayIndex, numberArrayIndex))
@@ -210,7 +218,7 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             return;
         }
 
-        tooltipHook!.Original(
+        ShowTooltipHook!.Original(
             actionBar,
             macroResNode,
             numberArray,
@@ -219,11 +227,13 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             stringArrayIndex);
     }
 
-    private bool TryShowMacroActionTooltip(
-        AtkResNode* macroResNode,
+    private bool TryShowMacroActionTooltip
+    (
+        AtkResNode*      macroResNode,
         StringArrayData* stringArray,
-        int stringArrayIndex,
-        int numberArrayIndex)
+        int              stringArrayIndex,
+        int              numberArrayIndex
+    )
     {
         if (macroResNode is null || stringArray is null || stringArrayIndex < 0 || stringArrayIndex >= stringArray->Size)
         {
@@ -295,7 +305,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return 0;
     }
 
-    private bool TryResolveAction(string actionName, out uint actionID)
+    private bool TryResolveAction
+    (
+        string   actionName,
+        out uint actionID
+    )
     {
         if (actionCache.TryGetValue(actionName, out var cached))
         {
@@ -311,16 +325,20 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             }
 
             actionCache[actionName] = action.RowId;
-            actionID = action.RowId;
+            actionID                = action.RowId;
             return actionID > 0;
         }
 
         actionCache[actionName] = default;
-        actionID = 0;
+        actionID                = 0;
         return false;
     }
 
-    private void OnMacroSetup(AddonEvent _, AddonArgs args)
+    private void OnMacroSetup
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         macroIconsDirty = true;
         var addon = (AddonMacro*)args.Addon.Address;
@@ -332,7 +350,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         RefreshMacroUI(addon);
     }
 
-    private void OnMacroRefresh(AddonEvent eventType, AddonArgs args)
+    private void OnMacroRefresh
+    (
+        AddonEvent eventType,
+        AddonArgs  args
+    )
     {
         if (eventType == AddonEvent.PostShow)
             macroIconsDirty = true;
@@ -354,7 +376,7 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         if (MacroInputCallbackHook is null && input != null && input->Callback != null)
         {
             Hook<MacroInputCallbackDelegate> inputCallbackHook = null!;
-            inputCallbackHook = DService.Instance().Hook.HookFromAddress<MacroInputCallbackDelegate>(
+            inputCallbackHook      = DService.Instance().Hook.HookFromAddress<MacroInputCallbackDelegate>(
                 (nint)input->Callback, (callbackAddon, type, rawString, evaluatedString, eventKind) =>
                 {
                     var result = inputCallbackHook.Original(callbackAddon, type, rawString, evaluatedString, eventKind);
@@ -370,9 +392,17 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             ScanSelectedMacroEditorIcon();
     }
 
-    private void OnMacroPreRefresh(AddonEvent _, AddonArgs unusedArgs) => ClearMacroDropTargets();
+    private void OnMacroPreRefresh
+    (
+        AddonEvent _,
+        AddonArgs  unusedArgs
+    ) => ClearMacroDropTargets();
 
-    private void OnMacroFinalize(AddonEvent _, AddonArgs unusedArgs) => ClearMacroUI();
+    private void OnMacroFinalize
+    (
+        AddonEvent _,
+        AddonArgs  unusedArgs
+    ) => ClearMacroUI();
 
     private static bool IsMacroAddonVisible(AddonMacro* addon) =>
         addon is not null &&
@@ -403,7 +433,7 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         }
 
         RepositionMacroInputNode(textInputNode, MacroInputSizeOffset);
-        lineNumberAddon = addon;
+        lineNumberAddon        = addon;
         macroInputRepositioned = true;
         try
         {
@@ -447,7 +477,7 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         }
 
         lineNumberNodes.Clear();
-        lineNumberAddon = null;
+        lineNumberAddon        = null;
         macroInputRepositioned = false;
     }
 
@@ -487,7 +517,7 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
             }
 
             macroDropTargets[(int)index] = new(dragDrop, dragDrop->AcceptedType);
-            dragDrop->AcceptedType = DragDropType.Macro;
+            dragDrop->AcceptedType       = DragDropType.Macro;
         }
     }
 
@@ -509,12 +539,14 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
 
     private static void RestoreMacroDropTarget(MacroDropTarget target) => target.Component->AcceptedType = target.OriginalAcceptedType;
 
-    private void OnMacroDrop(
-        AtkDragDropManager* manager,
+    private void OnMacroDrop
+    (
+        AtkDragDropManager*           manager,
         AtkEventData.AtkDragDropData* data,
-        AtkComponentNode* targetNode,
-        DragDropType acceptedType,
-        bool canNotAccept)
+        AtkComponentNode*             targetNode,
+        DragDropType                  acceptedType,
+        bool                          canNotAccept
+    )
     {
         if (data is not null && data->DragDropInterface is not null &&
             data->DragDropInterface->DragDropType == DragDropType.Macro)
@@ -532,7 +564,7 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
 
         if (!config.DragSwap || !targetResolved || !TrySwapMacro(manager, addon, source, target))
         {
-            macroDropHook!.Original(manager, data, targetNode, acceptedType, canNotAccept);
+            MacroDropHook!.Original(manager, data, targetNode, acceptedType, canNotAccept);
             return;
         }
 
@@ -540,7 +572,12 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         ClearMacroDragDropTransientState(addon, target);
     }
 
-    private static bool TryGetMacroSlot(AddonMacro* addon, AtkDragDropInterface* dragDropInterface, out MacroSlot slot)
+    private static bool TryGetMacroSlot
+    (
+        AddonMacro*           addon,
+        AtkDragDropInterface* dragDropInterface,
+        out MacroSlot         slot
+    )
     {
         slot = default;
         if (addon is null || dragDropInterface is null)
@@ -601,12 +638,14 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return false;
     }
 
-    private static bool TryGetMacroDropTarget(
-        AddonMacro* addon,
+    private static bool TryGetMacroDropTarget
+    (
+        AddonMacro*                   addon,
         AtkEventData.AtkDragDropData* data,
-        AtkComponentNode* targetNode,
-        uint set,
-        out MacroSlot slot)
+        AtkComponentNode*             targetNode,
+        uint                          set,
+        out MacroSlot                 slot
+    )
     {
         if (set >= MACRO_PAGE_COUNT)
         {
@@ -643,11 +682,13 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return TryGetMacroSlot(addon, data->ComponentNode, set, out slot);
     }
 
-    private static bool TryGetMacroSlot(
-        AddonMacro* addon,
+    private static bool TryGetMacroSlot
+    (
+        AddonMacro*       addon,
         AtkComponentNode* componentNode,
-        uint set,
-        out MacroSlot slot)
+        uint              set,
+        out MacroSlot     slot
+    )
     {
         slot = default;
         if (addon is null || componentNode is null)
@@ -670,11 +711,13 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return false;
     }
 
-    private bool TrySwapMacro(
+    private bool TrySwapMacro
+    (
         AtkDragDropManager* manager,
-        AddonMacro* addon,
-        MacroSlot source,
-        MacroSlot target)
+        AddonMacro*         addon,
+        MacroSlot           source,
+        MacroSlot           target
+    )
     {
         if (source == target || source.Set >= MACRO_PAGE_COUNT || target.Set >= MACRO_PAGE_COUNT ||
             source.Index >= MACRO_SLOTS_PER_PAGE || target.Index >= MACRO_SLOTS_PER_PAGE)
@@ -707,7 +750,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return true;
     }
 
-    private static bool SwapMacroData(MacroSlot sourceSlot, MacroSlot targetSlot)
+    private static bool SwapMacroData
+    (
+        MacroSlot sourceSlot,
+        MacroSlot targetSlot
+    )
     {
         var macroModule = RaptureMacroModule.Instance();
         if (macroModule is null)
@@ -736,12 +783,18 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return true;
     }
 
-    private void QueuePendingMacroRefresh(MacroSlot source, MacroSlot target, uint sourceIcon, uint targetIcon)
+    private void QueuePendingMacroRefresh
+    (
+        MacroSlot source,
+        MacroSlot target,
+        uint      sourceIcon,
+        uint      targetIcon
+    )
     {
-        pendingSource = source;
-        pendingTarget = target;
-        pendingSourceIcon = sourceIcon;
-        pendingTargetIcon = targetIcon;
+        pendingSource        = source;
+        pendingTarget        = target;
+        pendingSourceIcon    = sourceIcon;
+        pendingTargetIcon    = targetIcon;
         pendingRefreshFrames = 30;
     }
 
@@ -786,7 +839,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         ApplyMacroIcon(agent, addon, macroModule, macro, set, index, iconID);
     }
 
-    private void OnConditionChanged(ConditionFlag flag, bool value)
+    private void OnConditionChanged
+    (
+        ConditionFlag flag,
+        bool          value
+    )
     {
         if (value || flag is not (ConditionFlag.BetweenAreas or ConditionFlag.BetweenAreas51))
         {
@@ -798,13 +855,18 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
 
     private void OnLogin()
     {
-        macroIconsDirty = true;
+        macroIconsDirty     = true;
         macroScanRetryUntil = Environment.TickCount64 + 30_000;
     }
 
-    private void OnMacroSavePending(RaptureMacroModule* module, bool needsSave, uint set)
+    private void OnMacroSavePending
+    (
+        RaptureMacroModule* module,
+        bool                needsSave,
+        uint                set
+    )
     {
-        macroSaveHook!.Original(module, needsSave, set);
+        MacroSaveHook!.Original(module, needsSave, set);
         if (needsSave)
             macroIconsDirty = true;
     }
@@ -845,7 +907,7 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
 
                 macro->SetIcon(iconID);
                 changedPage = true;
-                changed = true;
+                changed     = true;
                 if (addon is not null && currentSet == set)
                 {
                     RefreshMacroAddonSlot(addon, set, index, iconID);
@@ -875,7 +937,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return true;
     }
 
-    private static bool TryFindMacroCustomIcon(RaptureMacroModule.Macro* macro, out uint iconID)
+    private static bool TryFindMacroCustomIcon
+    (
+        RaptureMacroModule.Macro* macro,
+        out uint                  iconID
+    )
     {
         iconID = 0;
         if (macro is null)
@@ -894,15 +960,17 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return false;
     }
 
-    private static bool TryGetSelectedMacroContext(
+    private static bool TryGetSelectedMacroContext
+    (
         out AgentMacro* agent,
         out AddonMacro* addon,
-        out uint set,
-        out uint index)
+        out uint        set,
+        out uint        index
+    )
     {
         agent = AgentMacro.Instance();
         addon = AddonHelper.GetByName<AddonMacro>("Macro");
-        set = agent is null ? 0 : agent->SelectedMacroSet;
+        set   = agent is null ? 0 : agent->SelectedMacroSet;
         index = agent is null ? 0 : agent->SelectedMacroIndex;
         return agent is not null && IsMacroAddonVisible(addon) && set < MACRO_PAGE_COUNT && index < MACRO_SLOTS_PER_PAGE;
     }
@@ -913,14 +981,16 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return agent is null ? MACRO_PAGE_COUNT : agent->SelectedMacroSet;
     }
 
-    private static void ApplyMacroIcon(
-        AgentMacro* agent,
-        AddonMacro* addon,
-        RaptureMacroModule* macroModule,
+    private static void ApplyMacroIcon
+    (
+        AgentMacro*               agent,
+        AddonMacro*               addon,
+        RaptureMacroModule*       macroModule,
         RaptureMacroModule.Macro* macro,
-        uint set,
-        uint index,
-        uint iconID)
+        uint                      set,
+        uint                      index,
+        uint                      iconID
+    )
     {
         macro->SetIcon(iconID);
         macroModule->SetSavePendingFlag(true, set);
@@ -934,7 +1004,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         }
     }
 
-    private static uint GetCurrentMacroSlotIcon(AddonMacro* addon, MacroSlot slot)
+    private static uint GetCurrentMacroSlotIcon
+    (
+        AddonMacro* addon,
+        MacroSlot   slot
+    )
     {
         if (addon is null || GetCurrentMacroSet() != slot.Set ||
             slot.Index >= MACRO_SLOTS_PER_PAGE)
@@ -954,7 +1028,12 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return componentIconID > 0 && componentIconID != addon->DefaultIcon ? componentIconID : 0;
     }
 
-    private static uint GetMacroDisplayIcon(AddonMacro* addon, MacroSlot slot, bool allowCachedNativeIcon)
+    private static uint GetMacroDisplayIcon
+    (
+        AddonMacro* addon,
+        MacroSlot   slot,
+        bool        allowCachedNativeIcon
+    )
     {
         if (slot.Set >= MACRO_PAGE_COUNT || slot.Index >= MACRO_SLOTS_PER_PAGE)
         {
@@ -992,10 +1071,12 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return 0;
     }
 
-    internal static uint ResolveNativeMacroIconID(
+    internal static uint ResolveNativeMacroIconID
+    (
         RaptureMacroModule* macroModule,
-        uint set,
-        uint index)
+        uint                set,
+        uint                index
+    )
     {
         if (macroModule is null || set >= MACRO_PAGE_COUNT || index >= MACRO_SLOTS_PER_PAGE)
         {
@@ -1026,11 +1107,13 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         return iconID > 0 ? (uint)iconID : 0;
     }
 
-    private static void RefreshMacroAddonSlot(
+    private static void RefreshMacroAddonSlot
+    (
         AddonMacro* addon,
-        uint set,
-        uint index,
-        uint forcedDisplayIconID = 0)
+        uint        set,
+        uint        index,
+        uint        forcedDisplayIconID = 0
+    )
     {
         if (addon is null || GetCurrentMacroSet() != set ||
             index >= MACRO_SLOTS_PER_PAGE)
@@ -1077,7 +1160,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         }
     }
 
-    private static void ReloadMacroSlot(uint set, uint index)
+    private static void ReloadMacroSlot
+    (
+        uint set,
+        uint index
+    )
     {
         if (set >= MACRO_PAGE_COUNT || index >= MACRO_SLOTS_PER_PAGE)
         {
@@ -1118,7 +1205,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         }
     }
 
-    private static void ClearMacroDragDropTransientState(AddonMacro* addon, MacroSlot slot)
+    private static void ClearMacroDragDropTransientState
+    (
+        AddonMacro* addon,
+        MacroSlot   slot
+    )
     {
         if (addon is null || GetCurrentMacroSet() != slot.Set ||
             slot.Index >= MACRO_SLOTS_PER_PAGE)
@@ -1170,7 +1261,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         MarkMacroDragDropDirty(dragDrop);
     }
 
-    private static void ShowMacroDragDropIcon(AtkComponentDragDrop* dragDrop, uint displayIconID)
+    private static void ShowMacroDragDropIcon
+    (
+        AtkComponentDragDrop* dragDrop,
+        uint                  displayIconID
+    )
     {
         if (dragDrop is null)
         {
@@ -1293,7 +1388,11 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         }
     }
 
-    private static void RepositionMacroInputNode(AtkComponentNode* inputComponentNode, Vector2 offset)
+    private static void RepositionMacroInputNode
+    (
+        AtkComponentNode* inputComponentNode,
+        Vector2           offset
+    )
     {
         var collisionNode = (AtkCollisionNode*)inputComponentNode->Component->UldManager.SearchNodeById(20);
         var backgroundNode = (AtkNineGridNode*)inputComponentNode->Component->UldManager.SearchNodeById(19);
@@ -1342,17 +1441,25 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
         ClearMacroDropTargets();
         ClearMacroLineNumbers();
         pendingRefreshFrames = 0;
-        pendingSourceIcon = 0;
-        pendingTargetIcon = 0;
+        pendingSourceIcon    = 0;
+        pendingTargetIcon    = 0;
     }
 
-    private readonly record struct MacroSlot(uint Set, uint Index);
+    private readonly record struct MacroSlot
+    (
+        uint Set,
+        uint Index
+    );
 
     private readonly struct MacroDropTarget
     {
-        public MacroDropTarget(AtkComponentDragDrop* component, DragDropType originalAcceptedType)
+        public MacroDropTarget
+        (
+            AtkComponentDragDrop* component,
+            DragDropType          originalAcceptedType
+        )
         {
-            Component = component;
+            Component            = component;
             OriginalAcceptedType = originalAcceptedType;
         }
 
@@ -1363,15 +1470,20 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
 
     private sealed class MacroSnapshot
     {
-        private readonly uint iconID;
-        private readonly byte[] name;
+        private readonly uint     iconID;
+        private readonly byte[]   name;
         private readonly byte[][] lines;
 
-        private MacroSnapshot(uint iconID, byte[] name, byte[][] lines)
+        private MacroSnapshot
+        (
+            uint     iconID,
+            byte[]   name,
+            byte[][] lines
+        )
         {
             this.iconID = iconID;
-            this.name = name;
-            this.lines = lines;
+            this.name   = name;
+            this.lines  = lines;
         }
 
         public static MacroSnapshot Capture(RaptureMacroModule.Macro* macro)

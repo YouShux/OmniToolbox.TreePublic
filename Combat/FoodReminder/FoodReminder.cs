@@ -55,17 +55,19 @@ public sealed partial class FoodReminder : OmniModuleBase
             ["Feature.FoodReminder.Threshold.Help"] = "Feature.FoodReminder.Threshold.Help"
         });
 
-    public override bool HasSettings => true;
+    private readonly FoodReminderConfig         config;
+    private readonly System.Action              saveConfig;
+    private readonly Dictionary<uint, string>   reminderTargetNames = [];
+    private readonly HashSet<ReminderTargetKey> seenTargets         = [];
+    private bool                                countdownProcessed;
 
-    private readonly FoodReminderConfig config;
-    private readonly System.Action saveConfig;
-    private readonly Dictionary<uint, string> reminderTargetNames = [];
-    private readonly HashSet<ReminderTargetKey> seenTargets = [];
-    private bool countdownProcessed;
-
-    public FoodReminder(FoodReminderConfig config, System.Action saveConfig)
+    public FoodReminder
+    (
+        FoodReminderConfig config,
+        System.Action      saveConfig
+    )
     {
-        this.config = config;
+        this.config     = config;
         this.saveConfig = saveConfig;
         if (Panel.NormalizeConfig(config))
         {
@@ -89,6 +91,8 @@ public sealed partial class FoodReminder : OmniModuleBase
 
         lifetime.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings() => Panel.Draw(config, SendTestReminder);
 
@@ -228,7 +232,11 @@ public sealed partial class FoodReminder : OmniModuleBase
         return payload;
     }
 
-    private void OnReminderLinkClicked(uint commandID, SeString link)
+    private void OnReminderLinkClicked
+    (
+        uint     commandID,
+        SeString link
+    )
     {
         if (!reminderTargetNames.TryGetValue(commandID, out var targetName))
         {
@@ -272,7 +280,7 @@ public sealed partial class FoodReminder : OmniModuleBase
             return value;
         }
 
-        value = OmniLoc.Get(this, "Feature.FoodReminder.DefaultPartyMessage");
+        value               = OmniLoc.Get(this, "Feature.FoodReminder.DefaultPartyMessage");
         config.PartyMessage = value;
         saveConfig();
         return value;
@@ -331,13 +339,20 @@ public sealed partial class FoodReminder : OmniModuleBase
             ? new(3, target.EntityID, string.Empty)
             : new(0, 0, target.Name);
 
-    private readonly record struct FoodCheckTarget(
+    private readonly record struct FoodCheckTarget
+    (
         string Name,
         string JobName,
-        ulong ContentID,
-        ulong GameObjectID,
-        uint EntityID,
-        float FoodRemainingSeconds);
+        ulong  ContentID,
+        ulong  GameObjectID,
+        uint   EntityID,
+        float  FoodRemainingSeconds
+    );
 
-    private readonly record struct ReminderTargetKey(byte Kind, ulong Value, string Name);
+    private readonly record struct ReminderTargetKey
+    (
+        byte   Kind,
+        ulong  Value,
+        string Name
+    );
 }

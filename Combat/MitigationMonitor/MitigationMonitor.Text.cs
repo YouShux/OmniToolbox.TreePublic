@@ -16,7 +16,11 @@ public sealed partial class MitigationMonitor
             _ => OmniLoc.Get("Feature.MitigationMonitor.DamageKind.Special")
         };
 
-        public static string BuildTargetName(string jobName, string targetName)
+        public static string BuildTargetName
+        (
+            string jobName,
+            string targetName
+        )
         {
             if (string.IsNullOrWhiteSpace(jobName))
             {

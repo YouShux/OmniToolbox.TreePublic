@@ -96,14 +96,18 @@ public sealed partial class DuplicateStatusPrevention
             OrderedActionData.ToFrozenDictionary();
     }
 
-    private sealed record ActionRule(
-        StatusRule[] Statuses,
-        StatusRule[]? SecondStatuses = null);
+    private sealed record ActionRule
+    (
+        StatusRule[]  Statuses,
+        StatusRule[]? SecondStatuses = null
+    );
 
-    private readonly record struct StatusRule(
-        uint StatusID,
+    private readonly record struct StatusRule
+    (
+        uint                  StatusID,
         StatusDetectionTarget DetectionTarget,
-        bool IsReverse = false)
+        bool                  IsReverse = false
+    )
     {
         public bool Blocks(bool hasStatus) => IsReverse != hasStatus;
     }

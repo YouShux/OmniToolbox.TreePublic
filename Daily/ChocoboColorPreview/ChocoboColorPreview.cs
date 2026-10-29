@@ -4,7 +4,6 @@ using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using static FFXIVClientStructs.Interop.SpanExtensions;
 using Lumina.Excel.Sheets;
 using OmenTools;
 using OmenTools.Extensions;
@@ -14,13 +13,16 @@ using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
+using static FFXIVClientStructs.Interop.SpanExtensions;
 
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-public sealed unsafe partial class ChocoboColorPreview(
+public sealed unsafe partial class ChocoboColorPreview
+(
     ChocoboColorPreview.Settings config,
-    System.Action saveConfig) : OmniModuleBase
+    System.Action                saveConfig
+) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -53,8 +55,8 @@ public sealed unsafe partial class ChocoboColorPreview(
             ["Feature.ChocoboColorPreview.UnknownColor"] = "Feature.ChocoboColorPreview.UnknownColor"
         });
 
-    private static readonly Vector3 DefaultChocoboColor = new(219f, 180f, 87f);
-    private static readonly ChocoboFruit[] Fruits =
+    private static readonly Vector3        DefaultChocoboColor = new(219f, 180f, 87f);
+    private static readonly ChocoboFruit[] Fruits              =
     [
         new("Feature.ChocoboColorPreview.Fruit.XelphatolApple", new(1, -1, -1), 8157),
         new("Feature.ChocoboColorPreview.Fruit.MamookPear", new(-1, 1, -1), 8159),
@@ -65,14 +67,14 @@ public sealed unsafe partial class ChocoboColorPreview(
         new("Feature.ChocoboColorPreview.Fruit.HanLemon", Vector3.Zero, 8163)
     ];
 
-    private readonly List<ChocoboColor> colors = [];
-    private readonly Dictionary<string, ChocoboFruitInfo> fruitInfo = new(StringComparer.Ordinal);
-    private ChocoboColorPreviewNativeUI? nativeUI;
-    private bool colorsLoaded;
-    private Demihuman* appliedDrawObject;
-    private byte appliedStainID;
-    private byte displayedCurrentStainID = byte.MaxValue;
-    private byte displayedTargetStainID = byte.MaxValue;
+    private readonly List<ChocoboColor>                   colors                  = [];
+    private readonly Dictionary<string, ChocoboFruitInfo> fruitInfo               = new(StringComparer.Ordinal);
+    private ChocoboColorPreviewNativeUI?                  nativeUI;
+    private bool                                          colorsLoaded;
+    private Demihuman*                                    appliedDrawObject;
+    private byte                                          appliedStainID;
+    private byte                                          displayedCurrentStainID = byte.MaxValue;
+    private byte                                          displayedTargetStainID  = byte.MaxValue;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -85,9 +87,9 @@ public sealed unsafe partial class ChocoboColorPreview(
     protected override void OnStop()
     {
         nativeUI?.Close();
-        nativeUI = null;
+        nativeUI                = null;
         displayedCurrentStainID = byte.MaxValue;
-        displayedTargetStainID = byte.MaxValue;
+        displayedTargetStainID  = byte.MaxValue;
     }
 
     private void DrawOverlay()
@@ -130,7 +132,7 @@ public sealed unsafe partial class ChocoboColorPreview(
                 BuildFruitRequirements(calculation.Fruits),
                 BuildFeedOrder(calculation.Order));
             displayedCurrentStainID = currentStainID;
-            displayedTargetStainID = targetStainID;
+            displayedTargetStainID  = targetStainID;
         }
 
         PositionNativeUI(addon, nativeUI);
@@ -197,7 +199,11 @@ public sealed unsafe partial class ChocoboColorPreview(
         saveConfig();
     }
 
-    private static void PositionNativeUI(AtkUnitBase* buddyAddon, ChocoboColorPreviewNativeUI nativeUI)
+    private static void PositionNativeUI
+    (
+        AtkUnitBase*                buddyAddon,
+        ChocoboColorPreviewNativeUI nativeUI
+    )
     {
         var buddyWindow = buddyAddon->WindowNode;
         var stage = AtkStage.Instance();
@@ -257,7 +263,11 @@ public sealed unsafe partial class ChocoboColorPreview(
 
     private ChocoboFruitInfo GetFruitInfo(int index) => fruitInfo[Fruits[index].LocalizationKey];
 
-    private bool TryGetColor(byte rowID, out ChocoboColor color)
+    private bool TryGetColor
+    (
+        byte             rowID,
+        out ChocoboColor color
+    )
     {
         for (var index = 0; index < colors.Count; index++)
         {
@@ -284,7 +294,11 @@ public sealed unsafe partial class ChocoboColorPreview(
         return false;
     }
 
-    private static Calculation Calculate(Vector3 source, Vector3 target)
+    private static Calculation Calculate
+    (
+        Vector3 source,
+        Vector3 target
+    )
     {
         if (Vector3.DistanceSquared(source, target) > 0f &&
             Vector3.DistanceSquared(target, DefaultChocoboColor) <= 1f)
@@ -351,7 +365,12 @@ public sealed unsafe partial class ChocoboColorPreview(
         return new(counts, BuildOrder(source, target, counts));
     }
 
-    private static List<int> BuildOrder(Vector3 source, Vector3 target, IReadOnlyList<FruitCount> counts)
+    private static List<int> BuildOrder
+    (
+        Vector3                   source,
+        Vector3                   target,
+        IReadOnlyList<FruitCount> counts
+    )
     {
         var remaining = new int[Fruits.Length];
         var total = 0;
@@ -383,7 +402,7 @@ public sealed unsafe partial class ChocoboColorPreview(
                 var distance = Vector3.DistanceSquared(next, target);
                 if (distance < bestDistance)
                 {
-                    selected = index;
+                    selected     = index;
                     bestDistance = distance;
                 }
             }
@@ -409,13 +428,15 @@ public sealed unsafe partial class ChocoboColorPreview(
         return order;
     }
 
-    private bool TryGetCompanion(
+    private bool TryGetCompanion
+    (
         out BattleChara* battleChara,
-        out Demihuman* drawObject,
-        out byte currentStainID)
+        out Demihuman*   drawObject,
+        out byte         currentStainID
+    )
     {
-        battleChara = null;
-        drawObject = null;
+        battleChara    = null;
+        drawObject     = null;
         currentStainID = UIState.Instance()->Buddy.CompanionInfo.CurrentColorStainId;
         var localPlayer = Control.GetLocalPlayer();
         if (localPlayer == null)
@@ -433,7 +454,11 @@ public sealed unsafe partial class ChocoboColorPreview(
         return true;
     }
 
-    private void ApplySavedPreview(BattleChara* battleChara, Demihuman* drawObject)
+    private void ApplySavedPreview
+    (
+        BattleChara* battleChara,
+        Demihuman*   drawObject
+    )
     {
         if (config.PreviewStainID == 0)
         {
@@ -449,41 +474,62 @@ public sealed unsafe partial class ChocoboColorPreview(
         ApplyStain(battleChara, drawObject, config.PreviewStainID);
     }
 
-    private void ApplyStain(BattleChara* battleChara, Demihuman* drawObject, byte stainID)
+    private void ApplyStain
+    (
+        BattleChara* battleChara,
+        Demihuman*   drawObject,
+        byte         stainID
+    )
     {
         var stainSlot = battleChara->DrawData.EquipmentModelIds.GetPointer((int)DrawDataContainer.EquipmentSlot.Legs);
         stainSlot->Stain0 = stainID;
         drawObject->SetEquipmentSlotModel((uint)DrawDataContainer.EquipmentSlot.Legs, stainSlot);
         appliedDrawObject = drawObject;
-        appliedStainID = stainID;
+        appliedStainID    = stainID;
     }
 
-    private readonly record struct ChocoboFruit(
-        string LocalizationKey,
+    private readonly record struct ChocoboFruit
+    (
+        string  LocalizationKey,
         Vector3 Delta,
-        uint ItemID);
+        uint    ItemID
+    );
 
-    private readonly record struct ChocoboFruitInfo(string Name, uint IconID);
-
-    private readonly record struct ChocoboColor(
-        byte RowID,
+    private readonly record struct ChocoboFruitInfo
+    (
         string Name,
-        Vector4 DisplayColor)
+        uint   IconID
+    );
+
+    private readonly record struct ChocoboColor
+    (
+        byte    RowID,
+        string  Name,
+        Vector4 DisplayColor
+    )
     {
         public Vector3 Rgb => new Vector3(DisplayColor.X, DisplayColor.Y, DisplayColor.Z) * 255f;
     }
 
-    private readonly record struct FruitCount(int Index, int Count);
+    private readonly record struct FruitCount
+    (
+        int Index,
+        int Count
+    );
 
-    private readonly record struct Calculation(
+    private readonly record struct Calculation
+    (
         List<FruitCount> Fruits,
-        List<int> Order);
+        List<int>        Order
+    );
 
-    private readonly record struct CalculationCandidate(
-        bool IsValid,
+    private readonly record struct CalculationCandidate
+    (
+        bool  IsValid,
         float Error,
-        int Count,
-        int[] Deltas);
+        int   Count,
+        int[] Deltas
+    );
 
     #region 常量
 

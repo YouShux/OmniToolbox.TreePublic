@@ -2,17 +2,19 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class SkillMonitor
 {
-    internal readonly record struct SkillMonitorDefinition(
-        uint ActionID,
-        uint StatusID,
-        int CooldownMilliseconds,
-        int ActiveMilliseconds,
-        ulong ClassJobs,
-        uint IconID,
-        string Name,
+    private readonly record struct SkillMonitorDefinition
+    (
+        uint              ActionID,
+        uint              StatusID,
+        int               CooldownMilliseconds,
+        int               ActiveMilliseconds,
+        ulong             ClassJobs,
+        uint              IconID,
+        string            Name,
         SkillMonitorGroup Group,
-        bool IsCustom = false,
-        uint UnlockLevel = 0)
+        bool              IsCustom = false,
+        uint              UnlockLevel = 0
+    )
     {
         public uint ConfigID => ActionID == 0 ? 0x80000000u | StatusID : ActionID;
 
@@ -35,7 +37,7 @@ public sealed partial class SkillMonitor
         General
     }
 
-    internal enum SkillMonitorDisplayState
+    private enum SkillMonitorDisplayState
     {
         Unknown,
         Inactive,
@@ -44,20 +46,26 @@ public sealed partial class SkillMonitor
         Active
     }
 
-    internal readonly record struct SkillMonitorMember(uint EntityID, uint ClassJobID, byte Level, bool Visible);
+    private readonly record struct SkillMonitorMember
+    (
+        uint EntityID,
+        uint ClassJobID,
+        byte Level,
+        bool Visible
+    );
 
-    internal struct SkillMonitorRuntimeState
+    private struct SkillMonitorRuntimeState
     {
-        public bool CooldownKnown;
-        public bool StatusActive;
-        public long ReadyAtTick;
-        public long ActiveUntilTick;
-        public int CooldownMilliseconds;
-        public int StatusRemainingMilliseconds;
-        public int DisplaySeconds;
-        public string? CooldownText;
-        public string? StatusText;
-        public float CooldownProgress;
+        public bool                     CooldownKnown;
+        public bool                     StatusActive;
+        public long                     ReadyAtTick;
+        public long                     ActiveUntilTick;
+        public int                      CooldownMilliseconds;
+        public int                      StatusRemainingMilliseconds;
+        public int                      DisplaySeconds;
+        public string?                  CooldownText;
+        public string?                  StatusText;
+        public float                    CooldownProgress;
         public SkillMonitorDisplayState DisplayState;
     }
 }

@@ -5,9 +5,15 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class BetterWondrousTails
 {
-    internal static class RewardText
+    private static class RewardText
     {
-        internal static string Format(double current, double shuffle, bool showCurrent, bool showShuffle)
+        internal static string Format
+        (
+            double current,
+            double shuffle,
+            bool   showCurrent,
+            bool   showShuffle
+        )
         {
             if (showCurrent && showShuffle)
                 return $"（{FormatValue(current)}/{FormatValue(shuffle)}）";
@@ -16,7 +22,11 @@ public sealed partial class BetterWondrousTails
             return showShuffle ? $"（{FormatValue(shuffle)}）" : string.Empty;
         }
 
-        internal static byte[] Append(ReadOnlySpan<byte> nativeText, string suffix)
+        internal static byte[] Append
+        (
+            ReadOnlySpan<byte> nativeText,
+            string             suffix
+        )
         {
             nativeText = GetNativeText(nativeText);
             var result = new byte[nativeText.Length + Encoding.UTF8.GetByteCount(suffix) + 1];

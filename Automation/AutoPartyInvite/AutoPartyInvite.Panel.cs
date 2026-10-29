@@ -11,8 +11,8 @@ public sealed unsafe partial class AutoPartyInvite
             "000", "111", "222", "333", "444", "555", "666", "777", "888", "999"
         ];
 
-        private static readonly TerritorySelector TerritorySelector = new("autoPartyInviteTerritory");
-        private string CustomTriggerInput = string.Empty;
+        private static readonly TerritorySelector TerritorySelector  = new("autoPartyInviteTerritory");
+        private string                            CustomTriggerInput = string.Empty;
 
         public bool Draw(AutoPartyInviteConfig config)
         {
@@ -45,7 +45,7 @@ public sealed unsafe partial class AutoPartyInvite
                 }
 
                 config.ChannelsInitialized = true;
-                changed = true;
+                changed                    = true;
             }
 
             if (config.AllowedTerritoryIds.Count > 0)
@@ -53,7 +53,7 @@ public sealed unsafe partial class AutoPartyInvite
                 config.WhitelistTerritoryIds.UnionWith(config.AllowedTerritoryIds);
                 config.AllowedTerritoryIds.Clear();
                 config.UseWhitelist = true;
-                changed = true;
+                changed             = true;
             }
 
             changed |= config.EnabledDigits.RemoveWhere(static digit => digit is < 0 or > 9) > 0;
@@ -73,7 +73,7 @@ public sealed unsafe partial class AutoPartyInvite
                 if (!string.Equals(trigger.Text, text, StringComparison.Ordinal))
                 {
                     trigger.Text = text;
-                    changed = true;
+                    changed      = true;
                 }
             }
 
@@ -103,7 +103,7 @@ public sealed unsafe partial class AutoPartyInvite
                     !config.UseWhitelist))
             {
                 config.UseWhitelist = false;
-                changed = true;
+                changed             = true;
             }
 
             ImGui.SameLine();
@@ -112,7 +112,7 @@ public sealed unsafe partial class AutoPartyInvite
                     config.UseWhitelist))
             {
                 config.UseWhitelist = true;
-                changed = true;
+                changed             = true;
             }
 
             ImGui.SameLine();
@@ -220,12 +220,14 @@ public sealed unsafe partial class AutoPartyInvite
             return changed;
         }
 
-        private bool DrawTriggerState(
+        private bool DrawTriggerState
+        (
             AutoPartyInviteConfig config,
-            bool enabledState,
-            ref int digitToggleMask,
-            ref Trigger? toggledTrigger,
-            ref bool toggledTriggerEnabled)
+            bool                  enabledState,
+            ref int               digitToggleMask,
+            ref Trigger?          toggledTrigger,
+            ref bool              toggledTriggerEnabled
+        )
         {
             var changed = false;
             using var wrap = ImRaii.TextWrapPos(0f);
@@ -284,9 +286,9 @@ public sealed unsafe partial class AutoPartyInvite
                 var enabled = trigger.Enabled;
                 if (OmniControls.Checkbox("##enabled", ref enabled))
                 {
-                    toggledTrigger = trigger;
+                    toggledTrigger        = trigger;
                     toggledTriggerEnabled = enabled;
-                    changed = true;
+                    changed               = true;
                 }
 
                 OmniControls.NextTableField(

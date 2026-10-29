@@ -14,12 +14,12 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class ChocoboColorPreview
 {
-    internal sealed class ChocoboFruitRequirementListItemNode : ListItemNode<ChocoboFruitRequirement>, IListItemNode
+    private sealed class ChocoboFruitRequirementListItemNode : ListItemNode<ChocoboFruitRequirement>, IListItemNode
     {
         public static float ItemHeight => 24f;
 
         private readonly IconImageNode iconNode;
-        private readonly TextNode textNode;
+        private readonly TextNode      textNode;
 
         public ChocoboFruitRequirementListItemNode()
         {
@@ -44,14 +44,14 @@ public sealed partial class ChocoboColorPreview
             base.OnSizeChanged();
             iconNode.Position = new(2f, (Height - 18f) / 2f);
             textNode.Position = new(26f, 0f);
-            textNode.Size = new(Width - 26f, Height);
+            textNode.Size     = new(Width - 26f, Height);
         }
 
         protected override void SetNodeData(ChocoboFruitRequirement itemData)
         {
-            iconNode.IconId = itemData.IconID;
+            iconNode.IconId    = itemData.IconID;
             iconNode.IsVisible = itemData.IconID > 0;
-            textNode.String = $"{itemData.Name} ×{itemData.Count}";
+            textNode.String    = $"{itemData.Name} ×{itemData.Count}";
             OnSizeChanged();
         }
     }

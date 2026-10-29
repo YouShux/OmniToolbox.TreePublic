@@ -4,6 +4,8 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class HotbarAdjustments
 {
+    public override bool HasSettings => true;
+
     public override bool DrawSettings()
     {
         var changed = false;
@@ -82,7 +84,7 @@ public sealed unsafe partial class HotbarAdjustments
                         continue;
 
                     config.ModifierKey = modifierKey;
-                    changed = true;
+                    changed            = true;
                 }
             }
         }

@@ -42,14 +42,14 @@ public sealed partial class AutoIshgardRestoration
         if (DService.Instance().ClientState.TerritoryType != FIRMAMENT_TERRITORY_ID)
         {
             movableSince = null;
-            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForStableTerritory");
+            status       = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForStableTerritory");
             return;
         }
 
         if (!IsPlayerMovable())
         {
             movableSince = null;
-            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForPlayerMovable");
+            status       = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForPlayerMovable");
             return;
         }
 
@@ -84,7 +84,7 @@ public sealed partial class AutoIshgardRestoration
         vnavPathStartedByModule = true;
         EnterPhase(AutomationPhase.MoveToInitialPoint);
         nextActionAt = DateTime.UtcNow.AddSeconds(5);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.MovingToCraftingPoint"), FormatPosition(initialDestination));
+        status       = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.MovingToCraftingPoint"), FormatPosition(initialDestination));
     }
 
     private void DriveMoveToInitialPoint(RecipeOption recipe)
@@ -113,7 +113,7 @@ public sealed partial class AutoIshgardRestoration
         {
             vnavmeshIPC.PathfindAndMoveTo(initialDestination, false);
             vnavPathStartedByModule = true;
-            nextActionAt = DateTime.UtcNow.AddSeconds(5);
+            nextActionAt            = DateTime.UtcNow.AddSeconds(5);
         }
 
         status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.MovingToCraftingPoint"), FormatPosition(initialDestination));

@@ -44,10 +44,8 @@ public sealed unsafe partial class DuplicateStatusPrevention : OmniModuleBase
             ["Feature.DuplicateStatusPrevention.Target.Target"] = "Feature.DuplicateStatusPrevention.Target.Target"
         });
 
-    public override bool HasSettings => true;
-
     private readonly Settings config;
-    private long lastNotificationTick;
+    private long              lastNotificationTick;
 
     public DuplicateStatusPrevention(Settings config)
     {
@@ -65,6 +63,8 @@ public sealed unsafe partial class DuplicateStatusPrevention : OmniModuleBase
             throw new InvalidOperationException("Duplicate status prevention registration failed.");
         }
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings() => Panel.Draw(config);
 
@@ -85,14 +85,16 @@ public sealed unsafe partial class DuplicateStatusPrevention : OmniModuleBase
         }
     }
 
-    private void OnPreUseAction(
-        ref bool isPrevented,
-        ref ActionType actionType,
-        ref uint actionID,
-        ref ulong targetID,
-        ref uint extraParam,
+    private void OnPreUseAction
+    (
+        ref bool                        isPrevented,
+        ref ActionType                  actionType,
+        ref uint                        actionID,
+        ref ulong                       targetID,
+        ref uint                        extraParam,
         ref ActionManager.UseActionMode queueState,
-        ref uint comboRouteID)
+        ref uint                        comboRouteID
+    )
     {
         if (actionType is not (ActionType.Action or ActionType.GeneralAction))
         {
@@ -153,7 +155,11 @@ public sealed unsafe partial class DuplicateStatusPrevention : OmniModuleBase
         }
     }
 
-    private bool ShouldPrevent(ActionRule rule, IBattleChara? target)
+    private bool ShouldPrevent
+    (
+        ActionRule    rule,
+        IBattleChara? target
+    )
     {
         if (rule.SecondStatuses is not null)
         {
@@ -177,7 +183,11 @@ public sealed unsafe partial class DuplicateStatusPrevention : OmniModuleBase
         return false;
     }
 
-    private bool HasStatus(StatusRule rule, IBattleChara? target) => rule.DetectionTarget switch
+    private bool HasStatus
+    (
+        StatusRule    rule,
+        IBattleChara? target
+    ) => rule.DetectionTarget switch
     {
         StatusDetectionTarget.Self => HasStatus(DService.Instance().ObjectTable.LocalPlayer?.StatusList, rule.StatusID),
         StatusDetectionTarget.Member => PartyHasStatus(rule.StatusID),
@@ -207,7 +217,11 @@ public sealed unsafe partial class DuplicateStatusPrevention : OmniModuleBase
         return false;
     }
 
-    private bool HasStatus(StatusList? statuses, uint statusID)
+    private bool HasStatus
+    (
+        StatusList? statuses,
+        uint        statusID
+    )
     {
         if (statuses is null || !statuses.TryGetStatus(statusID, out var status, out _) || status is null)
         {

@@ -8,7 +8,7 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class SkillMonitor
 {
-    internal static class SkillMonitorDefinitions
+    private static class SkillMonitorDefinitions
     {
         internal static readonly (SkillMonitorGroup Group, uint[] JobIDs)[] JobGroups =
         [
@@ -103,20 +103,20 @@ public sealed partial class SkillMonitor
                 var cooldownMilliseconds = raw.CooldownSeconds * 1_000;
                 if (raw.ActionID != 0 && LuminaGetter.TryGetRow<LuminaAction>(raw.ActionID, out var action))
                 {
-                    iconID = action.Icon;
-                    name = action.Name.ToString();
-                    unlockLevel = action.ClassJobLevel;
+                    iconID               = action.Icon;
+                    name                 = action.Name.ToString();
+                    unlockLevel          = action.ClassJobLevel;
                     cooldownMilliseconds = action.Recast100ms * 100;
                 }
                 else if (raw.StatusID != 0 && LuminaGetter.TryGetRow<LuminaStatus>(raw.StatusID, out var status))
                 {
                     iconID = status.Icon;
-                    name = status.Name.ToString();
+                    name   = status.Name.ToString();
                 }
                 else
                 {
                     iconID = 0;
-                    name = (raw.ActionID == 0 ? raw.StatusID : raw.ActionID).ToString();
+                    name   = (raw.ActionID == 0 ? raw.StatusID : raw.ActionID).ToString();
                 }
 
                 definitions.Add(new(
@@ -145,9 +145,11 @@ public sealed partial class SkillMonitor
             return definitions.ToArray();
         }
 
-        public static bool TryCreateCustom(
+        public static bool TryCreateCustom
+        (
             SkillMonitorConfig.CustomAction config,
-            out SkillMonitorDefinition definition)
+            out SkillMonitorDefinition      definition
+        )
         {
             definition = default;
             if (config.ActionID == 0 ||
@@ -191,7 +193,12 @@ public sealed partial class SkillMonitor
             return true;
         }
 
-        public static int GetCooldownMilliseconds(SkillMonitorDefinition definition, uint classJobID, byte level)
+        public static int GetCooldownMilliseconds
+        (
+            SkillMonitorDefinition definition,
+            uint                   classJobID,
+            byte                   level
+        )
         {
             var traitID = definition.ActionID switch
             {
@@ -225,13 +232,15 @@ public sealed partial class SkillMonitor
             return isTank ? SkillMonitorGroup.Tank : isHealer ? SkillMonitorGroup.Healer : SkillMonitorGroup.Dps;
         }
 
-        private readonly record struct RawDefinition(
-            uint ActionID,
-            uint StatusID,
-            int CooldownSeconds,
-            int ActiveSeconds,
-            ulong ClassJobs,
-            SkillMonitorGroup Group);
+        private readonly record struct RawDefinition
+        (
+            uint              ActionID,
+            uint              StatusID,
+            int               CooldownSeconds,
+            int               ActiveSeconds,
+            ulong             ClassJobs,
+            SkillMonitorGroup Group
+        );
 
         #region 常量
 

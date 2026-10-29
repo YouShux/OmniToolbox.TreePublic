@@ -19,12 +19,12 @@ public sealed partial class AutoSwitchConfiguration
 
     public sealed class Rule
     {
-        public bool Enabled = true;
-        public string Name = string.Empty;
-        public uint ClassJobID;
-        public uint TerritoryID;
-        public int GearsetID = -1;
-        public List<ActionStep> Actions = [];
+        public bool             Enabled     = true;
+        public string           Name        = string.Empty;
+        public uint             ClassJobID;
+        public uint             TerritoryID;
+        public int              GearsetID   = -1;
+        public List<ActionStep> Actions     = [];
 
         [JsonProperty("Commands", NullValueHandling = NullValueHandling.Ignore)]
         private string? legacyCommands;
@@ -67,8 +67,8 @@ public sealed partial class AutoSwitchConfiguration
     public sealed class ActionStep
     {
         public ActionKind Type;
-        public Guid CollectionID;
-        public string Command = string.Empty;
+        public Guid       CollectionID;
+        public string     Command      = string.Empty;
     }
 
     public enum ActionKind

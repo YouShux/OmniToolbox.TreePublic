@@ -65,8 +65,6 @@ public sealed unsafe partial class AutoPartyInvite : OmniModuleBase
             ["Feature.AutoPartyInvite.Trigger.Type.Exact"] = "Feature.AutoPartyInvite.Trigger.Type.Exact"
         });
 
-    public override bool HasSettings => true;
-
     internal static readonly Channel[] ChannelOptions =
     [
         new(XivChatType.Say, "Feature.AutoPartyInvite.Channel.Say"),
@@ -97,7 +95,7 @@ public sealed unsafe partial class AutoPartyInvite : OmniModuleBase
         new(XivChatType.CrossLinkShell8, "Feature.AutoPartyInvite.Channel.CrossLinkshell", 8)
     ];
 
-    private static readonly HashSet<ushort> SupportedChannelIDs = [];
+    private static readonly HashSet<ushort>               SupportedChannelIDs    = [];
     private static readonly HashSet<TerritoryIntendedUse> InvitableInstanceTypes =
     [
         TerritoryIntendedUse.Eureka,
@@ -109,9 +107,18 @@ public sealed unsafe partial class AutoPartyInvite : OmniModuleBase
     ];
 
     private readonly AutoPartyInviteConfig config;
-    private readonly Queue<PendingInvite> pendingInvites = [];
-    private readonly Panel panel = new();
-    private Hook<AddMsgSourceEntryDelegate>? messageSourceHook;
+    private readonly Queue<PendingInvite>  pendingInvites = [];
+    private readonly Panel                 panel          = new();
+    private delegate void AddMsgSourceEntryDelegate
+    (
+        RaptureLogModule* logModule,
+        ulong             contentID,
+        ulong             accountID,
+        int               messageIndex,
+        ushort            worldID,
+        ushort            chatType
+    );
+    private Hook<AddMsgSourceEntryDelegate>? MessageSourceHook;
 
     static AutoPartyInvite()
     {
@@ -121,7 +128,11 @@ public sealed unsafe partial class AutoPartyInvite : OmniModuleBase
         }
     }
 
-    internal AutoPartyInvite(AutoPartyInviteConfig config, System.Action saveConfig)
+    internal AutoPartyInvite
+    (
+        AutoPartyInviteConfig config,
+        System.Action         saveConfig
+    )
     {
         this.config = config;
         if (Panel.NormalizeConfig(config))
@@ -130,33 +141,25 @@ public sealed unsafe partial class AutoPartyInvite : OmniModuleBase
         }
     }
 
-    private delegate void AddMsgSourceEntryDelegate(
-        RaptureLogModule* logModule,
-        ulong contentID,
-        ulong accountID,
-        int messageIndex,
-        ushort worldID,
-        ushort chatType);
-
     protected override void OnStart(FeatureLifetime activation)
     {
         activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnUpdate));
-        messageSourceHook = DService.Instance().Hook.HookFromMemberFunction(
+        MessageSourceHook = DService.Instance().Hook.HookFromMemberFunction(
             typeof(RaptureLogModule.MemberFunctionPointers),
             nameof(RaptureLogModule.MemberFunctionPointers.AddMsgSourceEntry),
             (AddMsgSourceEntryDelegate)OnAddMsgSourceEntry);
-        activation.Add(messageSourceHook);
-        activation.OnStopping(messageSourceHook.Disable);
+        activation.Add(MessageSourceHook);
+        activation.OnStopping(MessageSourceHook.Disable);
         if (!FrameworkManager.Instance().Reg(OnUpdate))
         {
             throw new InvalidOperationException("Auto party invite framework registration failed.");
         }
-        messageSourceHook.Enable();
+        MessageSourceHook.Enable();
     }
 
     protected override void OnStop()
     {
-        messageSourceHook = null;
+        MessageSourceHook = null;
         pendingInvites.Clear();
     }
 
@@ -171,17 +174,21 @@ public sealed unsafe partial class AutoPartyInvite : OmniModuleBase
         return true;
     }
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings() => panel.Draw(config);
 
-    private void OnAddMsgSourceEntry(
+    private void OnAddMsgSourceEntry
+    (
         RaptureLogModule* logModule,
-        ulong contentID,
-        ulong accountID,
-        int messageIndex,
-        ushort worldID,
-        ushort chatType)
+        ulong             contentID,
+        ulong             accountID,
+        int               messageIndex,
+        ushort            worldID,
+        ushort            chatType
+    )
     {
-        messageSourceHook!.Original(logModule, contentID, accountID, messageIndex, worldID, chatType);
+        MessageSourceHook!.Original(logModule, contentID, accountID, messageIndex, worldID, chatType);
 
         try
         {
@@ -192,12 +199,14 @@ public sealed unsafe partial class AutoPartyInvite : OmniModuleBase
         }
     }
 
-    private void HandleChatMessage(
+    private void HandleChatMessage
+    (
         RaptureLogModule* logModule,
-        ulong contentID,
-        int messageIndex,
-        ushort worldID,
-        XivChatType chatType)
+        ulong             contentID,
+        int               messageIndex,
+        ushort            worldID,
+        XivChatType       chatType
+    )
     {
         var services = DService.Instance();
         if (!IsEnabled ||
@@ -368,7 +377,12 @@ public sealed unsafe partial class AutoPartyInvite : OmniModuleBase
                groupManager->MainGroup.IsEntityIdPartyLeader(services.PlayerState.EntityId);
     }
 
-    internal readonly record struct Channel(XivChatType Type, string LabelKey, int Number = 0);
+    internal readonly record struct Channel
+    (
+        XivChatType Type,
+        string      LabelKey,
+        int         Number = 0
+    );
 
     internal sealed class Trigger
     {
@@ -377,10 +391,12 @@ public sealed unsafe partial class AutoPartyInvite : OmniModuleBase
         public bool Enabled { get; set; } = true;
     }
 
-    private readonly record struct PendingInvite(
-        ulong ContentID,
-        string PlayerName,
-        ushort WorldID,
+    private readonly record struct PendingInvite
+    (
+        ulong       ContentID,
+        string      PlayerName,
+        ushort      WorldID,
         XivChatType ChatType,
-        long ReadyAt);
+        long        ReadyAt
+    );
 }

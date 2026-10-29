@@ -35,22 +35,20 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
             ["Feature.ItemTooltipRemark.Save"] = "Feature.ItemTooltipRemark.Save"
         });
 
-    public override bool HasSettings => true;
-
-    private readonly Settings config;
+    private readonly Settings                                 config;
     private readonly TooltipManager.ItemTooltipUpdateDelegate tooltipHandler;
-    private RemarkMenuEntry? menuEntry;
-    private KeyValuePair<uint, string>[] orderedRemarks = [];
-    private int editingItemID;
-    private string editingText = string.Empty;
-    private bool focusTextInput;
-    private bool editorRequested;
-    private bool remarksOrderDirty = true;
-    private TooltipManager? tooltipManager;
+    private RemarkMenuEntry?                                  menuEntry;
+    private KeyValuePair<uint, string>[]                      orderedRemarks    = [];
+    private int                                               editingItemID;
+    private string                                            editingText       = string.Empty;
+    private bool                                              focusTextInput;
+    private bool                                              editorRequested;
+    private bool                                              remarksOrderDirty = true;
+    private TooltipManager?                                   tooltipManager;
 
     public ItemTooltipRemark(Settings config)
     {
-        this.config = config;
+        this.config    = config;
         tooltipHandler = OnItemTooltip;
     }
 
@@ -59,7 +57,7 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
         var manager = TooltipManager.Instance();
         manager.RegItem(tooltipHandler);
         tooltipManager = manager;
-        menuEntry = new(this);
+        menuEntry      = new(this);
         ContextMenuManager.Instance().Reg(menuEntry);
         manager.TriggerItemDetailUpdate();
     }
@@ -80,6 +78,8 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
             tooltipManager = null;
         }
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -102,7 +102,7 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
                 ref color,
                 ImGuiColorEditFlags.DisplayRgb))
         {
-            config.Color = color;
+            config.Color          = color;
             config.UseCustomColor = true;
             tooltipManager?.TriggerItemDetailUpdate();
             changed = true;
@@ -282,22 +282,26 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
 
     public void OpenEditor(uint itemID) => LoadEditor(itemID, true);
 
-    private void LoadEditor(uint itemID, bool requestOpen)
+    private void LoadEditor
+    (
+        uint itemID,
+        bool requestOpen
+    )
     {
         itemID = NormalizeItemID(itemID);
         if (itemID == 0)
         {
             if (!requestOpen)
             {
-                editingText = string.Empty;
+                editingText    = string.Empty;
                 focusTextInput = true;
             }
 
             return;
         }
 
-        editingItemID = (int)Math.Min(itemID, int.MaxValue);
-        editingText = config.Remarks.TryGetValue(itemID, out var remark) ? remark : string.Empty;
+        editingItemID  = (int)Math.Min(itemID, int.MaxValue);
+        editingText    = config.Remarks.TryGetValue(itemID, out var remark) ? remark : string.Empty;
         focusTextInput = true;
         editorRequested |= requestOpen;
     }
@@ -313,7 +317,11 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
         return true;
     }
 
-    public bool TryGetRemark(uint itemID, out string remark)
+    public bool TryGetRemark
+    (
+        uint       itemID,
+        out string remark
+    )
     {
         itemID = NormalizeItemID(itemID);
         if (itemID != 0 &&
@@ -328,10 +336,12 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
         return false;
     }
 
-    private void OnItemTooltip(
-        ItemKind _,
-        uint itemID,
-        ref List<TooltipItemModification> modifications)
+    private void OnItemTooltip
+    (
+        ItemKind                          _,
+        uint                              itemID,
+        ref List<TooltipItemModification> modifications
+    )
     {
         if (!TryGetRemark(itemID, out var remark))
         {
@@ -376,9 +386,14 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
         });
     }
 
-    private bool SaveRemark(uint itemID, string text, out string sanitized)
+    private bool SaveRemark
+    (
+        uint       itemID,
+        string     text,
+        out string sanitized
+    )
     {
-        itemID = NormalizeItemID(itemID);
+        itemID    = NormalizeItemID(itemID);
         sanitized = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
         if (itemID == 0)
         {
@@ -415,7 +430,7 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
             return;
         }
 
-        orderedRemarks = config.Remarks.OrderBy(pair => pair.Key).ToArray();
+        orderedRemarks    = config.Remarks.OrderBy(pair => pair.Key).ToArray();
         remarksOrderDirty = false;
     }
 

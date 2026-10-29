@@ -6,7 +6,11 @@ public sealed class AetheryteModelReplacementRule
     {
     }
 
-    public AetheryteModelReplacementRule(string sourceSharedGroupPath, string targetSharedGroupPath)
+    public AetheryteModelReplacementRule
+    (
+        string sourceSharedGroupPath,
+        string targetSharedGroupPath
+    )
     {
         SourceSharedGroupPath = sourceSharedGroupPath;
         TargetSharedGroupPath = targetSharedGroupPath;

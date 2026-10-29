@@ -4,10 +4,14 @@ namespace OmniToolbox.TreePublic;
 
 internal sealed unsafe class ListItemLockStateCache
 {
-    private readonly Dictionary<nint, NodeFlags> nodeFlags = [];
+    private readonly Dictionary<nint, NodeFlags> nodeFlags  = [];
     private readonly Dictionary<nint, NodeAlpha> nodeAlphas = [];
 
-    public void Apply(AtkComponentListItemRenderer* renderer, bool locked)
+    public void Apply
+    (
+        AtkComponentListItemRenderer* renderer,
+        bool                          locked
+    )
     {
         if (renderer == null)
         {
@@ -58,7 +62,12 @@ internal sealed unsafe class ListItemLockStateCache
         nodeAlphas.Clear();
     }
 
-    private void ApplyAlpha(AtkResNode* node, bool locked, int depth)
+    private void ApplyAlpha
+    (
+        AtkResNode* node,
+        bool        locked,
+        int         depth
+    )
     {
         if (node == null || depth > MaxDepth)
         {
@@ -100,7 +109,12 @@ internal sealed unsafe class ListItemLockStateCache
         }
     }
 
-    private void ApplyInteraction(AtkResNode* node, bool locked, int depth)
+    private void ApplyInteraction
+    (
+        AtkResNode* node,
+        bool        locked,
+        int         depth
+    )
     {
         if (node == null || depth > MaxDepth)
         {
@@ -130,7 +144,13 @@ internal sealed unsafe class ListItemLockStateCache
         }
     }
 
-    private readonly record struct NodeAlpha(byte Node, byte Text, byte Edge, bool IsText);
+    private readonly record struct NodeAlpha
+    (
+        byte Node,
+        byte Text,
+        byte Edge,
+        bool IsText
+    );
 
     #region 常量
 

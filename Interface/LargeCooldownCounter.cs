@@ -27,36 +27,36 @@ public sealed unsafe partial class LargeCooldownCounter(LargeCooldownCounter.Set
             ["Feature.LargeCooldownCounter.FontSizeAdjust"] = "Feature.LargeCooldownCounter.FontSizeAdjust"
         });
 
-    public override bool HasSettings => true;
-
-    internal static readonly FontType[] SupportedFonts =
+    internal static readonly FontType[] SupportedFonts    =
     [
         FontType.Axis,
         FontType.MiedingerMed,
         FontType.Miedinger,
         FontType.TrumpGothic
     ];
-    private static readonly Vector4 CooldownTextColor = Vector4.One;
-    private static readonly Vector4 CooldownEdgeColor = new(0.2f, 0.2f, 0.2f, 1f);
-    private static readonly Vector4 InvalidTextColor = new(0.85f, 0.25f, 0.25f, 1f);
-    private static readonly Vector4 InvalidEdgeColor = new(0.34f, 0f, 0f, 1f);
+    private static readonly Vector4     CooldownTextColor = Vector4.One;
+    private static readonly Vector4     CooldownEdgeColor = new(0.2f, 0.2f, 0.2f, 1f);
+    private static readonly Vector4     InvalidTextColor  = new(0.85f, 0.25f, 0.25f, 1f);
+    private static readonly Vector4     InvalidEdgeColor  = new(0.34f, 0f, 0f, 1f);
 
-    private Hook<AddonActionBarBase.Delegates.UpdateHotbarSlot>? updateHotbarSlotHook;
+    private Hook<AddonActionBarBase.Delegates.UpdateHotbarSlot>? UpdateHotbarSlotHook;
 
     protected override void OnStart(FeatureLifetime activation)
     {
         var lifetime = Activation;
         lifetime.Add(() =>
         {
-            updateHotbarSlotHook = null;
+            UpdateHotbarSlotHook = null;
         });
-        updateHotbarSlotHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.UpdateHotbarSlot>(
+        UpdateHotbarSlotHook = DService.Instance().Hook.HookFromAddress<AddonActionBarBase.Delegates.UpdateHotbarSlot>(
             AddonActionBarBase.MemberFunctionPointers.UpdateHotbarSlot,
             OnUpdateHotbarSlot);
-        lifetime.Add(updateHotbarSlotHook.Dispose);
-        lifetime.OnStopping(updateHotbarSlotHook.Disable);
-        updateHotbarSlotHook.Enable();
+        lifetime.Add(UpdateHotbarSlotHook.Dispose);
+        lifetime.OnStopping(UpdateHotbarSlotHook.Disable);
+        UpdateHotbarSlotHook.Enable();
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -91,7 +91,7 @@ public sealed unsafe partial class LargeCooldownCounter(LargeCooldownCounter.Set
                 if (ImGui.Selectable(GetFontName(font), config.Font == font))
                 {
                     config.Font = font;
-                    changed = true;
+                    changed     = true;
                 }
             }
 
@@ -118,15 +118,17 @@ public sealed unsafe partial class LargeCooldownCounter(LargeCooldownCounter.Set
         return changed;
     }
 
-    private void OnUpdateHotbarSlot(
+    private void OnUpdateHotbarSlot
+    (
         AddonActionBarBase* addon,
-        ActionBarSlot* slot,
-        NumberArrayData* numberArray,
-        StringArrayData* stringArray,
-        int numberArrayIndex,
-        int stringArrayIndex)
+        ActionBarSlot*      slot,
+        NumberArrayData*    numberArray,
+        StringArrayData*    stringArray,
+        int                 numberArrayIndex,
+        int                 stringArrayIndex
+    )
     {
-        updateHotbarSlotHook!.Original(
+        UpdateHotbarSlotHook!.Original(
             addon,
             slot,
             numberArray,
@@ -179,7 +181,12 @@ public sealed unsafe partial class LargeCooldownCounter(LargeCooldownCounter.Set
         return (byte)Math.Clamp(defaultSize + config.FontSizeAdjust * 2, 4, 255);
     }
 
-    private static void ApplyColor(AtkTextNode* node, Vector4 textColor, Vector4 edgeColor)
+    private static void ApplyColor
+    (
+        AtkTextNode* node,
+        Vector4      textColor,
+        Vector4      edgeColor
+    )
     {
         node->TextColor.R = ToByte(textColor.X);
         node->TextColor.G = ToByte(textColor.Y);

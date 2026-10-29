@@ -39,7 +39,11 @@ public sealed partial class BetterGlamourManagement
             }, Options);
         }
 
-        public static BetterGlamourPreset Import(string text, BetterGlamourPreset? existing = null)
+        public static BetterGlamourPreset Import
+        (
+            string               text,
+            BetterGlamourPreset? existing = null
+        )
         {
             if (string.IsNullOrWhiteSpace(text) || text.Length > 65536)
                 throw new InvalidDataException("剪贴板为空或超过 64KB。");
@@ -86,9 +90,9 @@ public sealed partial class BetterGlamourManagement
             if (!preset.Items.Any(x => x.ItemID != 0) && preset.GlassesID == 0 && preset.HairstyleID == 0 &&
                 !preset.HairColor.HasValue && !preset.HighlightColor.HasValue && !preset.HighlightsEnabled.HasValue)
                 throw new InvalidDataException("条目没有任何外观数据。");
-            preset.Name = preset.Name.Trim();
-            preset.ID = Guid.NewGuid().ToString("N");
-            preset.GearsetIndex = -1;
+            preset.Name            = preset.Name.Trim();
+            preset.ID              = Guid.NewGuid().ToString("N");
+            preset.GearsetIndex    = -1;
             preset.GearsetBindings = [];
             return preset;
         }

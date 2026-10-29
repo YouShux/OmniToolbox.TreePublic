@@ -37,7 +37,7 @@ public sealed partial class AutoIshgardRestoration
         {
             EnterPhase(AutomationPhase.SelectJob);
             nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
-            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyOpened");
+            status       = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyOpened");
             return;
         }
 
@@ -72,7 +72,7 @@ public sealed partial class AutoIshgardRestoration
         addon->Callback(0, (int)recipe.JobID - 8);
         EnterPhase(AutomationPhase.SelectItem);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(700);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyJobSelected"), GetJobName(recipe.JobID));
+        status       = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SupplyJobSelected"), GetJobName(recipe.JobID));
     }
 
     private unsafe void DriveSelectItem(RecipeOption recipe)
@@ -107,12 +107,12 @@ public sealed partial class AutoIshgardRestoration
             return;
         }
 
-        itemCountBeforeTurnIn = ReadInventory(activeItemID).ItemCount;
+        itemCountBeforeTurnIn  = ReadInventory(activeItemID).ItemCount;
         scripCountBeforeTurnIn = ReadSkybuildersScrips();
         addon->Callback(1, row);
         EnterPhase(AutomationPhase.FillRequest);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
-        status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SubmittingItem"), recipe.ItemName);
+        status       = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.SubmittingItem"), recipe.ItemName);
     }
 
     private unsafe void DriveFillRequest()
@@ -144,7 +144,7 @@ public sealed partial class AutoIshgardRestoration
             ClickButton(requestBase, request->HandOverButton);
             EnterPhase(AutomationPhase.WaitTurnIn);
             nextActionAt = DateTime.UtcNow.AddMilliseconds(500);
-            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForTurnIn");
+            status       = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.WaitingForTurnIn");
             return;
         }
 
@@ -212,7 +212,7 @@ public sealed partial class AutoIshgardRestoration
         {
             CloseAddon("Request");
             nextActionAt = DateTime.UtcNow.AddMilliseconds(600);
-            status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ClosingCompletedRequest");
+            status       = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ClosingCompletedRequest");
             if (!PhaseTimedOut(TimeSpan.FromSeconds(5)))
             {
                 return;
@@ -250,7 +250,7 @@ public sealed partial class AutoIshgardRestoration
         {
             EnterPhase(AutomationPhase.SelectItem);
             nextActionAt = DateTime.UtcNow.AddMilliseconds(700);
-            status = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ContinuingSubmission"), itemCountBeforeTurnIn);
+            status       = string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.ContinuingSubmission"), itemCountBeforeTurnIn);
         }
         else
         {
@@ -274,27 +274,39 @@ public sealed partial class AutoIshgardRestoration
         BeginNextCraftingCycle(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.AllItemsSubmitted"), recipe.ItemName));
     }
 
-    private bool TryDetectCompletedTurnIn(out int currentCount, out uint currentScrips)
+    private bool TryDetectCompletedTurnIn
+    (
+        out int  currentCount,
+        out uint currentScrips
+    )
     {
-        currentCount = ReadInventory(activeItemID).ItemCount;
+        currentCount  = ReadInventory(activeItemID).ItemCount;
         currentScrips = ReadSkybuildersScrips();
         return currentCount < itemCountBeforeTurnIn || currentScrips > scripCountBeforeTurnIn;
     }
 
-    private void EnterWaitSupplyRefresh(int currentCount, uint currentScrips)
+    private void EnterWaitSupplyRefresh
+    (
+        int  currentCount,
+        uint currentScrips
+    )
     {
         turnInGeneration++;
         var detectedByScrips = currentScrips > scripCountBeforeTurnIn;
-        itemCountBeforeTurnIn = currentCount;
+        itemCountBeforeTurnIn  = currentCount;
         scripCountBeforeTurnIn = currentScrips;
         EnterPhase(AutomationPhase.WaitSupplyRefresh);
         nextActionAt = DateTime.UtcNow.AddMilliseconds(800);
-        status = detectedByScrips
+        status       = detectedByScrips
             ? string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.TurnInConfirmedByScrips"), currentCount)
             : string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.TurnInConfirmedByInventory"), currentCount);
     }
 
-    private static unsafe int FindSupplyRow(AtkUnitBase* addon, uint itemID)
+    private static unsafe int FindSupplyRow
+    (
+        AtkUnitBase* addon,
+        uint         itemID
+    )
     {
         var target = itemID + 500000;
         const int INDEX_OFFSET = 18;

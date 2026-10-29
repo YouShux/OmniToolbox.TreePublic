@@ -11,14 +11,16 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class AutoSwitchConfiguration
 {
-    private JobSelectionButton? jobSelector;
-    private ZoneSelectionButton? territorySelector;
-    private Rule? draft;
-    private Rule? editingRule;
-    private IReadOnlyList<PluginCollectionOption> collections = [];
-    private IReadOnlyList<ToolbarCommandOption> toolbarCommands = [];
-    private long optionsRefreshedAt;
-    private static readonly ActionKind[] ActionKinds = [ActionKind.EnableCollection, ActionKind.DisableCollection, ActionKind.SendCommand];
+    private JobSelectionButton?                   jobSelector;
+    private ZoneSelectionButton?                  territorySelector;
+    private Rule?                                 draft;
+    private Rule?                                 editingRule;
+    private IReadOnlyList<PluginCollectionOption> collections        = [];
+    private IReadOnlyList<ToolbarCommandOption>   toolbarCommands    = [];
+    private long                                  optionsRefreshedAt;
+    private static readonly ActionKind[]          ActionKinds        = [ActionKind.EnableCollection, ActionKind.DisableCollection, ActionKind.SendCommand];
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -27,7 +29,7 @@ public sealed partial class AutoSwitchConfiguration
         if (editingRule is not null && !config.Rules.Contains(editingRule))
         {
             editingRule = null;
-            draft = null;
+            draft       = null;
         }
         draft ??= new()
         {
@@ -36,8 +38,8 @@ public sealed partial class AutoSwitchConfiguration
         };
         if (optionsRefreshedAt == 0 || Environment.TickCount64 - optionsRefreshedAt >= 5000)
         {
-            collections = source.GetPluginCollections();
-            toolbarCommands = source.GetToolbarCommands();
+            collections        = source.GetPluginCollections();
+            toolbarCommands    = source.GetToolbarCommands();
             optionsRefreshedAt = Environment.TickCount64;
         }
 
@@ -106,7 +108,7 @@ public sealed partial class AutoSwitchConfiguration
             if (OmniControls.Checkbox(noJobLabel, ref noJob, rowHeight))
             {
                 editor.ClassJobID = noJob ? 0 : GameState.IsLoggedIn ? LocalPlayerState.ClassJob : 0;
-                editor.GearsetID = -1;
+                editor.GearsetID  = -1;
                 CancelFlow();
             }
             jobSelector!.SelectedID = editor.ClassJobID;
@@ -114,7 +116,7 @@ public sealed partial class AutoSwitchConfiguration
             if (jobSelector.DrawButton(jobPreview))
             {
                 editor.ClassJobID = jobSelector.SelectedID;
-                editor.GearsetID = -1;
+                editor.GearsetID  = -1;
                 CancelFlow();
             }
             OmniControls.SameLineOrWrap(OmniControls.MeasureGroup(
@@ -131,7 +133,12 @@ public sealed partial class AutoSwitchConfiguration
             DrawEditorButtons();
     }
 
-    private unsafe void DrawGearsetCombo(Rule editor, string preview, float width)
+    private unsafe void DrawGearsetCombo
+    (
+        Rule   editor,
+        string preview,
+        float  width
+    )
     {
         if (!OmniControls.BeginCombo("##gearset", preview, width))
             return;
@@ -170,13 +177,13 @@ public sealed partial class AutoSwitchConfiguration
                 config.Rules.Add(editor);
             else
             {
-                editingRule.Name = editor.Name;
+                editingRule.Name        = editor.Name;
                 editingRule.TerritoryID = editor.TerritoryID;
-                editingRule.ClassJobID = editor.ClassJobID;
-                editingRule.GearsetID = editor.GearsetID;
+                editingRule.ClassJobID  = editor.ClassJobID;
+                editingRule.GearsetID   = editor.GearsetID;
             }
             editingRule = null;
-            draft = null;
+            draft       = null;
             SaveChanges();
         }
         if (editingRule is null)
@@ -187,7 +194,7 @@ public sealed partial class AutoSwitchConfiguration
         if (OmniControls.SmallButton(cancelLabel, false))
         {
             editingRule = null;
-            draft = null;
+            draft       = null;
         }
     }
 
@@ -279,7 +286,7 @@ public sealed partial class AutoSwitchConfiguration
             {
                 CancelFlow();
                 editingRule = rule;
-                draft = rule.Copy();
+                draft       = rule.Copy();
             }
             OmniControls.SameLineOrWrap(deleteSize.X);
             if (!OmniControls.SmallButton(deleteLabel, false))

@@ -30,7 +30,11 @@ public sealed partial class AetheryteModelReplacement
 {
     internal static class Panel
     {
-        public static bool Draw(AetheryteModelReplacement module, Settings config)
+        public static bool Draw
+        (
+            AetheryteModelReplacement module,
+            Settings                  config
+        )
         {
             var presets = module.GetPresets();
             if (module.IsPresetScanPending)
@@ -116,7 +120,7 @@ public sealed partial class AetheryteModelReplacement
                     if (OmniControls.Checkbox("##enabled", ref enabled))
                     {
                         rule.Enabled = enabled;
-                        changed = true;
+                        changed      = true;
                     }
 
                     OmniControls.NextTableField(OmniLoc.Get("Feature.AetheryteModelReplacement.Source"), detailLayout);
@@ -140,10 +144,10 @@ public sealed partial class AetheryteModelReplacement
                         rowContentHeight);
                     if (source is not null && DrawPresetCombo("source", sourceOptions, source, true, out var selectedSource))
                     {
-                        rule.SourceTerritoryID = selectedSource.TerritoryID;
-                        rule.SourceAetheryteRowID = selectedSource.RowID;
+                        rule.SourceTerritoryID     = selectedSource.TerritoryID;
+                        rule.SourceAetheryteRowID  = selectedSource.RowID;
                         rule.SourceSharedGroupPath = selectedSource.SharedGroupPath;
-                        changed = true;
+                        changed                    = true;
                     }
 
                     OmniControls.NextTableField(OmniLoc.Get("Feature.AetheryteModelReplacement.Target"), detailLayout);
@@ -156,7 +160,7 @@ public sealed partial class AetheryteModelReplacement
                     if (DrawPresetCombo("target", presets, target, false, out var selectedTarget))
                     {
                         rule.TargetSharedGroupPath = selectedTarget.SharedGroupPath;
-                        changed = true;
+                        changed                    = true;
                     }
 
                     ImGui.TableNextColumn();
@@ -187,9 +191,11 @@ public sealed partial class AetheryteModelReplacement
             return changed;
         }
 
-        private static bool AddRule(
-            Settings config,
-            IReadOnlyList<AetherytePreset> presets)
+        private static bool AddRule
+        (
+            Settings                       config,
+            IReadOnlyList<AetherytePreset> presets
+        )
         {
             var usedSources = config.Rules
                 .Select(static rule => (rule.SourceTerritoryID, rule.SourceAetheryteRowID))
@@ -211,12 +217,14 @@ public sealed partial class AetheryteModelReplacement
             return true;
         }
 
-        private static bool DrawPresetCombo(
-            string id,
+        private static bool DrawPresetCombo
+        (
+            string                         id,
             IReadOnlyList<AetherytePreset> options,
-            AetherytePreset current,
-            bool matchIdentity,
-            out AetherytePreset selected)
+            AetherytePreset                current,
+            bool                           matchIdentity,
+            out AetherytePreset            selected
+        )
         {
             selected = current;
             if (!OmniControls.BeginCombo(
@@ -236,7 +244,7 @@ public sealed partial class AetheryteModelReplacement
                 if (ImGui.Selectable(option.DisplayName, isSelected))
                 {
                     selected = option;
-                    changed = true;
+                    changed  = true;
                 }
             }
 

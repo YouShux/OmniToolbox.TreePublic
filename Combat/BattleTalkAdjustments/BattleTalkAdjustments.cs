@@ -35,18 +35,16 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
             ["Feature.BattleTalkAdjustments.Territory.WorkMode.Help"] = "Feature.BattleTalkAdjustments.Territory.WorkMode.Help"
         });
 
-    public override bool HasSettings => true;
-
     private readonly BattleTalkAdjustmentsConfig config;
-    private readonly Stopwatch previewTimer = new();
-    private readonly TerritorySelector territorySelector = new("battleTalkAdjustmentsTerritory");
-    private Vector2 nativeScale = Vector2.One;
-    private bool hasNativeScale;
-    private bool rootHidden;
+    private readonly Stopwatch                   previewTimer      = new();
+    private readonly TerritorySelector           territorySelector = new("battleTalkAdjustmentsTerritory");
+    private Vector2                              nativeScale       = Vector2.One;
+    private bool                                 hasNativeScale;
+    private bool                                 rootHidden;
 
     public BattleTalkAdjustments(BattleTalkAdjustmentsConfig config)
     {
-        this.config = config;
+        this.config  = config;
         config.Scale = Math.Clamp(config.Scale <= 0f ? 1f : config.Scale, 0.01f, 3f);
     }
 
@@ -96,6 +94,8 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
         Restore(Addons.BattleTalk);
     }
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings()
     {
         var changed = false;
@@ -133,7 +133,7 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
                     MathF.Max(1f, ImGui.GetContentRegionAvail().X),
                     ImGuiSliderFlags.AlwaysClamp))
             {
-                config.Scale = scale;
+                config.Scale    = scale;
                 settingsChanged = true;
             }
 
@@ -153,8 +153,8 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
                     "%.0f",
                     MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
             {
-                config.OffsetX = (int)MathF.Round(offset.X);
-                config.OffsetY = (int)MathF.Round(offset.Y);
+                config.OffsetX  = (int)MathF.Round(offset.X);
+                config.OffsetY  = (int)MathF.Round(offset.Y);
                 settingsChanged = true;
             }
 
@@ -170,7 +170,7 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
                 !config.UseWhitelist))
         {
             config.UseWhitelist = false;
-            changed = true;
+            changed             = true;
         }
 
         ImGui.SameLine();
@@ -179,7 +179,7 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
                 config.UseWhitelist))
         {
             config.UseWhitelist = true;
-            changed = true;
+            changed             = true;
         }
 
         ImGui.SameLine();
@@ -207,7 +207,11 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
         return changed;
     }
 
-    private void OnPreDraw(AddonEvent type, AddonArgs args)
+    private void OnPreDraw
+    (
+        AddonEvent type,
+        AddonArgs  args
+    )
     {
         var addon = (AtkUnitBase*)args.Addon.Address;
         if (addon == null || !addon->IsVisible || addon->RootNode == null)
@@ -230,15 +234,31 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
         ApplyLayout(addon);
     }
 
-    private void OnPreShow(AddonEvent type, AddonArgs args) => Restore((AtkUnitBase*)args.Addon.Address);
+    private void OnPreShow
+    (
+        AddonEvent type,
+        AddonArgs  args
+    ) => Restore((AtkUnitBase*)args.Addon.Address);
 
-    private void OnLayoutUpdated(AddonEvent type, AddonArgs args) => ApplyLayout((AtkUnitBase*)args.Addon.Address);
+    private void OnLayoutUpdated
+    (
+        AddonEvent type,
+        AddonArgs  args
+    ) => ApplyLayout((AtkUnitBase*)args.Addon.Address);
 
-    private void OnPostDraw(AddonEvent type, AddonArgs args) => RestoreVisibility((AtkUnitBase*)args.Addon.Address);
+    private void OnPostDraw
+    (
+        AddonEvent type,
+        AddonArgs  args
+    ) => RestoreVisibility((AtkUnitBase*)args.Addon.Address);
 
-    private void OnPreFinalize(AddonEvent type, AddonArgs args)
+    private void OnPreFinalize
+    (
+        AddonEvent type,
+        AddonArgs  args
+    )
     {
-        rootHidden = false;
+        rootHidden     = false;
         hasNativeScale = false;
     }
 
@@ -253,7 +273,7 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
 
         if (!hasNativeScale)
         {
-            nativeScale = new(addon->RootNode->ScaleX, addon->RootNode->ScaleY);
+            nativeScale    = new(addon->RootNode->ScaleX, addon->RootNode->ScaleY);
             hasNativeScale = true;
         }
 

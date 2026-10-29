@@ -35,7 +35,11 @@ public sealed unsafe class LandLotteryCountdown : OmniModuleBase
             OnContentsInfoPreRefresh);
     }
 
-    private static void OnContentsInfoPreRefresh(AddonEvent _, AddonArgs args)
+    private static void OnContentsInfoPreRefresh
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         if (args is not AddonRefreshArgs refreshArgs ||
             refreshArgs.AtkValues == 0 ||
@@ -90,7 +94,7 @@ public sealed unsafe class LandLotteryCountdown : OmniModuleBase
             }
 
             periodStart = periodEnd;
-            periodDays = periodDays == ENTRY_PERIOD_DAYS ? RESULTS_PERIOD_DAYS : ENTRY_PERIOD_DAYS;
+            periodDays  = periodDays == ENTRY_PERIOD_DAYS ? RESULTS_PERIOD_DAYS : ENTRY_PERIOD_DAYS;
         }
     }
 

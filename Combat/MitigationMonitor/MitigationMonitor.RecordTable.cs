@@ -14,39 +14,43 @@ public sealed partial class MitigationMonitor
     {
         private static readonly float[] ColumnMinimumWidths = [44f, 70f, 60f, 42f, 34f];
 
-        private readonly MitigationMonitorConfig config;
-        private readonly MitigationCombatLog combatLog;
-        private readonly Action saveConfig;
-        private readonly MitigationRecordRenderer renderer;
-        private readonly List<MitigationRecord> sourceRecords = new(256);
-        private readonly List<MitigationRecord> visibleRecords = new(256);
-        private readonly List<TargetFilterOption> targetOptions = new(8);
-        private readonly HashSet<string> targetNames = new(StringComparer.Ordinal);
-        private string? historyKey;
-        private string? selectedTargetName;
-        private string? filteredTargetName;
-        private long sourceVersion = -1;
-        private bool filteredDotDamage = true;
-        private readonly List<float> rowHeights = [];
+        private readonly MitigationMonitorConfig                                   config;
+        private readonly MitigationCombatLog                                       combatLog;
+        private readonly Action                                                    saveConfig;
+        private readonly MitigationRecordRenderer                                  renderer;
+        private readonly List<MitigationRecord>                                    sourceRecords      = new(256);
+        private readonly List<MitigationRecord>                                    visibleRecords     = new(256);
+        private readonly List<TargetFilterOption>                                  targetOptions      = new(8);
+        private readonly HashSet<string>                                           targetNames        = new(StringComparer.Ordinal);
+        private string?                                                            historyKey;
+        private string?                                                            selectedTargetName;
+        private string?                                                            filteredTargetName;
+        private long                                                               sourceVersion      = -1;
+        private bool                                                               filteredDotDamage  = true;
+        private readonly List<float>                                               rowHeights         = [];
         private (float Width, float FontSize, float Scale, bool Detail, nint Font) heightLayout;
 
-        public MitigationRecordTable(
+        public MitigationRecordTable
+        (
             MitigationMonitorConfig config,
-            MitigationCombatLog combatLog,
-            Action saveConfig)
+            MitigationCombatLog     combatLog,
+            Action                  saveConfig
+        )
         {
-            this.config = config;
-            this.combatLog = combatLog;
+            this.config     = config;
+            this.combatLog  = combatLog;
             this.saveConfig = saveConfig;
-            renderer = new(config);
+            renderer        = new(config);
         }
 
-        public unsafe void Draw(
-            string? selectedHistoryKey,
-            Action openHistory,
+        public unsafe void Draw
+        (
+            string?         selectedHistoryKey,
+            Action          openHistory,
             Action<Vector2> collapse,
-            Action toggleLock,
-            Action openSettings)
+            Action          toggleLock,
+            Action          openSettings
+        )
         {
             RefreshRecords(selectedHistoryKey);
             var available = ImGui.GetContentRegionAvail();
@@ -140,19 +144,19 @@ public sealed partial class MitigationMonitor
             targetOptions.Clear();
             targetNames.Clear();
             renderer.ResetRuntime();
-            historyKey = null;
+            historyKey         = null;
             selectedTargetName = null;
             filteredTargetName = null;
-            sourceVersion = -1;
+            sourceVersion      = -1;
         }
 
         private void RefreshRecords(string? selectedHistoryKey)
         {
             if (!string.Equals(historyKey, selectedHistoryKey, StringComparison.Ordinal))
             {
-                historyKey = selectedHistoryKey;
+                historyKey         = selectedHistoryKey;
                 selectedTargetName = null;
-                sourceVersion = -1;
+                sourceVersion      = -1;
             }
 
             var currentVersion = historyKey == null
@@ -224,7 +228,7 @@ public sealed partial class MitigationMonitor
                 visibleRecords.Add(record);
             }
 
-            filteredDotDamage = config.ShowDotDamage;
+            filteredDotDamage  = config.ShowDotDamage;
             filteredTargetName = selectedTargetName;
         }
 
@@ -269,7 +273,12 @@ public sealed partial class MitigationMonitor
                 MathF.Max(config.Scale(20f), width - time - action - target - damage - mitigation));
         }
 
-        private float ScaleColumnWidth(int index, float desiredWidth, float excessScale)
+        private float ScaleColumnWidth
+        (
+            int   index,
+            float desiredWidth,
+            float excessScale
+        )
         {
             var minimumWidth = config.Scale(ColumnMinimumWidths[index]);
             return MathF.Max(
@@ -277,14 +286,16 @@ public sealed partial class MitigationMonitor
                 MathF.Floor(minimumWidth + (desiredWidth - minimumWidth) * excessScale));
         }
 
-        private void DrawHeader(
-            Vector2 min,
-            float width,
+        private void DrawHeader
+        (
+            Vector2               min,
+            float                 width,
             MitigationTableLayout layout,
-            Action openHistory,
-            Action<Vector2> collapse,
-            Action toggleLock,
-            Action openSettings)
+            Action                openHistory,
+            Action<Vector2>       collapse,
+            Action                toggleLock,
+            Action                openSettings
+        )
         {
             var height = config.Scale(HEADER_HEIGHT);
             ImGui.GetWindowDrawList().AddRectFilled(
@@ -324,7 +335,13 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        private void DrawHeaderText(string key, float x, float width, float y)
+        private void DrawHeaderText
+        (
+            string key,
+            float  x,
+            float  width,
+            float  y
+        )
         {
             var text = MitigationRecordRenderer.FitText(
                 OmniLoc.Get(key),
@@ -338,7 +355,11 @@ public sealed partial class MitigationMonitor
                 text);
         }
 
-        private void DrawTargetHeader(Vector2 min, float width)
+        private void DrawTargetHeader
+        (
+            Vector2 min,
+            float   width
+        )
         {
             ImGui.SetCursorScreenPos(min);
             ImGui.InvisibleButton("##MitigationTargetFilterHeader", new Vector2(width, config.Scale(HEADER_HEIGHT)));
@@ -402,13 +423,15 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        private void DrawHeaderControls(
-            Vector2 headerMin,
-            float width,
-            Action openHistory,
+        private void DrawHeaderControls
+        (
+            Vector2         headerMin,
+            float           width,
+            Action          openHistory,
             Action<Vector2> collapse,
-            Action toggleLock,
-            Action openSettings)
+            Action          toggleLock,
+            Action          openSettings
+        )
         {
             var buttonSize = config.Scale(new Vector2(22f, 20f));
             var spacing = config.Scale(3f);
@@ -432,13 +455,15 @@ public sealed partial class MitigationMonitor
             DrawIconButton(FontAwesomeIcon.Cog, "##MitigationSettings", "Feature.MitigationMonitor.Settings", new(x, y), buttonSize, openSettings);
         }
 
-        private static void DrawIconButton(
+        private static void DrawIconButton
+        (
             FontAwesomeIcon icon,
-            string id,
-            string tooltipKey,
-            Vector2 position,
-            Vector2 size,
-            Action action)
+            string          id,
+            string          tooltipKey,
+            Vector2         position,
+            Vector2         size,
+            Action          action
+        )
         {
             ImGui.SetCursorScreenPos(position);
             if (ImGui.InvisibleButton(id, size))
@@ -468,7 +493,12 @@ public sealed partial class MitigationMonitor
 
         private float GetHeaderControlsWidth() => config.Scale(22f * 4f + 3f * 3f + 8f);
 
-        private void DrawResizeHandles(Vector2 headerMin, MitigationTableLayout layout, float totalWidth)
+        private void DrawResizeHandles
+        (
+            Vector2               headerMin,
+            MitigationTableLayout layout,
+            float                 totalWidth
+        )
         {
             var x = headerMin.X;
             Span<float> widths = [layout.Time, layout.Action, layout.Target, layout.Damage, layout.Mitigation];
@@ -479,7 +509,14 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        private void DrawResizeHandle(int index, float x, float y, MitigationTableLayout layout, float totalWidth)
+        private void DrawResizeHandle
+        (
+            int                   index,
+            float                 x,
+            float                 y,
+            MitigationTableLayout layout,
+            float                 totalWidth
+        )
         {
             var handleWidth = config.Scale(7f);
             var min = new Vector2(x - handleWidth * 0.5f, y);
@@ -514,7 +551,13 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        private void ResizeColumn(int index, float delta, MitigationTableLayout layout, float totalWidth)
+        private void ResizeColumn
+        (
+            int                   index,
+            float                 delta,
+            MitigationTableLayout layout,
+            float                 totalWidth
+        )
         {
             Span<float> widths = [layout.Time, layout.Action, layout.Target, layout.Damage, layout.Mitigation];
             if (index < widths.Length - 1)
@@ -541,14 +584,18 @@ public sealed partial class MitigationMonitor
                     maximum);
             }
 
-            config.TimeColumnWidth = widths[0] / config.ScaleValue;
-            config.ActionColumnWidth = widths[1] / config.ScaleValue;
-            config.TargetColumnWidth = widths[2] / config.ScaleValue;
-            config.DamageColumnWidth = widths[3] / config.ScaleValue;
+            config.TimeColumnWidth       = widths[0] / config.ScaleValue;
+            config.ActionColumnWidth     = widths[1] / config.ScaleValue;
+            config.TargetColumnWidth     = widths[2] / config.ScaleValue;
+            config.DamageColumnWidth     = widths[3] / config.ScaleValue;
             config.MitigationColumnWidth = widths[4] / config.ScaleValue;
         }
 
-        private void DrawNoData(Vector2 bodyMin, Vector2 bodySize)
+        private void DrawNoData
+        (
+            Vector2 bodyMin,
+            Vector2 bodySize
+        )
         {
             var center = bodyMin + bodySize * 0.5f;
             var color = OmniTheme.Color(KnownColor.Gainsboro.ToVector4() with
@@ -627,7 +674,12 @@ public sealed partial class MitigationMonitor
             ImGui.EndPopup();
         }
 
-        private readonly record struct TargetFilterOption(string Name, string ShortName, string JobName);
+        private readonly record struct TargetFilterOption
+        (
+            string Name,
+            string ShortName,
+            string JobName
+        );
 
         #region 常量
 

@@ -36,8 +36,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
             ["Feature.HideMinimapIcons.KeepTextWhenHiddenHint"] = "Feature.HideMinimapIcons.KeepTextWhenHiddenHint"
         });
 
-    public override bool HasSettings => true;
-
     private static readonly uint[] KnownIconIDs =
     [
         60091, 60311, 60314, 60318, 60319, 60320, 60321, 60322, 60326, 60330, 60331, 60333,
@@ -65,9 +63,9 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         71146, 71151, 71152, 71153, 71155, 71156
     ];
 
-    private readonly Settings config;
-    private readonly List<uint> displayIconIDs = [];
-    private readonly Dictionary<nint, (uint NodeID, nint Addon)> hiddenNodes = [];
+    private readonly Settings                                                                config;
+    private readonly List<uint>                                                              displayIconIDs     = [];
+    private readonly Dictionary<nint, (uint NodeID, nint Addon)>                             hiddenNodes        = [];
     private readonly Dictionary<nint, (uint NodeID, uint IconID, Vector2 Scale, nint Addon)> originalIconScales = [];
 
     public HideMinimapIcons(Settings config)
@@ -133,6 +131,8 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         mapDiagnostics.Clear();
     }
 
+    public override bool HasSettings => true;
+
     public override bool DrawSettings()
     {
         var changed = false;
@@ -159,8 +159,8 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                     ref hideOnMinimap))
             {
                 config.HideOnMinimap = hideOnMinimap;
-                changed = true;
-                mapSettingsChanged = true;
+                changed              = true;
+                mapSettingsChanged   = true;
             }
 
             ImGui.TableNextColumn();
@@ -170,8 +170,8 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                     ref hideOnAreaMap))
             {
                 config.HideOnAreaMap = hideOnAreaMap;
-                changed = true;
-                mapSettingsChanged = true;
+                changed              = true;
+                mapSettingsChanged   = true;
             }
 
             ImGui.TableNextColumn();
@@ -188,7 +188,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                     "%.1f",
                     MathF.Max(1f, ImGui.GetContentRegionAvail().X)))
             {
-                config.IconScale = iconScale;
+                config.IconScale   = iconScale;
                 mapSettingsChanged = true;
             }
             changed |= ImGui.IsItemDeactivatedAfterEdit();
@@ -210,7 +210,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
             ImGui.TableNextColumn();
             if (OmniControls.Checkbox(aetherytesOnTopLabel, ref config.AetherytesOnTop))
             {
-                changed = true;
+                changed            = true;
                 mapSettingsChanged = true;
             }
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
@@ -219,7 +219,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
             ImGui.TableNextColumn();
             if (OmniControls.Checkbox(keepTextLabel, ref config.KeepTextWhenHidden))
             {
-                changed = true;
+                changed            = true;
                 mapSettingsChanged = true;
             }
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
@@ -301,11 +301,13 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         return changed;
     }
 
-    private bool DrawIconOption(
-        uint iconID,
+    private bool DrawIconOption
+    (
+        uint  iconID,
         float iconSize,
         float optionContentWidth,
-        float rowContentHeight)
+        float rowContentHeight
+    )
     {
         ImGui.TableNextColumn();
         OmniControls.CenterTableItem(
@@ -343,7 +345,11 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         return changed;
     }
 
-    private void OnMapPreDraw(AddonEvent _, AddonArgs args)
+    private void OnMapPreDraw
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         var capture = BeginMapDiagnosticSample(args);
         if (capture)
@@ -366,7 +372,11 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
             LogMapDiagnosticSnapshot(args, "PreDraw.After");
     }
 
-    private void OnMapPreUpdate(AddonEvent _, AddonArgs args)
+    private void OnMapPreUpdate
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         var diagnostic = GetMapDiagnosticState(args);
         if (!diagnostic.ReportedPreUpdate)
@@ -385,7 +395,11 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         }
     }
 
-    private void OnMapFinalize(AddonEvent _, AddonArgs args)
+    private void OnMapFinalize
+    (
+        AddonEvent _,
+        AddonArgs  args
+    )
     {
         var addon = args.Addon.Address;
         mapDiagnostics.Remove(args.AddonName);
@@ -407,7 +421,11 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         }
     }
 
-    private void ApplyMinimap(AddonNaviMap* addon, bool restore)
+    private void ApplyMinimap
+    (
+        AddonNaviMap* addon,
+        bool          restore
+    )
     {
         if (addon == null || !restore && !addon->AtkUnitBase.IsVisible)
         {
@@ -434,7 +452,11 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         ApplyAetherytePriority(&addon->AtkUnitBase, NAVI_MAP_ADDON_NAME, restore);
     }
 
-    private void ApplyAreaMap(AddonAreaMap* addon, bool restore)
+    private void ApplyAreaMap
+    (
+        AddonAreaMap* addon,
+        bool          restore
+    )
     {
         if (addon == null || !restore && !addon->AtkUnitBase.IsVisible)
         {
@@ -446,7 +468,11 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         ApplyAetherytePriority(&addon->AtkUnitBase, AREA_MAP_ADDON_NAME, restore);
     }
 
-    private void ApplyTeleportTown(AddonTeleportTown* addon, bool restore)
+    private void ApplyTeleportTown
+    (
+        AddonTeleportTown* addon,
+        bool               restore
+    )
     {
         if (addon == null || !restore && !addon->AtkUnitBase.IsVisible)
         {
@@ -458,7 +484,12 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         ApplyAetherytePriority(&addon->AtkUnitBase, TELEPORT_TOWN_ADDON_NAME, restore);
     }
 
-    private void ApplyAreaMapMarkers(AtkComponentMap* componentMap, bool restore, nint addon)
+    private void ApplyAreaMapMarkers
+    (
+        AtkComponentMap* componentMap,
+        bool             restore,
+        nint             addon
+    )
     {
         var component = (AtkComponentBase*)componentMap;
         if (component == null || component->UldManager.NodeList == null)
@@ -476,12 +507,14 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         }
     }
 
-    private void ApplyMarkerNode(
+    private void ApplyMarkerNode
+    (
         AtkComponentNode* node,
-        bool selected,
-        bool restore,
-        bool hideEnabled,
-        nint addon)
+        bool              selected,
+        bool              restore,
+        bool              hideEnabled,
+        nint              addon
+    )
     {
         restore |= (node->AtkResNode.NodeFlags & NodeFlags.Visible) == 0;
         var component = node->Component;
@@ -494,7 +527,11 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         ApplyMarkerContents(component, hidden, restore, addon, 0);
     }
 
-    private bool HasSelectedMarkerIcon(AtkComponentBase* component, int depth)
+    private bool HasSelectedMarkerIcon
+    (
+        AtkComponentBase* component,
+        int               depth
+    )
     {
         if (component is null || component->UldManager.NodeList is null || depth >= MAX_MARKER_DEPTH)
             return false;
@@ -526,7 +563,14 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         return node is null;
     }
 
-    private void ApplyMarkerContents(AtkComponentBase* component, bool hidden, bool restore, nint addon, int depth)
+    private void ApplyMarkerContents
+    (
+        AtkComponentBase* component,
+        bool              hidden,
+        bool              restore,
+        nint              addon,
+        int               depth
+    )
     {
         if (component is null || component->UldManager.NodeList is null || depth >= MAX_MARKER_DEPTH)
             return;
@@ -559,7 +603,14 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         }
     }
 
-    private void ApplyIconScale(AtkImageNode* imageNode, uint iconID, bool restore, bool hidden, nint addon)
+    private void ApplyIconScale
+    (
+        AtkImageNode* imageNode,
+        uint          iconID,
+        bool          restore,
+        bool          hidden,
+        nint          addon
+    )
     {
         var imageAddress = (nint)imageNode;
         var iconScale = hidden ? 0f : Math.Clamp(config.IconScale, 0f, 3f);
@@ -588,7 +639,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                 imageNode->AtkResNode.SetScale(iconNodeScale.Scale.X, iconNodeScale.Scale.Y);
             }
 
-            iconNodeScale = (imageNode->AtkResNode.NodeId, iconID, new Vector2(
+            iconNodeScale                    = (imageNode->AtkResNode.NodeId, iconID, new Vector2(
                 imageNode->AtkResNode.GetScaleX(),
                 imageNode->AtkResNode.GetScaleY()), addon);
             originalIconScales[imageAddress] = iconNodeScale;
@@ -599,16 +650,24 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
             iconNodeScale.Scale.Y * iconScale);
     }
 
-    private void HideMarkerNode(AtkResNode* node, nint addon)
+    private void HideMarkerNode
+    (
+        AtkResNode* node,
+        nint        addon
+    )
     {
         if ((node->NodeFlags & NodeFlags.Visible) == 0 || node->IsDrawDisabled)
             return;
 
         hiddenNodes[(nint)node] = (node->NodeId, addon);
-        node->IsDrawDisabled = true;
+        node->IsDrawDisabled    = true;
     }
 
-    private void RestoreHiddenMapNodes(AtkUnitBase* addon, string addonName)
+    private void RestoreHiddenMapNodes
+    (
+        AtkUnitBase* addon,
+        string       addonName
+    )
     {
         if (addon is null || hiddenNodes.Count == 0)
             return;
@@ -634,7 +693,12 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         }
     }
 
-    private void RestoreHiddenMarkerNodes(AtkComponentNode* marker, nint addon, int depth)
+    private void RestoreHiddenMarkerNodes
+    (
+        AtkComponentNode* marker,
+        nint              addon,
+        int               depth
+    )
     {
         if (marker is null || marker->Component is null || marker->Component->UldManager.NodeList is null ||
             depth >= MAX_MARKER_DEPTH)
@@ -659,7 +723,11 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         }
     }
 
-    private void SetHidden(uint iconID, bool hidden)
+    private void SetHidden
+    (
+        uint iconID,
+        bool hidden
+    )
     {
         if (hidden)
         {

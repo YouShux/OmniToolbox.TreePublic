@@ -14,17 +14,17 @@ public sealed partial class MitigationMonitor
 {
     internal sealed class MitigationCombatLog(int replaySaveCount)
     {
-        private readonly object syncRoot = new();
-        private readonly List<MitigationRecord> records = new(256);
-        private readonly List<MitigationCombatHistory> history = new(40);
-        private readonly Dictionary<uint, MitigationRecord> lastDamageByTarget = [];
-        private readonly HashSet<uint> deadTargets = [];
-        private DateTime? combatStartUTC;
-        private long recordsVersion;
-        private long historyVersion;
-        private int replaySaveCount = Math.Clamp(replaySaveCount, 1, 300);
-        private bool suppressRecordsUntilNextCombat;
-        private bool sawOutOfCombatAfterWipe;
+        private readonly object                             syncRoot                       = new();
+        private readonly List<MitigationRecord>             records                        = new(256);
+        private readonly List<MitigationCombatHistory>      history                        = new(40);
+        private readonly Dictionary<uint, MitigationRecord> lastDamageByTarget             = [];
+        private readonly HashSet<uint>                      deadTargets                    = [];
+        private DateTime?                                   combatStartUTC;
+        private long                                        recordsVersion;
+        private long                                        historyVersion;
+        private int                                         replaySaveCount                = Math.Clamp(replaySaveCount, 1, 300);
+        private bool                                        suppressRecordsUntilNextCombat;
+        private bool                                        sawOutOfCombatAfterWipe;
 
         public long RecordsVersion => Interlocked.Read(ref recordsVersion);
 
@@ -56,7 +56,7 @@ public sealed partial class MitigationMonitor
                 }
 
                 suppressRecordsUntilNextCombat = false;
-                sawOutOfCombatAfterWipe = false;
+                sawOutOfCombatAfterWipe        = false;
                 return false;
             }
         }
@@ -78,7 +78,11 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        public void UpdateFriendly(FriendlySnapshot target, DateTime now)
+        public void UpdateFriendly
+        (
+            FriendlySnapshot target,
+            DateTime         now
+        )
         {
             lock (syncRoot)
             {
@@ -177,7 +181,7 @@ public sealed partial class MitigationMonitor
                 }
 
                 suppressRecordsUntilNextCombat = true;
-                sawOutOfCombatAfterWipe = false;
+                sawOutOfCombatAfterWipe        = false;
                 FinalizeCurrentNoLock(now);
             }
         }
@@ -191,7 +195,12 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        public long CopyRecords(string? historyKey, long knownVersion, List<MitigationRecord> destination)
+        public long CopyRecords
+        (
+            string?                historyKey,
+            long                   knownVersion,
+            List<MitigationRecord> destination
+        )
         {
             lock (syncRoot)
             {
@@ -225,7 +234,11 @@ public sealed partial class MitigationMonitor
             }
         }
 
-        public long CopyHistory(long knownVersion, List<MitigationCombatHistory> destination)
+        public long CopyHistory
+        (
+            long                          knownVersion,
+            List<MitigationCombatHistory> destination
+        )
         {
             lock (syncRoot)
             {
@@ -261,7 +274,7 @@ public sealed partial class MitigationMonitor
             {
                 ClearCurrentNoLock();
                 suppressRecordsUntilNextCombat = false;
-                sawOutOfCombatAfterWipe = false;
+                sawOutOfCombatAfterWipe        = false;
             }
         }
 
@@ -273,7 +286,7 @@ public sealed partial class MitigationMonitor
                 history.Clear();
                 historyVersion++;
                 suppressRecordsUntilNextCombat = false;
-                sawOutOfCombatAfterWipe = false;
+                sawOutOfCombatAfterWipe        = false;
             }
         }
 

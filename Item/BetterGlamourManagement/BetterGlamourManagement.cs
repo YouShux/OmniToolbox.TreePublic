@@ -12,27 +12,29 @@ using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
-using TreeTools.Threading;
-using OmniToolbox.Commands;
 using OmniToolbox.Collections;
+using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Items;
 using OmniToolbox.Notifications;
+using TreeTools.Threading;
 
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-public sealed unsafe partial class BetterGlamourManagement(
+public sealed unsafe partial class BetterGlamourManagement
+(
     BetterGlamourManagement.Settings config,
-    Action saveConfig,
-    ItemPreviewService itemPreviewService,
-    ItemPatchMap itemPatchMap,
-    CollectionSourceService collectionSourceService,
-    Func<uint, bool> isInGlamourDresser,
-    Func<uint, bool> isInArmoire,
-    Func<long> getInventoryRevision) : OmniModuleBase
+    Action                           saveConfig,
+    ItemPreviewService               itemPreviewService,
+    ItemPatchMap                     itemPatchMap,
+    CollectionSourceService          collectionSourceService,
+    Func<uint, bool>                 isInGlamourDresser,
+    Func<uint, bool>                 isInArmoire,
+    Func<long>                       getInventoryRevision
+) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -177,21 +179,19 @@ public sealed unsafe partial class BetterGlamourManagement(
             ["Feature.BetterGlamourManagement.WindowTitle"] = "Feature.BetterGlamourManagement.WindowTitle"
         });
 
-    public override bool HasSettings => true;
-
     private static readonly int[] InspectSlots = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12];
 
     private BetterGlamourActionsNativeUI? actionsNativeUI;
     private BetterGlamourManagerNativeUI? managerNativeUI;
     private BetterGlamourPortraitPreview? portraitPreview;
-    private TaskHelper? taskHelper;
-    private BetterGlamourPreset? activeTryOnPreset;
-    private BetterGlamourPreset? boundTryOnPreset;
-    private nint previewPlayerAddress;
-    private bool pendingTryOnRestore;
-    private int selectedPresetIndex = -1;
-    private int lastGearsetIndex = int.MinValue;
-    private ulong lastCharacterContentID;
+    private TaskHelper?                   taskHelper;
+    private BetterGlamourPreset?          activeTryOnPreset;
+    private BetterGlamourPreset?          boundTryOnPreset;
+    private nint                          previewPlayerAddress;
+    private bool                          pendingTryOnRestore;
+    private int                           selectedPresetIndex    = -1;
+    private int                           lastGearsetIndex       = int.MinValue;
+    private ulong                         lastCharacterContentID;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -276,13 +276,17 @@ public sealed unsafe partial class BetterGlamourManagement(
     protected override void OnStop()
     {
         ClearTryOn();
-        boundTryOnPreset = null;
-        selectedPresetIndex = -1;
-        lastGearsetIndex = int.MinValue;
+        boundTryOnPreset       = null;
+        selectedPresetIndex    = -1;
+        lastGearsetIndex       = int.MinValue;
         lastCharacterContentID = 0;
     }
 
-    private void OnAttachedAddonEvent(AddonEvent type, AddonArgs args)
+    private void OnAttachedAddonEvent
+    (
+        AddonEvent type,
+        AddonArgs  args
+    )
     {
         var closing = type is AddonEvent.PreHide or AddonEvent.PreFinalize;
         if (args.AddonName == CHARACTER_INSPECT_ADDON_NAME)
@@ -315,7 +319,12 @@ public sealed unsafe partial class BetterGlamourManagement(
         PositionAttachedNativeUI(inspectAddon, actionsNativeUI, 2f);
     }
 
-    private static void PositionAttachedNativeUI(AtkUnitBase* sourceAddon, NativeAddon nativeUI, float gap)
+    private static void PositionAttachedNativeUI
+    (
+        AtkUnitBase* sourceAddon,
+        NativeAddon  nativeUI,
+        float        gap
+    )
     {
         if (!nativeUI.IsOpen)
         {
@@ -339,11 +348,11 @@ public sealed unsafe partial class BetterGlamourManagement(
         {
             taskHelper?.Abort();
             activeTryOnPreset = null;
-            boundTryOnPreset = null;
+            boundTryOnPreset  = null;
             managerNativeUI?.UpdateTryOnButton();
-            previewPlayerAddress = nint.Zero;
-            pendingTryOnRestore = false;
-            lastGearsetIndex = int.MinValue;
+            previewPlayerAddress   = nint.Zero;
+            pendingTryOnRestore    = false;
+            lastGearsetIndex       = int.MinValue;
             lastCharacterContentID = 0;
             return;
         }
@@ -353,7 +362,7 @@ public sealed unsafe partial class BetterGlamourManagement(
         {
             ClearTryOn();
             lastCharacterContentID = contentID;
-            lastGearsetIndex = int.MinValue;
+            lastGearsetIndex       = int.MinValue;
             managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
         }
 
@@ -383,7 +392,7 @@ public sealed unsafe partial class BetterGlamourManagement(
             playerAddress != previewPlayerAddress)
         {
             previewPlayerAddress = playerAddress;
-            pendingTryOnRestore = true;
+            pendingTryOnRestore  = true;
         }
 
         if (!pendingTryOnRestore &&
@@ -397,7 +406,11 @@ public sealed unsafe partial class BetterGlamourManagement(
         TryApplyActiveTryOn();
     }
 
-    private static bool TryGetReadyAddon(string name, out AtkUnitBase* addon)
+    private static bool TryGetReadyAddon
+    (
+        string           name,
+        out AtkUnitBase* addon
+    )
     {
         addon = null;
         return AddonHelper.TryGetByName(name, out addon) &&
@@ -485,10 +498,10 @@ public sealed unsafe partial class BetterGlamourManagement(
         var uiState = UIState.Instance();
         if (uiState != null)
         {
-            preset.GlassesID = uiState->Inspect.GlassesIds[0];
-            preset.HairstyleID = ResolveInspectHairstyleID(uiState->Inspect.CustomizeData);
-            preset.HairColor = uiState->Inspect.CustomizeData.HairColor;
-            preset.HighlightColor = uiState->Inspect.CustomizeData.HighlightsColor;
+            preset.GlassesID         = uiState->Inspect.GlassesIds[0];
+            preset.HairstyleID       = ResolveInspectHairstyleID(uiState->Inspect.CustomizeData);
+            preset.HairColor         = uiState->Inspect.CustomizeData.HairColor;
+            preset.HighlightColor    = uiState->Inspect.CustomizeData.HighlightsColor;
             preset.HighlightsEnabled = uiState->Inspect.CustomizeData.Highlights;
         }
 
@@ -502,7 +515,7 @@ public sealed unsafe partial class BetterGlamourManagement(
         activeTryOnPreset = preset;
         managerNativeUI?.UpdateTryOnButton();
         previewPlayerAddress = DService.Instance().ObjectTable.LocalPlayer?.Address ?? nint.Zero;
-        pendingTryOnRestore = true;
+        pendingTryOnRestore  = true;
         TryApplyActiveTryOn();
     }
 
@@ -582,10 +595,10 @@ public sealed unsafe partial class BetterGlamourManagement(
     internal void ClearTryOn()
     {
         taskHelper?.Abort();
-        activeTryOnPreset = null;
-        boundTryOnPreset = null;
+        activeTryOnPreset    = null;
+        boundTryOnPreset     = null;
         previewPlayerAddress = nint.Zero;
-        pendingTryOnRestore = false;
+        pendingTryOnRestore  = false;
         managerNativeUI?.UpdateTryOnButton();
         itemPreviewService.ClearPreviewResidue();
     }
@@ -630,7 +643,11 @@ public sealed unsafe partial class BetterGlamourManagement(
             : string.Empty);
     }
 
-    private void ChangePresetGearset(BetterGlamourPreset preset, int gearsetIndex)
+    private void ChangePresetGearset
+    (
+        BetterGlamourPreset preset,
+        int                 gearsetIndex
+    )
     {
         var gearsetIndices = preset.GetGearsetIndices(DService.Instance().PlayerState.ContentId).ToList();
         if (gearsetIndex < 0)
@@ -640,7 +657,11 @@ public sealed unsafe partial class BetterGlamourManagement(
         ChangePresetGearsets(preset, gearsetIndices);
     }
 
-    private void ChangePresetGearsets(BetterGlamourPreset preset, List<int> gearsetIndices)
+    private void ChangePresetGearsets
+    (
+        BetterGlamourPreset preset,
+        List<int>           gearsetIndices
+    )
     {
         var contentID = DService.Instance().PlayerState.ContentId;
         if (!DService.Instance().ClientState.IsLoggedIn || contentID == 0)

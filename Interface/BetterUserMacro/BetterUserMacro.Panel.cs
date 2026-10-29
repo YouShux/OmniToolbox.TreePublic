@@ -59,7 +59,7 @@ public sealed partial class BetterUserMacro
                     $"{PREVIEW_IMAGE_BASE_URL}1.png"))
             {
                 config.Tooltips = tooltips;
-                changed = true;
+                changed         = true;
             }
 
             ImGui.TableNextColumn();
@@ -71,7 +71,7 @@ public sealed partial class BetterUserMacro
                     $"{PREVIEW_IMAGE_BASE_URL}2.png"))
             {
                 config.LineNumbers = lineNumbers;
-                changed = true;
+                changed            = true;
             }
 
             ImGui.TableNextColumn();
@@ -79,7 +79,7 @@ public sealed partial class BetterUserMacro
             if (DrawCheckbox("Feature.BetterUserMacro.DragSwap", "dragSwap", ref dragSwap))
             {
                 config.DragSwap = dragSwap;
-                changed = true;
+                changed         = true;
             }
 
             ImGui.TableNextColumn();
@@ -91,7 +91,7 @@ public sealed partial class BetterUserMacro
                     $"{PREVIEW_IMAGE_BASE_URL}3.png"))
             {
                 config.CustomIcons = customIcons;
-                changed = true;
+                changed            = true;
             }
 
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
@@ -100,11 +100,13 @@ public sealed partial class BetterUserMacro
             return changed;
         }
 
-        private static bool DrawCheckbox(
-            string labelKey,
-            string id,
+        private static bool DrawCheckbox
+        (
+            string   labelKey,
+            string   id,
             ref bool value,
-            string? previewImageURL = null)
+            string?  previewImageURL = null
+        )
         {
             var changed = OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##betterUserMacro{id}", ref value);
             if (previewImageURL is not null)

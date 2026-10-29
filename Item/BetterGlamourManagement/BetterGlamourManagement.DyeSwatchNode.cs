@@ -1,4 +1,3 @@
-using TreeToolKit;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.Enums;
@@ -7,6 +6,7 @@ using KamiToolKit.Nodes.Simplified;
 using Lumina.Excel.Sheets;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
+using TreeToolKit;
 
 namespace OmniToolbox.TreePublic;
 
@@ -15,7 +15,7 @@ public sealed partial class BetterGlamourManagement
     internal sealed class BetterGlamourDyeSwatchNode : SimpleComponentNode
     {
         private BetterGlamourDyeGridRow? row;
-        private readonly ResNode colorGroup;
+        private readonly ResNode         colorGroup;
         private readonly SimpleImageNode colorNode;
         private readonly SimpleImageNode metallicShadowNode;
         private readonly SimpleImageNode metallicHighlightNode;
@@ -133,12 +133,14 @@ public sealed partial class BetterGlamourManagement
             CollisionNode.ShowClickableCursor = true;
         }
 
-        public void SetOption(
-            GlamourDyeOption? option,
-            BetterGlamourDyeGridRow itemRow)
+        public void SetOption
+        (
+            GlamourDyeOption?       option,
+            BetterGlamourDyeGridRow itemRow
+        )
         {
             ClearHover();
-            row = itemRow;
+            row       = itemRow;
             IsVisible = option is not null;
             if (option is not { } dye)
             {
@@ -149,9 +151,9 @@ public sealed partial class BetterGlamourManagement
             CollisionNode.AddNodeFlags(NodeFlags.HasCollision);
             var hasStain = SetDyeAppearance(dye, out var stain);
             CollisionNode.SetTextTooltip(dye.Name);
-            selectedNode.IsVisible = selectedOutlineNode.IsVisible = dye.ID == itemRow.SelectedID;
+            selectedNode.IsVisible      = selectedOutlineNode.IsVisible = dye.ID == itemRow.SelectedID;
             selectedCheckNode.IsVisible = dye.ID == itemRow.OriginalID;
-            missingDyeNode.IsVisible = !hasStain || !HasDye(stain);
+            missingDyeNode.IsVisible    = !hasStain || !HasDye(stain);
         }
 
         public void SetPreview(byte stainID)
@@ -180,11 +182,15 @@ public sealed partial class BetterGlamourManagement
             CollisionNode.HideTooltip();
         }
 
-        private bool SetDyeAppearance(GlamourDyeOption dye, out Stain stain)
+        private bool SetDyeAppearance
+        (
+            GlamourDyeOption dye,
+            out Stain        stain
+        )
         {
             var hasStain = LuminaGetter.TryGetRow(dye.ID, out stain);
             colorNode.TextureCoordinates = dye.ID == 0 ? new(88f, 88f) : new(0f, 48f);
-            colorGroup.MultiplyColor = dye.ID == 0 ? Vector3.Zero : new(dye.Color.X, dye.Color.Y, dye.Color.Z);
+            colorGroup.MultiplyColor     = dye.ID == 0 ? Vector3.Zero : new(dye.Color.X, dye.Color.Y, dye.Color.Z);
             metallicShadowNode.IsVisible = metallicHighlightNode.IsVisible = hasStain && stain.IsMetallic;
             return hasStain;
         }
@@ -220,7 +226,7 @@ public sealed partial class BetterGlamourManagement
                 selectedNode is null || selectedCheckNode is null || missingDyeNode is null)
                 return;
             selectedCheckNode.Position = new(16f, -2f);
-            missingDyeNode.Position = new(0f, 14f);
+            missingDyeNode.Position    = new(0f, 14f);
         }
 
         private static unsafe bool HasDye(Stain stain)

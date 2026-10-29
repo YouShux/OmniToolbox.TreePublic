@@ -1,7 +1,7 @@
-using TreeToolKit;
 using System.Globalization;
 using OmenTools.Dalamud;
 using OmniToolbox.UI.Theme;
+using TreeToolKit;
 
 namespace OmniToolbox.TreePublic;
 
@@ -74,7 +74,7 @@ public sealed partial class AutoIshgardRestoration
             ImGui.SetNextWindowSize(OmniTheme.ClampWindowSize(targetSize), ImGuiCond.Always);
             windowSizePending = false;
         }
-        lastWindowScale = OmniTheme.ScaleValue;
+        lastWindowScale  = OmniTheme.ScaleValue;
         lastViewportSize = viewportSize;
         ImGui.SetNextWindowCollapsed(false, ImGuiCond.Always);
         var flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
@@ -108,7 +108,12 @@ public sealed partial class AutoIshgardRestoration
         }
     }
 
-    private void DrawWindowContents(Vector2 windowPosition, Vector2 windowSize, Vector2 buttonSize)
+    private void DrawWindowContents
+    (
+        Vector2 windowPosition,
+        Vector2 windowSize,
+        Vector2 buttonSize
+    )
     {
         var (framePosition, frameSize) = OmniWindowChrome.GetFrameBounds(windowPosition, windowSize, windowCollapsed);
         var chrome = OmniWindowChrome.Draw(
@@ -120,7 +125,7 @@ public sealed partial class AutoIshgardRestoration
             "##closeAutoIshgardRestoration");
         if (chrome.ToggleCollapse)
         {
-            windowCollapsed = !windowCollapsed;
+            windowCollapsed   = !windowCollapsed;
             windowSizePending = true;
         }
 
@@ -171,7 +176,11 @@ public sealed partial class AutoIshgardRestoration
         DrawConfigurationContents();
     }
 
-    private void DrawWindowActionRow(float availableWidth, Vector2 buttonSize)
+    private void DrawWindowActionRow
+    (
+        float   availableWidth,
+        Vector2 buttonSize
+    )
     {
         var rowPosition = ImGui.GetCursorScreenPos();
         var primaryLabel = OmniLoc.Get(this, running || startPending
@@ -254,7 +263,7 @@ public sealed partial class AutoIshgardRestoration
                                     size: new Vector2(0f, OmniTheme.SmallButtonSize().Y)) && available)
                             {
                                 config.SelectedRecipeID = recipe.RecipeID;
-                                selected = recipe;
+                                selected                = recipe;
                                 saveConfig();
                             }
                         }
@@ -389,9 +398,9 @@ public sealed partial class AutoIshgardRestoration
                         if (OmniControls.RoundedSelectable(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ProductPrice"), product.Name, product.Price) + $"##{product.ShopID}-{product.ItemID}",
                                 selected == product, size: new Vector2(0f, OmniTheme.SmallButtonSize().Y)))
                         {
-                            config.ScripShopID = product.ShopID;
-                            config.ScripItemID = product.ItemID;
-                            selected = product;
+                            config.ScripShopID   = product.ShopID;
+                            config.ScripItemID   = product.ItemID;
+                            selected             = product;
                             config.ScripQuantity = Math.Min(Math.Max(1, config.ScripQuantity), Math.Max(1, GetConfiguredScripLimit(product)));
                             saveConfig();
                             productSelected = true;
@@ -425,9 +434,9 @@ public sealed partial class AutoIshgardRestoration
 
     private void OpenConfigurationWindow()
     {
-        windowOpen = true;
-        windowExpanded = false;
-        windowCollapsed = false;
+        windowOpen        = true;
+        windowExpanded    = false;
+        windowCollapsed   = false;
         windowSizePending = true;
     }
 }

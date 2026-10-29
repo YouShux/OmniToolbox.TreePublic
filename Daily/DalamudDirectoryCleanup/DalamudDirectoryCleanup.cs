@@ -45,14 +45,12 @@ public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
             ["Feature.DalamudDirectoryCleanup.Summary"] = "Feature.DalamudDirectoryCleanup.Summary"
         });
 
-    private Task<ScanResult>? scanTask;
-    private Task<CleanupResult>? cleanupTask;
+    private Task<ScanResult>?        scanTask;
+    private Task<CleanupResult>?     cleanupTask;
     private CancellationTokenSource? cancellation;
-    private ScanResult? preview;
-    private string status = string.Empty;
-    private List<string> errors = [];
-
-    public override bool HasSettings => true;
+    private ScanResult?              preview;
+    private string                   status       = string.Empty;
+    private List<string>             errors       = [];
 
     protected override void OnStart(FeatureLifetime activation) => Activation.OnStopping(() =>
     {
@@ -64,9 +62,11 @@ public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
     {
         cancellation?.Dispose();
         cancellation = null;
-        scanTask = null;
-        cleanupTask = null;
+        scanTask     = null;
+        cleanupTask  = null;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -198,8 +198,8 @@ public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
         if (CreateOperation() is not { } operation)
             return;
 
-        preview = null;
-        status = Text("Scanning");
+        preview  = null;
+        status   = Text("Scanning");
         scanTask = Task.Run(() => Scan(operation.Root, DateTime.UtcNow, operation.Token,
             operation.ProtectedPluginNames), operation.Token);
         Activation.Track(scanTask);
@@ -217,8 +217,8 @@ public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
             }
             : null;
         var selected = snapshot?.Entries.Where(static entry => entry.Selected).ToArray();
-        status = Text("Deleting");
-        preview = null;
+        status      = Text("Deleting");
+        preview     = null;
         cleanupTask = Task.Run(() =>
         {
             var current = snapshot ?? Scan(operation.Root, DateTime.UtcNow, operation.Token,
@@ -266,7 +266,7 @@ public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
 
             cancellation?.Dispose();
             cancellation = new();
-            errors = [];
+            errors       = [];
             return (root, protectedPluginNames, cancellation.Token);
         }
         catch (Exception exception)
@@ -292,8 +292,8 @@ public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
                 if (completedScan.IsCanceled)
                     throw new OperationCanceledException();
                 preview = completedScan.Result;
-                errors = preview.Errors;
-                status = errors.Count == 0 ? string.Empty : string.Format(Text("ScanErrors"), errors.Count);
+                errors  = preview.Errors;
+                status  = errors.Count == 0 ? string.Empty : string.Format(Text("ScanErrors"), errors.Count);
                 if (errors.Count > 0)
                     NotifyStatus(NotificationType.Warning);
             }
@@ -374,8 +374,15 @@ public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
         PluginConfigs
     }
 
-    private sealed class Candidate(string path, long length, DateTime lastWriteUTC, DateTime creationUTC, Category category,
-        bool isDirectory = false)
+    private sealed class Candidate
+    (
+        string   path,
+        long     length,
+        DateTime lastWriteUTC,
+        DateTime creationUTC,
+        Category category,
+        bool     isDirectory = false
+    )
     {
         public string Path { get; } = path;
         public long Length { get; } = length;
@@ -386,14 +393,19 @@ public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
         public bool Selected = true;
     }
 
-    private sealed record ScanResult(string Root, List<Candidate> Entries, List<string> Errors,
-        IReadOnlySet<string> ProtectedPluginNames);
+    private sealed record ScanResult
+    (
+        string               Root,
+        List<Candidate>      Entries,
+        List<string>         Errors,
+        IReadOnlySet<string> ProtectedPluginNames
+    );
 
     private sealed class CleanupResult
     {
-        public int Deleted;
+        public int  Deleted;
         public long Bytes;
-        public int Skipped;
+        public int  Skipped;
         public bool Cancelled;
         public List<string> Errors { get; } = [];
     }

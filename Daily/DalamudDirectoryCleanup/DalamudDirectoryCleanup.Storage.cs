@@ -7,8 +7,13 @@ namespace OmniToolbox.TreePublic;
 
 public sealed partial class DalamudDirectoryCleanup
 {
-    private static ScanResult Scan(string root, DateTime nowUTC, CancellationToken token,
-        IReadOnlySet<string> protectedPluginNames)
+    private static ScanResult Scan
+    (
+        string               root,
+        DateTime             nowUTC,
+        CancellationToken    token,
+        IReadOnlySet<string> protectedPluginNames
+    )
     {
         var rootDirectory = new DirectoryInfo(root);
         root = rootDirectory.ResolveLinkTarget(true)?.FullName ?? rootDirectory.FullName;
@@ -33,7 +38,11 @@ public sealed partial class DalamudDirectoryCleanup
         return result;
     }
 
-    private static void AddOrphanedPluginConfigs(ScanResult result, CancellationToken token)
+    private static void AddOrphanedPluginConfigs
+    (
+        ScanResult        result,
+        CancellationToken token
+    )
     {
         var installedPath = Path.Combine(result.Root, "installedPlugins");
         try
@@ -69,12 +78,24 @@ public sealed partial class DalamudDirectoryCleanup
         }
     }
 
-    private static void AddBackupGroup(ScanResult result, IEnumerable<FileInfo> files, DateTime nowUTC) =>
+    private static void AddBackupGroup
+    (
+        ScanResult            result,
+        IEnumerable<FileInfo> files,
+        DateTime              nowUTC
+    ) =>
         AddExpired(result, files.OrderByDescending(static file => file.LastWriteTimeUtc)
                 .ThenByDescending(static file => file.Name, StringComparer.OrdinalIgnoreCase)
                 .Skip(MINIMUM_BACKUPS), Category.Backups, BACKUP_RETENTION_DAYS, nowUTC);
 
-    private static void AddExpired(ScanResult result, IEnumerable<FileInfo> files, Category category, int days, DateTime nowUTC)
+    private static void AddExpired
+    (
+        ScanResult            result,
+        IEnumerable<FileInfo> files,
+        Category              category,
+        int                   days,
+        DateTime              nowUTC
+    )
     {
         var cutoff = nowUTC.AddDays(-days);
         foreach (var file in files)
@@ -85,7 +106,12 @@ public sealed partial class DalamudDirectoryCleanup
         }
     }
 
-    private static List<FileInfo> GetFiles(ScanResult result, string relativePath, CancellationToken token)
+    private static List<FileInfo> GetFiles
+    (
+        ScanResult        result,
+        string            relativePath,
+        CancellationToken token
+    )
     {
         var files = new List<FileInfo>();
         var path = Path.Combine(result.Root, relativePath);
@@ -109,7 +135,12 @@ public sealed partial class DalamudDirectoryCleanup
         return files;
     }
 
-    private static DirectoryInfo[] GetDirectories(ScanResult result, string relativePath, CancellationToken token)
+    private static DirectoryInfo[] GetDirectories
+    (
+        ScanResult        result,
+        string            relativePath,
+        CancellationToken token
+    )
     {
         var path = Path.Combine(result.Root, relativePath);
         if (!Directory.Exists(path))
@@ -128,7 +159,11 @@ public sealed partial class DalamudDirectoryCleanup
         }
     }
 
-    private static bool IsSafePath(string root, string path)
+    private static bool IsSafePath
+    (
+        string root,
+        string path
+    )
     {
         root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         path = Path.GetFullPath(path);
@@ -158,11 +193,20 @@ public sealed partial class DalamudDirectoryCleanup
     private static bool IsConfigBackup(string name) =>
         Matches(name, @"^(?:dalamudConfig|launcherConfigV3)\.json\.bak-\d{8}[-_]?\d{6,9}$");
 
-    private static bool Matches(string value, string pattern) =>
+    private static bool Matches
+    (
+        string value,
+        string pattern
+    ) =>
         Regex.IsMatch(value, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
             TimeSpan.FromMilliseconds(100));
 
-    private static CleanupResult DeleteSelected(ScanResult preview, Candidate[] selected, CancellationToken token)
+    private static CleanupResult DeleteSelected
+    (
+        ScanResult        preview,
+        Candidate[]       selected,
+        CancellationToken token
+    )
     {
         var result = new CleanupResult();
         var current = Scan(preview.Root, DateTime.UtcNow, token, preview.ProtectedPluginNames);
@@ -238,7 +282,11 @@ public sealed partial class DalamudDirectoryCleanup
         return result;
     }
 
-    private static bool IsOrphanedPluginConfig(ScanResult result, Candidate entry)
+    private static bool IsOrphanedPluginConfig
+    (
+        ScanResult result,
+        Candidate  entry
+    )
     {
         var relativePath = Path.GetRelativePath(Path.Combine(result.Root, "pluginConfigs"), entry.Path);
         var separator = relativePath.IndexOf(Path.DirectorySeparatorChar);

@@ -1,8 +1,8 @@
-using TreeToolKit;
 using Lumina.Excel.Sheets;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Collections;
 using OmniToolbox.Items;
+using TreeToolKit;
 
 namespace OmniToolbox.TreePublic;
 
@@ -10,12 +10,12 @@ public sealed partial class BetterGlamourManagement
 {
     internal sealed partial class BetterGlamourItemPickerNativeUI
     {
-        private static int LastPatchMajor = 7;
-        private static CollectionSourceCategory LastSource = CollectionSourceCategory.Gil;
-        private static Dictionary<uint, uint>? GlassesUnlockItems;
-        private readonly Dictionary<uint, CandidateMetadata> candidateMetadata = [];
-        private long sourceRevision;
-        private long inventoryRevision;
+        private static int                                   LastPatchMajor     = 7;
+        private static CollectionSourceCategory              LastSource         = CollectionSourceCategory.Gil;
+        private static Dictionary<uint, uint>?               GlassesUnlockItems;
+        private readonly Dictionary<uint, CandidateMetadata> candidateMetadata  = [];
+        private long                                         sourceRevision;
+        private long                                         inventoryRevision;
 
         private bool IsSortModeAvailable(ItemSortMode mode) =>
             kind == BetterGlamourEditorItemKind.Item ||
@@ -55,14 +55,14 @@ public sealed partial class BetterGlamourManagement
                 return;
 
             filterNode.Collapse(false);
-            filterNode.Options = sortMode switch
+            filterNode.Options        = sortMode switch
             {
                 ItemSortMode.Patch => [7, 6, 5, 4, 3, 2, 1],
                 ItemSortMode.Source => [.. SourceCategories.Select(category => (int)category)],
                 _ => []
             };
-            filterNode.IsEnabled = sortMode is ItemSortMode.Patch or ItemSortMode.Source;
-            filterNode.Alpha = filterNode.IsEnabled ? 1f : 0.4f;
+            filterNode.IsEnabled      = sortMode is ItemSortMode.Patch or ItemSortMode.Source;
+            filterNode.Alpha          = filterNode.IsEnabled ? 1f : 0.4f;
             filterNode.SelectedOption = sortMode == ItemSortMode.Patch ? LastPatchMajor : (int)LastSource;
             UpdateDirectionButton();
         }
@@ -91,7 +91,7 @@ public sealed partial class BetterGlamourManagement
 
         private void FilterResults()
         {
-            sourceRevision = collectionSourceService.Revision;
+            sourceRevision    = collectionSourceService.Revision;
             inventoryRevision = getInventoryRevision();
             if (sortMode == ItemSortMode.Patch)
             {
@@ -118,7 +118,11 @@ public sealed partial class BetterGlamourManagement
             }
         }
 
-        private readonly record struct CandidateMetadata(uint ItemID, decimal Patch);
+        private readonly record struct CandidateMetadata
+        (
+            uint    ItemID,
+            decimal Patch
+        );
 
         private static readonly CollectionSourceCategory[] SourceCategories =
         [

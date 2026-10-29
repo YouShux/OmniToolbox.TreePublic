@@ -44,7 +44,7 @@ public sealed partial class DuplicateStatusPrevention
                     ref chatNotify))
             {
                 config.ChatNotify = chatNotify;
-                changed = true;
+                changed           = true;
             }
 
             ImGui.SameLine();
@@ -54,7 +54,7 @@ public sealed partial class DuplicateStatusPrevention
                     ref popupNotify))
             {
                 config.PopupNotify = popupNotify;
-                changed = true;
+                changed            = true;
             }
 
             ImGui.Spacing();
@@ -132,7 +132,7 @@ public sealed partial class DuplicateStatusPrevention
                 if (OmniControls.Checkbox($"##duplicateStatusAction{action.Key}", ref enabled))
                 {
                     config.EnabledActions[action.Key] = enabled;
-                    changed = true;
+                    changed                           = true;
                 }
 
                 ImGui.SameLine();
@@ -169,7 +169,11 @@ public sealed partial class DuplicateStatusPrevention
             ImGui.TextWrapped(action.Name.ToString());
         }
 
-        private static void DrawStatus(StatusRule status, ref bool first)
+        private static void DrawStatus
+        (
+            StatusRule status,
+            ref bool   first
+        )
         {
             if (!LuminaGetter.TryGetRow<LuminaStatus>(status.StatusID, out var statusRow))
             {

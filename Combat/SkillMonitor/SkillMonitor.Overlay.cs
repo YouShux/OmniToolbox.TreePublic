@@ -1,4 +1,3 @@
-using TreeToolKit;
 using System.Drawing;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
@@ -11,21 +10,24 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.OmenService;
 using OmniToolbox.UI.Theme;
+using TreeToolKit;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed partial class SkillMonitor
 {
-    internal sealed unsafe class SkillMonitorOverlay(
-        SkillMonitorConfig config,
+    private sealed unsafe class SkillMonitorOverlay
+    (
+        SkillMonitorConfig       config,
         SkillMonitorDefinition[] definitions,
-        SkillMonitorTracker tracker,
-        int[][] definitionIndexesByJob) : IDisposable
+        SkillMonitorTracker      tracker,
+        int[][]                  definitionIndexesByJob
+    ) : IDisposable
     {
-        private uint activeCountdownColor = 0xFFFFFFFF;
-        private readonly List<int> visibleDefinitions = [];
-        private IFontHandle? countdownFont;
-        private FontType loadedFont;
+        private uint               activeCountdownColor = 0xFFFFFFFF;
+        private readonly List<int> visibleDefinitions   = [];
+        private IFontHandle?       countdownFont;
+        private FontType           loadedFont;
 
         public void Dispose()
         {
@@ -58,7 +60,7 @@ public sealed partial class SkillMonitor
             if (countdownFont == null || loadedFont != config.Font)
             {
                 Dispose();
-                loadedFont = config.Font;
+                loadedFont    = config.Font;
                 countdownFont = Fonts.CreateGameFont(config.Font switch
                 {
                     FontType.Axis => GameFontFamily.Axis,
@@ -125,12 +127,14 @@ public sealed partial class SkillMonitor
             }
         }
 
-        private void DrawMember(
-            int memberIndex,
-            uint classJobID,
-            byte level,
+        private void DrawMember
+        (
+            int             memberIndex,
+            uint            classJobID,
+            byte            level,
             AddonPartyList* partyList,
-            ImDrawListPtr drawList)
+            ImDrawListPtr   drawList
+        )
         {
             if (classJobID >= definitionIndexesByJob.Length)
             {
@@ -201,12 +205,14 @@ public sealed partial class SkillMonitor
             }
         }
 
-        private void DrawIcon(
-            ImDrawListPtr drawList,
-            SkillMonitorDefinition definition,
+        private void DrawIcon
+        (
+            ImDrawListPtr            drawList,
+            SkillMonitorDefinition   definition,
             SkillMonitorRuntimeState state,
-            Vector2 position,
-            Vector2 size)
+            Vector2                  position,
+            Vector2                  size
+        )
         {
             FramedGameIcon.Draw(
                 drawList,
@@ -245,7 +251,14 @@ public sealed partial class SkillMonitor
             }
         }
 
-        private static void DrawCenteredText(ImDrawListPtr drawList, string text, Vector2 position, Vector2 size, uint color)
+        private static void DrawCenteredText
+        (
+            ImDrawListPtr drawList,
+            string        text,
+            Vector2       position,
+            Vector2       size,
+            uint          color
+        )
         {
             var fontSize = size.Y * 0.8f;
             var textSize = ImGui.CalcTextSize(text) * (fontSize / ImGui.GetFontSize());
@@ -253,7 +266,13 @@ public sealed partial class SkillMonitor
             DrawOutlinedText(drawList, text, textPosition, color, fontSize);
         }
 
-        private static void DrawFoodDuration(ImDrawListPtr drawList, string text, Vector2 position, Vector2 size)
+        private static void DrawFoodDuration
+        (
+            ImDrawListPtr drawList,
+            string        text,
+            Vector2       position,
+            Vector2       size
+        )
         {
             var fontSize = size.Y * 0.6f;
             var textSize = ImGui.CalcTextSize(text) * (fontSize / ImGui.GetFontSize());
@@ -264,7 +283,14 @@ public sealed partial class SkillMonitor
             DrawOutlinedText(drawList, text, textPosition, color, fontSize);
         }
 
-        private static void DrawOutlinedText(ImDrawListPtr drawList, string text, Vector2 position, uint color, float fontSize)
+        private static void DrawOutlinedText
+        (
+            ImDrawListPtr drawList,
+            string        text,
+            Vector2       position,
+            uint          color,
+            float         fontSize
+        )
         {
             var outline = OmniTheme.Color(KnownColor.Black.ToVector4() with
             {
@@ -279,7 +305,13 @@ public sealed partial class SkillMonitor
             drawList.AddText(font, fontSize, position, color, text);
         }
 
-        private static void DrawCooldownMask(ImDrawListPtr drawList, Vector2 position, Vector2 size, float progress)
+        private static void DrawCooldownMask
+        (
+            ImDrawListPtr drawList,
+            Vector2       position,
+            Vector2       size,
+            float         progress
+        )
         {
             if (progress <= 0f)
             {
@@ -291,7 +323,7 @@ public sealed partial class SkillMonitor
             var start = -MathF.PI * 0.5f;
             var end = start - Math.Clamp(progress, 0f, 1f) * 2f * MathF.PI;
             var (startPoint, startEdge) = RayHitRectEdge(center, start, position, rectMaximum);
-            var (endPoint, endEdge) = RayHitRectEdge(center, end, position, rectMaximum);
+            var (endPoint, endEdge)     = RayHitRectEdge(center, end, position, rectMaximum);
 
             drawList.PathClear();
             drawList.PathLineTo(center);
@@ -322,11 +354,13 @@ public sealed partial class SkillMonitor
             }));
         }
 
-        private static (Vector2 Point, int Edge) RayHitRectEdge(
+        private static (Vector2 Point, int Edge) RayHitRectEdge
+        (
             Vector2 center,
-            float angle,
+            float   angle,
             Vector2 rectMinimum,
-            Vector2 rectMaximum)
+            Vector2 rectMaximum
+        )
         {
             var deltaX = MathF.Cos(angle);
             var deltaY = MathF.Sin(angle);
@@ -348,7 +382,12 @@ public sealed partial class SkillMonitor
 
             return (hit, hitEdge);
 
-            void UpdateHit(float distance, int edge, bool horizontal)
+            void UpdateHit
+            (
+                float distance,
+                int   edge,
+                bool  horizontal
+            )
             {
                 if (distance < 0f || distance >= best)
                 {
@@ -366,13 +405,18 @@ public sealed partial class SkillMonitor
                     return;
                 }
 
-                best = distance;
-                hit = point;
+                best    = distance;
+                hit     = point;
                 hitEdge = edge;
             }
         }
 
-        private static Vector2 CornerOf(Vector2 rectMinimum, Vector2 rectMaximum, int edge) => edge switch
+        private static Vector2 CornerOf
+        (
+            Vector2 rectMinimum,
+            Vector2 rectMaximum,
+            int     edge
+        ) => edge switch
         {
             0 => new(rectMaximum.X, rectMinimum.Y),
             1 => rectMaximum,
@@ -382,7 +426,12 @@ public sealed partial class SkillMonitor
 
         private static int NextClockwise(int edge) => (edge + 1) & 3;
 
-        private static bool IsEndAheadClockwise(int edge, Vector2 start, Vector2 end) => edge switch
+        private static bool IsEndAheadClockwise
+        (
+            int     edge,
+            Vector2 start,
+            Vector2 end
+        ) => edge switch
         {
             0 => end.X > start.X,
             1 => end.Y > start.Y,
@@ -400,7 +449,11 @@ public sealed partial class SkillMonitor
             _ => false
         };
 
-        private static Vector2 GetIconSize(SkillMonitorDefinition definition, Vector2 size) =>
+        private static Vector2 GetIconSize
+        (
+            SkillMonitorDefinition definition,
+            Vector2                size
+        ) =>
             definition.IsFood ? OmniTheme.StatusIconSize(size.Y * 1.1f) : size;
 
         private static bool IsActuallyVisible(AtkUnitBase* addon) =>

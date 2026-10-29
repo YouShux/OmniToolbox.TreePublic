@@ -17,7 +17,11 @@ public sealed partial class DirectionalActionRelease
 {
     private static class Panel
     {
-        public static bool Draw(Settings config, ReadOnlySpan<uint> actionIDs)
+        public static bool Draw
+        (
+            Settings           config,
+            ReadOnlySpan<uint> actionIDs
+        )
         {
             var changed = false;
 
@@ -74,7 +78,7 @@ public sealed partial class DirectionalActionRelease
                 if (OmniControls.Checkbox($"##directionalCamera{actionID}", ref camera))
                 {
                     config.Actions[actionID] = camera ? DirectionalActionMode.Camera : DirectionalActionMode.Disabled;
-                    changed = true;
+                    changed                  = true;
                 }
 
                 OmniControls.NextTableField(OmniLoc.Get("Feature.DirectionalActionRelease.Mouse"), detailLayout);
@@ -83,7 +87,7 @@ public sealed partial class DirectionalActionRelease
                 if (OmniControls.Checkbox($"##directionalMouse{actionID}", ref mouse))
                 {
                     config.Actions[actionID] = mouse ? DirectionalActionMode.Mouse : DirectionalActionMode.Disabled;
-                    changed = true;
+                    changed                  = true;
                 }
 
                 OmniControls.NextTableField(OmniLoc.Get("Feature.DirectionalActionRelease.Reverse"), detailLayout);
@@ -110,7 +114,12 @@ public sealed partial class DirectionalActionRelease
             return changed;
         }
 
-        private static void DrawAction(LuminaAction action, Vector2 iconSize, float rowContentHeight)
+        private static void DrawAction
+        (
+            LuminaAction action,
+            Vector2      iconSize,
+            float        rowContentHeight
+        )
         {
             var rowTop = ImGui.GetCursorPosY();
             OmniControls.CenterTableItem(new Vector2(ImGui.GetContentRegionAvail().X, iconSize.Y), rowContentHeight);

@@ -48,7 +48,7 @@ public sealed partial class BetterCharacterPanel
                             out var showUsefulStats))
                     {
                         config.ShowUsefulStats = showUsefulStats;
-                        changed = true;
+                        changed                = true;
                     }
                     OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
                     OmniControls.HelpIcon(OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats.Help"));
@@ -61,7 +61,7 @@ public sealed partial class BetterCharacterPanel
                             out var showTargetItemLevel))
                     {
                         config.ShowTargetItemLevel = showTargetItemLevel;
-                        changed = true;
+                        changed                    = true;
                     }
                     OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
                     OmniControls.HelpIcon(OmniLoc.Get("Feature.BetterCharacterPanel.ShowTargetItemLevel.Help"));
@@ -76,7 +76,7 @@ public sealed partial class BetterCharacterPanel
                             out var showGearSetReorderButtons))
                     {
                         config.ShowGearSetReorderButtons = showGearSetReorderButtons;
-                        changed = true;
+                        changed                          = true;
                     }
 
                     ImGui.TableNextColumn();
@@ -87,7 +87,7 @@ public sealed partial class BetterCharacterPanel
                             out var reverseCharacterPanel))
                     {
                         config.ReverseCharacterPanel = reverseCharacterPanel;
-                        changed = true;
+                        changed                      = true;
                     }
 
                     ImGui.TableNextRow();
@@ -99,7 +99,7 @@ public sealed partial class BetterCharacterPanel
                             out var adjustEquipmentPositions))
                     {
                         config.AdjustEquipmentPositions = adjustEquipmentPositions;
-                        changed = true;
+                        changed                         = true;
                     }
 
                     ImGui.TableNextColumn();
@@ -110,18 +110,20 @@ public sealed partial class BetterCharacterPanel
                             out var soulstoneAboveOffhand))
                     {
                         config.SoulstoneAboveOffhand = soulstoneAboveOffhand;
-                        changed = true;
+                        changed                      = true;
                     }
                 }
             }
             return changed;
         }
 
-        private static bool DrawCheckbox(
-            string labelKey,
-            string id,
-            bool value,
-            out bool updatedValue)
+        private static bool DrawCheckbox
+        (
+            string   labelKey,
+            string   id,
+            bool     value,
+            out bool updatedValue
+        )
         {
             updatedValue = value;
             return OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##betterCharacterPanel{id}", ref updatedValue);

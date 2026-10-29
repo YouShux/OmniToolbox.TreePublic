@@ -16,7 +16,11 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class BetterWondrousTails
 {
-    private void OnContentListEvent(AddonEvent eventType, AddonArgs args)
+    private void OnContentListEvent
+    (
+        AddonEvent eventType,
+        AddonArgs  args
+    )
     {
         if (eventType == AddonEvent.PostSetup)
         {
@@ -50,8 +54,14 @@ public sealed unsafe partial class BetterWondrousTails
         centerContentListPending = false;
     }
 
-    private void DutySlotReceiveEventDetour(
-        DutySlot* slot, AtkEventType eventType, int eventParam, AtkEvent* atkEvent, AtkEventData* eventData)
+    private void DutySlotReceiveEventDetour
+    (
+        DutySlot*     slot,
+        AtkEventType  eventType,
+        int           eventParam,
+        AtkEvent*     atkEvent,
+        AtkEventData* eventData
+    )
     {
         var hook = DutySlotReceiveEventHook;
         if (hook == null)

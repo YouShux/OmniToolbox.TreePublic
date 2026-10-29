@@ -15,65 +15,69 @@ public sealed partial class BetterGlamourManagement
 {
     internal sealed partial class BetterGlamourItemPickerNativeUI : NativeAddon
     {
-        private static ItemSortMode LastSortMode = ItemSortMode.ID;
-        private static bool LastDescending = true;
-        private readonly ItemPatchMap itemPatchMap;
+        private static ItemSortMode              LastSortMode            = ItemSortMode.ID;
+        private static bool                      LastDescending          = true;
+        private readonly ItemPatchMap            itemPatchMap;
         private readonly CollectionSourceService collectionSourceService;
-        private readonly Func<uint, bool> isInGlamourDresser;
-        private readonly Func<uint, bool> isInArmoire;
-        private readonly Func<long> getInventoryRevision;
+        private readonly Func<uint, bool>        isInGlamourDresser;
+        private readonly Func<uint, bool>        isInArmoire;
+        private readonly Func<long>              getInventoryRevision;
 
-        private BetterGlamourEditorItemKind kind;
-        private int targetSlot;
-        private BetterGlamourItemSearchResult[] candidates = [];
-        private List<BetterGlamourItemSearchResult> results = [];
-        private Action<BetterGlamourItemSearchResult>? onSelected;
-        private TextInputNode? searchNode;
-        private DropDownNode<ItemSortMode>? sortNode;
-        private DropDownNode<int>? filterNode;
-        private CircleButtonNode? directionNode;
+        private BetterGlamourEditorItemKind                                                 kind;
+        private int                                                                         targetSlot;
+        private BetterGlamourItemSearchResult[]                                             candidates    = [];
+        private List<BetterGlamourItemSearchResult>                                         results       = [];
+        private Action<BetterGlamourItemSearchResult>?                                      onSelected;
+        private TextInputNode?                                                              searchNode;
+        private DropDownNode<ItemSortMode>?                                                 sortNode;
+        private DropDownNode<int>?                                                          filterNode;
+        private CircleButtonNode?                                                           directionNode;
         private ListNode<BetterGlamourItemSearchResult, BetterGlamourItemSearchResultNode>? resultsNode;
-        private ItemSortMode sortMode;
-        private bool descending;
-        private uint selectedID;
-        private string query = string.Empty;
+        private ItemSortMode                                                                sortMode;
+        private bool                                                                        descending;
+        private uint                                                                        selectedID;
+        private string                                                                      query         = string.Empty;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
-        public BetterGlamourItemPickerNativeUI(
-            ItemPatchMap itemPatchMap,
+        public BetterGlamourItemPickerNativeUI
+        (
+            ItemPatchMap            itemPatchMap,
             CollectionSourceService collectionSourceService,
-            Func<uint, bool> isInGlamourDresser,
-            Func<uint, bool> isInArmoire,
-            Func<long> getInventoryRevision)
+            Func<uint, bool>        isInGlamourDresser,
+            Func<uint, bool>        isInArmoire,
+            Func<long>              getInventoryRevision
+        )
         {
-            this.itemPatchMap = itemPatchMap;
+            this.itemPatchMap            = itemPatchMap;
             this.collectionSourceService = collectionSourceService;
-            this.isInGlamourDresser = isInGlamourDresser;
-            this.isInArmoire = isInArmoire;
-            this.getInventoryRevision = getInventoryRevision;
-            InternalName = "OmniBetterGlamourItemPicker";
-            Title = OmniLoc.Get("Feature.BetterGlamourManagement.ItemPicker.Title");
-            Subtitle = string.Empty;
-            Size = new(300f, 516f);
-            ContentPadding = new(10f, 8f);
-            RememberClosePosition = true;
-            CreateWindowNode = static () => new WindowNode { ShowCloseButton = true };
+            this.isInGlamourDresser      = isInGlamourDresser;
+            this.isInArmoire             = isInArmoire;
+            this.getInventoryRevision    = getInventoryRevision;
+            InternalName                 = "OmniBetterGlamourItemPicker";
+            Title                        = OmniLoc.Get("Feature.BetterGlamourManagement.ItemPicker.Title");
+            Subtitle                     = string.Empty;
+            Size                         = new(300f, 516f);
+            ContentPadding               = new(10f, 8f);
+            RememberClosePosition        = true;
+            CreateWindowNode             = static () => new WindowNode { ShowCloseButton = true };
         }
 
-        public void OpenFor(
-            BetterGlamourEditorItemKind itemKind,
-            int slot,
-            uint currentID,
-            CustomizeData? hairAppearance,
-            Action<BetterGlamourItemSearchResult> selected)
+        public void OpenFor
+        (
+            BetterGlamourEditorItemKind           itemKind,
+            int                                   slot,
+            uint                                  currentID,
+            CustomizeData?                        hairAppearance,
+            Action<BetterGlamourItemSearchResult> selected
+        )
         {
-            kind = itemKind;
+            kind       = itemKind;
             targetSlot = slot;
             selectedID = currentID;
             onSelected = selected;
-            query = string.Empty;
+            query      = string.Empty;
             descending = LastDescending;
-            sortMode = IsSortModeAvailable(LastSortMode) ? LastSortMode : ItemSortMode.ID;
+            sortMode   = IsSortModeAvailable(LastSortMode) ? LastSortMode : ItemSortMode.ID;
 
             var options = kind switch
             {
@@ -112,14 +116,18 @@ public sealed partial class BetterGlamourManagement
             if (sortNode is not null)
             {
                 sortNode.Collapse(false);
-                sortNode.Options = [.. Enum.GetValues<ItemSortMode>().Where(IsSortModeAvailable)];
+                sortNode.Options        = [.. Enum.GetValues<ItemSortMode>().Where(IsSortModeAvailable)];
                 sortNode.SelectedOption = sortMode;
             }
             UpdateFilterControls();
             RebuildResults(true);
         }
 
-        protected override unsafe void OnSetup(AtkUnitBase* addon, Span<AtkValue> atkValueSpan)
+        protected override unsafe void OnSetup
+        (
+            AtkUnitBase*   addon,
+            Span<AtkValue> atkValueSpan
+        )
         {
             searchNode = new()
             {
@@ -139,10 +147,10 @@ public sealed partial class BetterGlamourManagement
             };
             searchNode.Component->SetMaxChar(0);
             searchNode.Component->SetMaxByte(0);
-            searchNode.Data->Nodes[15] = 0;
+            searchNode.Data->Nodes[15]                        = 0;
             searchNode.Component->ComponentTextData.Nodes[15] = 0;
-            searchNode.Component->AvailableLinesTextNode = null;
-            searchNode.Component->AvailableCharsTextNode = null;
+            searchNode.Component->AvailableLinesTextNode      = null;
+            searchNode.Component->AvailableCharsTextNode      = null;
             searchNode.AttachNode(this);
 
             sortNode = new()
@@ -197,7 +205,7 @@ public sealed partial class BetterGlamourManagement
             };
             directionNode.AttachNode(this);
 
-            resultsNode = new()
+            resultsNode                          = new()
             {
                 ItemSpacing = 0f,
                 ShowNoResultsPlaceholder = true,
@@ -232,13 +240,13 @@ public sealed partial class BetterGlamourManagement
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
-            searchNode = null;
-            sortNode = null;
-            filterNode = null;
+            searchNode    = null;
+            sortNode      = null;
+            filterNode    = null;
             directionNode = null;
-            resultsNode = null;
-            onSelected = null;
-            candidates = [];
+            resultsNode   = null;
+            onSelected    = null;
+            candidates    = [];
             candidateMetadata.Clear();
             results.Clear();
             query = string.Empty;
@@ -249,9 +257,9 @@ public sealed partial class BetterGlamourManagement
             if (!IsSortModeAvailable(mode) || mode == sortMode)
                 return;
 
-            sortMode = mode;
-            LastSortMode = mode;
-            descending = true;
+            sortMode       = mode;
+            LastSortMode   = mode;
+            descending     = true;
             LastDescending = descending;
             UpdateFilterControls();
             RebuildResults(true);
@@ -282,7 +290,7 @@ public sealed partial class BetterGlamourManagement
             resultsNode.NoResultsTextNode.String = OmniLoc.Get(sortMode is ItemSortMode.GlamourDresser or ItemSortMode.Armoire
                 ? "Feature.BetterGlamourManagement.ItemPicker.NoStoredResults"
                 : "Feature.BetterGlamourManagement.ItemPicker.NoResults");
-            resultsNode.OptionsList = results;
+            resultsNode.OptionsList              = results;
             UpdateScrollThumb();
             resultsNode.ClearSelection();
             var selected = results.FindIndex(result => result.ItemID == selectedID);
@@ -316,7 +324,11 @@ public sealed partial class BetterGlamourManagement
             }
         }
 
-        public void ClearSelection(BetterGlamourEditorItemKind itemKind, int slot)
+        public void ClearSelection
+        (
+            BetterGlamourEditorItemKind itemKind,
+            int                         slot
+        )
         {
             if (!IsOpen || kind != itemKind || targetSlot != slot)
                 return;
@@ -340,25 +352,25 @@ public sealed partial class BetterGlamourManagement
             if (searchNode is not null)
             {
                 searchNode.Position = new(x, y);
-                searchNode.Size = new(width, 28f);
+                searchNode.Size     = new(width, 28f);
             }
             if (sortNode is not null)
             {
                 sortNode.Position = new(x, y + 34f);
-                sortNode.Size = new((width - 40f) / 2f, 28f);
+                sortNode.Size     = new((width - 40f) / 2f, 28f);
             }
             if (filterNode is not null)
             {
                 filterNode.Position = new(x + (width - 40f) / 2f + 4f, y + 34f);
-                filterNode.Size = new((width - 40f) / 2f, 28f);
+                filterNode.Size     = new((width - 40f) / 2f, 28f);
             }
             if (directionNode is not null)
             {
                 directionNode.Position = new(x + width - 28f, y + 34f);
-                directionNode.Size = new(28f, 28f);
+                directionNode.Size     = new(28f, 28f);
             }
             resultsNode.Position = listPosition;
-            resultsNode.Size = listSize;
+            resultsNode.Size     = listSize;
             UpdateScrollThumb();
         }
 
@@ -373,8 +385,8 @@ public sealed partial class BetterGlamourManagement
 
             var thumbHeight = MathF.Min(scrollBar.Height, MathF.Max(24f, scrollBar.ForegroundButtonNode.Height));
             scrollBar.ForegroundButtonNode.Height = thumbHeight;
-            scrollBar.Component->EmptyLength = scrollBar.Component->ScrollbarLength - (int)thumbHeight;
-            scrollBar.ScrollPosition = scrollBar.ScrollPosition;
+            scrollBar.Component->EmptyLength      = scrollBar.Component->ScrollbarLength - (int)thumbHeight;
+            scrollBar.ScrollPosition              = scrollBar.ScrollPosition;
         }
 
         private enum ItemSortMode

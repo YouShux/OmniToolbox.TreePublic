@@ -45,11 +45,9 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
             ["Feature.ObsAutoRecording.Stopped"] = "Feature.ObsAutoRecording.Stopped"
         });
 
-    public override bool HasSettings => true;
-
     private readonly Settings config;
     private RecordingSession? session;
-    private bool countdownActive;
+    private bool              countdownActive;
 
     public ObsAutoRecording(Settings config)
     {
@@ -85,8 +83,10 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
     protected override void OnStop()
     {
         countdownActive = false;
-        session = null;
+        session         = null;
     }
+
+    public override bool HasSettings => true;
 
     public override bool DrawSettings()
     {
@@ -99,7 +99,7 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
                 ref popupNotification))
         {
             config.PopupNotification = popupNotification;
-            changed = true;
+            changed                  = true;
         }
 
         OmniControls.SameLineOrWrap(inputWidth + ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.ObsAutoRecording.Endpoint")).X +
@@ -188,7 +188,7 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
             current.Cancellation.Token.ThrowIfCancellationRequested();
             await current.Client.SendRequestAsync("StartRecord", current.Cancellation.Token);
             current.RecordingEndpoint = endpoint;
-            current.OwnsRecording = true;
+            current.OwnsRecording     = true;
             if (!current.Closing && ReferenceEquals(session, current))
                 NotifyRecordingState("Feature.ObsAutoRecording.Started");
         }
@@ -208,7 +208,11 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
         }
     }
 
-    private async Task StopRecordingAsync(RecordingSession current, bool notifyFailure)
+    private async Task StopRecordingAsync
+    (
+        RecordingSession current,
+        bool             notifyFailure
+    )
     {
         await current.OperationLock.WaitAsync();
         try
@@ -334,16 +338,21 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
     {
         private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
-        private readonly SemaphoreSlim connectionLock = new(1, 1);
-        private readonly SemaphoreSlim sendLock = new(1, 1);
-        private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonDocument>> pendingRequests = [];
-        private ClientWebSocket? socket;
-        private CancellationTokenSource? receiveCancellation;
-        private Task? receiveTask;
-        private Uri? connectedEndpoint;
-        private volatile bool identified;
+        private readonly SemaphoreSlim                                                    connectionLock      = new(1, 1);
+        private readonly SemaphoreSlim                                                    sendLock            = new(1, 1);
+        private readonly ConcurrentDictionary<string, TaskCompletionSource<JsonDocument>> pendingRequests     = [];
+        private ClientWebSocket?                                                          socket;
+        private CancellationTokenSource?                                                  receiveCancellation;
+        private Task?                                                                     receiveTask;
+        private Uri?                                                                      connectedEndpoint;
+        private volatile bool                                                             identified;
 
-        public async Task ConnectAsync(Uri endpoint, string password, CancellationToken cancellationToken)
+        public async Task ConnectAsync
+        (
+            Uri               endpoint,
+            string            password,
+            CancellationToken cancellationToken
+        )
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(RequestTimeout);
@@ -378,11 +387,11 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
                         throw new InvalidOperationException("OBS WebSocket identification failed.");
                     }
 
-                    socket = nextSocket;
-                    connectedEndpoint = endpoint;
-                    identified = true;
+                    socket              = nextSocket;
+                    connectedEndpoint   = endpoint;
+                    identified          = true;
                     receiveCancellation = new();
-                    receiveTask = ReceiveLoopAsync(nextSocket, receiveCancellation.Token);
+                    receiveTask         = ReceiveLoopAsync(nextSocket, receiveCancellation.Token);
                 }
                 catch
                 {
@@ -396,7 +405,11 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
             }
         }
 
-        public async Task SendRequestAsync(string requestType, CancellationToken cancellationToken)
+        public async Task SendRequestAsync
+        (
+            string            requestType,
+            CancellationToken cancellationToken
+        )
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(RequestTimeout);
@@ -450,7 +463,11 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
             }
         }
 
-        private async Task ReceiveLoopAsync(ClientWebSocket currentSocket, CancellationToken cancellationToken)
+        private async Task ReceiveLoopAsync
+        (
+            ClientWebSocket   currentSocket,
+            CancellationToken cancellationToken
+        )
         {
             Exception? failure = null;
             try
@@ -492,14 +509,14 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
 
         private async Task DisconnectCoreAsync()
         {
-            identified = false;
+            identified        = false;
             connectedEndpoint = null;
             var cancellation = receiveCancellation;
             var listener = receiveTask;
             var currentSocket = socket;
             receiveCancellation = null;
-            receiveTask = null;
-            socket = null;
+            receiveTask         = null;
+            socket              = null;
 
             cancellation?.Cancel();
             currentSocket?.Abort();
@@ -519,10 +536,12 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
             CompletePending(new WebSocketException("OBS WebSocket disconnected."));
         }
 
-        private async Task SendTextAsync(
-            ClientWebSocket currentSocket,
-            string message,
-            CancellationToken cancellationToken)
+        private async Task SendTextAsync
+        (
+            ClientWebSocket   currentSocket,
+            string            message,
+            CancellationToken cancellationToken
+        )
         {
             var bytes = Encoding.UTF8.GetBytes(message);
             await sendLock.WaitAsync(cancellationToken);
@@ -540,9 +559,11 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
             }
         }
 
-        private static async Task<string> ReceiveTextAsync(
-            ClientWebSocket currentSocket,
-            CancellationToken cancellationToken)
+        private static async Task<string> ReceiveTextAsync
+        (
+            ClientWebSocket   currentSocket,
+            CancellationToken cancellationToken
+        )
         {
             var buffer = new byte[8192];
             using var message = new MemoryStream();
@@ -569,7 +590,11 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
             }
         }
 
-        private static string? BuildAuthentication(JsonElement hello, string password)
+        private static string? BuildAuthentication
+        (
+            JsonElement hello,
+            string      password
+        )
         {
             if (!hello.TryGetProperty("op", out var op) || op.GetInt32() != 0 ||
                 !hello.TryGetProperty("d", out var data))
@@ -614,7 +639,11 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
             });
         }
 
-        private static bool TryGetRequestID(JsonElement root, out string requestID)
+        private static bool TryGetRequestID
+        (
+            JsonElement root,
+            out string  requestID
+        )
         {
             requestID = string.Empty;
             if (!root.TryGetProperty("op", out var op) || op.GetInt32() != 7 ||
@@ -628,7 +657,11 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
             return requestID.Length > 0;
         }
 
-        private static void ValidateRequestResponse(string requestType, JsonElement root)
+        private static void ValidateRequestResponse
+        (
+            string      requestType,
+            JsonElement root
+        )
         {
             var status = root.GetProperty("d").GetProperty("requestStatus");
             if (status.GetProperty("result").GetBoolean())
