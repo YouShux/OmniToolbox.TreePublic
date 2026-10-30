@@ -109,16 +109,9 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                 AddonEvent.PreUpdate, addonName, OnMapPreUpdate));
             DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreUpdate, addonName, OnMapPreUpdate);
             lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
-                AddonEvent.PostDraw, addonName, OnMapDiagnosticPostDraw));
-            DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PostDraw, addonName, OnMapDiagnosticPostDraw);
-            lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
-                AddonEvent.PostSetup, addonName, OnMapDiagnosticSetup));
-            DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PostSetup, addonName, OnMapDiagnosticSetup);
-            lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
                 AddonEvent.PreFinalize, addonName, OnMapFinalize));
             DalamudServices.AddonLifecycle.RegisterListener(AddonEvent.PreFinalize, addonName, OnMapFinalize);
         }
-        ArmMapDiagnostics("Start");
         ApplyCurrentMaps(false);
     }
 
@@ -128,7 +121,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         hiddenNodes.Clear();
         originalIconScales.Clear();
         originalMarkerLayers.Clear();
-        mapDiagnostics.Clear();
     }
 
     public override bool HasSettings => true;
@@ -226,8 +218,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
             OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HideMinimapIcons.KeepTextWhenHiddenHint"));
         }
 
-        if (changed && IsEnabled)
-            ArmMapDiagnostics("SettingsChanged");
         if (mapSettingsChanged && IsEnabled)
         {
             ApplyCurrentMaps(false);
@@ -351,10 +341,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         AddonArgs  args
     )
     {
-        var capture = BeginMapDiagnosticSample(args);
-        if (capture)
-            LogMapDiagnosticSnapshot(args, "PreDraw.Before");
-
         switch (args.AddonName)
         {
             case NAVI_MAP_ADDON_NAME:
@@ -367,9 +353,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                 ApplyTeleportTown((AddonTeleportTown*)args.Addon.Address, false);
                 break;
         }
-
-        if (capture)
-            LogMapDiagnosticSnapshot(args, "PreDraw.After");
     }
 
     private void OnMapPreUpdate
@@ -378,21 +361,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         AddonArgs  args
     )
     {
-        var diagnostic = GetMapDiagnosticState(args);
-        if (!diagnostic.ReportedPreUpdate)
-        {
-            diagnostic.ReportedPreUpdate = true;
-            LogMapDiagnosticSnapshot(args, "PreUpdate.First");
-        }
-        var capture = diagnostic.PendingRestore;
-        if (capture)
-            LogMapDiagnosticSnapshot(args, "PreUpdate.BeforeRestore");
         RestoreHiddenMapNodes((AtkUnitBase*)args.Addon.Address, args.AddonName);
-        if (capture)
-        {
-            diagnostic.PendingRestore = false;
-            LogMapDiagnosticSnapshot(args, "PreUpdate.AfterRestore");
-        }
     }
 
     private void OnMapFinalize
@@ -402,7 +371,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
     )
     {
         var addon = args.Addon.Address;
-        mapDiagnostics.Remove(args.AddonName);
         ClearMarkerLayers(addon);
         foreach (var address in hiddenNodes.Where(entry => entry.Value.Addon == addon).Select(static entry => entry.Key).ToArray())
             hiddenNodes.Remove(address);
@@ -738,7 +706,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
             config.HiddenIconIDs.Remove(iconID);
         }
 
-        ArmMapDiagnostics($"IconSelection:{iconID}:{hidden}");
         ApplyCurrentMaps(false);
     }
 

@@ -6,6 +6,7 @@
     <AssemblyName>OmniToolbox.TreePublic</AssemblyName>
     <RootNamespace>OmniToolbox</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ProduceReferenceAssembly Condition="'$(Configuration)' == 'Debug'">true</ProduceReferenceAssembly>
     <UseWindowsForms>true</UseWindowsForms>
     <Use_DalamudPackager>false</Use_DalamudPackager>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
