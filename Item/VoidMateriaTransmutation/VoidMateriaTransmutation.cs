@@ -200,7 +200,7 @@ public sealed unsafe partial class VoidMateriaTransmutation
 
     private bool CanOpenInCurrentTerritory()
     {
-        if (!IsEnabled || !canUseFeature())
+        if (!IsEnabled || Activation.IsStopping || !canUseFeature())
         {
             Stop();
             return false;
@@ -339,7 +339,7 @@ public sealed unsafe partial class VoidMateriaTransmutation
 
     private bool IsUnavailable()
     {
-        if (!IsEnabled || !canUseFeature())
+        if (!IsEnabled || Activation.IsStopping || !canUseFeature())
             return true;
 
         var services = DService.Instance();

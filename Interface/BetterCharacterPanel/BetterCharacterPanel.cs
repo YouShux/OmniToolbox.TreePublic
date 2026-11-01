@@ -91,7 +91,6 @@ public sealed partial class BetterCharacterPanel(BetterCharacterPanelConfig conf
             ["Feature.BetterCharacterPanel.Tooltip.Tier.Suffix"] = "Feature.BetterCharacterPanel.Tooltip.Tier.Suffix",
             ["Feature.BetterCharacterPanel.Tooltip.Tier.Wasted"] = "Feature.BetterCharacterPanel.Tooltip.Tier.Wasted",
             ["Feature.BetterCharacterPanel.Tooltip.Vitality"] = "Feature.BetterCharacterPanel.Tooltip.Vitality",
-            ["Feature.BetterCharacterPanel.Value.Seconds"] = "Feature.BetterCharacterPanel.Value.Seconds"
         });
 
     private BetterCharacterPanelNativeUI? nativeUI;

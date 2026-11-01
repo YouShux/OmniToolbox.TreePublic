@@ -43,6 +43,7 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
 
     protected override void OnStart(FeatureLifetime activation)
     {
+        activation.OnStopping(RestoreOriginal);
         activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnUpdate));
         activation.OnStopping(() => DService.Instance().ClientState.Logout -= OnLogout);
 
@@ -52,11 +53,6 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
         }
 
         DService.Instance().ClientState.Logout += OnLogout;
-    }
-
-    protected override void OnStop()
-    {
-        RestoreOriginal();
     }
 
     public override bool HasSettings => true;
@@ -186,6 +182,9 @@ public sealed class DynamicBattleEffects(DynamicBattleEffects.Settings config) :
 
     private void Refresh(bool force = false)
     {
+        if (!IsEnabled || Activation.IsStopping)
+            return;
+
         var services = DService.Instance();
         if (!GameState.IsLoggedIn || services.Condition.IsBetweenAreas)
         {

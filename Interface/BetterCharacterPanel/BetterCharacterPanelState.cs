@@ -582,18 +582,19 @@ internal static unsafe partial class BetterCharacterPanelState
             TOOLTIP_TITLE_COLOR);
         rented.Builder.Append("\n").Append(Format(
             "Feature.BetterCharacterPanel.Tooltip.Speed.Body",
-            speed.MainGcd.DisplayValue,
+            OmniNumberFormatter.FormatSeconds(speed.MainGcd.DisplayValue, "F2"),
             modifier,
             speed.MainGcd.PrevTier,
             Math.Max(0, speed.MainGcd.NextTier - speed.MainGcd.CurrentValue),
-            speed.MainGcd.PointsPerTier));
+            speed.MainGcd.PointsPerTier,
+            OmniNumberFormatter.FormatSeconds(0.01, "F2")));
         AppendTierLine(rented, speed.SpeedBonus);
         if (speed.AlternateGcd is { } alternateGcd)
         {
             rented.Builder.Append(Format(
                 "Feature.BetterCharacterPanel.Tooltip.Speed.Alternate",
                 OmniLoc.Get(alternateGcd.NameKey),
-                speed.AlternateGcdInfo.DisplayValue,
+                OmniNumberFormatter.FormatSeconds(speed.AlternateGcdInfo.DisplayValue, "F2"),
                 Math.Max(0, speed.AlternateGcdInfo.NextTier - speed.AlternateGcdInfo.CurrentValue)));
         }
 

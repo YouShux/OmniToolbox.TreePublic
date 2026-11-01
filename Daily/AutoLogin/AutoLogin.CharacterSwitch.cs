@@ -186,7 +186,7 @@ public sealed partial class AutoLogin
     {
         if (request is null)
         {
-            tasks.Enqueue(action, name, timeoutMS);
+            tasks.Enqueue(() => Activation.IsStopping || action(), name, timeoutMS);
             return;
         }
 
@@ -217,7 +217,7 @@ public sealed partial class AutoLogin
 
     private unsafe bool CanContinueCharacterSwitch(CharacterSwitchRequest request)
     {
-        if (!ReferenceEquals(characterSwitch, request) || request.Result.HasValue)
+        if (Activation.IsStopping || !ReferenceEquals(characterSwitch, request) || request.Result.HasValue)
             return false;
         if (request.CancellationToken.IsCancellationRequested)
         {

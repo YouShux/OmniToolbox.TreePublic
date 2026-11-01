@@ -69,7 +69,7 @@ public sealed unsafe partial class BetterWondrousTails
 
         try
         {
-            if (config.OpenDuty && slot != null && eventType == AtkEventType.ButtonClick &&
+            if (!Activation.IsStopping && config.OpenDuty && slot != null && eventType == AtkEventType.ButtonClick &&
                 eventParam == 0 && eventData != null && eventData->MouseData.ButtonId == 0 && TryOpenDuty((NativeDutySlot*)slot))
                 return;
         }

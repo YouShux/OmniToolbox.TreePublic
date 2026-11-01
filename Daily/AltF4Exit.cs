@@ -49,8 +49,11 @@ public sealed unsafe class AltF4Exit : OmniModuleBase
         }
     }
 
-    private static void OnFrameworkUpdate(IFramework _)
+    private void OnFrameworkUpdate(IFramework _)
     {
+        if (Activation.IsStopping)
+            return;
+
         var input = UIInputData.Instance();
         if (input is not null && input->IsKeyDown(SeVirtualKey.MENU) && input->IsKeyPressed(SeVirtualKey.F4))
         {
@@ -58,7 +61,18 @@ public sealed unsafe class AltF4Exit : OmniModuleBase
         }
     }
 
-    private static void ExitFromWindowDetour(Framework* framework) => EndGameProcess();
+    private void ExitFromWindowDetour(Framework* framework)
+    {
+        if (Activation.IsStopping)
+        {
+            var hook = ExitFromWindowHook;
+            if (hook is not null)
+                hook.Original(framework);
+            return;
+        }
+
+        EndGameProcess();
+    }
 
     private static void EndGameProcess()
     {

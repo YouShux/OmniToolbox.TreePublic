@@ -443,12 +443,12 @@ internal sealed partial class FloatingInfoOverlay
                         ? Format(
                             "Feature.FloatingInfoOverlay.Line.StatusWithoutName",
                             status.StatusID,
-                            status.RemainingTime)
+                            OmniNumberFormatter.FormatSeconds(status.RemainingTime, "F1"))
                         : Format(
                             "Feature.FloatingInfoOverlay.Line.Status",
                             status.StatusID,
                             status.Name,
-                            status.RemainingTime);
+                            OmniNumberFormatter.FormatSeconds(status.RemainingTime, "F1"));
                     if (status.Param > 0)
                     {
                         statusText += Format(
@@ -521,8 +521,8 @@ internal sealed partial class FloatingInfoOverlay
                 lineBuffer.Add(new(
                     Format(
                         "Feature.FloatingInfoOverlay.Line.CastTime",
-                        item.CurrentCastTime,
-                        item.TotalCastTime,
+                        OmniNumberFormatter.FormatSeconds(item.CurrentCastTime, "F1"),
+                        OmniNumberFormatter.FormatSeconds(item.TotalCastTime, "F1"),
                         Math.Clamp(item.CurrentCastTime / item.TotalCastTime, 0f, 1f)),
                     color,
                     FormattableString.Invariant($"{item.CurrentCastTime:F1}/{item.TotalCastTime:F1}")));

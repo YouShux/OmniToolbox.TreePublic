@@ -84,7 +84,8 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
         };
         activation.Add(taskHelper);
         activation.OnStopping(taskHelper.Abort);
-        FrameworkManager.Instance().Reg(OnUpdate, 500);
+        if (!FrameworkManager.Instance().Reg(OnUpdate, 500))
+            throw new InvalidOperationException("Uncollected item use update registration failed.");
     }
 
     protected override void OnStop()
@@ -150,7 +151,7 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
 
     private void OnUpdate(IFramework framework)
     {
-        if (DalamudServices.IsUnloading || taskHelper is not { IsBusy: false } helper)
+        if (Activation.IsStopping || DalamudServices.IsUnloading || taskHelper is not { IsBusy: false } helper)
             return;
 
         var service = DService.Instance();

@@ -120,6 +120,9 @@ public sealed unsafe partial class BetterWondrousTails : OmniModuleBase
 
     private void RefreshSettings()
     {
+        if (Activation.IsStopping)
+            return;
+
         if (config.OpenDuty)
             DutySlotReceiveEventHook?.Enable();
         else

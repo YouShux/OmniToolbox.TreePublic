@@ -120,7 +120,7 @@ public sealed unsafe partial class DirectionalActionRelease : OmniModuleBase
         uint       actionID
     )
     {
-        if (actionType != ActionType.Action)
+        if (Activation.IsStopping || actionType != ActionType.Action)
         {
             return;
         }

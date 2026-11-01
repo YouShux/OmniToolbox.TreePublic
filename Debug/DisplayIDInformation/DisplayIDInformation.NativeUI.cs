@@ -1,11 +1,8 @@
-using System.Runtime.InteropServices;
-using System.Text;
 using Dalamud.Game;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Gui.Dtr;
 using Dalamud.Hooking;
-using Dalamud.Plugin.Services;
 using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Enums;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -15,6 +12,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.Interop;
 using InteropGenerator.Runtime;
+using Lumina.Text.ReadOnly;
 using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.Interop.Game.Models;
@@ -61,11 +59,8 @@ public sealed partial class DisplayIDInformation
         private readonly FeatureLifetime                            lifetime             = new();
         private readonly TooltipManager.ItemTooltipUpdateDelegate   itemTooltipHandler;
         private readonly TooltipManager.ActionTooltipUpdateDelegate actionTooltipHandler;
-        private readonly IAddonLifecycle.AddonEventDelegate         naviMapHandler;
+        private readonly Dictionary<ReadOnlySeString, byte[]>        statusTooltipTexts    = [];
         private IDtrBarEntry?                                       zoneInfoEntry;
-        private AtkEventWrapper?                                    weatherMouseOver;
-        private AtkEventWrapper?                                    weatherMouseOut;
-        private AtkResNode*                                         weatherCollisionNode;
         private uint                                                lastMapID;
         private uint                                                lastTerritoryID;
         private uint                                                lastWeatherID;
@@ -84,12 +79,12 @@ public sealed partial class DisplayIDInformation
             addonEvents          = new(DalamudServices.AddonLifecycle);
             itemTooltipHandler   = (_, itemID, ref modifications) => OnItemTooltip(itemID, ref modifications);
             actionTooltipHandler = OnActionTooltip;
-            naviMapHandler       = OnNaviMapAddon;
 
             try
             {
                 zoneInfoEntry = DService.Instance().DTRBar.Get("OmniToolbox-DisplayIdInformation-ZoneInfo");
                 lifetime.Add(RemoveDtrEntry);
+                lifetime.Add(statusTooltipTexts.Clear);
 
                 GetStatusTooltipTextHook = StatusTooltipSig.GetHook<GetStatusTooltipTextDelegate>(OnStatusTooltip);
                 lifetime.Add(DisposeStatusHook);
@@ -100,10 +95,12 @@ public sealed partial class DisplayIDInformation
                     ShowTooltipHook = TooltipSig.GetHook<ShowTooltipDelegate>(OnTooltip);
                     ShowTooltipHook.Enable();
                 }
-                catch (Exception)
+                catch (Exception exception)
                 {
                     ShowTooltipHook?.Dispose();
                     ShowTooltipHook = null;
+                    DalamudServices.PluginLog.Warning(exception,
+                        "[DisplayIDInformation] Weather tooltip hook initialization failed.");
                 }
 
                 if (ShowTooltipHook is not null)
@@ -120,9 +117,6 @@ public sealed partial class DisplayIDInformation
                 lifetime.Add(addonEvents.Dispose);
                 addonEvents.Register(AddonEvent.PreDraw, "_TargetInfo", OnTargetAddon);
                 addonEvents.Register(AddonEvent.PreDraw, "_TargetInfoMainTarget", OnTargetAddon);
-                addonEvents.Register(AddonEvent.PostDraw, "_NaviMap", naviMapHandler);
-                addonEvents.Register(AddonEvent.PreFinalize, "_NaviMap", naviMapHandler);
-                lifetime.Add(ReleaseWeatherEvents);
                 UpdateDtr();
             }
             catch
@@ -297,6 +291,7 @@ public sealed partial class DisplayIDInformation
         )
         {
             if (!config.DisplayWeatherID ||
+                type != AtkTooltipType.Text ||
                 tooltipArgs == null ||
                 tooltipArgs->TextArgs.Text.Value == null)
             {
@@ -304,20 +299,24 @@ public sealed partial class DisplayIDInformation
                 return;
             }
 
-            var text = Marshal.PtrToStringUTF8((nint)tooltipArgs->TextArgs.Text.Value);
+            var text = new ReadOnlySeStringSpan(tooltipArgs->TextArgs.Text.Value);
             var weatherManager = WeatherManager.Instance();
             var weatherID = weatherManager == null ? 0u : weatherManager->WeatherId;
-            if (string.IsNullOrWhiteSpace(text) ||
-                weatherID == 0 ||
-                !LuminaGetter.TryGetRow<LuminaWeather>(weatherID, out var weather) ||
-                !TryAppendWeatherID(text, weather.Name.ToString(), weatherID, out var modified))
+            if (weatherID == 0 || !LuminaGetter.TryGetRow<LuminaWeather>(weatherID, out var weather))
+            {
+                ShowTooltipHook!.Original(manager, type, parentID, targetNode, tooltipArgs, unkDelegate, unk7, unk8);
+                return;
+            }
+
+            if (!TryAppendWeatherID(text, weather.Name.ToString(), weatherID, out var modified))
             {
                 ShowTooltipHook!.Original(manager, type, parentID, targetNode, tooltipArgs, unkDelegate, unk7, unk8);
                 return;
             }
 
             var originalText = tooltipArgs->TextArgs.Text;
-            var bytes = Encoding.UTF8.GetBytes(modified + '\0');
+            var bytes = new byte[modified.Length + 1];
+            modified.CopyTo(bytes, 0);
             fixed (byte* pointer = bytes)
             {
                 tooltipArgs->TextArgs.Text = pointer;
@@ -340,8 +339,7 @@ public sealed partial class DisplayIDInformation
             uint        param
         )
         {
-            // 小队列表路径可能在状态提示请求中传入空的 AgentHUD 或输出缓冲区；原函数会写入 this + 0x20。
-            if (agent == null || output == null)
+            if (agent == null)
             {
                 return default;
             }
@@ -352,154 +350,32 @@ public sealed partial class DisplayIDInformation
                 return original;
             }
 
-            var text = original.ToString();
-            if (string.IsNullOrEmpty(text))
-            {
-                return original;
-            }
-
             var iconID = config.DisplayIconID && LuminaGetter.TryGetRow<LuminaStatus>(statusID, out var status)
                 ? status.Icon
                 : 0;
-            var modified = DisplayIDInformationFormatter.AppendStatusTooltipID(text, statusID, iconID, config.DisplayIconID);
-            if (string.Equals(text, modified, StringComparison.Ordinal))
+            if (!DisplayIDInformationFormatter.TryAppendTooltipID(
+                    original.AsSpan(), statusID, iconID, config.DisplayIconID, out var modified))
             {
                 return original;
             }
 
-            using var utf8String = new Utf8String(modified);
-            output->Copy(&utf8String);
-            return output->StringPtr;
-        }
-
-        private void OnNaviMapAddon
-        (
-            AddonEvent eventType,
-            AddonArgs  args
-        )
-        {
-            if (eventType == AddonEvent.PreFinalize)
+            if (output != null)
             {
-                DisposeWeatherWrappers();
-                return;
+                output->SetString(modified);
+                return output->StringPtr;
             }
 
-            if (!config.DisplayWeatherID)
+            var cacheKey = new ReadOnlySeString(modified);
+            if (!statusTooltipTexts.TryGetValue(cacheKey, out var buffer))
             {
-                DisposeWeatherWrappers();
-                return;
+                buffer = GC.AllocateArray<byte>(modified.Length + 1, pinned: true);
+                modified.CopyTo(buffer, 0);
+                statusTooltipTexts.Add(new ReadOnlySeString(buffer.AsMemory(0, modified.Length)), buffer);
             }
-
-            if (weatherMouseOver is not null && weatherMouseOut is not null)
+            fixed (byte* pointer = buffer)
             {
-                return;
+                return pointer;
             }
-
-            var addon = (AtkUnitBase*)args.Addon.Address;
-            var component = addon == null ? null : addon->GetComponentByNodeId(14);
-            var collisionNode = component == null ? null : component->UldManager.SearchNodeById(5);
-            if (collisionNode == null)
-            {
-                return;
-            }
-
-            AtkEventWrapper? mouseOver = null;
-            AtkEventWrapper? mouseOut = null;
-            try
-            {
-                mouseOver = new(OnWeatherMouseOver);
-                mouseOver.Add(addon, collisionNode, AtkEventType.MouseOver);
-                mouseOut = new(OnWeatherMouseOut);
-                mouseOut.Add(addon, collisionNode, AtkEventType.MouseOut);
-                weatherCollisionNode = collisionNode;
-                weatherMouseOver     = mouseOver;
-                weatherMouseOut      = mouseOut;
-            }
-            catch
-            {
-                mouseOver?.Dispose();
-                mouseOut?.Dispose();
-                throw;
-            }
-        }
-
-        private void OnWeatherMouseOver
-        (
-            AtkEventType  _,
-            AtkUnitBase*  addon,
-            AtkEvent*     atkEvent,
-            AtkEventData* data
-        )
-        {
-            if (!config.DisplayWeatherID)
-            {
-                return;
-            }
-
-            var weatherManager = WeatherManager.Instance();
-            var weatherID = weatherManager == null ? 0u : weatherManager->WeatherId;
-            if (weatherID == 0 || !LuminaGetter.TryGetRow<LuminaWeather>(weatherID, out var weather))
-            {
-                return;
-            }
-
-            using var builder = new RentedSeStringBuilder();
-            using var values = new RentedAtkValues(1);
-            values[0].SetManagedString(builder.Builder.Append($"{weather.Name} [{weather.RowId}]").GetViewAsSpan());
-            var tooltipArgs = new AtkTooltipManager.AtkTooltipArgs();
-            tooltipArgs.TextArgs.AtkArrayType = 0;
-            tooltipArgs.TextArgs.Text         = values[0].String;
-            AtkStage.Instance()->TooltipManager.ShowTooltip(
-                AtkTooltipType.Text,
-                addon->Id,
-                weatherCollisionNode,
-                &tooltipArgs);
-        }
-
-        private static void OnWeatherMouseOut
-        (
-            AtkEventType  _,
-            AtkUnitBase*  addon,
-            AtkEvent*     unusedEvent,
-            AtkEventData* unusedEventData
-        ) =>
-            AtkStage.Instance()->TooltipManager.HideTooltip(addon->Id);
-
-        private void ReleaseWeatherEvents()
-        {
-            List<Exception>? errors = null;
-            try
-            {
-                addonEvents.Release(AddonEvent.PostDraw, "_NaviMap", naviMapHandler);
-            }
-            catch (Exception ex)
-            {
-                (errors ??= []).Add(ex);
-            }
-
-            try
-            {
-                addonEvents.Release(AddonEvent.PreFinalize, "_NaviMap", naviMapHandler);
-            }
-            catch (Exception ex)
-            {
-                (errors ??= []).Add(ex);
-            }
-
-            DisposeWeatherWrappers();
-            if (errors is not null)
-            {
-                throw new AggregateException("Display ID weather events failed to unregister.", errors);
-            }
-        }
-
-        private void DisposeWeatherWrappers()
-        {
-            weatherMouseOver?.Dispose();
-            weatherMouseOver = null;
-            weatherMouseOut?.Dispose();
-            weatherMouseOut      = null;
-            weatherCollisionNode = null;
         }
 
         private void RestoreTargetText()
@@ -554,22 +430,25 @@ public sealed partial class DisplayIDInformation
 
         private static bool TryAppendWeatherID
         (
-            string     text,
-            string     weatherName,
-            uint       weatherID,
-            out string modified
+            ReadOnlySeStringSpan text,
+            string               weatherName,
+            uint                 weatherID,
+            out byte[]           modified
         )
         {
-            modified = text;
-            var newlineIndex = text.IndexOf('\n');
-            var firstLine = newlineIndex < 0 ? text : text[..newlineIndex];
+            modified = [];
+            if (text.IsEmpty)
+                return false;
+
+            var plainText = text.ExtractText();
+            var newlineIndex = plainText.IndexOf('\n');
+            var firstLine = newlineIndex < 0 ? plainText : plainText[..newlineIndex];
             if (!string.Equals(firstLine.Trim(), weatherName, StringComparison.Ordinal))
             {
                 return false;
             }
 
-            modified = $"{weatherName}[{weatherID}]" + (newlineIndex < 0 ? string.Empty : text[newlineIndex..]);
-            return true;
+            return DisplayIDInformationFormatter.TryAppendTooltipID(text, weatherID, 0, false, out modified);
         }
     }
 

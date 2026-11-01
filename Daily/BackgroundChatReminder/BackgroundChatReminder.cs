@@ -35,7 +35,11 @@ public sealed unsafe partial class BackgroundChatReminder : OmniModuleBase
         this.config = config;
     }
 
-    protected override void OnStart(FeatureLifetime activation) => UpdateSubscription();
+    protected override void OnStart(FeatureLifetime activation)
+    {
+        activation.OnStopping(DisableSubscription);
+        UpdateSubscription();
+    }
 
     protected override void OnStop() => DisableSubscription();
 
@@ -44,7 +48,7 @@ public sealed unsafe partial class BackgroundChatReminder : OmniModuleBase
     public override bool DrawSettings()
     {
         var changed = BackgroundChatReminderPanel.Draw(config);
-        if (changed)
+        if (changed && IsEnabled)
         {
             UpdateSubscription();
         }
@@ -65,7 +69,7 @@ public sealed unsafe partial class BackgroundChatReminder : OmniModuleBase
 
     private void EnableSubscription()
     {
-        if (subscribed)
+        if (subscribed || Activation.IsStopping)
         {
             return;
         }
@@ -87,7 +91,7 @@ public sealed unsafe partial class BackgroundChatReminder : OmniModuleBase
 
     private void OnChatMessage(IHandleableChatMessage message)
     {
-        if (message.IsHandled || GameState.IsForeground)
+        if (Activation.IsStopping || message.IsHandled || GameState.IsForeground)
         {
             return;
         }

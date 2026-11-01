@@ -96,7 +96,7 @@ public sealed unsafe partial class DuplicateStatusPrevention : OmniModuleBase
         ref uint                        comboRouteID
     )
     {
-        if (actionType is not (ActionType.Action or ActionType.GeneralAction))
+        if (Activation.IsStopping || actionType is not (ActionType.Action or ActionType.GeneralAction))
         {
             return;
         }

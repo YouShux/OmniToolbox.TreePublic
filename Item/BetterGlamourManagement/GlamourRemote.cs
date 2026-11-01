@@ -126,7 +126,7 @@ public sealed unsafe partial class BetterGlamourManagement
     {
         try
         {
-            if (!remoteEnabled)
+            if (!remoteEnabled || Activation.IsStopping)
                 throw new InvalidOperationException("幻化管理模块未启用。");
             if (!IFramework.Instance().IsInFrameworkUpdateThread)
                 throw new InvalidOperationException("必须通过游戏线程访问幻化管理。");

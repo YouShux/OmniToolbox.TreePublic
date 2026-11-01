@@ -349,7 +349,7 @@ public sealed unsafe partial class AutoLogin
 
     public bool TryRelog(AutoLoginTarget target)
     {
-        if (!IsEnabled ||
+        if (!IsEnabled || Activation.IsStopping ||
             suspendedUntilLogin ||
             !GameState.IsLoggedIn ||
             GameState.ContentFinderCondition != 0 ||
@@ -380,7 +380,7 @@ public sealed unsafe partial class AutoLogin
 
         manualTarget = target;
         tasks.Abort();
-        tasks.Enqueue(
+        EnqueueLoginStep(null,
             () =>
             {
                 if (!GameState.IsLoggedIn)
@@ -390,7 +390,7 @@ public sealed unsafe partial class AutoLogin
                 return true;
             },
             "Request logout");
-        tasks.Enqueue(
+        EnqueueLoginStep(null,
             () => !GameState.IsLoggedIn || AddonSelectYesnoEvent.ClickYes(),
             "Confirm logout",
             timeoutMS: 30_000);
@@ -424,7 +424,7 @@ public sealed unsafe partial class AutoLogin
         AddonArgs? args
     )
     {
-        if (suspendedUntilLogin || crossDataCenterTravelInProgress)
+        if (Activation.IsStopping || suspendedUntilLogin || crossDataCenterTravelInProgress)
         {
             return;
         }
@@ -545,6 +545,9 @@ public sealed unsafe partial class AutoLogin
             tasks.EnqueueAsync(
                 cancellationToken =>
                 {
+                    if (Activation.IsStopping)
+                        return Task.FromResult(true);
+
                     var operation = request is null
                         ? RequestDataCenterLoginAsync(dataCenterID, requiresDataCenterLogin)
                         : RequestCharacterSwitchDataCenterAsync(dataCenterID, requiresDataCenterLogin, request, cancellationToken);

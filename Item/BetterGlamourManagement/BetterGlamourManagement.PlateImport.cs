@@ -38,6 +38,9 @@ public sealed unsafe partial class BetterGlamourManagement
 
     private void ImportPresetToCurrentGlamourPlate(BetterGlamourPreset preset)
     {
+        if (Activation.IsStopping)
+            return;
+
         if (plateImportTaskHelper?.IsBusy == true)
         {
             OmniNotifier.Popup(Title, OmniLoc.Get(this, "Feature.BetterGlamourManagement.PlateImport.Busy"), NotificationType.Warning);
@@ -215,6 +218,12 @@ public sealed unsafe partial class BetterGlamourManagement
         ulong contentID
     )
     {
+        if (Activation.IsStopping)
+        {
+            AbortPlateImport();
+            return null;
+        }
+
         if (TryGetPlateImportEditor(out var agent) &&
             agent->Data->SelectedMiragePlateIndex == plateIndex &&
             DService.Instance().PlayerState.ContentId == contentID)

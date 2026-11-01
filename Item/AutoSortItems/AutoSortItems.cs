@@ -215,6 +215,9 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
 
     public void RequestSort()
     {
+        if (!IsEnabled || Activation.IsStopping)
+            return;
+
         EnsureRules(config);
         EnsureTaskHelper();
         taskHelper!.Abort();
@@ -258,8 +261,12 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
     (
         string        addonName,
         System.Action queueAction
-    ) =>
+    )
+    {
         addonEvents!.Register(AddonEvent.PostShow, addonName, (_, _) => queueAction());
+        if (IsAddonVisible(addonName))
+            queueAction();
+    }
 
     private void OnClassJobChanged(uint _)
     {
@@ -334,15 +341,13 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         bool   manual = false
     )
     {
+        if (taskHelper is null || Activation.IsStopping)
+            return;
+
         EnsureRules(config);
         var playerState = PlayerState.Instance();
         if (category == "rightsaddlebag" &&
             (playerState is null || !playerState->HasPremiumSaddlebag))
-        {
-            return;
-        }
-
-        if (taskHelper is null)
         {
             return;
         }
@@ -558,14 +563,14 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         left->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality) ==
         right->Flags.HasFlag(InventoryItem.ItemFlags.HighQuality);
 
-    private static bool CanSort
+    private bool CanSort
     (
         string category,
         bool   manual
     )
     {
         var services = DService.Instance();
-        if (!GameState.IsLoggedIn ||
+        if (Activation.IsStopping || !GameState.IsLoggedIn ||
             !services.ClientState.IsLoggedIn ||
             services.ObjectTable.LocalPlayer is null)
         {

@@ -6,6 +6,7 @@ using KamiToolKit.BaseTypes;
 using KamiToolKit.Classes;
 using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
+using OmniToolbox.Config;
 using TreeToolKit;
 using static OmniToolbox.TreePublic.BetterCharacterPanelState;
 
@@ -53,6 +54,7 @@ public sealed partial class BetterCharacterPanel
         private StatRow?                         craftingPoints;
         private StatRow?                         gatheringPoints;
         private BetterCharacterPanelState.Stats? lastStats;
+        private NumberDisplayMode                lastNumberDisplayMode;
         private bool                             layoutApplied;
 
         public bool Setup(AtkUnitBase* characterStatus)
@@ -341,13 +343,15 @@ public sealed partial class BetterCharacterPanel
             }
 
             var stats = BetterCharacterPanelState.Calculate(playerState);
-            if (!force && lastStats is { } previous && previous == stats)
+            if (!force && lastStats is { } previous && previous == stats &&
+                lastNumberDisplayMode == OmniNumberFormatter.Mode)
             {
                 return;
             }
 
             UpdateJobVisibility(stats.JobID);
             lastStats = stats;
+            lastNumberDisplayMode = OmniNumberFormatter.Mode;
             if (BetterCharacterPanelState.IsCrafter(stats.JobID))
             {
                 SetRowText(craftingPoints, stats.CraftingPoints.ToString(CultureInfo.CurrentCulture));
@@ -385,14 +389,14 @@ public sealed partial class BetterCharacterPanel
             if (BetterCharacterPanelState.IsCaster(stats.JobID))
             {
                 SetRowText(spellSpeedBonus, stats.Speed.SpeedBonus.DisplayValue.ToString("P1", CultureInfo.CurrentCulture));
-                SetRowText(spellGcd, Format("Feature.BetterCharacterPanel.Value.Seconds", stats.Speed.MainGcd.DisplayValue));
+                SetRowText(spellGcd, OmniNumberFormatter.FormatSeconds(stats.Speed.MainGcd.DisplayValue, "F2"));
                 SetTooltip(spellSpeedBonus, BetterCharacterPanelTooltip.Speed, stats);
                 SetTooltip(spellGcd, BetterCharacterPanelTooltip.Speed, stats);
             }
             else
             {
                 SetRowText(skillSpeedBonus, stats.Speed.SpeedBonus.DisplayValue.ToString("P1", CultureInfo.CurrentCulture));
-                SetRowText(skillGcd, Format("Feature.BetterCharacterPanel.Value.Seconds", stats.Speed.MainGcd.DisplayValue));
+                SetRowText(skillGcd, OmniNumberFormatter.FormatSeconds(stats.Speed.MainGcd.DisplayValue, "F2"));
                 SetTooltip(skillSpeedBonus, BetterCharacterPanelTooltip.Speed, stats);
                 SetTooltip(skillGcd, BetterCharacterPanelTooltip.Speed, stats);
             }

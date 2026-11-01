@@ -43,25 +43,20 @@ public sealed unsafe class CastMovementLock : OmniModuleBase
 
     protected override void OnStart(FeatureLifetime activation)
     {
-        activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnUpdate));
-
         var input = InputIDManager.Instance();
         var framework = FrameworkManager.Instance();
-        input.RegPrePressed(OnMovementInput);
-        input.RegPreDown(OnMovementInput);
-        input.RegPreHeld(OnMovementInput);
-        input.RegPreReleased(OnMovementInput);
-        framework.Reg(OnUpdate);
-    }
-
-    protected override void OnStop()
-    {
-        var input = InputIDManager.Instance();
-        input.UnregPrePressed(OnMovementInput);
-        input.UnregPreDown(OnMovementInput);
-        input.UnregPreHeld(OnMovementInput);
-        input.UnregPreReleased(OnMovementInput);
-        ReleaseMovementLock();
+        activation.OnStopping(() => framework.Unreg(OnUpdate));
+        activation.OnStopping(() => input.UnregPrePressed(OnMovementInput));
+        activation.OnStopping(() => input.UnregPreDown(OnMovementInput));
+        activation.OnStopping(() => input.UnregPreHeld(OnMovementInput));
+        activation.OnStopping(() => input.UnregPreReleased(OnMovementInput));
+        activation.OnStopping(ReleaseMovementLock);
+        if (!input.RegPrePressed(OnMovementInput) ||
+            !input.RegPreDown(OnMovementInput) ||
+            !input.RegPreHeld(OnMovementInput) ||
+            !input.RegPreReleased(OnMovementInput) ||
+            !framework.Reg(OnUpdate))
+            throw new InvalidOperationException("Cast movement lock registration failed.");
     }
 
     public override bool HasSettings => true;
@@ -128,7 +123,7 @@ public sealed unsafe class CastMovementLock : OmniModuleBase
 
     private bool ShouldPreventMovement()
     {
-        if (!IsEnabled || DalamudServices.IsUnloading || !DalamudServices.PlayerState.IsLoaded)
+        if (!IsEnabled || Activation.IsStopping || DalamudServices.IsUnloading || !DalamudServices.PlayerState.IsLoaded)
             return false;
 
         var service = DService.Instance();

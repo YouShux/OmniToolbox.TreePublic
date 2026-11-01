@@ -150,7 +150,7 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
 
     public bool TrySetSelectedMacroIcon(uint iconID)
     {
-        if (!IsEnabled || !config.CustomIcons || iconID == 0)
+        if (!IsEnabled || Activation.IsStopping || !config.CustomIcons || iconID == 0)
         {
             return false;
         }
@@ -178,6 +178,9 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
 
     private void OnFrameworkUpdate(IFramework _)
     {
+        if (Activation.IsStopping)
+            return;
+
         if ((!config.CustomIcons || !macroIconsDirty) && pendingRefreshFrames <= 0)
             return;
         if (DService.Instance().Condition.IsBetweenAreas)
@@ -370,6 +373,9 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
 
     private void RefreshMacroUI(AddonMacro* addon)
     {
+        if (Activation.IsStopping)
+            return;
+
         EnsureMacroLineNumbers(addon);
         EnsureMacroDropTargets(addon);
         var input = (AtkComponentTextInput*)addon->GetComponentByNodeId(119);
@@ -562,7 +568,7 @@ public sealed unsafe partial class BetterUserMacro(BetterUserMacro.Settings conf
                              TryGetMacroSlot(addon, data->DragDropInterface, out source) &&
                              TryGetMacroDropTarget(addon, data, targetNode, source.Set, out target);
 
-        if (!config.DragSwap || !targetResolved || !TrySwapMacro(manager, addon, source, target))
+        if (Activation.IsStopping || !config.DragSwap || !targetResolved || !TrySwapMacro(manager, addon, source, target))
         {
             MacroDropHook!.Original(manager, data, targetNode, acceptedType, canNotAccept);
             return;

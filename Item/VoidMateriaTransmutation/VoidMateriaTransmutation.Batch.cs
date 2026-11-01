@@ -65,7 +65,7 @@ public sealed unsafe partial class VoidMateriaTransmutation
     private bool CanContinueBatch()
     {
         var services = DService.Instance();
-        if (IsEnabled && canUseFeature() && hasSceneOverrides && services.ClientState.IsLoggedIn &&
+        if (IsEnabled && !Activation.IsStopping && canUseFeature() && hasSceneOverrides && services.ClientState.IsLoggedIn &&
             services.ClientState.TerritoryType == destinationTerritoryID && !services.Condition.IsBetweenAreas &&
             !services.Condition[ConditionFlag.InCombat])
             return true;

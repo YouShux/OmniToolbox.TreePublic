@@ -343,6 +343,9 @@ public sealed unsafe partial class BetterGlamourManagement
 
     private void OnFrameworkUpdate(IFramework framework)
     {
+        if (Activation.IsStopping)
+            return;
+
         RemoteTick();
         if (!DService.Instance().ClientState.IsLoggedIn)
         {
@@ -510,6 +513,9 @@ public sealed unsafe partial class BetterGlamourManagement
 
     private void StartTryOn(BetterGlamourPreset preset)
     {
+        if (Activation.IsStopping)
+            return;
+
         if (!ReferenceEquals(boundTryOnPreset, preset))
             boundTryOnPreset = null;
         activeTryOnPreset = preset;
@@ -551,7 +557,7 @@ public sealed unsafe partial class BetterGlamourManagement
 
     private void TryApplyActiveTryOn()
     {
-        if (!pendingTryOnRestore ||
+        if (Activation.IsStopping || !pendingTryOnRestore ||
             activeTryOnPreset is null ||
             taskHelper is null ||
             taskHelper.IsBusy ||
@@ -571,6 +577,9 @@ public sealed unsafe partial class BetterGlamourManagement
         {
             taskHelper.Enqueue(() =>
             {
+                if (Activation.IsStopping)
+                    return true;
+
                 itemPreviewService.PreviewEquipment(item.ItemID, item.Slot, item.Stain0, item.Stain1);
                 return true;
             });
@@ -579,6 +588,9 @@ public sealed unsafe partial class BetterGlamourManagement
 
         taskHelper.Enqueue(() =>
         {
+            if (Activation.IsStopping)
+                return true;
+
             itemPreviewService.PreviewGlasses(preset.GlassesID);
             return true;
         });
@@ -586,6 +598,9 @@ public sealed unsafe partial class BetterGlamourManagement
         taskHelper.DelayNext(100);
         taskHelper.Enqueue(() =>
         {
+            if (Activation.IsStopping)
+                return true;
+
             itemPreviewService.PreviewHairAppearance(preset.HairstyleID, preset.HairColor, preset.HighlightColor, preset.HighlightsEnabled);
 
             return true;
@@ -605,6 +620,9 @@ public sealed unsafe partial class BetterGlamourManagement
 
     public void OpenManager()
     {
+        if (!IsEnabled || Activation.IsStopping)
+            return;
+
         NormalizeSelection();
         managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
         if (managerNativeUI is { IsOpen: false })
@@ -635,6 +653,9 @@ public sealed unsafe partial class BetterGlamourManagement
 
     private void QueuePortraitPreview(BetterGlamourPreset preset)
     {
+        if (Activation.IsStopping)
+            return;
+
         Volatile.Write(ref phoneSelectedID, string.Empty);
         managerNativeUI?.ClearPreviewTexture();
         portraitPreview?.QueuePreset(preset);

@@ -1,5 +1,8 @@
+using System.Text;
 using Dalamud.Game.ClientState.Objects.Enums;
 using Dalamud.Game.Gui.FlyText;
+using Lumina.Text.Payloads;
+using Lumina.Text.ReadOnly;
 
 namespace OmniToolbox.TreePublic;
 
@@ -33,25 +36,53 @@ public sealed partial class DisplayIDInformation
         ) =>
             showIcon && iconID != 0 ? $" [{id}]/[{iconID}]" : $" [{id}]";
 
-        public static string AppendStatusTooltipID
+        public static bool TryAppendTooltipID
         (
-            string text,
-            uint   statusID,
-            uint   iconID,
-            bool   showIcon
+            ReadOnlySeStringSpan text,
+            uint                 id,
+            uint                 iconID,
+            bool                 showIcon,
+            out byte[]           modified
         )
         {
-            var suffix = $" {FormatIDSuffix(statusID, iconID, showIcon)}";
-            var newlineIndex = text.IndexOf('\n');
-            var firstLine = newlineIndex < 0 ? text : text[..newlineIndex];
-            if (firstLine.EndsWith(suffix, StringComparison.Ordinal))
+            modified = [];
+            if (text.IsEmpty)
+                return false;
+
+            var firstLineLength = text.Data.Length;
+            var payloads = text.GetOffsetEnumerator();
+            while (payloads.MoveNext())
             {
-                return text;
+                var entry = payloads.Current;
+                if (entry.Payload.Type == ReadOnlySePayloadType.Invalid)
+                    return false;
+                if (firstLineLength != text.Data.Length)
+                    continue;
+
+                if (entry.Payload.Type == ReadOnlySePayloadType.Macro && entry.Payload.MacroCode == MacroCode.NewLine)
+                {
+                    firstLineLength = entry.Offset;
+                    continue;
+                }
+                if (entry.Payload.Type != ReadOnlySePayloadType.Text)
+                    continue;
+
+                var newlineIndex = entry.Payload.Body.IndexOf((byte)'\n');
+                if (newlineIndex < 0)
+                    continue;
+
+                firstLineLength = entry.Offset + newlineIndex;
             }
 
-            return newlineIndex < 0
-                ? text + suffix
-                : text.Insert(newlineIndex, suffix);
+            var suffix = Encoding.UTF8.GetBytes($" {FormatIDSuffix(id, iconID, showIcon)}");
+            if (text.Data[..firstLineLength].EndsWith(suffix))
+                return false;
+
+            modified = new byte[text.Data.Length + suffix.Length];
+            text.Data[..firstLineLength].CopyTo(modified);
+            suffix.CopyTo(modified.AsSpan(firstLineLength));
+            text.Data[firstLineLength..].CopyTo(modified.AsSpan(firstLineLength + suffix.Length));
+            return true;
         }
 
         public static string? FormatDtr
