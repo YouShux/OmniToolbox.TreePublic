@@ -7,6 +7,7 @@ using Lumina.Excel.Sheets;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Collections;
 using OmniToolbox.Items;
+using TreeToolKit;
 using Item = Lumina.Excel.Sheets.Item;
 
 namespace OmniToolbox.TreePublic;
@@ -29,10 +30,10 @@ public sealed partial class BetterGlamourManagement
         private List<BetterGlamourItemSearchResult>                                         results       = [];
         private Action<BetterGlamourItemSearchResult>?                                      onSelected;
         private TextInputNode?                                                              searchNode;
-        private DropDownNode<ItemSortMode>?                                                 sortNode;
-        private DropDownNode<int>?                                                          filterNode;
+        private SafeDropDownNode<ItemSortMode>?                                             sortNode;
+        private SafeDropDownNode<int>?                                                      filterNode;
         private CircleButtonNode?                                                           directionNode;
-        private ListNode<BetterGlamourItemSearchResult, BetterGlamourItemSearchResultNode>? resultsNode;
+        private SafeListNode<BetterGlamourItemSearchResult, BetterGlamourItemSearchResultNode>? resultsNode;
         private ItemSortMode                                                                sortMode;
         private bool                                                                        descending;
         private uint                                                                        selectedID;
@@ -107,8 +108,7 @@ public sealed partial class BetterGlamourManagement
                 }
             }
 
-            if (!IsOpen)
-                Open();
+            this.OpenOrFocus();
             ResizeContent();
 
             if (searchNode is not null)
@@ -155,8 +155,8 @@ public sealed partial class BetterGlamourManagement
 
             sortNode = new()
             {
-                Options = [.. Enum.GetValues<ItemSortMode>().Where(IsSortModeAvailable)],
                 MaxListOptions = 7,
+                Options = [.. Enum.GetValues<ItemSortMode>().Where(IsSortModeAvailable)],
                 GetLabelFunction = mode => OmniLoc.Get(mode switch
                 {
                     ItemSortMode.Name => "Feature.BetterGlamourManagement.ItemPicker.SortName",
@@ -234,12 +234,16 @@ public sealed partial class BetterGlamourManagement
 
         protected override unsafe void OnHide(AtkUnitBase* addon)
         {
+            sortNode?.ClosePopup();
+            filterNode?.ClosePopup();
             resultsNode?.HideTooltip();
             onSelected = null;
         }
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
+            sortNode?.ClosePopup();
+            filterNode?.ClosePopup();
             searchNode    = null;
             sortNode      = null;
             filterNode    = null;

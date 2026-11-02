@@ -123,8 +123,7 @@ public sealed partial class BetterGlamourManagement
                 : 2;
             selectedStain    = Math.Clamp(channel, 0, dyeCount - 1);
             selectedCategory = GetCategory(selectedStain == 0 ? item.Stain0 : item.Stain1);
-            if (!IsOpen)
-                Open();
+            this.OpenOrFocus();
             RebuildRows();
         }
 

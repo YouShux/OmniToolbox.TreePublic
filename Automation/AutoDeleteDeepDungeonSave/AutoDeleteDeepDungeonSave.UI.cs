@@ -41,6 +41,7 @@ public sealed unsafe partial class AutoDeleteDeepDungeonSave
         ImGui.TableSetupColumn("##dungeon", ImGuiTableColumnFlags.WidthFixed, nameWidth);
         foreach (var range in DisplayFloorRanges)
             ImGui.TableSetupColumn($"##range{range.Minimum}-{range.Maximum}", ImGuiTableColumnFlags.WidthStretch);
+        ImGui.TableSetupScrollFreeze(1, 0);
         OmniControls.BeginTableHeaderRow(headerHeight);
         OmniControls.TableHeader(string.Empty, headerHeight);
         foreach (var range in DisplayFloorRanges)

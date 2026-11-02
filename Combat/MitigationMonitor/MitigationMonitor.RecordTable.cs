@@ -3,6 +3,7 @@ using Dalamud.Interface;
 using OmenTools;
 using OmenTools.Extensions;
 using OmniToolbox.Notifications;
+using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 using static OmniToolbox.TreePublic.MitigationMonitor;
 
@@ -83,7 +84,8 @@ public sealed partial class MitigationMonitor
                     var bodyMin = ImGui.GetCursorScreenPos();
                     if (visibleRecords.Count == 0)
                     {
-                        DrawNoData(bodyMin, ImGui.GetContentRegionAvail());
+                        OmniControls.DrawTextCentered(OmniLoc.Get("Feature.MitigationMonitor.NoData"),
+                            bodyMin, ImGui.GetContentRegionAvail(), ImGui.GetStyle().Colors[(int)ImGuiCol.TextDisabled]);
                     }
                     else
                     {
@@ -466,28 +468,9 @@ public sealed partial class MitigationMonitor
         )
         {
             ImGui.SetCursorScreenPos(position);
-            if (ImGui.InvisibleButton(id, size))
+            if (OmniRecordWindow.DrawHeaderButton(id, icon, size, OmniLoc.Get(tooltipKey)))
             {
                 action();
-            }
-
-            var text = icon.ToIconString();
-            var textSize = ImGui.CalcTextSize(text) * 0.82f;
-            ImGui.GetWindowDrawList().AddText(
-                ImGui.GetFont(),
-                ImGui.GetFontSize() * 0.82f,
-                position + new Vector2(
-                    MathF.Max(0f, (size.X - textSize.X) * 0.5f),
-                    MathF.Max(0f, (size.Y - textSize.Y) * 0.5f)),
-                OmniTheme.Color((ImGui.IsItemActive() ? KnownColor.LightSkyBlue : KnownColor.White).ToVector4() with
-                {
-                    W = ImGui.IsItemHovered() || ImGui.IsItemActive() ? 1f : 0.90f
-                }),
-                text);
-
-            if (ImGui.IsItemHovered())
-            {
-                OmniControls.HelpTooltip(OmniLoc.Get(tooltipKey));
             }
         }
 
@@ -591,63 +574,16 @@ public sealed partial class MitigationMonitor
             config.MitigationColumnWidth = widths[4] / config.ScaleValue;
         }
 
-        private void DrawNoData
-        (
-            Vector2 bodyMin,
-            Vector2 bodySize
-        )
-        {
-            var center = bodyMin + bodySize * 0.5f;
-            var color = OmniTheme.Color(KnownColor.Gainsboro.ToVector4() with
-            {
-                W = 0.72f
-            });
-            var shadow = OmniTheme.Color(KnownColor.Black.ToVector4() with
-            {
-                W = 0.42f
-            });
-            var iconSize = config.Scale(new Vector2(32f, 24f));
-            var iconMin = new Vector2(
-                MathF.Floor(center.X - iconSize.X * 0.5f),
-                MathF.Floor(center.Y - config.Scale(34f)));
-            var iconMax = iconMin + iconSize;
-            ImGui.GetWindowDrawList().AddRect(
-                iconMin + config.Scale(new Vector2(1f)),
-                iconMax + config.Scale(new Vector2(1f)),
-                shadow,
-                config.Scale(4f),
-                ImDrawFlags.None,
-                config.Scale(2.5f));
-            ImGui.GetWindowDrawList().AddRect(
-                iconMin,
-                iconMax,
-                color,
-                config.Scale(4f),
-                ImDrawFlags.None,
-                config.Scale(2.5f));
-            ImGui.GetWindowDrawList().AddRectFilled(
-                new Vector2(iconMin.X + config.Scale(7f), iconMin.Y + config.Scale(13f)),
-                new Vector2(iconMax.X - config.Scale(7f), iconMax.Y - config.Scale(5f)),
-                color,
-                config.Scale(2f));
-
-            var text = OmniLoc.Get("Feature.MitigationMonitor.NoData");
-            var textSize = ImGui.CalcTextSize(text);
-            var textPosition = new Vector2(
-                MathF.Floor(center.X - textSize.X * 0.5f),
-                MathF.Floor(iconMax.Y + config.Scale(10f)));
-            ImGui.GetWindowDrawList().AddText(textPosition + config.Scale(new Vector2(1f)), shadow, text);
-            ImGui.GetWindowDrawList().AddText(textPosition, color, text);
-        }
-
         private void DrawTargetPopup()
         {
-            if (!ImGui.BeginPopup("##MitigationTargetFilterPopup"))
+            var fontSize = ImGui.GetFontSize();
+            using var popup = ImRaii.Popup("##MitigationTargetFilterPopup");
+            if (!popup)
             {
                 return;
             }
 
-            ImGui.SetWindowFontScale(config.EffectiveScale);
+            OmniRecordWindow.SetWindowFontSize(fontSize);
             if (ImGui.Selectable(OmniLoc.Get("Feature.MitigationMonitor.TargetFilter.All"), selectedTargetName == null))
             {
                 selectedTargetName = null;
@@ -671,7 +607,6 @@ public sealed partial class MitigationMonitor
                 ImGui.TextDisabled(OmniLoc.Get("Feature.MitigationMonitor.TargetFilter.Empty"));
             }
 
-            ImGui.EndPopup();
         }
 
         private readonly record struct TargetFilterOption

@@ -1,4 +1,6 @@
 using System.Drawing;
+using System.Threading.Tasks;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
 using Dalamud.Plugin.Services;
@@ -12,26 +14,31 @@ using Lumina.Excel.Sheets;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
+using TreeTools.Threading;
 using BattleNpcSubKind = Dalamud.Game.ClientState.Objects.Enums.BattleNpcSubKind;
 using ObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed unsafe partial class MoreMinimapInformation
+public sealed partial class MoreMinimapInformation
 {
-    private void UpdateMarkers(IFramework framework)
+    private unsafe void UpdateMarkers(IFramework framework)
     {
         mapController?.Update();
         foreach (var marker in objectMarkers.Values)
             marker.IsVisible = false;
 
         var services = DService.Instance();
-        var canShow = services.ClientState.IsLoggedIn && !services.ClientState.IsPvP && !services.Condition.IsBetweenAreas;
+        var canShow = services.ClientState.IsLoggedIn && !services.ClientState.IsPvP &&
+                      !services.Condition[ConditionFlag.BetweenAreas] && !services.Condition[ConditionFlag.BetweenAreas51];
+        var agentMap = AgentMap.Instance();
+        UpdateAetherCurrentMarkers(
+            canShow && agentMap is not null ? agentMap->CurrentMapId : 0,
+            canShow && agentMap is not null ? agentMap->SelectedMapId : 0);
         foreach (var marker in aetherCurrentMarkers)
             marker.IsVisible = canShow && config.AetherCurrents;
 
         var manager = GameObjectManager.Instance();
-        var agentMap = AgentMap.Instance();
         if (!canShow || manager is null || agentMap is null || mapController is null)
             return;
 
@@ -96,7 +103,7 @@ public sealed unsafe partial class MoreMinimapInformation
         }
     }
 
-    private bool TryGetAppearance
+    private unsafe bool TryGetAppearance
     (
         GameObject*    obj,
         out uint       iconID,
@@ -148,37 +155,99 @@ public sealed unsafe partial class MoreMinimapInformation
         }
     }
 
-    private void LoadAetherCurrents()
+    private Task LoadAetherCurrentsAsync(FeatureLifetime activation) => DalamudServices.Framework.Run(async () =>
     {
-        if (mapController is null)
+        var cancellationToken = activation.CancellationToken;
+        if (mapController is null || !config.AetherCurrents)
             return;
 
-        var currents = LuminaGetter.Get<AetherCurrentCompFlgSet>()
-            .SelectMany(set => set.AetherCurrents)
-            .Where(current => current.IsValid && !current.Value.Quest.IsValid)
-            .Select(current => current.RowId).ToHashSet();
-        var objects = LuminaGetter.Get<EObj>()
-            .Where(obj => currents.Contains(obj.Data.RowId))
-            .ToDictionary(obj => obj.RowId, obj => obj.Data.RowId);
-        var added = new HashSet<(uint CurrentID, uint MapID)>();
-        foreach (var level in LuminaGetter.Get<Level>())
+        var dataManager = DalamudServices.DataManager;
+        var dataVersion = string.Join('|', dataManager.GameData.Repositories
+            .OrderBy(static repository => repository.Key)
+            .Select(static repository => $"{repository.Key}:{repository.Value.Version}"));
+        if (aetherCurrentLocations is null || !string.Equals(aetherCurrentDataVersion, dataVersion, StringComparison.Ordinal))
         {
-            if (!level.Map.IsValid || !objects.TryGetValue(level.Object.RowId, out var currentID) ||
-                !added.Add((currentID, level.Map.RowId)))
-                continue;
+            var currents = new HashSet<uint>();
+            var currentSets = LuminaGetter.Get<AetherCurrentCompFlgSet>();
+            await FrameworkWorkScheduler.RunAsync(Enumerable.Range(0, currentSets.Count).ToArray(), index =>
+            {
+                foreach (var current in currentSets.GetRowAt(index).AetherCurrents)
+                    if (current.IsValid && !current.Value.Quest.IsValid)
+                        currents.Add(current.RowId);
+            }, cancellationToken);
 
+            var objects = new Dictionary<uint, uint>();
+            var objectSheet = LuminaGetter.Get<EObj>();
+            await FrameworkWorkScheduler.RunAsync(Enumerable.Range(0, objectSheet.Count).ToArray(), index =>
+            {
+                var obj = objectSheet.GetRowAt(index);
+                if (currents.Contains(obj.Data.RowId))
+                    objects.Add(obj.RowId, obj.Data.RowId);
+            }, cancellationToken);
+
+            var locations = new List<AetherCurrentLocation>();
+            var added = new HashSet<(uint CurrentID, uint MapID)>();
+            var levels = LuminaGetter.Get<Level>();
+            await FrameworkWorkScheduler.RunAsync(Enumerable.Range(0, levels.Count).ToArray(), index =>
+            {
+                var level = levels.GetRowAt(index);
+                if (level.Map.IsValid && objects.TryGetValue(level.Object.RowId, out var currentID) &&
+                    added.Add((currentID, level.Map.RowId)))
+                    locations.Add(new(level.Map.RowId, new(level.X, level.Z)));
+            }, cancellationToken);
+
+            cancellationToken.ThrowIfCancellationRequested();
+            UpdateAetherCurrentMarkers(0, 0);
+            aetherCurrentLocations   = locations;
+            aetherCurrentDataVersion = dataVersion;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!config.AetherCurrents)
+            return;
+
+        UpdateMarkers(DalamudServices.Framework);
+    }, activation.CancellationToken);
+
+    private void UpdateAetherCurrentMarkers(uint currentMapID, uint selectedMapID)
+    {
+        if (mapController is null || aetherCurrentLocations is null)
+            return;
+        if (!config.AetherCurrents)
+            currentMapID = selectedMapID = 0;
+        if (aetherCurrentMapID == currentMapID && aetherSelectedMapID == selectedMapID)
+            return;
+
+        for (var index = aetherCurrentMarkers.Count - 1; index >= 0; index--)
+        {
+            var marker = aetherCurrentMarkers[index];
+            if (marker.MapId == currentMapID || marker.MapId == selectedMapID)
+                continue;
+            marker.MinimapIcon?.Dispose();
+            mapController.RemoveMarker(marker);
+            aetherCurrentMarkers.RemoveAt(index);
+        }
+
+        var tooltip = OmniLoc.Get(this, "Feature.MoreMinimapInformation.AetherCurrents");
+        foreach (var location in aetherCurrentLocations)
+        {
+            if (location.MapID != currentMapID && location.MapID != selectedMapID ||
+                location.MapID == aetherCurrentMapID || location.MapID == aetherSelectedMapID)
+                continue;
             var marker = new Marker
             {
-                MapId = level.Map.RowId,
-                Position = new Vector2(level.X, level.Z),
+                MapId = location.MapID,
+                Position = location.Position,
                 IconId = 60653,
                 Size = new Vector2(24f),
-                TextTooltip = OmniLoc.Get(this, "Feature.MoreMinimapInformation.AetherCurrents"),
+                TextTooltip = tooltip,
                 IsVisible = false
             };
             aetherCurrentMarkers.Add(marker);
             mapController.AddMarker(marker);
         }
+        aetherCurrentMapID = currentMapID;
+        aetherSelectedMapID = selectedMapID;
     }
 
     private static IDalamudTextureWrap CreatePlayerMarkerTexture()
@@ -202,6 +271,8 @@ public sealed unsafe partial class MoreMinimapInformation
         return DService.Instance().Texture.CreateFromRaw(RawImageSpecification.Rgba32(TEXTURE_SIZE, TEXTURE_SIZE), pixels,
             "MoreMinimapInformation.PlayerCircle");
     }
+
+    private readonly record struct AetherCurrentLocation(uint MapID, Vector2 Position);
 
     private sealed class Marker : MapMarkerNode
     {

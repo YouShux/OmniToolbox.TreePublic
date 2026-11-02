@@ -219,7 +219,8 @@ public sealed partial class AutoIshgardRestoration : OmniModuleBase
         if (!string.IsNullOrEmpty(lastError))
             status = previousStatus;
         ReleaseArtisan();
-        windowOpen = false;
+        windowOpen           = false;
+        windowFocusRequested = false;
     }
 
     protected override bool OnInterruptAutomation()

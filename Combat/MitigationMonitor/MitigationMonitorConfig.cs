@@ -1,8 +1,9 @@
+using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
-public sealed class MitigationMonitorConfig
+public sealed class MitigationMonitorConfig : IOmniRecordWindowSettings
 {
     public bool Visible { get; set; } = true;
 

@@ -112,6 +112,17 @@ public sealed partial class MitigationMonitor
             hotkeyHeld = false;
         }
 
+        public void ToggleVisibility()
+        {
+            config.Visible = !config.Visible;
+            if (config.Visible)
+            {
+                config.Collapsed = false;
+            }
+
+            saveConfig();
+        }
+
         private void OnFrameworkUpdate(IFramework _)
         {
             if (!DService.Instance().ClientState.IsLoggedIn ||
@@ -138,14 +149,8 @@ public sealed partial class MitigationMonitor
                 return;
             }
 
-            hotkeyHeld     = true;
-            config.Visible = !config.Visible;
-            if (config.Visible)
-            {
-                config.Collapsed = false;
-            }
-
-            saveConfig();
+            hotkeyHeld = true;
+            ToggleVisibility();
         }
 
         private bool Capture()

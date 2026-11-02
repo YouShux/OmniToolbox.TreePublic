@@ -104,12 +104,10 @@ public sealed partial class BetterGlamourManagement
             originalIDs[1] = originalHighlightColor;
             onSelected     = selected;
             if (!IsOpen)
-            {
                 Size = GetRequiredContentSize() + new Vector2(ContentPadding.X * 2f + 8f, ContentPadding.Y + 54f);
-                Open();
-            }
             else
                 RebuildPalettes();
+            this.OpenOrFocus();
         }
 
         public void RefreshAppearance
@@ -183,12 +181,15 @@ public sealed partial class BetterGlamourManagement
         {
             for (var channel = 0; channel < colors.Length; channel++)
             {
-                selectionFrames[channel]?.Dispose();
+                var previousFrame = selectionFrames[channel];
+                selectionFrames[channel] = null;
+                NativeNodeDetach.DetachAndDispose(previousFrame);
                 var nodes = swatches[channel];
                 while (nodes.Count > colors[channel].Length)
                 {
-                    nodes[^1].Dispose();
+                    var removed = nodes[^1];
                     nodes.RemoveAt(nodes.Count - 1);
+                    NativeNodeDetach.DetachAndDestroyComponent(removed);
                 }
                 var paletteChannel = channel;
                 var name = OmniLoc.Get(channel == 0
@@ -224,6 +225,7 @@ public sealed partial class BetterGlamourManagement
             }
             lastContentSize = Vector2.Zero;
             ResizeContent();
+            NativeNodeDetach.UpdateNodeLists((AtkUnitBase*)this);
         }
 
         private void SelectColor

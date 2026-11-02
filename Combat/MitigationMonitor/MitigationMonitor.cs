@@ -2,6 +2,7 @@ using Dalamud.Interface.Textures;
 using OmenTools;
 using OmenTools.Extensions;
 using OmenTools.OmenService;
+using OmniToolbox.Commands;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
@@ -16,7 +17,11 @@ public sealed partial class MitigationMonitor : OmniModuleBase
     {
         Category = ModuleCategory.Combat,
         PreviewImageURL =
-            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/MitigationMonitor-1.png"
+            "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Combat/MitigationMonitor-1.png",
+        Commands =
+        [
+            new ModuleCommand("Feature.MitigationMonitor.CommandDescription", OmniCommandCatalog.Format("mitigationmonitor"))
+        ]
     };
 
     public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
@@ -27,6 +32,7 @@ public sealed partial class MitigationMonitor : OmniModuleBase
             ["Feature.MitigationMonitor.Action.AutoAttack"] = "Feature.MitigationMonitor.Action.AutoAttack",
             ["Feature.MitigationMonitor.Clear"] = "Feature.MitigationMonitor.Clear",
             ["Feature.MitigationMonitor.Collapse"] = "Feature.MitigationMonitor.Collapse",
+            ["Feature.MitigationMonitor.CommandDescription"] = "Command.mitigationmonitor.Description",
             ["Feature.MitigationMonitor.Column.Action"] = "Feature.MitigationMonitor.Column.Action",
             ["Feature.MitigationMonitor.Column.Damage"] = "Feature.MitigationMonitor.Column.Damage",
             ["Feature.MitigationMonitor.Column.Mitigation"] = "Feature.MitigationMonitor.Column.Mitigation",
@@ -170,6 +176,22 @@ public sealed partial class MitigationMonitor : OmniModuleBase
         config.MitigationColumnWidth = defaults.MitigationColumnWidth;
         NormalizeConfig();
         overlay.RequestLayoutRestore();
+        return true;
+    }
+
+    public override bool TryHandleCommand
+    (
+        string command,
+        string arguments
+    )
+    {
+        if (!string.Equals(command, "mitigationmonitor", StringComparison.OrdinalIgnoreCase) ||
+            !string.IsNullOrWhiteSpace(arguments))
+            return false;
+
+        hotkey.ToggleVisibility();
+        if (config.Visible)
+            overlay.RequestFocus();
         return true;
     }
 

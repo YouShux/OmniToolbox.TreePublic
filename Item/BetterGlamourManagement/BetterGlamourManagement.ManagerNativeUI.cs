@@ -9,6 +9,7 @@ using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Collections;
 using OmniToolbox.Items;
+using TreeToolKit;
 using KernelTexture = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Texture;
 using Item = Lumina.Excel.Sheets.Item;
 
@@ -63,14 +64,14 @@ public sealed partial class BetterGlamourManagement
         private bool                                                                 pendingEditorRefresh;
         private bool                                                                 pendingGearsetRefresh;
         private ulong                                                                gearsetContentID;
-        private ListNode<BetterGlamourPreset, BetterGlamourPresetListItemNode>?      presetListNode;
+        private SafeListNode<BetterGlamourPreset, BetterGlamourPresetListItemNode>?  presetListNode;
         private VerticalLineNode?                                                    separatorNode;
         private TextNode?                                                            emptyNode;
         private TextNode?                                                            nameLabelNode;
         private TextInputNode?                                                       nameInputNode;
         private TextNode?                                                            gearsetLabelNode;
-        private StringDropDownNode?                                                  gearsetDropDownNode;
-        private ListNode<BetterGlamourEditorPair, BetterGlamourEditorListItemNode>?  itemListNode;
+        private SafeDropDownNode<string>?                                             gearsetDropDownNode;
+        private SafeListNode<BetterGlamourEditorPair, BetterGlamourEditorListItemNode>? itemListNode;
         private TextButtonNode?                                                      applyButton;
         private TextButtonNode?                                                      exportButton;
         private TextButtonNode?                                                      deleteButton;
@@ -181,6 +182,7 @@ public sealed partial class BetterGlamourManagement
             {
                 Options = [],
                 MaxListOptions = 8,
+                GetLabelFunction = static entry => entry,
                 OnOptionSelected = SelectGearset,
                 TextTooltip = OmniLoc.Get("Feature.BetterGlamourManagement.BindGearsetHint")
             };
@@ -313,6 +315,7 @@ public sealed partial class BetterGlamourManagement
 
         protected override unsafe void OnHide(AtkUnitBase* addon)
         {
+            gearsetDropDownNode?.ClosePopup();
             ClosePickers();
             previousItems.Clear();
             previousDyes.Clear();
@@ -320,6 +323,7 @@ public sealed partial class BetterGlamourManagement
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
+            gearsetDropDownNode?.ClosePopup();
             ClearPreviewTexture();
             portraitPreview.CancelPreview();
             previewButtons.Clear();
@@ -400,7 +404,8 @@ public sealed partial class BetterGlamourManagement
             boundPreviewTexture = 0;
             try
             {
-                oldImage?.Dispose();
+                if (NativeNodeDetach.DetachAndDispose(oldImage))
+                    NativeNodeDetach.UpdateNodeLists(this);
             }
             finally
             {

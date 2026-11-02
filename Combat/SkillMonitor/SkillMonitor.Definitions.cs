@@ -26,7 +26,7 @@ public sealed partial class SkillMonitor
             new(36920, 3829, 120, 15, 1UL << 19, SkillMonitorGroup.Tank),
             new(25746, 2674, 5, 8, 1UL << 19, SkillMonitorGroup.Tank),
             new(7382, 1174, 10, 8, 1UL << 19, SkillMonitorGroup.Tank),
-            new(3540, 726, 90, 30, 1UL << 19, SkillMonitorGroup.Tank),
+            new(3540, 1362, 90, 30, 1UL << 19, SkillMonitorGroup.Tank),
             new(7385, 1175, 120, 18, 1UL << 19, SkillMonitorGroup.Tank),
             new(22, 77, 90, 10, 1UL << 19, SkillMonitorGroup.Tank),
             new(43, 409, 240, 10, 1UL << 21, SkillMonitorGroup.Tank),

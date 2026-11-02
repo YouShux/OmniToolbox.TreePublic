@@ -17,6 +17,9 @@ public sealed partial class RealItemIcon
         private readonly Dictionary<uint, RealItemIconReplacement> replacementsByItemID    = [];
         private readonly Dictionary<uint, RealItemIconReplacement> replacementsByGlassesID = [];
         private readonly Dictionary<uint, Glasses>                 glassesByID             = [];
+        private readonly Dictionary<uint, bool>                    unlockedByGlassesID     = [];
+        private DateTime                                          unlockFrame;
+        private ulong                                             unlockContentID;
 
         public RealItemIconReplacementResolver()
         {
@@ -58,9 +61,31 @@ public sealed partial class RealItemIcon
         ) =>
             replacementsByGlassesID.TryGetValue(glassesID, out replacement);
 
-        public bool IsGlassesUnlocked(uint glassesID) =>
-            glassesByID.TryGetValue(glassesID, out var glasses) &&
-            DalamudServices.UnlockState.IsGlassesUnlocked(glasses);
+        public void InvalidateUnlocks() => unlockedByGlassesID.Clear();
+
+        public void PrepareUnlocks()
+        {
+            var frame = DalamudServices.Framework.LastUpdateUTC;
+            var contentID = DalamudServices.PlayerState.ContentId;
+            if (frame != unlockFrame || contentID != unlockContentID)
+            {
+                unlockedByGlassesID.Clear();
+                unlockFrame     = frame;
+                unlockContentID = contentID;
+            }
+        }
+
+        public bool IsGlassesUnlocked(uint glassesID)
+        {
+            if (!unlockedByGlassesID.TryGetValue(glassesID, out var unlocked))
+            {
+                unlocked = glassesByID.TryGetValue(glassesID, out var glasses) &&
+                           DalamudServices.UnlockState.IsGlassesUnlocked(glasses);
+                unlockedByGlassesID.Add(glassesID, unlocked);
+            }
+
+            return unlocked;
+        }
 
         #region 常量
 

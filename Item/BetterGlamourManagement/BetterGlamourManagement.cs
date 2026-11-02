@@ -19,6 +19,7 @@ using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.Items;
 using OmniToolbox.Notifications;
+using TreeToolKit;
 using TreeTools.Threading;
 
 namespace OmniToolbox.TreePublic;
@@ -625,10 +626,7 @@ public sealed unsafe partial class BetterGlamourManagement
 
         NormalizeSelection();
         managerNativeUI?.UpdateData(config.Presets, selectedPresetIndex);
-        if (managerNativeUI is { IsOpen: false })
-        {
-            managerNativeUI.Open();
-        }
+        managerNativeUI?.OpenOrFocus();
         if (selectedPresetIndex >= 0 && selectedPresetIndex < config.Presets.Count)
             QueuePortraitPreview(config.Presets[selectedPresetIndex]);
         else

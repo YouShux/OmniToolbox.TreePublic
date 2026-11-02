@@ -1,8 +1,12 @@
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Game.Agent;
+using Dalamud.Game.ClientState.Keys;
 using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
+using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
@@ -33,7 +37,9 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
             ["Feature.HideMinimapIcons.IconScale"] = "Feature.HideMinimapIcons.IconScale",
             ["Feature.HideMinimapIcons.IconTooltip"] = "Feature.HideMinimapIcons.IconTooltip",
             ["Feature.HideMinimapIcons.KeepTextWhenHidden"] = "Feature.HideMinimapIcons.KeepTextWhenHidden",
-            ["Feature.HideMinimapIcons.KeepTextWhenHiddenHint"] = "Feature.HideMinimapIcons.KeepTextWhenHiddenHint"
+            ["Feature.HideMinimapIcons.KeepTextWhenHiddenHint"] = "Feature.HideMinimapIcons.KeepTextWhenHiddenHint",
+            ["Feature.HideMinimapIcons.RevealKey"] = "Feature.HideMinimapIcons.RevealKey",
+            ["Feature.HideMinimapIcons.RevealKeyHint"] = "Feature.HideMinimapIcons.RevealKeyHint"
         });
 
     private static readonly uint[] KnownIconIDs =
@@ -79,6 +85,10 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         aetheryteIconID = (uint)LuminaGetter.GetRowOrDefault<MapSymbol>(1).Icon;
         aethernetIconID = (uint)LuminaGetter.GetRowOrDefault<MapSymbol>(2).Icon;
         var lifetime = Activation;
+        var agentLifecycle = DService.Instance().AgentLifecycle;
+        lifetime.OnStopping(() => agentLifecycle.UnregisterListener(OnMapAgentUpdate));
+        agentLifecycle.RegisterListener(AgentEvent.PreUpdate, Dalamud.Game.Agent.AgentId.Map, OnMapAgentUpdate);
+        agentLifecycle.RegisterListener(AgentEvent.PostUpdate, Dalamud.Game.Agent.AgentId.Map, OnMapAgentUpdate);
         lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
             AddonEvent.PreDraw,
             NAVI_MAP_ADDON_NAME,
@@ -117,6 +127,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
 
     protected override void OnStop()
     {
+        RestoreMapControlState();
         ApplyCurrentMaps(true);
         hiddenNodes.Clear();
         originalIconScales.Clear();
@@ -189,15 +200,24 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         {
             var aetherytesOnTopLabel = OmniLoc.Get(this, "Feature.HideMinimapIcons.AetherytesOnTop");
             var keepTextLabel = OmniLoc.Get(this, "Feature.HideMinimapIcons.KeepTextWhenHidden");
+            var revealKeyLabel = OmniLoc.Get(this, "Feature.HideMinimapIcons.RevealKey");
+            var revealKeySize = OmniControls.MeasureCombo(GetRevealKeyName(config.RevealKey), OmniTheme.Scale(140f));
+            var spacing = ImGui.GetStyle().ItemInnerSpacing.X;
             using var settingsTable = OmniControls.SettingsTable(
                 "##hideMinimapIconsMarkerSettings",
                 [OmniControls.MeasureGroup([OmniControls.MeasureCheckbox(aetherytesOnTopLabel), OmniControls.HelpIconSize()]),
-                    OmniControls.MeasureGroup([OmniControls.MeasureCheckbox(keepTextLabel), OmniControls.HelpIconSize()])],
-                ["##hideMinimapIconsAetherytesOnTop", "##hideMinimapIconsKeepText"],
+                    OmniControls.MeasureGroup([OmniControls.MeasureCheckbox(keepTextLabel), OmniControls.HelpIconSize()]),
+                    OmniControls.MeasureGroup([ImGui.CalcTextSize(revealKeyLabel), revealKeySize, OmniControls.HelpIconSize()], spacing)],
+                ["##hideMinimapIconsAetherytesOnTop", "##hideMinimapIconsKeepText", "##hideMinimapIconsRevealKey"],
                 flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
             if (!settingsTable)
                 return changed;
 
+            using var rowStyle = ImRaii.PushStyle(
+                ImGuiStyleVar.FramePadding,
+                new Vector2(
+                    ImGui.GetStyle().FramePadding.X,
+                    MathF.Max(0f, (OmniTheme.CheckboxSize() - ImGui.GetTextLineHeight()) * 0.5f)));
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             if (OmniControls.Checkbox(aetherytesOnTopLabel, ref config.AetherytesOnTop))
@@ -216,6 +236,33 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
             }
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
             OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HideMinimapIcons.KeepTextWhenHiddenHint"));
+
+            ImGui.TableNextColumn();
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextUnformatted(revealKeyLabel);
+            OmniControls.SameLineOrWrap(revealKeySize.X + OmniControls.HelpIconSize().X + spacing, spacing);
+            using (var combo = OmniControls.Combo(
+                       "##hideMinimapIconsRevealKey",
+                       GetRevealKeyName(config.RevealKey),
+                       MathF.Min(revealKeySize.X,
+                           MathF.Max(1f, ImGui.GetContentRegionAvail().X - OmniControls.HelpIconSize().X - spacing))))
+            {
+                if (combo)
+                {
+                    ReadOnlySpan<VirtualKey> revealKeys = [VirtualKey.SHIFT, VirtualKey.MENU, VirtualKey.CONTROL];
+                    foreach (var key in revealKeys)
+                    {
+                        if (!ImGui.Selectable(GetRevealKeyName(key), config.RevealKey == key) || config.RevealKey == key)
+                            continue;
+
+                        config.RevealKey   = key;
+                        changed            = true;
+                        mapSettingsChanged = true;
+                    }
+                }
+            }
+            OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X, spacing);
+            OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HideMinimapIcons.RevealKeyHint"));
         }
 
         if (mapSettingsChanged && IsEnabled)
@@ -290,6 +337,13 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
 
         return changed;
     }
+
+    private static string GetRevealKeyName(VirtualKey key) => key switch
+    {
+        VirtualKey.MENU => "Alt",
+        VirtualKey.CONTROL => "Ctrl",
+        _ => "Shift"
+    };
 
     private bool DrawIconOption
     (
@@ -380,6 +434,13 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
 
     private void ApplyCurrentMaps(bool restore)
     {
+        if (restore || !config.AetherytesOnTop)
+        {
+            var agent = AgentMap.Instance();
+            if (agent is not null)
+                agent->IsControlKeyPressed = true;
+        }
+
         var unitManager = RaptureAtkUnitManager.Instance();
         if (unitManager != null)
         {
@@ -401,6 +462,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         }
 
         RestoreHiddenMapNodes(&addon->AtkUnitBase, NAVI_MAP_ADDON_NAME);
+        var hideEnabled = !restore && config.HideOnMinimap && !DalamudServices.KeyState[config.RevealKey];
         for (var index = 0; index < addon->NaviMap.NaviMapMarkers.Length; index++)
         {
             ref var marker = ref addon->NaviMap.NaviMapMarkers[index];
@@ -413,7 +475,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                 marker.ComponentNode,
                 config.HiddenIconIDs.Contains(marker.IconId) || config.HiddenIconIDs.Contains(marker.SecondaryIconId),
                 restore,
-                config.HideOnMinimap,
+                hideEnabled,
                 (nint)addon);
         }
 
@@ -433,7 +495,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
 
         RestoreHiddenMapNodes(&addon->AtkUnitBase, AREA_MAP_ADDON_NAME);
         ApplyAreaMapMarkers(addon->ComponentMap, restore, (nint)addon);
-        ApplyAetherytePriority(&addon->AtkUnitBase, AREA_MAP_ADDON_NAME, restore);
     }
 
     private void ApplyTeleportTown
@@ -465,13 +526,14 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
             return;
         }
 
+        var hideEnabled = !restore && config.HideOnAreaMap && !DalamudServices.KeyState[config.RevealKey];
         for (var index = 6; index < component->UldManager.NodeListCount; index++)
         {
             var node = component->UldManager.NodeList[index];
             if (node == null || node->GetNodeType() != NodeType.Component)
                 continue;
 
-            ApplyMarkerNode((AtkComponentNode*)node, false, restore, config.HideOnAreaMap, addon);
+            ApplyMarkerNode((AtkComponentNode*)node, false, restore, hideEnabled, addon);
         }
     }
 
@@ -748,6 +810,8 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         public bool AetherytesOnTop = true;
 
         public bool KeepTextWhenHidden = true;
+
+        public VirtualKey RevealKey = VirtualKey.SHIFT;
 
         public bool HideOnMinimap { get; set; } = true;
 

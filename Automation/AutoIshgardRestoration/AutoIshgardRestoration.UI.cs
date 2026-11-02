@@ -15,6 +15,8 @@ public sealed partial class AutoIshgardRestoration
 
     private bool windowSizePending;
 
+    private bool windowFocusRequested;
+
     private float lastWindowScale;
 
     private Vector2 lastViewportSize;
@@ -81,6 +83,11 @@ public sealed partial class AutoIshgardRestoration
                     ImGuiWindowFlags.NoBackground;
         if (!windowExpanded || windowCollapsed) flags |= ImGuiWindowFlags.NoResize;
         OmniWindowChrome.SetNextWindowPosition("###AutoIshgardRestorationWindow");
+        if (windowFocusRequested)
+        {
+            ImGui.SetNextWindowFocus();
+            windowFocusRequested = false;
+        }
         if (!ImGui.Begin("###AutoIshgardRestorationWindow", flags))
         {
             ImGui.End();
@@ -434,9 +441,10 @@ public sealed partial class AutoIshgardRestoration
 
     private void OpenConfigurationWindow()
     {
-        windowOpen        = true;
-        windowExpanded    = false;
-        windowCollapsed   = false;
-        windowSizePending = true;
+        windowOpen           = true;
+        windowExpanded       = false;
+        windowCollapsed      = false;
+        windowSizePending    = true;
+        windowFocusRequested = true;
     }
 }

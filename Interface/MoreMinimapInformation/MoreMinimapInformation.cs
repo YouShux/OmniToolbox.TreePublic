@@ -1,3 +1,4 @@
+using System.Threading.Tasks;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Interface.Textures.TextureWraps;
@@ -13,7 +14,7 @@ using TreeToolKit;
 namespace OmniToolbox.TreePublic;
 
 [ModuleApiVersion(1)]
-public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation.Settings config) : OmniModuleBase
+public sealed partial class MoreMinimapInformation(MoreMinimapInformation.Settings config) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
     {
@@ -49,6 +50,11 @@ public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation
     private readonly Dictionary<uint, uint>  gatheringIcons       = [];
     private readonly HashSet<uint>           enemyHaters          = [];
     private readonly Dictionary<nint, byte>  hiddenEnemyNodes     = [];
+    private List<AetherCurrentLocation>?     aetherCurrentLocations;
+    private string                          aetherCurrentDataVersion = string.Empty;
+    private Task?                           aetherCurrentTask;
+    private uint                            aetherCurrentMapID;
+    private uint                            aetherSelectedMapID;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -62,7 +68,8 @@ public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation
         };
         activation.Add(mapController);
         activation.OnStopping(mapController.Disable);
-        LoadAetherCurrents();
+        if (config.AetherCurrents)
+            activation.TrackStartup(aetherCurrentTask = LoadAetherCurrentsAsync(activation));
         UpdateMarkers(DalamudServices.Framework);
         mapController.Enable();
         addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
@@ -74,7 +81,7 @@ public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation
 
     }
 
-    protected override void OnStop()
+    protected override unsafe void OnStop()
     {
         addonEvents = null;
         var unitManager = RaptureAtkUnitManager.Instance();
@@ -83,6 +90,9 @@ public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation
         minimapRoot         = null;
         mapController       = null;
         playerMarkerTexture = null;
+        aetherCurrentTask   = null;
+        aetherCurrentMapID  = 0;
+        aetherSelectedMapID = 0;
         objectMarkers.Clear();
         aetherCurrentMarkers.Clear();
         gatheringIcons.Clear();
@@ -167,6 +177,10 @@ public sealed unsafe partial class MoreMinimapInformation(MoreMinimapInformation
                 }
             }
         }
+        if (changed && config.AetherCurrents && mapController is not null &&
+            aetherCurrentLocations is null && aetherCurrentTask is not { IsCompleted: false })
+            Activation.Track(aetherCurrentTask = LoadAetherCurrentsAsync(Activation));
+
         return changed;
     }
 

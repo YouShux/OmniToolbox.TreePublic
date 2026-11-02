@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using CsvHelper;
 using Lumina.Excel.Sheets;
 using OmenTools.Info.Game.ItemSource;
 using OmenTools.Info.Game.ItemSource.Enums;
@@ -125,12 +124,12 @@ public sealed unsafe partial class DutyLootPreview
 
     private static List<T> Load<T>
     (
-        string             fileName,
-        Func<CsvReader, T> readRow
+        string                   fileName,
+        Func<GameDataCSV.Row, T> readRow
     )
     {
         var rows = new List<T>();
-        EmbeddedData.ReadCSV(fileName, csv => rows.Add(readRow(csv)));
+        EmbeddedData.ReadRows(fileName, csv => rows.Add(readRow(csv)));
         return rows;
     }
 

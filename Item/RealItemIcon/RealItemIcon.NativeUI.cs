@@ -59,6 +59,7 @@ public sealed partial class RealItemIcon
         private readonly Dictionary<nint, ReplacementEntry> replacements   = [];
         private readonly Dictionary<nint, OverlayEntry>     overlays       = [];
         private readonly List<nint>                         keysToRemove   = [];
+        private readonly Dictionary<nint, Dictionary<nint, CachedIconTarget>> targetCaches = [];
         private bool                                        disposed;
 
         public RealItemIconNativeUI
@@ -74,14 +75,14 @@ public sealed partial class RealItemIcon
             {
                 for (var eventIndex = 0; eventIndex < ObservedEvents.Length; eventIndex++)
                 {
-                    addonEvents.Register(ObservedEvents[eventIndex], GLASSES_ADDON_NAME, OnGlassesAddon);
-                    addonEvents.Register(ObservedEvents[eventIndex], ITEM_DETAIL_ADDON_NAME, OnItemDetailAddon);
+                    addonEvents.Register(ObservedEvents[eventIndex], GLASSES_ADDON_NAME, OnAddon);
+                    addonEvents.Register(ObservedEvents[eventIndex], ITEM_DETAIL_ADDON_NAME, OnAddon);
                     for (var addonIndex = 0; addonIndex < InventoryAddonNames.Length; addonIndex++)
                     {
                         addonEvents.Register(
                             ObservedEvents[eventIndex],
                             InventoryAddonNames[addonIndex],
-                            OnInventoryAddon);
+                            OnAddon);
                     }
                 }
             }
@@ -94,6 +95,7 @@ public sealed partial class RealItemIcon
 
         public void OnConfigurationChanged()
         {
+            resolver.InvalidateUnlocks();
             if (!CanApply)
             {
                 RestoreAll();
@@ -121,7 +123,7 @@ public sealed partial class RealItemIcon
 
         private bool CanApply => config.FacewearGlasses;
 
-        private void OnGlassesAddon
+        private void OnAddon
         (
             AddonEvent eventType,
             AddonArgs  args
@@ -131,6 +133,13 @@ public sealed partial class RealItemIcon
             if (addonAddress == nint.Zero)
             {
                 return;
+            }
+
+            if (eventType != AddonEvent.PostDraw)
+            {
+                resolver.InvalidateUnlocks();
+                if (targetCaches.TryGetValue(addonAddress, out var targets))
+                    targets.Clear();
             }
 
             if (eventType == AddonEvent.PreFinalize)
@@ -145,61 +154,19 @@ public sealed partial class RealItemIcon
                 return;
             }
 
-            ApplyToGlassesAddon((AtkUnitBase*)addonAddress);
-        }
-
-        private void OnItemDetailAddon
-        (
-            AddonEvent eventType,
-            AddonArgs  args
-        )
-        {
-            var addonAddress = args.Addon.Address;
-            if (addonAddress == nint.Zero)
+            resolver.PrepareUnlocks();
+            switch (args.AddonName)
             {
-                return;
+                case GLASSES_ADDON_NAME:
+                    ApplyToGlassesAddon((AtkUnitBase*)addonAddress);
+                    break;
+                case ITEM_DETAIL_ADDON_NAME:
+                    ApplyToItemDetailAddon((AtkUnitBase*)addonAddress);
+                    break;
+                default:
+                    ApplyToInventoryAddon((AtkUnitBase*)addonAddress, args.AddonName);
+                    break;
             }
-
-            if (eventType == AddonEvent.PreFinalize)
-            {
-                ForgetAddon(addonAddress);
-                return;
-            }
-
-            if (!CanApply)
-            {
-                RestoreAddon(addonAddress);
-                return;
-            }
-
-            ApplyToItemDetailAddon((AtkUnitBase*)addonAddress);
-        }
-
-        private void OnInventoryAddon
-        (
-            AddonEvent eventType,
-            AddonArgs  args
-        )
-        {
-            var addonAddress = args.Addon.Address;
-            if (addonAddress == nint.Zero)
-            {
-                return;
-            }
-
-            if (eventType == AddonEvent.PreFinalize)
-            {
-                ForgetAddon(addonAddress);
-                return;
-            }
-
-            if (!CanApply)
-            {
-                RestoreAddon(addonAddress);
-                return;
-            }
-
-            ApplyToInventoryAddon((AtkUnitBase*)addonAddress);
         }
 
         private void ApplyToGlassesAddon(AtkUnitBase* addon)
@@ -219,7 +186,7 @@ public sealed partial class RealItemIcon
                     continue;
                 }
 
-                var target = FindBestRendererIconTarget(renderer);
+                var target = ResolveIconTarget((nint)addon, &renderer->UldManager, renderer);
                 if (target.IsEmpty)
                 {
                     continue;
@@ -364,7 +331,7 @@ public sealed partial class RealItemIcon
                 RemoveOverlay(primaryTarget.Node);
             }
 
-            var fallbackTarget = FindBestDetailIconTarget(&addon->UldManager);
+            var fallbackTarget = ResolveIconTarget((nint)addon, &addon->UldManager);
             if (!fallbackTarget.IsEmpty &&
                 fallbackTarget.Address != primaryTarget.Address &&
                 ApplyReplacement((nint)addon, fallbackTarget, replacement.IconID))
@@ -373,7 +340,7 @@ public sealed partial class RealItemIcon
             }
         }
 
-        private void ApplyToInventoryAddon(AtkUnitBase* addon)
+        private void ApplyToInventoryAddon(AtkUnitBase* addon, string addonName)
         {
             if (addon == null)
             {
@@ -381,31 +348,33 @@ public sealed partial class RealItemIcon
             }
 
             var itemOrderModule = ItemOrderModule.Instance();
-            var sorter = itemOrderModule == null ? null : GetInventorySorter(addon, itemOrderModule);
+            var sorter = itemOrderModule == null ? null : GetInventorySorter(addon, addonName, itemOrderModule);
             if (sorter == null)
             {
                 RestoreAddon((nint)addon);
                 return;
             }
 
-            inventoryIndex.Refresh();
-            if (IsRetainerInventoryParent(addon->NameString))
+            if (inventoryIndex.Refresh())
+                resolver.InvalidateUnlocks();
+            if (IsRetainerInventoryParent(addonName))
             {
-                ApplyToRetainerInventoryParent(addon, sorter);
+                ApplyToRetainerInventoryParent(addon, addonName, sorter);
                 return;
             }
 
-            ApplyToInventorySlots(addon, sorter);
+            ApplyToInventorySlots(addon, addonName, sorter);
         }
 
         private void ApplyToRetainerInventoryParent
         (
             AtkUnitBase*           addon,
+            string                 addonName,
             ItemOrderModuleSorter* sorter
         )
         {
             var parentTab = GetInventoryTab(addon);
-            switch (addon->NameString)
+            switch (addonName)
             {
                 case "InventoryRetainer":
                     ApplyToChildInventorySlots(((AddonInventoryRetainer*)addon)->AddonControl, sorter, parentTab);
@@ -431,9 +400,10 @@ public sealed partial class RealItemIcon
                 }
 
                 var childAddon = child.Value->AtkUnitBase;
-                if (IsRetainerGridAddon(childAddon->NameString))
+                var childName = childAddon->NameString;
+                if (IsRetainerGridAddon(childName))
                 {
-                    ApplyToInventorySlots(childAddon, sorter, parentTab);
+                    ApplyToInventorySlots(childAddon, childName, sorter, parentTab);
                 }
             }
         }
@@ -441,12 +411,14 @@ public sealed partial class RealItemIcon
         private void ApplyToInventorySlots
         (
             AtkUnitBase*           addon,
+            string                 addonName,
             ItemOrderModuleSorter* sorter,
             int                    parentTabOverride = int.MinValue
         )
         {
-            var addonName = addon->NameString;
             var slotCount = addonName is "InventoryBuddy" or "InventoryBuddy2" ? 70 : 35;
+            var parentTab = parentTabOverride == int.MinValue ? GetParentInventoryTab(addon) : parentTabOverride;
+            var holderID = GetInventoryHolderID(addonName);
             for (var index = 0; index < slotCount; index++)
             {
                 var dragDrop = GetInventorySlot(addon, addonName, index);
@@ -456,7 +428,7 @@ public sealed partial class RealItemIcon
                 }
 
                 var target = CreateTarget(dragDrop);
-                if (!TryGetInventoryItemID(addon, sorter, index, parentTabOverride, out var itemId) ||
+                if (!TryGetInventoryItemID(addonName, sorter, index, parentTab, holderID, out var itemId) ||
                     !resolver.TryGetByItemID(itemId, out var replacement))
                 {
                     RestoreTarget((nint)addon, target);
@@ -480,19 +452,17 @@ public sealed partial class RealItemIcon
 
         private bool TryGetInventoryItemID
         (
-            AtkUnitBase*           addon,
+            string                 addonName,
             ItemOrderModuleSorter* sorter,
             int                    visibleSlot,
-            int                    parentTabOverride,
+            int                    parentTab,
+            ulong                  holderID,
             out uint               itemID
         )
         {
             itemID = 0;
-            var parentTab = parentTabOverride == int.MinValue
-                ? GetParentInventoryTab(addon)
-                : parentTabOverride;
             var sortedIndex = RealItemIconInventoryIndex.GetSortedIndex(
-                addon->NameString,
+                addonName,
                 parentTab,
                 visibleSlot);
             if (sortedIndex < 0 || sortedIndex >= sorter->Items.LongCount)
@@ -506,7 +476,6 @@ public sealed partial class RealItemIcon
                 return false;
             }
 
-            var holderID = GetInventoryHolderID(addon->NameString);
             return holderID != 0 && inventoryIndex.TryGetItemID(
                 holderID,
                 (InventoryType)((uint)sorter->InventoryType + entry->Page),
@@ -542,18 +511,19 @@ public sealed partial class RealItemIcon
         private static ItemOrderModuleSorter* GetInventorySorter
         (
             AtkUnitBase*     addon,
+            string           addonName,
             ItemOrderModule* itemOrderModule
         ) =>
-            addon->NameString switch
+            addonName switch
             {
-                _ when IsInventoryGridAddon(addon->NameString) => itemOrderModule->InventorySorter,
+                _ when IsInventoryGridAddon(addonName) => itemOrderModule->InventorySorter,
                 "InventoryBuddy" or "InventoryBuddy2" => ((AddonInventoryBuddy*)addon)->TabIndex switch
                 {
                     0 => itemOrderModule->SaddleBagSorter,
                     1 => itemOrderModule->PremiumSaddleBagSorter,
                     _ => null,
                 },
-                _ when IsRetainerGridAddon(addon->NameString) || IsRetainerInventoryParent(addon->NameString) =>
+                _ when IsRetainerGridAddon(addonName) || IsRetainerInventoryParent(addonName) =>
                     GetActiveRetainerSorter(itemOrderModule),
                 _ => null,
             };
@@ -567,17 +537,22 @@ public sealed partial class RealItemIcon
                 : null;
         }
 
-        private static int GetInventoryTab(AtkUnitBase* addon) =>
-            addon->NameString switch
+        private static int GetInventoryTab(AtkUnitBase* addon)
+        {
+            ReadOnlySpan<byte> addonName = addon->Name;
+            addonName = addonName[..addonName.IndexOf((byte)0)];
+            return addonName switch
             {
-                "Inventory" => ((AddonInventory*)addon)->TabIndex,
-                "InventoryLarge" => ((AddonInventoryLarge*)addon)->TabIndex,
-                "InventoryExpansion" => ((AddonInventoryExpansion*)addon)->TabIndex,
-                "InventoryRetainer" => ((AddonInventoryRetainer*)addon)->TabIndex,
-                "InventoryRetainerLarge" => ((AddonInventoryRetainerLarge*)addon)->TabIndex,
-                "InventoryBuddy" or "InventoryBuddy2" => ((AddonInventoryBuddy*)addon)->TabIndex,
+                _ when addonName.SequenceEqual("Inventory"u8) => ((AddonInventory*)addon)->TabIndex,
+                _ when addonName.SequenceEqual("InventoryLarge"u8) => ((AddonInventoryLarge*)addon)->TabIndex,
+                _ when addonName.SequenceEqual("InventoryExpansion"u8) => ((AddonInventoryExpansion*)addon)->TabIndex,
+                _ when addonName.SequenceEqual("InventoryRetainer"u8) => ((AddonInventoryRetainer*)addon)->TabIndex,
+                _ when addonName.SequenceEqual("InventoryRetainerLarge"u8) => ((AddonInventoryRetainerLarge*)addon)->TabIndex,
+                _ when addonName.SequenceEqual("InventoryBuddy"u8) || addonName.SequenceEqual("InventoryBuddy2"u8) =>
+                    ((AddonInventoryBuddy*)addon)->TabIndex,
                 _ => 0,
             };
+        }
 
         private static int GetParentInventoryTab(AtkUnitBase* addon)
         {
@@ -677,6 +652,99 @@ public sealed partial class RealItemIcon
                 ref best,
                 ref bestScore);
             return best;
+        }
+
+        private IconTarget ResolveIconTarget(nint addonAddress, AtkUldManager* uld,
+            AtkComponentListItemRenderer* renderer = null)
+        {
+            if (!targetCaches.TryGetValue(addonAddress, out var targets))
+                targetCaches.Add(addonAddress, targets = []);
+            if (!targets.TryGetValue((nint)uld, out var cached))
+                targets.Add((nint)uld, cached = new());
+            var dragDrop = renderer is null ? null : renderer->DragDropComponent;
+            var rendererTarget = CreateTarget(dragDrop);
+            var rendererState = rendererTarget.IsEmpty ? default :
+                CreateIconNodeState(rendererTarget.Node, (AtkComponentBase*)dragDrop, ComponentType.DragDrop, rendererTarget);
+            var changed = !cached.Parsed || cached.RendererState != rendererState;
+            var count = 0;
+            CaptureIconNodes(uld, 0, cached.Nodes, ref count, ref changed);
+            if (count < cached.Nodes.Count)
+            {
+                cached.Nodes.RemoveRange(count, cached.Nodes.Count - count);
+                changed = true;
+            }
+            if (changed)
+            {
+                cached.Target = renderer is null ? FindBestDetailIconTarget(uld) : FindBestRendererIconTarget(renderer);
+                cached.RendererState = rendererState;
+                cached.Parsed = true;
+            }
+            return cached.Target;
+        }
+
+        private static void CaptureIconNodes(AtkUldManager* uld, int depth, List<IconNodeState> nodes,
+            ref int count, ref bool changed)
+        {
+            if (uld is null || depth > MAX_NODE_DEPTH || uld->NodeList is null)
+                return;
+            for (var index = 0; index < uld->NodeListCount; index++)
+            {
+                var node = uld->NodeList[index];
+                if (node is null)
+                    continue;
+                var component = node->Type == NodeType.Component ? node->GetAsAtkComponentNode()->Component : null;
+                var info = component is null ? null : (AtkUldComponentInfo*)component->UldManager.Objects;
+                var componentType = info is null ? default : info->ComponentType;
+                var target = default(IconTarget);
+                if (node->Type == NodeType.Image)
+                    target = CreateTarget((AtkImageNode*)node);
+                else if (component is not null && componentType == ComponentType.Icon)
+                    target = CreateTarget((AtkComponentIcon*)component);
+                else if (component is not null && componentType == ComponentType.DragDrop)
+                    target = CreateTarget((AtkComponentDragDrop*)component);
+                var state = CreateIconNodeState(node, component, componentType, target);
+                if (count == nodes.Count)
+                {
+                    nodes.Add(state);
+                    changed = true;
+                }
+                else if (nodes[count] != state)
+                {
+                    nodes[count] = state;
+                    changed = true;
+                }
+                count++;
+                if (component is not null)
+                    CaptureIconNodes(&component->UldManager, depth + 1, nodes, ref count, ref changed);
+            }
+        }
+
+        private static IconNodeState CreateIconNodeState(AtkResNode* node, AtkComponentBase* component,
+            ComponentType componentType, IconTarget target)
+        {
+            var anchor = target.IsEmpty ? node : target.Node;
+            var text = node->Type == NodeType.Text ? (AtkTextNode*)node : null;
+            var visible = (!target.IsEmpty || text is not null) && anchor->IsVisible();
+            var hasContent = false;
+            var width = 0f;
+            var height = 0f;
+            var x = 0f;
+            if (visible)
+            {
+                hasContent = !target.IsEmpty ? GetCurrentIconID(target) != 0 :
+                    text->NodeText.StringPtr.HasValue && *text->NodeText.StringPtr.Value != 0;
+                if (hasContent)
+                {
+                    x = anchor->GetXFloat();
+                    if (!target.IsEmpty)
+                    {
+                        width = anchor->GetWidth();
+                        height = anchor->GetHeight();
+                    }
+                }
+            }
+            return new((nint)node, (nint)component, (nint)target.Icon, (nint)target.Node, node->Type, componentType,
+                width, height, x, visible, hasContent);
         }
 
         private static IconTarget FindBestDetailIconTarget(AtkUldManager* uld)
@@ -957,6 +1025,7 @@ public sealed partial class RealItemIcon
             {
                 return;
             }
+            targetCaches.Remove(addonAddress);
 
             keysToRemove.Clear();
             foreach (var pair in replacements)
@@ -974,6 +1043,7 @@ public sealed partial class RealItemIcon
 
         private void ForgetAddon(nint addonAddress)
         {
+            targetCaches.Remove(addonAddress);
             keysToRemove.Clear();
             foreach (var pair in replacements)
             {
@@ -999,6 +1069,7 @@ public sealed partial class RealItemIcon
 
         private void RestoreAll()
         {
+            targetCaches.Clear();
             foreach (var entry in replacements.Values)
             {
                 RestoreEntry(entry);
@@ -1069,7 +1140,15 @@ public sealed partial class RealItemIcon
 
             var overlay = entry.Node;
             overlay.NodeFlags          = NodeFlags.Visible | NodeFlags.Enabled;
-            overlay.TexturePath        = COLLECTED_CHECK_TEXTURE_PATH;
+            var stage = AtkStage.Instance();
+            var textureTheme = stage->AtkUIColorHolder->ActiveColorThemeType;
+            var textureScale = stage->AtkTextureResourceManager->DefaultTextureScale;
+            if (entry.TextureTheme != textureTheme || entry.TextureScale != textureScale ||
+                !overlay.PartsList[0]->IsTextureReady)
+            {
+                overlay.TexturePath = COLLECTED_CHECK_TEXTURE_PATH;
+                overlays[key] = entry with { TextureTheme = textureTheme, TextureScale = textureScale };
+            }
             overlay.TextureCoordinates = CollectedCheckTextureCoordinates;
             overlay.TextureSize        = CollectedCheckTextureSize;
             var width = Math.Max(16f, iconNode->GetWidth() * iconNode->GetScaleX());
@@ -1358,6 +1437,17 @@ public sealed partial class RealItemIcon
             public bool IsEmpty => Kind == TargetKind.None || Address == nint.Zero || Node == null;
         }
 
+        private sealed class CachedIconTarget
+        {
+            public readonly List<IconNodeState> Nodes = [];
+            public IconTarget Target;
+            public IconNodeState RendererState;
+            public bool Parsed;
+        }
+
+        private readonly record struct IconNodeState(nint Address, nint Component, nint Icon, nint TargetNode, NodeType Type,
+            ComponentType ComponentType, float Width, float Height, float X, bool Visible, bool HasContent);
+
         private readonly record struct ReplacementEntry
         (
             nint       AddonAddress,
@@ -1371,7 +1461,9 @@ public sealed partial class RealItemIcon
         private readonly record struct OverlayEntry
         (
             SimpleImageNode Node,
-            nint            AddonAddress
+            nint            AddonAddress,
+            byte            TextureTheme = 0,
+            int             TextureScale = 0
         );
 
         private enum TargetKind

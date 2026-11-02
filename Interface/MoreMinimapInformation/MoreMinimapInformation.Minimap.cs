@@ -1,5 +1,6 @@
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Game.ClientState.Conditions;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using KamiToolKit.Enums;
@@ -54,7 +55,8 @@ public sealed unsafe partial class MoreMinimapInformation
             UpdateMinimapIcon(marker, agentMap->CurrentMapId, halfSize, center, scaling, transform, circular);
 
         var services = DService.Instance();
-        if (config.Enemies && services.ClientState.IsLoggedIn && !services.ClientState.IsPvP && !services.Condition.IsBetweenAreas)
+        if (config.Enemies && services.ClientState.IsLoggedIn && !services.ClientState.IsPvP &&
+            !services.Condition[ConditionFlag.BetweenAreas] && !services.Condition[ConditionFlag.BetweenAreas51])
         {
             foreach (ref var marker in map.NaviMapMarkers)
             {

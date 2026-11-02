@@ -7,6 +7,7 @@ using OmenTools.Extensions;
 using OmenTools.Interop.Game.Helpers;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI.Theme;
+using TreeToolKit;
 
 namespace OmniToolbox.TreePublic;
 
@@ -207,7 +208,7 @@ public sealed unsafe partial class BetterGlamourManagement
         private readonly Func<bool>                               canImport;
         private readonly Action                                   onAbortImport;
         private TextNode?                                         presetLabel;
-        private DropDownNode<BetterGlamourPreset>?                presetDropDown;
+        private SafeDropDownNode<BetterGlamourPreset>?            presetDropDown;
         private TextButtonNode?                                   importButton;
         private string?                                           displayedPresetName;
         private TextButtonNode?                                   exportButton;
@@ -319,10 +320,15 @@ public sealed unsafe partial class BetterGlamourManagement
             ResizeContent();
         }
 
-        protected override unsafe void OnHide(AtkUnitBase* addon) => onAbortImport();
+        protected override unsafe void OnHide(AtkUnitBase* addon)
+        {
+            presetDropDown?.ClosePopup();
+            onAbortImport();
+        }
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {
+            presetDropDown?.ClosePopup();
             onAbortImport();
             presetLabel            = null;
             presetDropDown         = null;

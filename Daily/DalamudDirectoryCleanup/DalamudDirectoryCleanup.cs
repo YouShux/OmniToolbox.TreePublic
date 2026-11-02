@@ -140,7 +140,7 @@ public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
             new Vector2(0, height), stretchColumn: 2);
         if (!table)
             return;
-        ImGui.TableSetupScrollFreeze(1, 1);
+        ImGui.TableSetupScrollFreeze(2, 1);
         OmniControls.BeginTableHeaderRow(rowContentHeight);
         ImGui.TableNextColumn();
         ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));

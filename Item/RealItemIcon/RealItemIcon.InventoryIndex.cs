@@ -11,13 +11,13 @@ public sealed partial class RealItemIcon
         private long                                        indexedRevision  = -1;
         private ulong                                       indexedContentID;
 
-        public void Refresh()
+        public bool Refresh()
         {
             var revision = inventoryService.GetSnapshotRevision();
             var contentID = DalamudServices.PlayerState.ContentId;
             if (revision == indexedRevision && contentID == indexedContentID)
             {
-                return;
+                return false;
             }
 
             indexedRevision  = revision;
@@ -33,6 +33,8 @@ public sealed partial class RealItemIcon
                     itemIdsBySlot[new(holderID, item.ContainerType, item.SlotIndex)] = item.ItemID;
                 }
             }
+
+            return true;
         }
 
         public bool TryGetItemID
