@@ -45,7 +45,7 @@ public sealed partial class BetterGlamourManagement
                     image,
                     error,
                     status = JsonSerializer.Deserialize<JsonElement>(status)
-                });
+                }, OmniToolbox.IO.OmniJson.SystemTextOptions);
             }
         }
 

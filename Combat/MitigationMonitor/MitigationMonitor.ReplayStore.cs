@@ -15,6 +15,7 @@ public sealed partial class MitigationMonitor
     {
         private static readonly JsonSerializerOptions JSONOptions = new()
         {
+            TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),
             WriteIndented = true,
             Converters = { new JsonStringEnumConverter() }
         };

@@ -83,7 +83,7 @@ public sealed unsafe partial class BetterGlamourManagement
             available = remoteEnabled,
             error,
             data
-        });
+        }, OmniToolbox.IO.OmniJson.SystemTextOptions);
     }
 
     private string ReadFrameCache(string request)
@@ -120,7 +120,7 @@ public sealed unsafe partial class BetterGlamourManagement
         {
             ContentID = contentID,
             Presets = entries
-        })));
+        }, OmniToolbox.IO.OmniJson.SystemTextOptions)));
 
     private string RemoteRequest(string json)
     {
@@ -161,7 +161,7 @@ public sealed unsafe partial class BetterGlamourManagement
                             ok = true,
                             image = string.Empty,
                             changed = true
-                        });
+                        }, OmniToolbox.IO.OmniJson.SystemTextOptions);
                     }
 
                     return portraitPreview?.PhoneFrame() ?? "{\"ok\":false,\"error\":\"预览未就绪\"}";
@@ -188,14 +188,14 @@ public sealed unsafe partial class BetterGlamourManagement
                             name = x.Name,
                             iconId = x.IconID
                         })
-                    });
+                    }, OmniToolbox.IO.OmniJson.SystemTextOptions);
                 }
                 case "export":
                     return JsonSerializer.Serialize(new
                     {
                         ok = true,
                         text = GlamourClipboard.Export(GetRemotePreset(id))
-                    });
+                    }, OmniToolbox.IO.OmniJson.SystemTextOptions);
                 case "import":
                 case "import-website":
                 {
@@ -361,7 +361,7 @@ public sealed unsafe partial class BetterGlamourManagement
             {
                 ok = false,
                 error = exception.Message
-            });
+            }, OmniToolbox.IO.OmniJson.SystemTextOptions);
         }
     }
 
@@ -453,7 +453,7 @@ public sealed unsafe partial class BetterGlamourManagement
                 node,
                 active = preview.NativeButtonChecked(node)
             })
-        });
+        }, OmniToolbox.IO.OmniJson.SystemTextOptions);
     }
 
     private string NativeButtonAtlas()

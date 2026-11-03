@@ -439,7 +439,7 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
                             requestType,
                             requestId = requestID
                         }
-                    }),
+                    }, OmniToolbox.IO.OmniJson.SystemTextOptions),
                     cancellationToken);
                 using var response = await completion.Task.WaitAsync(RequestTimeout, cancellationToken);
                 ValidateRequestResponse(requestType, response.RootElement);

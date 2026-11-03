@@ -93,6 +93,7 @@ public sealed partial class BetterGlamourManagement
         private ICallGateProvider<nint, int, int, long, object>? frameIpc;
         private static readonly JsonSerializerOptions            JSON                     = new()
         {
+            TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),
             IncludeFields = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };

@@ -34,48 +34,36 @@ public sealed unsafe partial class DutyLootPreview
         switch (dropsLoadStep)
         {
             case 0:
-                foreach (var boss in Load("DungeonBoss.csv", csv => (
-                    DutyID: csv.GetField<uint>("ContentFinderConditionId"),
-                    FightNo: csv.GetField<uint>("FightNo"),
-                    NameID: csv.GetField<uint>("BNpcNameId"))))
+                foreach (var boss in EmbeddedData.GetDungeonSources().Bosses)
                 {
-                    bossRows.TryAdd((boss.DutyID, boss.FightNo), boss.NameID);
+                    bossRows.TryAdd((boss.ContentFinderConditionID, boss.FightNo), boss.BNPCNameID);
                 }
                 dropsLoadStep = 1;
                 return false;
             case 1:
-                foreach (var chest in Load("DungeonChest.csv", csv => (
-                    ID: csv.GetField<uint>("RowId"),
-                    DutyID: csv.GetField<uint>("ContentFinderConditionId"))))
+                foreach (var chest in EmbeddedData.GetDungeonSources().Chests)
                 {
-                    chestRows.TryAdd(chest.ID, chest.DutyID);
+                    chestRows.TryAdd(chest.RowID, chest.ContentFinderConditionID);
                 }
                 dropsLoadStep = 2;
                 return false;
             case 2:
-                foreach (var drop in Load("DungeonBossDrop.csv", csv => (
-                    DutyID: csv.GetField<uint>("ContentFinderConditionId"),
-                    FightNo: csv.GetField<uint>("FightNo"),
-                    ItemID: csv.GetField<uint>("ItemId"))))
+                foreach (var drop in EmbeddedData.GetDungeonSources().BossDrops)
                 {
-                    AddBoss(drop.DutyID, drop.FightNo, drop.ItemID);
+                    AddBoss(drop.ContentFinderConditionID, drop.FightNo, drop.ItemID);
                 }
                 dropsLoadStep = 3;
                 return false;
             case 3:
-                foreach (var drop in Load("DungeonBossChest.csv", csv => (
-                    DutyID: csv.GetField<uint>("ContentFinderConditionId"),
-                    FightNo: csv.GetField<uint>("FightNo"),
-                    ItemID: csv.GetField<uint>("ItemId"))))
+                foreach (var drop in EmbeddedData.GetDungeonSources().BossChests)
                 {
-                    AddBoss(drop.DutyID, drop.FightNo, drop.ItemID);
+                    AddBoss(drop.ContentFinderConditionID, drop.FightNo, drop.ItemID);
                 }
                 dropsLoadStep = 4;
                 return false;
             case 4:
-                pendingChestItems = Load("DungeonChestItem.csv", csv => (
-                    ChestID: csv.GetField<uint>("ChestId"),
-                    ItemID: csv.GetField<uint>("ItemId")));
+                pendingChestItems = EmbeddedData.GetDungeonSources().ChestItems
+                    .Select(static row => (row.ChestID, row.ItemID)).ToList();
                 pendingChestItemIndex = 0;
                 dropsLoadStep = 5;
                 return false;
@@ -120,17 +108,6 @@ public sealed unsafe partial class DutyLootPreview
         }
 
         AddDrop(dutyID, itemID, source);
-    }
-
-    private static List<T> Load<T>
-    (
-        string                   fileName,
-        Func<GameDataCSV.Row, T> readRow
-    )
-    {
-        var rows = new List<T>();
-        EmbeddedData.ReadRows(fileName, csv => rows.Add(readRow(csv)));
-        return rows;
     }
 
     private void AddDrop

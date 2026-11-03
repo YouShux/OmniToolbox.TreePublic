@@ -25,6 +25,7 @@ public sealed partial class LootRollHistory
         private readonly TaskCompletionSource initialization = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly JsonSerializerOptions serializerOptions = new()
         {
+            TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),
             RespectRequiredConstructorParameters = true
         };
         private int lootLimit;

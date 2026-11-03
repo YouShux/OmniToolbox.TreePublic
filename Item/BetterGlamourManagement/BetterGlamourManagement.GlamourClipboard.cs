@@ -9,6 +9,7 @@ public sealed partial class BetterGlamourManagement
     {
         private static readonly JsonSerializerOptions Options = new()
         {
+            TypeInfoResolver = new System.Text.Json.Serialization.Metadata.DefaultJsonTypeInfoResolver(),
             WriteIndented = true,
             MaxDepth = 16
         };
