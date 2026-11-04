@@ -363,7 +363,7 @@ public sealed partial class AutoSwitchConfiguration
             if (detailLayout)
             {
                 OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.CommandsHelp"));
+                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoSwitchConfiguration.CommandsHelp"), referenceText: labels[1]);
             }
             if (step.Type == ActionKind.SendCommand)
             {

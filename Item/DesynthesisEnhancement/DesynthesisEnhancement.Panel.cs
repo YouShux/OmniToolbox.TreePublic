@@ -70,7 +70,7 @@ public sealed partial class DesynthesisEnhancement
             }
 
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-            OmniControls.HelpIcon(OmniLoc.Get("Feature.DesynthesisEnhancement.TooltipText.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.DesynthesisEnhancement.TooltipText.Help"), referenceText: OmniLoc.Get("Feature.DesynthesisEnhancement.TooltipText"));
 
             ImGui.TableNextColumn();
             value = config.LockGearsetItems;
@@ -115,7 +115,7 @@ public sealed partial class DesynthesisEnhancement
             }
 
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-            OmniControls.HelpIcon(OmniLoc.Get("Feature.DesynthesisEnhancement.LockCustomItems.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.DesynthesisEnhancement.LockCustomItems.Help"), referenceText: OmniLoc.Get("Feature.DesynthesisEnhancement.Add"));
             return changed;
         }
 

@@ -189,7 +189,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
                     config.HideGroundHealingEffects,
                     value => config.HideGroundHealingEffects = value);
                 OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoHideModel.HideGroundHealingEffects.Help"));
+                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoHideModel.HideGroundHealingEffects.Help"), referenceText: OmniLoc.Get(this, "Feature.AutoHideModel.HideGroundHealingEffects"));
 
                 ImGui.TableNextColumn();
                 changed |= DrawCheckbox(

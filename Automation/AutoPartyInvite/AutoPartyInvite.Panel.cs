@@ -107,8 +107,9 @@ public sealed unsafe partial class AutoPartyInvite
             }
 
             ImGui.SameLine();
+            var whitelistLabel = OmniLoc.Get("Feature.AutoPartyInvite.Territory.Whitelist");
             if (OmniControls.RadioButton(
-                    $"{OmniLoc.Get("Feature.AutoPartyInvite.Territory.Whitelist")}##autoPartyInviteWhitelist",
+                    $"{whitelistLabel}##autoPartyInviteWhitelist",
                     config.UseWhitelist))
             {
                 config.UseWhitelist = true;
@@ -116,7 +117,7 @@ public sealed unsafe partial class AutoPartyInvite
             }
 
             ImGui.SameLine();
-            OmniControls.HelpIcon(OmniLoc.Get("Feature.AutoPartyInvite.Territory.WorkMode.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.AutoPartyInvite.Territory.WorkMode.Help"), referenceText: whitelistLabel);
             ImGui.Spacing();
             changed |= TerritorySelector.Draw(
                 config.UseWhitelist ? config.WhitelistTerritoryIds : config.BlacklistTerritoryIds,

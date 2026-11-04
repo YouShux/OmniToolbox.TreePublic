@@ -99,7 +99,7 @@ public sealed unsafe partial class BetterWondrousTails : OmniModuleBase
         ImGui.TableNextColumn();
         changed |= OmniControls.Checkbox(dutyLabel, ref config.OpenDuty);
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X, helpSpacing);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "OpenDutyHelp"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "OpenDutyHelp"), referenceText: dutyLabel);
         if (changed && IsEnabled)
             RefreshSettings();
         return changed;

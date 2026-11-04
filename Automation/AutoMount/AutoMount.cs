@@ -2,8 +2,11 @@ using Dalamud.Game.ClientState.Conditions;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using Lumina.Excel.Sheets;
 using OmenTools;
 using OmenTools.Extensions;
+using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -51,6 +54,7 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
     private readonly Settings config;
     private TaskHelper?       mountTasks;
     private TaskHelper?       dismountTasks;
+    private bool              issuingAutomaticAction;
 
     public AutoMount(Settings config)
     {
@@ -129,7 +133,7 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
     {
         mountTasks?.Abort();
         dismountTasks?.Abort();
-        QueueMount(MountTrigger.ZoneChange);
+        QueueMount(MountTrigger.ZoneChange, territoryID);
     }
 
     private void OnLogout(int type, int code)
@@ -156,18 +160,30 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
             QueueMount(MountTrigger.CombatEnd);
     }
 
-    private void QueueMount(MountTrigger trigger)
+    private void QueueMount(MountTrigger trigger, uint? territoryID = null)
     {
-        if (mountTasks is null || dismountTasks is { IsBusy: true })
+        if (mountTasks is null || trigger != MountTrigger.ZoneChange && dismountTasks is { IsBusy: true })
             return;
 
         var request = new MountRequest(DalamudServices.PlayerState.ContentId,
-            DService.Instance().ClientState.TerritoryType, trigger);
+            territoryID ?? DService.Instance().ClientState.TerritoryType, trigger);
         if (!IsMountRequestValid(request))
             return;
 
         mountTasks.Abort();
         mountTasks.TimeoutMS = (int)Math.Min(int.MaxValue, 10_000L + config.Delay);
+        if (trigger == MountTrigger.ZoneChange)
+        {
+            mountTasks.Enqueue(() =>
+            {
+                if (!IsMountRequestValid(request))
+                {
+                    mountTasks.Abort();
+                    return true;
+                }
+                return dismountTasks is not { IsBusy: true } && IsMountSceneReady(request.TerritoryID);
+            }, "Wait for territory", 60_000);
+        }
         mountTasks.DelayNext(config.Delay);
         mountTasks.Enqueue(() => TryMount(request), "Summon mount");
         if (!config.JumpAfterMount)
@@ -175,6 +191,8 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
 
         mountTasks.Enqueue(() =>
         {
+            if (!IsMountSceneReady(request.TerritoryID))
+                return false;
             if (!IsMountRequestValid(request) || LocalPlayerState.Instance().IsMoving)
             {
                 mountTasks.Abort();
@@ -190,6 +208,8 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
     private bool TryMount(MountRequest request)
     {
         var condition = DService.Instance().Condition;
+        if (!IsMountSceneReady(request.TerritoryID))
+            return false;
         if (!IsMountRequestValid(request) || condition.IsOnMount ||
             condition[ConditionFlag.InCombat] || LocalPlayerState.Instance().IsMoving)
         {
@@ -219,7 +239,14 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
         var type = selectedMount == 0 ? ActionType.GeneralAction : ActionType.Mount;
         var actionID = selectedMount == 0 ? MOUNT_ROULETTE_ACTION_ID : selectedMount;
         return manager->GetActionStatus(type, actionID) == 0 &&
-               UseActionManager.Instance().UseAction(type, actionID);
+               UseAutomaticAction(type, actionID);
+    }
+
+    private static bool IsMountSceneReady(uint territoryID)
+    {
+        var services = DService.Instance();
+        return GameState.TerritoryType == territoryID && GameState.IsTerritoryLoaded && !services.Condition.IsBetweenAreas &&
+               UIModule.IsScreenReady() && services.ObjectTable.LocalPlayer is not null;
     }
 
     private bool IsMountRequestValid(MountRequest request)
@@ -228,7 +255,7 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
         if (Activation.IsStopping || !services.ClientState.IsLoggedIn || request.ContentID == 0 ||
             request.ContentID != DalamudServices.PlayerState.ContentId ||
             request.TerritoryID != services.ClientState.TerritoryType || services.ClientState.IsPvP ||
-            services.ObjectTable.LocalPlayer is null || GameState.TerritoryTypeData is not { Mount: true } ||
+            !LuminaGetter.TryGetRow<TerritoryType>(request.TerritoryID, out var territory) || !territory.Mount ||
             (config.UseWhitelist ? !config.WhitelistZones.Contains(request.TerritoryID) :
                 config.BlacklistZones.Contains(request.TerritoryID)))
             return false;
@@ -254,10 +281,24 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
     {
         var condition = DService.Instance().Condition;
         var playerState = PlayerState.Instance();
-        if (config.JumpAfterMount && IsMountRequestValid(request) && playerState != null && playerState->CanFly &&
+        if (config.JumpAfterMount && IsMountRequestValid(request) && IsMountSceneReady(request.TerritoryID) &&
+            playerState != null && playerState->CanFly &&
             condition[ConditionFlag.Mounted] && !condition[ConditionFlag.InFlight] &&
             !condition[ConditionFlag.InCombat] && !condition.IsBetweenAreas && !LocalPlayerState.Instance().IsMoving)
-            UseActionManager.Instance().UseAction(ActionType.GeneralAction, JUMP_ACTION_ID);
+            UseAutomaticAction(ActionType.GeneralAction, JUMP_ACTION_ID);
+    }
+
+    private bool UseAutomaticAction(ActionType type, uint actionID)
+    {
+        issuingAutomaticAction = true;
+        try
+        {
+            return UseActionManager.Instance().UseAction(type, actionID);
+        }
+        finally
+        {
+            issuingAutomaticAction = false;
+        }
     }
 
     private enum MountTrigger

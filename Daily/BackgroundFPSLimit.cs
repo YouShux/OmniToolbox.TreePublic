@@ -88,7 +88,7 @@ public sealed unsafe partial class BackgroundFPSLimit(BackgroundFPSLimit.Setting
 
         var save = ImGui.IsItemDeactivatedAfterEdit();
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.BackgroundFPSLimit.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.BackgroundFPSLimit.Help"), referenceText: limit.ToString());
         return save;
     }
 

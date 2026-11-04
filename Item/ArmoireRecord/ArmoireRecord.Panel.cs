@@ -67,7 +67,7 @@ public sealed partial class ArmoireRecord
             }
 
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-            OmniControls.HelpIcon(OmniLoc.Get("Feature.ArmoireRecord.CheckOnOpen.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.ArmoireRecord.CheckOnOpen.Help"), referenceText: OmniLoc.Get("Feature.ArmoireRecord.CheckOnOpen"));
             return changed;
         }
 
@@ -184,7 +184,7 @@ public sealed partial class ArmoireRecord
             using (ImRaii.TextWrapPos(0f))
                 ImGui.TextUnformatted(label);
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X, style.ItemSpacing.X);
-            OmniControls.HelpIcon(help);
+            OmniControls.HelpIcon(help, referenceText: label);
         }
 
         private static void DrawGearsetHeader(float rowHeight)
@@ -200,7 +200,7 @@ public sealed partial class ArmoireRecord
                     cursor.Y + MathF.Max(0f, (rowHeight - ImGui.GetTextLineHeight()) * 0.5f)));
             ImGui.TextUnformatted(label);
             ImGui.SameLine(0f, style.ItemSpacing.X);
-            OmniControls.HelpIcon(OmniLoc.Get("Feature.ArmoireRecord.Scope.Gearsets.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.ArmoireRecord.Scope.Gearsets.Help"), referenceText: label);
         }
 
         private static bool DrawCheckbox

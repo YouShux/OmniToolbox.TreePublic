@@ -226,7 +226,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                 mapSettingsChanged = true;
             }
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-            OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HideMinimapIcons.AetherytesOnTopHint"));
+            OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HideMinimapIcons.AetherytesOnTopHint"), referenceText: aetherytesOnTopLabel);
 
             ImGui.TableNextColumn();
             if (OmniControls.Checkbox(keepTextLabel, ref config.KeepTextWhenHidden))
@@ -235,7 +235,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                 mapSettingsChanged = true;
             }
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-            OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HideMinimapIcons.KeepTextWhenHiddenHint"));
+            OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HideMinimapIcons.KeepTextWhenHiddenHint"), referenceText: keepTextLabel);
 
             ImGui.TableNextColumn();
             ImGui.AlignTextToFramePadding();
@@ -262,7 +262,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                 }
             }
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X, spacing);
-            OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HideMinimapIcons.RevealKeyHint"));
+            OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HideMinimapIcons.RevealKeyHint"), referenceText: GetRevealKeyName(config.RevealKey));
         }
 
         if (mapSettingsChanged && IsEnabled)

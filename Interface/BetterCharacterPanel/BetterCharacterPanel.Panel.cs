@@ -51,7 +51,7 @@ public sealed partial class BetterCharacterPanel
                         changed                = true;
                     }
                     OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                    OmniControls.HelpIcon(OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats.Help"));
+                    OmniControls.HelpIcon(OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats.Help"), referenceText: OmniLoc.Get("Feature.BetterCharacterPanel.ShowUsefulStats"));
 
                     ImGui.TableNextColumn();
                     if (DrawCheckbox(
@@ -64,7 +64,7 @@ public sealed partial class BetterCharacterPanel
                         changed                    = true;
                     }
                     OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                    OmniControls.HelpIcon(OmniLoc.Get("Feature.BetterCharacterPanel.ShowTargetItemLevel.Help"));
+                    OmniControls.HelpIcon(OmniLoc.Get("Feature.BetterCharacterPanel.ShowTargetItemLevel.Help"), referenceText: OmniLoc.Get("Feature.BetterCharacterPanel.ShowTargetItemLevel"));
                     OmniControls.PreviewImageIcon(
                         "https://raw.githubusercontent.com/YouShux/OmniToolbox.Common/main/Assets/previews/Interface/BetterCharacterPanel-2.png");
 

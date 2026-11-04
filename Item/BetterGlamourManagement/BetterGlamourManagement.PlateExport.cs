@@ -20,8 +20,9 @@ public sealed unsafe partial class BetterGlamourManagement
     public override bool DrawSettings()
     {
         var enabled = config.EnableGlamourPlateExport;
+        var plateExportLabel = OmniLoc.Get(this, "Feature.BetterGlamourManagement.PlateExport");
         if (OmniControls.Checkbox(
-                OmniLoc.Get(this, "Feature.BetterGlamourManagement.PlateExport"),
+                plateExportLabel,
                 ref enabled))
         {
             config.EnableGlamourPlateExport = enabled;
@@ -30,7 +31,7 @@ public sealed unsafe partial class BetterGlamourManagement
         }
 
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X, OmniTheme.Scale(4f));
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.BetterGlamourManagement.PlateExport.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.BetterGlamourManagement.PlateExport.Help"), referenceText: plateExportLabel);
         return false;
     }
 

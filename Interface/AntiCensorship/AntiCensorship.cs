@@ -160,7 +160,7 @@ public sealed unsafe partial class AntiCensorship(AntiCensorshipConfig config) :
         changed |= ImGui.IsItemDeactivatedAfterEdit();
 
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AntiCensorship.AutoHandle.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AntiCensorship.AutoHandle.Help"), referenceText: OmniLoc.Get(this, "Feature.AntiCensorship.Separator"));
         ImGui.SameLine(0f, OmniTheme.ContentGap());
         var coloring = config.EnableColoring;
         if (OmniControls.Checkbox($"{OmniLoc.Get(this, "Feature.AntiCensorship.Coloring")}##antiCensorshipColoring", ref coloring))

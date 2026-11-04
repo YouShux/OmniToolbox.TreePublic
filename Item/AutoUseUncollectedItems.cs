@@ -105,7 +105,8 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
         {
             ImGui.TableNextColumn();
             var enabled = config.EnabledTypes.Contains(type);
-            if (OmniControls.Checkbox(OmniLoc.Get($"Collection.Category.{type}"), ref enabled))
+            var typeLabel = OmniLoc.Get($"Collection.Category.{type}");
+            if (OmniControls.Checkbox(typeLabel, ref enabled))
             {
                 if (enabled)
                     config.EnabledTypes.Add(type);
@@ -118,7 +119,7 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
             if (type == CollectionType.BlindBox)
             {
                 ImGui.SameLine();
-                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoUseUncollectedItems.BlindBoxHint"));
+                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoUseUncollectedItems.BlindBoxHint"), referenceText: typeLabel);
             }
         }
 

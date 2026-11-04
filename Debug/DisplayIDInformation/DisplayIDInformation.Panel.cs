@@ -78,7 +78,7 @@ public sealed partial class DisplayIDInformation
             }
 
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-            OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.IconBrowser.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.IconBrowser.Help"), referenceText: buttonLabel);
             ImGui.TableNextRow();
             ImGui.TableNextColumn();
             changed |= DrawStatus(config);
@@ -109,7 +109,7 @@ public sealed partial class DisplayIDInformation
                 }
 
                 OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.StatusFlyText.Help"));
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.StatusFlyText.Help"), referenceText: OmniLoc.Get("Feature.DisplayIdInformation.FlyText"));
             }
 
             ImGui.Unindent(OmniTheme.Scale(26f));
@@ -149,7 +149,7 @@ public sealed partial class DisplayIDInformation
                 }
 
                 OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.ActionFlyText.Help"));
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.ActionFlyText.Help"), referenceText: OmniLoc.Get("Feature.DisplayIdInformation.FlyText"));
                 if (DrawCheckbox("Feature.DisplayIdInformation.CastBar", "castBar", config.DisplayCastBarActionID, out var displayCastBar))
                 {
                     config.DisplayCastBarActionID = displayCastBar;
@@ -157,7 +157,7 @@ public sealed partial class DisplayIDInformation
                 }
 
                 OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.CastBar.Help"));
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.CastBar.Help"), referenceText: OmniLoc.Get("Feature.DisplayIdInformation.CastBar"));
             }
 
             ImGui.Unindent(OmniTheme.Scale(26f));
@@ -203,7 +203,7 @@ public sealed partial class DisplayIDInformation
                 }
 
                 OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.Others.Help"));
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.DisplayIdInformation.Others.Help"), referenceText: OmniLoc.Get("Feature.DisplayIdInformation.Others"));
             }
 
             ImGui.Unindent(OmniTheme.Scale(26f));

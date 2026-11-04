@@ -113,7 +113,7 @@ internal sealed partial class FloatingInfoOverlay
                     changed |= ImGui.IsItemDeactivatedAfterEdit();
 
                     OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                    OmniControls.HelpIcon(OmniLoc.Get("Feature.FloatingInfoOverlay.MergeDistance.Help"));
+                    OmniControls.HelpIcon(OmniLoc.Get("Feature.FloatingInfoOverlay.MergeDistance.Help"), referenceText: $"{mergeDistance:F0}m");
                     ImGui.TableNextRow();
                     ImGui.TableNextColumn();
                     var scale = config.Scale;
@@ -324,7 +324,7 @@ internal sealed partial class FloatingInfoOverlay
                         config.ShowMarker,
                         value => config.ShowMarker = value);
                     OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                    OmniControls.HelpIcon(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowMarker.Help"));
+                    OmniControls.HelpIcon(OmniLoc.Get("Feature.FloatingInfoOverlay.ShowMarker.Help"), referenceText: OmniLoc.Get("Feature.FloatingInfoOverlay.ShowMarker"));
                     ImGui.TableNextColumn();
                     changed |= DrawCheckbox(
                         "Feature.FloatingInfoOverlay.ShowCastInfo",

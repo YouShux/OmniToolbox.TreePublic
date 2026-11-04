@@ -320,7 +320,7 @@ public sealed partial class AutoIshgardRestoration
                             config.ScripStopThreshold = Math.Clamp(config.ScripStopThreshold, 1, 10000);
                         if (ImGui.IsItemDeactivatedAfterEdit()) saveConfig();
                         ImGui.SameLine();
-                        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.StopThresholdHelp"));
+                        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.StopThresholdHelp"), referenceText: OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.StopThreshold"));
                     }
 
                     ImGui.TableNextColumn();
@@ -335,7 +335,7 @@ public sealed partial class AutoIshgardRestoration
                             config.ScripThreshold = Math.Clamp(config.ScripThreshold, 1, 10000);
                         if (ImGui.IsItemDeactivatedAfterEdit()) saveConfig();
                         ImGui.SameLine();
-                        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripThresholdHelp"));
+                        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripThresholdHelp"), referenceText: OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripThreshold"));
                     }
                 }
             }
@@ -434,7 +434,7 @@ public sealed partial class AutoIshgardRestoration
             if (selected is not null)
                 quantityHelp += "\n" + string.Format(CultureInfo.InvariantCulture,
                     OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseCost"), (long)quantity * selected.Price);
-            OmniControls.HelpIcon(quantityHelp);
+            OmniControls.HelpIcon(quantityHelp, referenceText: quantityLabel);
         }
         if (!string.IsNullOrEmpty(scripCatalogError)) ImGui.TextWrapped(scripCatalogError);
     }

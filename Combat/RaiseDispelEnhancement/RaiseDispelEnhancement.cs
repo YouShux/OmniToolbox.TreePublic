@@ -169,7 +169,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
                     ImGui.EndCombo();
                 }
                 ImGui.SameLine(0f, OmniTheme.Scale(4f));
-                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.DisplayRangeHelp"));
+                OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.RaiseDispelEnhancement.DisplayRangeHelp"), referenceText: OmniLoc.Get(this, $"Feature.RaiseDispelEnhancement.DisplayRange.{range}"));
                 ImGui.TableNextColumn();
                 changed |= DrawScaleSlider(config.IconScale, "Feature.RaiseDispelEnhancement.IconScale", "IconScale",
                     value => config.IconScale = value);

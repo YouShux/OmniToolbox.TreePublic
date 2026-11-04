@@ -38,7 +38,7 @@ public sealed unsafe partial class AutoMount
         uint                        comboRouteID
     )
     {
-        if (Activation.IsStopping)
+        if (Activation.IsStopping || issuingAutomaticAction)
             return;
 
         mountTasks?.Abort();

@@ -130,24 +130,28 @@ public sealed partial class MoreMinimapInformation(MoreMinimapInformation.Settin
                 MathF.Max(0f, (OmniTheme.CheckboxSize() - ImGui.GetTextLineHeight()) * 0.5f)));
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
-        var changed = OmniControls.Checkbox(OmniLoc.Get(this, "Feature.MoreMinimapInformation.Friends"), ref config.Friends);
+        var friendsLabel = OmniLoc.Get(this, "Feature.MoreMinimapInformation.Friends");
+        var changed = OmniControls.Checkbox(friendsLabel, ref config.Friends);
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.MoreMinimapInformation.Friends.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.MoreMinimapInformation.Friends.Help"), referenceText: friendsLabel);
 
         ImGui.TableNextColumn();
-        changed |= OmniControls.Checkbox(OmniLoc.Get(this, "Feature.MoreMinimapInformation.Players"), ref config.Players);
+        var playersLabel = OmniLoc.Get(this, "Feature.MoreMinimapInformation.Players");
+        changed |= OmniControls.Checkbox(playersLabel, ref config.Players);
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.MoreMinimapInformation.Players.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.MoreMinimapInformation.Players.Help"), referenceText: playersLabel);
 
         ImGui.TableNextColumn();
-        changed |= OmniControls.Checkbox(OmniLoc.Get(this, "Feature.MoreMinimapInformation.Enemies"), ref config.Enemies);
+        var enemiesLabel = OmniLoc.Get(this, "Feature.MoreMinimapInformation.Enemies");
+        changed |= OmniControls.Checkbox(enemiesLabel, ref config.Enemies);
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.MoreMinimapInformation.Enemies.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.MoreMinimapInformation.Enemies.Help"), referenceText: enemiesLabel);
 
         ImGui.TableNextColumn();
-        changed |= OmniControls.Checkbox(OmniLoc.Get(this, "Feature.MoreMinimapInformation.AetherCurrents"), ref config.AetherCurrents);
+        var aetherCurrentsLabel = OmniLoc.Get(this, "Feature.MoreMinimapInformation.AetherCurrents");
+        changed |= OmniControls.Checkbox(aetherCurrentsLabel, ref config.AetherCurrents);
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.MoreMinimapInformation.AetherCurrents.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.MoreMinimapInformation.AetherCurrents.Help"), referenceText: aetherCurrentsLabel);
 
         ImGui.TableNextRow();
         ImGui.TableNextColumn();

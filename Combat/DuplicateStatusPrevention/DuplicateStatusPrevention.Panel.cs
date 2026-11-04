@@ -36,7 +36,7 @@ public sealed partial class DuplicateStatusPrevention
 
             changed |= ImGui.IsItemDeactivatedAfterEdit();
             OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-            OmniControls.HelpIcon(OmniLoc.Get("Feature.DuplicateStatusPrevention.OverlapThreshold.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.DuplicateStatusPrevention.OverlapThreshold.Help"), referenceText: overlapThreshold.ToString("F1"));
             ImGui.SameLine();
             var chatNotify = config.ChatNotify;
             if (OmniControls.Checkbox(

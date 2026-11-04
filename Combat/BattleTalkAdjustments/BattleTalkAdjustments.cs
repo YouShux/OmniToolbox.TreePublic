@@ -174,8 +174,9 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
         }
 
         ImGui.SameLine();
+        var whitelistLabel = OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Territory.Whitelist");
         if (OmniControls.RadioButton(
-                $"{OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Territory.Whitelist")}##battleTalkAdjustmentsWhitelist",
+                $"{whitelistLabel}##battleTalkAdjustmentsWhitelist",
                 config.UseWhitelist))
         {
             config.UseWhitelist = true;
@@ -183,7 +184,7 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
         }
 
         ImGui.SameLine();
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Territory.WorkMode.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Territory.WorkMode.Help"), referenceText: whitelistLabel);
         ImGui.Spacing();
         changed |= territorySelector.Draw(
             config.UseWhitelist ? config.WhitelistTerritoryIDs : config.BlacklistTerritoryIDs,

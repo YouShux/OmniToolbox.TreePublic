@@ -45,7 +45,7 @@ public sealed unsafe partial class AutoMount
         {
             changed |= OmniControls.Checkbox(takeOffLabel, ref config.JumpAfterMount);
             ImGui.SameLine(0f, helpSpacing);
-            OmniControls.HelpIcon(OmniLoc.Get(this, "JumpAfterMount.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get(this, "JumpAfterMount.Help"), referenceText: takeOffLabel);
         }
 
         var dismountLabel = OmniLoc.Get(this, "AutoDismount");
@@ -55,7 +55,7 @@ public sealed unsafe partial class AutoMount
         {
             changed |= OmniControls.Checkbox(dismountLabel, ref config.AutoDismount);
             ImGui.SameLine(0f, helpSpacing);
-            OmniControls.HelpIcon(OmniLoc.Get(this, "AutoDismount.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get(this, "AutoDismount.Help"), referenceText: dismountLabel);
         }
 
         ImGui.Spacing();
@@ -72,7 +72,7 @@ public sealed unsafe partial class AutoMount
         {
             changed |= mountSelection.Draw(config.SelectedMounts, mountWidth);
             ImGui.SameLine(0f, helpSpacing);
-            OmniControls.HelpIcon(OmniLoc.Get(this, "Mount.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get(this, "Mount.Help"), referenceText: mountSelection.GetPreview(config.SelectedMounts));
         }
 
         var delayLabel = OmniLoc.Get(this, "Delay");
@@ -107,14 +107,15 @@ public sealed unsafe partial class AutoMount
         }
 
         ImGui.SameLine();
-        if (OmniControls.RadioButton($"{OmniLoc.Get(this, "Whitelist")}##autoMountWhitelist", config.UseWhitelist))
+        var whitelistLabel = OmniLoc.Get(this, "Whitelist");
+        if (OmniControls.RadioButton($"{whitelistLabel}##autoMountWhitelist", config.UseWhitelist))
         {
             config.UseWhitelist = true;
             changed = true;
         }
 
         ImGui.SameLine(0f, helpSpacing);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "WorkMode.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "WorkMode.Help"), referenceText: whitelistLabel);
         ImGui.Spacing();
         changed |= territorySelector.Draw(config.UseWhitelist ? config.WhitelistZones : config.BlacklistZones, string.Empty);
 

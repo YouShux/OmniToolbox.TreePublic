@@ -81,7 +81,7 @@ public sealed partial class FoodReminder
             }
 
             ImGui.SameLine(0f, OmniTheme.Scale(4f));
-            OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.TargetNameMode.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.TargetNameMode.Help"), referenceText: OmniLoc.Get("Feature.FoodReminder.TargetNameMode.JobName"));
             OmniControls.SameLineOrWrap(OmniControls.MeasureGroup(
                 [ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Threshold")), OmniControls.MeasureInput("7200", OmniTheme.Scale(110f)),
                 ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Seconds")), OmniControls.HelpIconSize()]).X, OmniTheme.Scale(22f));
@@ -103,7 +103,7 @@ public sealed partial class FoodReminder
                 ImGui.AlignTextToFramePadding();
                 ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Seconds"));
                 ImGui.SameLine(0f, OmniTheme.Scale(4f));
-                OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.Threshold.Help"));
+                OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.Threshold.Help"), referenceText: OmniLoc.Get("Feature.FoodReminder.Seconds"));
             }
             return changed;
         }
@@ -162,8 +162,9 @@ public sealed partial class FoodReminder
             }
 
             ImGui.SameLine();
+            var whitelistLabel = OmniLoc.Get("Feature.FoodReminder.Territory.Whitelist");
             if (OmniControls.RadioButton(
-                    $"{OmniLoc.Get("Feature.FoodReminder.Territory.Whitelist")}##foodReminderWhitelist",
+                    $"{whitelistLabel}##foodReminderWhitelist",
                     config.UseWhitelist))
             {
                 config.UseWhitelist = true;
@@ -171,7 +172,7 @@ public sealed partial class FoodReminder
             }
 
             ImGui.SameLine();
-            OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.Territory.WorkMode.Help"));
+            OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.Territory.WorkMode.Help"), referenceText: whitelistLabel);
             ImGui.Spacing();
             changed |= TerritorySelector.Draw(
                 config.UseWhitelist ? config.WhitelistTerritoryIds : config.BlacklistTerritoryIds,

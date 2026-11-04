@@ -108,7 +108,8 @@ public sealed partial class BetterUserMacro
             string?  previewImageURL = null
         )
         {
-            var changed = OmniControls.Checkbox($"{OmniLoc.Get(labelKey)}##betterUserMacro{id}", ref value);
+            var label = OmniLoc.Get(labelKey);
+            var changed = OmniControls.Checkbox($"{label}##betterUserMacro{id}", ref value);
             if (previewImageURL is not null)
             {
                 OmniControls.PreviewImageIcon(previewImageURL);
@@ -116,7 +117,7 @@ public sealed partial class BetterUserMacro
             else
             {
                 OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-                OmniControls.HelpIcon(OmniLoc.Get($"{labelKey}.Help"));
+                OmniControls.HelpIcon(OmniLoc.Get($"{labelKey}.Help"), referenceText: label);
             }
 
             return changed;

@@ -43,11 +43,12 @@ public sealed unsafe partial class HotbarAdjustments
                 MathF.Max(0f, (OmniTheme.CheckboxSize() - ImGui.GetTextLineHeight()) * 0.5f)));
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
+        var hideBackgroundLabel = OmniLoc.Get(this, "Feature.HotbarAdjustments.HideBackground");
         changed |= OmniControls.Checkbox(
-            $"{OmniLoc.Get(this, "Feature.HotbarAdjustments.HideBackground")}##hotbarHideBackground",
+            $"{hideBackgroundLabel}##hotbarHideBackground",
             ref config.HideBackground);
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HotbarAdjustments.HideBackground.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HotbarAdjustments.HideBackground.Help"), referenceText: hideBackgroundLabel);
 
         ImGui.TableNextColumn();
         using (ImRaii.Disabled(!config.HideBackground))
@@ -90,12 +91,13 @@ public sealed unsafe partial class HotbarAdjustments
         }
 
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X, spacing);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HotbarAdjustments.Modifier.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HotbarAdjustments.Modifier.Help"), referenceText: GetModifierName(config.ModifierKey));
 
         ImGui.TableNextRow();
         ImGui.TableNextColumn();
+        var unlockActionsLabel = OmniLoc.Get(this, "Feature.HotbarAdjustments.UnlockActions");
         if (OmniControls.Checkbox(
-                $"{OmniLoc.Get(this, "Feature.HotbarAdjustments.UnlockActions")}##hotbarUnlockActions",
+                $"{unlockActionsLabel}##hotbarUnlockActions",
                 ref config.UnlockActions))
         {
             changed = true;
@@ -103,7 +105,7 @@ public sealed unsafe partial class HotbarAdjustments
                 UpdateActionDragDropRestrictions();
         }
         OmniControls.SameLineOrWrap(OmniControls.HelpIconSize().X);
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HotbarAdjustments.UnlockActions.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.HotbarAdjustments.UnlockActions.Help"), referenceText: unlockActionsLabel);
 
         if (changed && IsEnabled)
             UpdateAllHotbars(false);

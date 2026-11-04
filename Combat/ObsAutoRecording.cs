@@ -117,7 +117,7 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
         config.Endpoint = endpoint;
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         ImGui.SameLine(0f, OmniTheme.Scale(6f));
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.ObsAutoRecording.EndpointHelp"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.ObsAutoRecording.EndpointHelp"), referenceText: string.IsNullOrEmpty(endpoint) ? DEFAULT_ENDPOINT : endpoint);
 
         OmniControls.SameLineOrWrap(inputWidth + ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.ObsAutoRecording.PasswordEnvironmentVariable")).X +
             ImGui.GetStyle().ItemSpacing.X + OmniControls.HelpIconSize().X, OmniTheme.Scale(14f));
@@ -133,7 +133,7 @@ public sealed partial class ObsAutoRecording : OmniModuleBase
         config.PasswordEnvironmentVariable = passwordVariable;
         changed |= ImGui.IsItemDeactivatedAfterEdit();
         ImGui.SameLine(0f, OmniTheme.Scale(6f));
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.ObsAutoRecording.PasswordEnvironmentVariableHelp"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.ObsAutoRecording.PasswordEnvironmentVariableHelp"), referenceText: passwordVariable);
         return changed;
     }
 

@@ -63,8 +63,9 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
     public override bool DrawSettings()
     {
         var showBar = config.ShowBar;
+        var showBarLabel = OmniLoc.Get(this, "Feature.ShieldOnHP.ShowBar");
         var shouldSave = OmniControls.Checkbox(
-            $"{OmniLoc.Get(this, "Feature.ShieldOnHP.ShowBar")}##shieldOnHPShowBar",
+            $"{showBarLabel}##shieldOnHPShowBar",
             ref showBar);
         if (shouldSave)
         {
@@ -72,7 +73,7 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         }
 
         OmniControls.SameLineOrWrap(ImGui.GetTextLineHeight(), OmniTheme.Scale(4f));
-        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.ShieldOnHP.ShowBar.Help"));
+        OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.ShieldOnHP.ShowBar.Help"), referenceText: showBarLabel);
         OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.ShieldOnHP.Color")).X +
             ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.X, OmniTheme.ContentGap());
         using (ImRaii.Disabled(!config.ShowBar))
