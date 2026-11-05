@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Threading.Tasks;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
@@ -158,7 +159,7 @@ public sealed unsafe partial class AutoLogin
         var addSize = OmniControls.CompactButtonSize(addLabel);
         var deleteSize = OmniControls.CompactButtonSize(deleteLabel);
         var actionLabel = OmniLoc.Get(this, "Feature.AutoLogin.Column.Actions");
-        var actionWidth = MathF.Max(ImGui.CalcTextSize(actionLabel).X, MathF.Max(addSize.X, deleteSize.X));
+        var actionWidth = MathF.Max(OmniTextMeasurements.Measure(actionLabel).X, MathF.Max(addSize.X, deleteSize.X));
         var scroll = config.Targets.Count > 5;
         var tableHeight = scroll
             ? (rowContentHeight + ImGui.GetStyle().CellPadding.Y * 2f) * 6f +
@@ -170,8 +171,8 @@ public sealed unsafe partial class AutoLogin
         var worldWidth = ImGui.GetFontSize() * 6f;
         foreach (var target in config.Targets)
         {
-            nameWidth  = MathF.Max(nameWidth, ImGui.CalcTextSize(target.CharacterName).X);
-            worldWidth = MathF.Max(worldWidth, ImGui.CalcTextSize(LuminaWrapper.GetWorldName(target.WorldID)).X + ImGui.GetTextLineHeight());
+            nameWidth  = MathF.Max(nameWidth, OmniTextMeasurements.Measure(target.CharacterName).X);
+            worldWidth = MathF.Max(worldWidth, OmniTextMeasurements.Measure(LuminaWrapper.GetWorldName(target.WorldID)).X + ImGui.GetTextLineHeight());
         }
         using (var table = OmniControls.DataTable(
                    "##AutoLoginTargets",

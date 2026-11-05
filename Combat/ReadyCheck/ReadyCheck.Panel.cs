@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
 using Dalamud.Interface.Textures;
@@ -28,9 +29,9 @@ public sealed partial class ReadyCheck
             var changed = DrawClearSettings(config);
             ImGui.Spacing();
             ImGui.TextUnformatted(OmniLoc.Get("Feature.ReadyCheck.IconSettings"));
-            var listWidth = MathF.Max(ImGui.CalcTextSize(OmniLoc.Get("Feature.ReadyCheck.PartyList")).X,
-                MathF.Max(ImGui.CalcTextSize(OmniLoc.Get("Feature.ReadyCheck.AllianceList")).X,
-                    ImGui.CalcTextSize(OmniLoc.Get("Feature.ReadyCheck.CrossWorldAllianceList")).X));
+            var listWidth = MathF.Max(OmniTextMeasurements.Measure(OmniLoc.Get("Feature.ReadyCheck.PartyList")).X,
+                MathF.Max(OmniTextMeasurements.Measure(OmniLoc.Get("Feature.ReadyCheck.AllianceList")).X,
+                    OmniTextMeasurements.Measure(OmniLoc.Get("Feature.ReadyCheck.CrossWorldAllianceList")).X));
             var offsetWidth = OmniControls.MeasureInput("-100").X * 2f + ImGui.GetStyle().ItemInnerSpacing.X;
             var scaleWidth = OmniControls.MeasureFloatInput(5f, "%.2f").X;
             using var table = OmniControls.DataTable(
@@ -86,7 +87,7 @@ public sealed partial class ReadyCheck
         private static bool DrawClearSettings(ReadyCheckConfig config)
         {
             var changed = false;
-            var secondsInputWidth = ImGui.CalcTextSize("000").X + ImGui.GetStyle().FramePadding.X * 4f;
+            var secondsInputWidth = OmniTextMeasurements.Measure("000").X + ImGui.GetStyle().FramePadding.X * 4f;
             using var table = OmniControls.SettingsTable(
                 "##readyCheckClearSettings",
                 [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ReadyCheck.ClearOnTerritoryChanged")),
@@ -94,7 +95,7 @@ public sealed partial class ReadyCheck
                 OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ReadyCheck.ClearOnInstancedCombat")),
                 OmniControls.MeasureGroup([OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.ReadyCheck.ClearAfterTime")),
                     OmniControls.MeasureInput("900", secondsInputWidth),
-                    ImGui.CalcTextSize(OmniLoc.Get("Feature.ReadyCheck.Seconds"))],
+                    OmniTextMeasurements.Measure(OmniLoc.Get("Feature.ReadyCheck.Seconds"))],
                     MathF.Max(ImGui.GetStyle().ItemSpacing.X, OmniTheme.Scale(10f)))],
                 ["##readyCheckClearTerritory", "##readyCheckClearCombat", "##readyCheckClearDutyCombat", "##readyCheckClearTime"],
                 weights: [1f, 1f, 1f, 1.25f], flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
@@ -149,7 +150,7 @@ public sealed partial class ReadyCheck
             }
 
             OmniControls.SameLineOrWrap(OmniControls.MeasureInput("900", secondsInputWidth).X +
-                ImGui.CalcTextSize(OmniLoc.Get("Feature.ReadyCheck.Seconds")).X + ImGui.GetStyle().ItemSpacing.X, OmniTheme.Scale(10f));
+                OmniTextMeasurements.Measure(OmniLoc.Get("Feature.ReadyCheck.Seconds")).X + ImGui.GetStyle().ItemSpacing.X, OmniTheme.Scale(10f));
             using (ImRaii.Disabled(!config.ClearAfterTime))
             {
                 ImGui.SetNextItemWidth(secondsInputWidth);
@@ -195,7 +196,7 @@ public sealed partial class ReadyCheck
             var label = OmniLoc.Get(labelKey);
             var inputHeight = OmniControls.MeasureInput(string.Empty).Y;
             var rowContentHeight = MathF.Max(inputHeight,
-                ImGui.CalcTextSize(label, false, MathF.Max(1f, ImGui.GetContentRegionAvail().X)).Y);
+                OmniTextMeasurements.Measure(label, false, MathF.Max(1f, ImGui.GetContentRegionAvail().X)).Y);
             OmniControls.TableTextCentered(label, rowContentHeight);
             OmniControls.NextTableField(OmniLoc.Get("Feature.ReadyCheck.Offset"), detailLayout);
             OmniControls.CenterTableItem(new Vector2(ImGui.GetContentRegionAvail().X, inputHeight), rowContentHeight);

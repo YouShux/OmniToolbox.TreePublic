@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Diagnostics;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
@@ -104,8 +105,8 @@ public sealed unsafe class BattleTalkAdjustments : OmniModuleBase
         var offsetLabel = OmniLoc.Get(this, "Feature.BattleTalkAdjustments.Offset");
         var scaleSize = OmniControls.MeasureFloatInput(config.Scale, "%.2fx");
         var offsetSize = OmniControls.MeasureGroup([OmniControls.MeasureInput("-1500"), OmniControls.MeasureInput("-1500")]);
-        var groupWidth = MathF.Max(ImGui.CalcTextSize(scaleLabel).X + scaleSize.X,
-            ImGui.CalcTextSize(offsetLabel).X + offsetSize.X) + ImGui.GetStyle().ItemSpacing.X;
+        var groupWidth = MathF.Max(OmniTextMeasurements.Measure(scaleLabel).X + scaleSize.X,
+            OmniTextMeasurements.Measure(offsetLabel).X + offsetSize.X) + ImGui.GetStyle().ItemSpacing.X;
         using (var table = OmniControls.SettingsTable(
             "##battleTalkAdjustmentsSettings",
             [new(groupWidth, scaleSize.Y), new(groupWidth, offsetSize.Y)],

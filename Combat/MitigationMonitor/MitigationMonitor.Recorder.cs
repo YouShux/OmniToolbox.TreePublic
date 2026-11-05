@@ -9,6 +9,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using OmenTools;
 using OmenTools.OmenService;
 using OmniToolbox.Game;
+using ClientObjectKind = FFXIVClientStructs.FFXIV.Client.Game.Object.ObjectKind;
 using ObjectKind = Dalamud.Game.ClientState.Objects.Enums.ObjectKind;
 using GameCharacter = FFXIVClientStructs.FFXIV.Client.Game.Character.Character;
 using IBattleChara = OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds.IBattleChara;
@@ -89,7 +90,7 @@ public sealed partial class MitigationMonitor
         {
             try
             {
-                ProcessActionEffect(casterEntityID, header, effects, targetEntityIds);
+                ProcessActionEffect(casterEntityID, caster, header, effects, targetEntityIds);
             }
             catch (Exception)
             {
@@ -107,6 +108,7 @@ public sealed partial class MitigationMonitor
         private void ProcessActionEffect
         (
             uint                               casterEntityID,
+            GameCharacter*                     caster,
             ActionEffectHandler.Header*        header,
             ActionEffectHandler.TargetEffects* effects,
             GameObjectId*                      targetEntityIds
@@ -123,11 +125,24 @@ public sealed partial class MitigationMonitor
                 return;
             }
 
+            if (combatLog.ShouldSuppressWrites() ||
+                !services.Condition[ConditionFlag.InCombat])
+            {
+                return;
+            }
+
+            var casterObject = caster == null ? null : &caster->GameObject;
+            if (casterObject == null || casterObject->EntityId != casterEntityID)
+            {
+                var objectManager = GameObjectManager.Instance();
+                casterObject = objectManager == null ? null : objectManager->Objects.GetObjectByEntityId(casterEntityID);
+            }
+            if (casterObject != null && casterObject->ObjectKind != ClientObjectKind.BattleNpc)
+                return;
+
             CombatCharacterSnapshot.Refresh();
             if (FindObject(casterEntityID) is not IBattleChara source ||
-                source.ObjectKind != ObjectKind.BattleNpc ||
-                combatLog.ShouldSuppressWrites() ||
-                !services.Condition[ConditionFlag.InCombat])
+                source.ObjectKind != ObjectKind.BattleNpc)
             {
                 return;
             }

@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
@@ -28,6 +29,10 @@ public sealed partial class SkillMonitor
 
         private uint DraggedScopeID    = uint.MaxValue;
         private int  DraggedOrderIndex = -1;
+        private SkillMonitorDefinition[]? displayedDefinitions;
+        private long displayLanguageRevision = -1;
+        private readonly Dictionary<uint, string> jobLabels = [];
+        private readonly Dictionary<(uint Scope, SkillMonitorGroup Group), ScopeDisplay> scopeDisplays = [];
 
         public bool Draw
         (
@@ -38,6 +43,13 @@ public sealed partial class SkillMonitor
         {
             var changed = false;
             definitionsChanged = false;
+            if (!ReferenceEquals(displayedDefinitions, definitions) || displayLanguageRevision != OmniLoc.Revision)
+            {
+                displayedDefinitions = definitions;
+                displayLanguageRevision = OmniLoc.Revision;
+                scopeDisplays.Clear();
+                jobLabels.Clear();
+            }
             changed |= DrawVisibilitySettings(config);
             changed |= DrawLayoutSettings(config, ref definitionsChanged);
 
@@ -91,7 +103,7 @@ public sealed partial class SkillMonitor
             var groupIndex = (int)group;
             var inputWidth = MathF.Max(
                 OmniTheme.Scale(110f),
-                ImGui.CalcTextSize("000000").X + ImGui.GetStyle().FramePadding.X * 4f);
+                OmniTextMeasurements.Measure("000000").X + ImGui.GetStyle().FramePadding.X * 4f);
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted(OmniLoc.Get("Feature.SkillMonitor.Custom.ActionID"));
             ImGui.SameLine();
@@ -150,8 +162,14 @@ public sealed partial class SkillMonitor
                 for (var jobIndex = 0; jobIndex < jobGroup.JobIDs.Length; jobIndex++)
                 {
                     var jobID = jobGroup.JobIDs[jobIndex];
-                    if (LuminaGetter.TryGetRow<ClassJob>(jobID, out var job) &&
-                        OmniControls.CollapsingHeader($"{job.Name.ExtractText()}##skillMonitorJob{jobID}"))
+                    if (!jobLabels.TryGetValue(jobID, out var label))
+                    {
+                        if (!LuminaGetter.TryGetRow<ClassJob>(jobID, out var job))
+                            continue;
+                        label = $"{job.Name.ExtractText()}##skillMonitorJob{jobID}";
+                        jobLabels.Add(jobID, label);
+                    }
+                    if (OmniControls.CollapsingHeader(label))
                     {
                         changed |= DrawScope(config, definitions, jobID, group, ref runtimeChanged);
                     }
@@ -178,17 +196,18 @@ public sealed partial class SkillMonitor
 
             var changed = false;
             var deleteLabel = OmniLoc.Get("Feature.SkillMonitor.Custom.Delete");
+            var display = GetScopeDisplay(definitions, scopeID, group, deleteLabel);
             var deleteButtonSize = OmniControls.CompactButtonSize(deleteLabel);
             var orderLabel = OmniLoc.Get("Feature.SkillMonitor.Column.Order");
             var enabledLabel = OmniLoc.Get("Feature.SkillMonitor.Column.Enabled");
             var actionLabel = OmniLoc.Get("Feature.SkillMonitor.Column.Action");
             var operationLabel = OmniLoc.Get("Feature.SkillMonitor.Column.Operation");
-            var orderWidth = MathF.Max(OmniTheme.CheckboxSize(), ImGui.CalcTextSize(orderLabel).X);
-            var enabledWidth = MathF.Max(OmniTheme.CheckboxSize(), ImGui.CalcTextSize(enabledLabel).X);
-            var operationWidth = MathF.Max(deleteButtonSize.X, ImGui.CalcTextSize(operationLabel).X);
+            var orderWidth = MathF.Max(OmniTheme.CheckboxSize(), OmniTextMeasurements.Measure(orderLabel).X);
+            var enabledWidth = MathF.Max(OmniTheme.CheckboxSize(), OmniTextMeasurements.Measure(enabledLabel).X);
+            var operationWidth = MathF.Max(deleteButtonSize.X, OmniTextMeasurements.Measure(operationLabel).X);
             var actionWidth = OmniTheme.TableItemIconSize() + ImGui.GetFontSize() * 5f;
             using var table = OmniControls.DataTable(
-                $"##skillMonitorActions{scopeID}",
+                display.TableID,
                 [orderLabel, enabledLabel, actionLabel, operationLabel],
                 [orderWidth, enabledWidth, actionWidth, operationWidth],
                 [orderWidth, enabledWidth, actionWidth, operationWidth],
@@ -213,24 +232,23 @@ public sealed partial class SkillMonitor
             }
             for (var orderIndex = 0; orderIndex < order.Count; orderIndex++)
             {
-                var definitionIndex = FindDefinition(definitions, order[orderIndex], scopeID, group);
-                if (definitionIndex < 0)
+                if (!display.Actions.TryGetValue(order[orderIndex], out var actionDisplay))
                 {
                     continue;
                 }
 
-                var definition = definitions[definitionIndex];
+                var definition = definitions[actionDisplay.DefinitionIndex];
                 var iconSize = new Vector2(OmniTheme.TableItemIconSize());
                 var rowContentHeight = MathF.Max(iconSize.Y, MathF.Max(OmniTheme.CheckboxSize(), ImGui.GetFrameHeight()));
                 ImGui.TableNextRow(ImGuiTableRowFlags.None, rowContentHeight);
                 ImGui.TableSetColumnIndex(detailLayout ? 0 : 2);
                 var nameWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X - iconSize.X - ImGui.GetStyle().ItemSpacing.X);
-                var nameSize = ImGui.CalcTextSize(definition.Name, false, nameWidth);
+                var nameSize = OmniTextMeasurements.Measure(definition.Name, false, nameWidth);
                 if (!detailLayout)
                     rowContentHeight = MathF.Max(rowContentHeight, nameSize.Y);
                 ImGui.TableSetColumnIndex(0);
                 OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), rowContentHeight);
-                if (DrawReorderHandle(scopeID, order, orderIndex, definition.Name))
+                if (DrawReorderHandle(scopeID, order, orderIndex, definition.Name, actionDisplay.ReorderID))
                 {
                     runtimeChanged = true;
                     changed        = true;
@@ -240,7 +258,7 @@ public sealed partial class SkillMonitor
                 OmniControls.NextTableField(enabledLabel, detailLayout);
                 var enabled = !disabled.Contains(definition.ConfigID);
                 OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), rowContentHeight);
-                if (OmniControls.Checkbox($"##skillMonitorAction{scopeID}_{definition.ConfigID}", ref enabled))
+                if (OmniControls.Checkbox(actionDisplay.EnabledID, ref enabled))
                 {
                     if (enabled)
                     {
@@ -281,7 +299,7 @@ public sealed partial class SkillMonitor
 
                 OmniControls.CenterTableItem(deleteButtonSize, rowContentHeight);
                 if (OmniControls.SmallButton(
-                        $"{deleteLabel}##skillMonitorDelete{scopeID}_{definition.ActionID}",
+                        actionDisplay.DeleteID,
                         false,
                         deleteButtonSize))
                 {
@@ -300,11 +318,12 @@ public sealed partial class SkillMonitor
             uint       scopeID,
             List<uint> order,
             int        orderIndex,
-            string     label
+            string     label,
+            string     id
         )
         {
             OmniControls.IconButton(
-                $"##skillMonitorReorder{scopeID}_{order[orderIndex]}",
+                id,
                 FontAwesomeIcon.Bars,
                 false,
                 OmniLoc.Get("Feature.SkillMonitor.Reorder"));
@@ -346,25 +365,31 @@ public sealed partial class SkillMonitor
             return true;
         }
 
-        private static int FindDefinition
+        private ScopeDisplay GetScopeDisplay
         (
             SkillMonitorDefinition[] definitions,
-            uint                     configID,
             uint                     scopeID,
-            SkillMonitorGroup        group
+            SkillMonitorGroup        group,
+            string                   deleteLabel
         )
         {
+            var key = (scopeID, group);
+            if (scopeDisplays.TryGetValue(key, out var cached))
+                return cached;
+            var actions = new Dictionary<uint, ActionDisplay>();
             for (var index = 0; index < definitions.Length; index++)
             {
-                if (definitions[index].ConfigID == configID &&
-                    definitions[index].MatchesGroup(group) &&
-                    (scopeID == 0 || definitions[index].AppliesTo(scopeID)))
-                {
-                    return index;
-                }
+                var definition = definitions[index];
+                if (!definition.MatchesGroup(group) || scopeID != 0 && !definition.AppliesTo(scopeID))
+                    continue;
+                actions.TryAdd(definition.ConfigID, new(index,
+                    $"##skillMonitorAction{scopeID}_{definition.ConfigID}",
+                    $"##skillMonitorReorder{scopeID}_{definition.ConfigID}",
+                    $"{deleteLabel}##skillMonitorDelete{scopeID}_{definition.ActionID}"));
             }
-
-            return -1;
+            var display = new ScopeDisplay($"##skillMonitorActions{scopeID}", actions);
+            scopeDisplays.Add(key, display);
+            return display;
         }
 
         private static bool ContainsAction
@@ -398,7 +423,7 @@ public sealed partial class SkillMonitor
             var changed = false;
             using var table = OmniControls.SettingsTable(
                 "##skillMonitorVisibilitySettings",
-                [ImGui.CalcTextSize(OmniLoc.Get("Feature.SkillMonitor.ShowWhen")),
+                [OmniTextMeasurements.Measure(OmniLoc.Get("Feature.SkillMonitor.ShowWhen")),
                     Vector2.Max(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.SkillMonitor.Active")), OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.SkillMonitor.WeaponSheathed"))),
                     Vector2.Max(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.SkillMonitor.OnCooldown")), OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.SkillMonitor.OutOfCombat"))),
                     OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.SkillMonitor.OffCooldown"))],
@@ -490,13 +515,13 @@ public sealed partial class SkillMonitor
             var countSize = OmniControls.MeasureInput(config.IconsPerRow.ToString(), OmniTheme.Scale(64f));
             using var table = OmniControls.SettingsTable(
                 "##skillMonitorLayoutSettings",
-                [OmniControls.MeasureGroup([ImGui.CalcTextSize(iconScaleLabel), scaleSize]),
-                    OmniControls.MeasureGroup([ImGui.CalcTextSize(iconSpacingLabel), spacingSize]),
-                    OmniControls.MeasureGroup([ImGui.CalcTextSize(offsetLabel), offsetSize]),
-                    OmniControls.MeasureGroup([ImGui.CalcTextSize(iconsPerRowLabel), countSize]),
-                    OmniControls.MeasureGroup([ImGui.CalcTextSize(fontLabel), OmniControls.MeasureCombo(fontPreview)]),
-                    OmniControls.MeasureGroup([ImGui.CalcTextSize(generalPositionLabel), OmniControls.MeasureCombo(generalPositionPreview)]),
-                    OmniControls.MeasureGroup([ImGui.CalcTextSize(alignmentLabel), OmniControls.MeasureCombo(alignmentPreview)])],
+                [OmniControls.MeasureGroup([OmniTextMeasurements.Measure(iconScaleLabel), scaleSize]),
+                    OmniControls.MeasureGroup([OmniTextMeasurements.Measure(iconSpacingLabel), spacingSize]),
+                    OmniControls.MeasureGroup([OmniTextMeasurements.Measure(offsetLabel), offsetSize]),
+                    OmniControls.MeasureGroup([OmniTextMeasurements.Measure(iconsPerRowLabel), countSize]),
+                    OmniControls.MeasureGroup([OmniTextMeasurements.Measure(fontLabel), OmniControls.MeasureCombo(fontPreview)]),
+                    OmniControls.MeasureGroup([OmniTextMeasurements.Measure(generalPositionLabel), OmniControls.MeasureCombo(generalPositionPreview)]),
+                    OmniControls.MeasureGroup([OmniTextMeasurements.Measure(alignmentLabel), OmniControls.MeasureCombo(alignmentPreview)])],
                 ["##skillMonitorScale", "##skillMonitorSpacing", "##skillMonitorOffset", "##skillMonitorGeneralPosition",
                     "##skillMonitorFontColumn", "##skillMonitorPositionColumn", "##skillMonitorAlignmentColumn"],
                 flags: ImGuiTableFlags.NoSavedSettings | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.SizingStretchSame,
@@ -658,6 +683,10 @@ public sealed partial class SkillMonitor
         ) =>
             OmniControls.Checkbox($"{OmniLoc.Get($"Feature.SkillMonitor.{name}")}##skillMonitor{name}", ref value);
 
+
+        private sealed record ScopeDisplay(string TableID, Dictionary<uint, ActionDisplay> Actions);
+
+        private readonly record struct ActionDisplay(int DefinitionIndex, string EnabledID, string ReorderID, string DeleteID);
 
         #region 常量
 

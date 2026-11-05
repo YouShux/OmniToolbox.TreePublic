@@ -83,6 +83,7 @@ public sealed partial class BetterGlamourManagement
         private int                                        selectedCategory;
         private int                                        dyeCount              = 2;
         private int                                        visibleRows;
+        private (Vector2 Position, Vector2 Size, int Rows, int Channels, int Selected, int Nodes)? contentLayout;
         private bool                                       pendingRowsRebuild;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
@@ -307,6 +308,7 @@ public sealed partial class BetterGlamourManagement
             Array.Clear(dyeSources);
             categoryNodes.Clear();
             rowNodes.Clear();
+            contentLayout = null;
             item               = null;
             onSelected         = null;
             onUndo             = null;
@@ -487,6 +489,10 @@ public sealed partial class BetterGlamourManagement
             var targetSize = new Vector2(416f, Size.Y - ContentSize.Y + footerY + 38f);
             if (Vector2.DistanceSquared(Size, targetSize) > 0.5f)
                 SetWindowSize(targetSize);
+            var layout = (ContentStartPosition, ContentSize, visibleRows, dyeCount, selectedStain, rowNodes.Count);
+            if (contentLayout == layout)
+                return;
+            contentLayout = layout;
             var start = ContentStartPosition - new Vector2(0f, 2f);
             var width = ContentSize.X;
             equipmentLabel.Position      = start + new Vector2(4f, 0f);

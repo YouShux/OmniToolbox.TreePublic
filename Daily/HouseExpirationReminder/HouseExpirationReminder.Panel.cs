@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Globalization;
 using Dalamud.Interface.ImGuiNotification;
 using Dalamud.Plugin.Services;
@@ -41,7 +42,7 @@ public sealed partial class HouseExpirationReminder
                 "##houseExpirationNotificationSettings",
                 [OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HouseExpirationReminder.ChatNotify")),
                 OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.HouseExpirationReminder.PopupNotify")),
-                OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.HouseExpirationReminder.WarnDays")),
+                OmniControls.MeasureGroup([OmniTextMeasurements.Measure(OmniLoc.Get("Feature.HouseExpirationReminder.WarnDays")),
                     OmniControls.MeasureInput("45", step: 1)]),
                 OmniControls.CompactButtonSize(OmniLoc.Get("Feature.HouseExpirationReminder.Preview"))],
                 ["##chat", "##popup", "##threshold", "##preview"],

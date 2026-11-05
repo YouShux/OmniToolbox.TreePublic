@@ -1,10 +1,13 @@
+using OmniToolbox.UI.Widgets;
 using System.Drawing;
+using System.Globalization;
 using Dalamud.Interface;
 using OmenTools;
 using OmenTools.Extensions;
 using OmniToolbox.Notifications;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Theme;
+using TreeToolKit;
 using static OmniToolbox.TreePublic.MitigationMonitor;
 
 namespace OmniToolbox.TreePublic;
@@ -29,7 +32,9 @@ public sealed partial class MitigationMonitor
         private long                                                               sourceVersion      = -1;
         private bool                                                               filteredDotDamage  = true;
         private readonly List<float>                                               rowHeights         = [];
-        private (float Width, float FontSize, float Scale, bool Detail, nint Font) heightLayout;
+        private readonly List<float> rowOffsets = [];
+        private (float Width, float FontSize, float Scale, bool Detail, nint Font, long FontRevision, long Localization,
+            int NumberMode, CultureInfo? Culture, float Spacing) heightLayout;
 
         public MitigationRecordTable
         (
@@ -90,17 +95,33 @@ public sealed partial class MitigationMonitor
                     else
                     {
                         var bodyWidth = MathF.Max(1f, ImGui.GetContentRegionAvail().X);
+                        var rowSpacing = ImGui.GetStyle().ItemSpacing.Y;
                         var nextLayout = (detailLayout ? bodyWidth : layout.Status, ImGui.GetFontSize(),
-                            config.Scale(1f), detailLayout, (nint)ImGui.GetFont().Handle);
+                            config.Scale(1f), detailLayout, (nint)ImGui.GetFont().Handle, Fonts.Revision, OmniLoc.Revision,
+                            (int)OmniNumberFormatter.Mode, CultureInfo.CurrentCulture, rowSpacing);
                         if (heightLayout != nextLayout || rowHeights.Count != visibleRecords.Count)
                         {
                             heightLayout = nextLayout;
                             rowHeights.Clear();
+                            rowOffsets.Clear();
+                            rowOffsets.Add(0f);
                             foreach (var record in visibleRecords)
-                                rowHeights.Add(detailLayout ? renderer.CalculateDetailHeight(record, bodyWidth)
-                                    : renderer.CalculateRowHeight(record, layout.Status));
+                            {
+                                var rowHeight = detailLayout ? renderer.CalculateDetailHeight(record, bodyWidth)
+                                    : renderer.CalculateRowHeight(record, layout.Status);
+                                rowHeights.Add(rowHeight);
+                                rowOffsets.Add(rowOffsets[^1] + rowHeight + rowSpacing);
+                            }
                         }
-                        for (var index = 0; index < visibleRecords.Count; index++)
+                        var clipMin = ImGui.GetWindowPos().Y - bodyMin.Y;
+                        var clipMax = clipMin + ImGui.GetWindowSize().Y;
+                        var first = rowOffsets.BinarySearch(clipMin);
+                        first = Math.Clamp(first >= 0 ? first : ~first - 1, 0, visibleRecords.Count);
+                        var last = rowOffsets.BinarySearch(clipMax);
+                        last = Math.Clamp(last >= 0 ? last + 1 : ~last, first, visibleRecords.Count);
+                        if (first > 0)
+                            ImGui.Dummy(new Vector2(bodyWidth, MathF.Max(0f, rowOffsets[first] - rowSpacing)));
+                        for (var index = first; index < last; index++)
                         {
                             var record = visibleRecords[index];
                             var rowMin = ImGui.GetCursorScreenPos();
@@ -112,7 +133,7 @@ public sealed partial class MitigationMonitor
                             }
                             if (ImGui.InvisibleButton($"##MitigationRecord{index}", new Vector2(bodyWidth, rowHeight)))
                             {
-                                ImGui.SetClipboardText(MitigationRecordCopyText.Build(record));
+                                ImGui.SetClipboardText(renderer.GetCopyText(record));
                                 OmniNotifier.Banner(OmniLoc.Get("Feature.MitigationMonitor.Copy.Success"));
                             }
 
@@ -131,6 +152,8 @@ public sealed partial class MitigationMonitor
                                 ImGui.IsItemHovered(),
                                 ImGui.IsItemActive());
                         }
+                        if (last < visibleRecords.Count)
+                            ImGui.Dummy(new Vector2(bodyWidth, MathF.Max(0f, rowOffsets[^1] - rowOffsets[last] - rowSpacing)));
                     }
                 }
             }
@@ -143,6 +166,7 @@ public sealed partial class MitigationMonitor
             sourceRecords.Clear();
             visibleRecords.Clear();
             rowHeights.Clear();
+            rowOffsets.Clear();
             targetOptions.Clear();
             targetNames.Clear();
             renderer.ResetRuntime();
@@ -345,10 +369,10 @@ public sealed partial class MitigationMonitor
             float  y
         )
         {
-            var text = MitigationRecordRenderer.FitText(
+            var text = renderer.FitText(
                 OmniLoc.Get(key),
                 MathF.Max(config.Scale(4f), width - config.Scale(8f)));
-            var textSize = ImGui.CalcTextSize(text);
+            var textSize = OmniTextMeasurements.Measure(text);
             ImGui.GetWindowDrawList().AddText(
                 new Vector2(
                     x + MathF.Max(0f, (width - textSize.X) * 0.5f),
@@ -379,12 +403,12 @@ public sealed partial class MitigationMonitor
             }
 
             var caret = FontAwesomeIcon.CaretDown.ToIconString();
-            var caretSize = ImGui.CalcTextSize(caret);
+            var caretSize = OmniTextMeasurements.Measure(caret);
 
-            var display = MitigationRecordRenderer.FitText(
+            var display = renderer.FitText(
                 label,
                 MathF.Max(config.Scale(4f), width - caretSize.X - config.Scale(12f)));
-            var textSize = ImGui.CalcTextSize(display);
+            var textSize = OmniTextMeasurements.Measure(display);
             var startX = min.X + MathF.Max(0f, (width - textSize.X - caretSize.X - config.Scale(4f)) * 0.5f);
             var active = selectedTargetName != null;
             if (ImGui.IsItemHovered() || active)

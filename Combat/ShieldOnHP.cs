@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Plugin.Services;
@@ -12,6 +13,7 @@ using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using OmniToolbox.UI.Theme;
+using TreeToolKit;
 using Control = FFXIVClientStructs.FFXIV.Client.Game.Control.Control;
 
 namespace OmniToolbox.TreePublic;
@@ -34,12 +36,22 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
             ["Feature.ShieldOnHP.ShowBar.Help"] = "Feature.ShieldOnHP.ShowBar.Help"
         });
 
+    private uint    shieldTextAmount;
+    private string  shieldText = string.Empty;
+    private nint    shieldTextFont;
+    private float   shieldTextFontSize;
+    private Vector2 shieldTextSize;
+    private long    shieldTextFontRevision;
+
     protected override void OnStart(FeatureLifetime activation)
     {
+        Fonts.Observe(FontManager.Instance().MiedingerMidFont140);
         var lifetime = Activation;
         lifetime.Add(() =>
         {
             RemoveNodes(AddonHelper.GetByName(PARAMETER_WIDGET_ADDON_NAME));
+            shieldText = string.Empty;
+            shieldTextSize = Vector2.Zero;
         });
         var addonEvents = new AddonEventRegistry(DalamudServices.AddonLifecycle);
         lifetime.OnStopping(addonEvents.Dispose);
@@ -74,7 +86,7 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
 
         OmniControls.SameLineOrWrap(ImGui.GetTextLineHeight(), OmniTheme.Scale(4f));
         OmniControls.HelpIcon(OmniLoc.Get(this, "Feature.ShieldOnHP.ShowBar.Help"), referenceText: showBarLabel);
-        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.ShieldOnHP.Color")).X +
+        OmniControls.SameLineOrWrap(OmniTextMeasurements.Measure(OmniLoc.Get(this, "Feature.ShieldOnHP.Color")).X +
             ImGui.GetFrameHeight() + ImGui.GetStyle().ItemSpacing.X, OmniTheme.ContentGap());
         using (ImRaii.Disabled(!config.ShowBar))
         {
@@ -93,7 +105,7 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         return shouldSave;
     }
 
-    private static void DrawShieldValue()
+    private void DrawShieldValue()
     {
         if (!TryGetShieldMetrics(out var metrics) ||
             !TryGetHpBarComponent(out var hpBar, out _) ||
@@ -104,14 +116,25 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
 
         var scale = hpBar->AtkResNode.GetScale();
         using var font = FontManager.Instance().MiedingerMidFont140.Push();
-        var text = metrics.ShieldAmount.ToString();
-        var textSize = ImGui.CalcTextSize(text);
+        var currentFont = (nint)ImGui.GetFont().Handle;
+        var fontSize = ImGui.GetFontSize();
+        var fontRevision = Fonts.Revision;
+        if (shieldText.Length == 0 || shieldTextAmount != metrics.ShieldAmount ||
+            shieldTextFont != currentFont || shieldTextFontSize != fontSize || shieldTextFontRevision != fontRevision)
+        {
+            shieldTextAmount = metrics.ShieldAmount;
+            shieldText = metrics.ShieldAmount.ToString();
+            shieldTextFont = currentFont;
+            shieldTextFontSize = fontSize;
+            shieldTextSize = OmniTextMeasurements.Measure(shieldText);
+            shieldTextFontRevision = fontRevision;
+        }
         var position = new Vector2(
             hpBar->AtkResNode.ScreenX + 64f * scale.X,
-            hpBar->AtkResNode.ScreenY - textSize.Y + 5f * scale.Y);
+            hpBar->AtkResNode.ScreenY - shieldTextSize.Y + 5f * scale.Y);
         var drawList = ImGui.GetBackgroundDrawList();
-        drawList.AddText(position + Vector2.One, 0x9D00A2FF, text);
-        drawList.AddText(position, 0xFFFFFFFF, text);
+        drawList.AddText(position + Vector2.One, 0x9D00A2FF, shieldText);
+        drawList.AddText(position, 0xFFFFFFFF, shieldText);
     }
 
     private static void OnParameterWidgetFinalize
@@ -128,14 +151,7 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
             return;
         }
 
-        var shieldBar = FindNode<AtkNineGridNode>(
-            &hpBar->Component->UldManager,
-            SHIELD_BAR_NODE_ID,
-            NodeType.NineGrid);
-        var overShieldBar = FindNode<AtkNineGridNode>(
-            &hpBar->Component->UldManager,
-            OVER_SHIELD_BAR_NODE_ID,
-            NodeType.NineGrid);
+        FindShieldBars(&hpBar->Component->UldManager, out var shieldBar, out var overShieldBar);
         if (!config.ShowBar || !TryGetShieldMetrics(out var metrics))
         {
             HideBars(shieldBar, overShieldBar);
@@ -158,15 +174,9 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
             return;
         }
 
-        shieldBar->AtkResNode.X = metrics.HpPercentage * BAR_BODY_WIDTH;
-        shieldBar->AtkResNode.SetWidth(ToBarWidth(metrics.ShieldPercentage));
-        shieldBar->AtkResNode.DrawFlags |= 1;
-        shieldBar->AtkResNode.ToggleVisibility(metrics.ShieldPercentage > 0f);
-
-        overShieldBar->AtkResNode.X = 0f;
-        overShieldBar->AtkResNode.SetWidth(ToBarWidth(metrics.OverShieldPercentage));
-        overShieldBar->AtkResNode.DrawFlags |= 1;
-        overShieldBar->AtkResNode.ToggleVisibility(metrics.OverShieldPercentage > 0f);
+        UpdateBar(shieldBar, metrics.HpPercentage * BAR_BODY_WIDTH,
+            ToBarWidth(metrics.ShieldPercentage), metrics.ShieldPercentage > 0f);
+        UpdateBar(overShieldBar, 0f, ToBarWidth(metrics.OverShieldPercentage), metrics.OverShieldPercentage > 0f);
         ApplyBarColor(shieldBar, overShieldBar, config.Color);
     }
 
@@ -305,18 +315,24 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
     )
     {
         if (shieldBar != null)
-        {
-            shieldBar->AtkResNode.X = 0f;
-            shieldBar->AtkResNode.SetWidth(0);
-            shieldBar->AtkResNode.ToggleVisibility(false);
-        }
+            UpdateBar(shieldBar, 0f, 0, false);
 
         if (overShieldBar != null)
+            UpdateBar(overShieldBar, 0f, 0, false);
+    }
+
+    private static void UpdateBar(AtkNineGridNode* bar, float position, ushort width, bool visible)
+    {
+        var node = &bar->AtkResNode;
+        if (node->X != position)
         {
-            overShieldBar->AtkResNode.X = 0f;
-            overShieldBar->AtkResNode.SetWidth(0);
-            overShieldBar->AtkResNode.ToggleVisibility(false);
+            node->X = position;
+            node->DrawFlags |= 1;
         }
+        if (node->Width != width)
+            node->SetWidth(width);
+        if (node->IsVisible() != visible)
+            node->ToggleVisibility(visible);
     }
 
     private static void ApplyBarColor
@@ -329,12 +345,18 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         var red = ToColorByte(color.X);
         var green = ToColorByte(color.Y);
         var blue = ToColorByte(color.Z);
-        shieldBar->AtkResNode.MultiplyRed       = red;
-        shieldBar->AtkResNode.MultiplyGreen     = green;
-        shieldBar->AtkResNode.MultiplyBlue      = blue;
-        overShieldBar->AtkResNode.MultiplyRed   = red;
-        overShieldBar->AtkResNode.MultiplyGreen = green;
-        overShieldBar->AtkResNode.MultiplyBlue  = blue;
+        if (shieldBar->AtkResNode.MultiplyRed != red)
+            shieldBar->AtkResNode.MultiplyRed = red;
+        if (shieldBar->AtkResNode.MultiplyGreen != green)
+            shieldBar->AtkResNode.MultiplyGreen = green;
+        if (shieldBar->AtkResNode.MultiplyBlue != blue)
+            shieldBar->AtkResNode.MultiplyBlue = blue;
+        if (overShieldBar->AtkResNode.MultiplyRed != red)
+            overShieldBar->AtkResNode.MultiplyRed = red;
+        if (overShieldBar->AtkResNode.MultiplyGreen != green)
+            overShieldBar->AtkResNode.MultiplyGreen = green;
+        if (overShieldBar->AtkResNode.MultiplyBlue != blue)
+            overShieldBar->AtkResNode.MultiplyBlue = blue;
     }
 
     private static void RemoveNodes(AtkUnitBase* parameterWidget)
@@ -357,8 +379,7 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         }
 
         var manager = &hpBar->Component->UldManager;
-        var shieldBar = FindNode<AtkNineGridNode>(manager, SHIELD_BAR_NODE_ID, NodeType.NineGrid);
-        var overShieldBar = FindNode<AtkNineGridNode>(manager, OVER_SHIELD_BAR_NODE_ID, NodeType.NineGrid);
+        FindShieldBars(manager, out var shieldBar, out var overShieldBar);
         if (shieldBar == null && overShieldBar == null)
         {
             return;
@@ -433,6 +454,32 @@ public sealed unsafe partial class ShieldOnHP(ShieldOnHP.Settings config) : Omni
         }
 
         return null;
+    }
+
+    private static void FindShieldBars
+    (
+        AtkUldManager* manager,
+        out AtkNineGridNode* shieldBar,
+        out AtkNineGridNode* overShieldBar
+    )
+    {
+        shieldBar = null;
+        overShieldBar = null;
+        if (manager == null || manager->NodeList == null)
+            return;
+
+        for (var index = 0; index < manager->NodeListCount; index++)
+        {
+            var node = manager->NodeList[index];
+            if (node == null || node->Type != NodeType.NineGrid)
+                continue;
+            if (node->NodeId == SHIELD_BAR_NODE_ID)
+                shieldBar = (AtkNineGridNode*)node;
+            else if (node->NodeId == OVER_SHIELD_BAR_NODE_ID)
+                overShieldBar = (AtkNineGridNode*)node;
+            if (shieldBar != null && overShieldBar != null)
+                return;
+        }
     }
 
     private static ushort ToBarWidth(float percentage) =>

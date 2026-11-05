@@ -124,25 +124,11 @@ public sealed partial class AetheryteModelReplacement
                     }
 
                     OmniControls.NextTableField(OmniLoc.Get("Feature.AetheryteModelReplacement.Source"), detailLayout);
-                    var usedSources = rules
-                        .Where((candidate, candidateIndex) => candidateIndex != index)
-                        .Select(static candidate => (candidate.SourceTerritoryID, candidate.SourceAetheryteRowID))
-                        .ToHashSet();
-                    var sourceOptions = presets
-                        .Where(preset => !usedSources.Contains((preset.TerritoryID, preset.RowID)) ||
-                                         (preset.TerritoryID == rule.SourceTerritoryID &&
-                                          preset.RowID == rule.SourceAetheryteRowID))
-                        .ToArray();
-                    var source = sourceOptions.FirstOrDefault(preset =>
-                                     preset.TerritoryID == rule.SourceTerritoryID &&
-                                     preset.RowID == rule.SourceAetheryteRowID) ??
-                                 sourceOptions.FirstOrDefault(preset =>
-                                     preset.SharedGroupPath.Equals(rule.SourceSharedGroupPath, StringComparison.OrdinalIgnoreCase)) ??
-                                 sourceOptions.FirstOrDefault();
+                    var source = FindSource(presets, config, index);
                     OmniControls.CenterTableItem(
                         new Vector2(ImGui.GetContentRegionAvail().X, ImGui.GetFrameHeight()),
                         rowContentHeight);
-                    if (source is not null && DrawPresetCombo("source", sourceOptions, source, true, out var selectedSource))
+                    if (source is not null && DrawPresetCombo("source", presets, source, true, out var selectedSource, config, index))
                     {
                         rule.SourceTerritoryID     = selectedSource.TerritoryID;
                         rule.SourceAetheryteRowID  = selectedSource.RowID;
@@ -223,7 +209,9 @@ public sealed partial class AetheryteModelReplacement
             IReadOnlyList<AetherytePreset> options,
             AetherytePreset                current,
             bool                           matchIdentity,
-            out AetherytePreset            selected
+            out AetherytePreset            selected,
+            Settings?                      config = null,
+            int                            ruleIndex = -1
         )
         {
             selected = current;
@@ -238,6 +226,8 @@ public sealed partial class AetheryteModelReplacement
             var changed = false;
             foreach (var option in options)
             {
+                if (matchIdentity && config != null && !IsSourceAvailable(option, config, ruleIndex))
+                    continue;
                 var isSelected = matchIdentity
                     ? option.TerritoryID == current.TerritoryID && option.RowID == current.RowID
                     : option.SharedGroupPath.Equals(current.SharedGroupPath, StringComparison.OrdinalIgnoreCase);
@@ -250,6 +240,36 @@ public sealed partial class AetheryteModelReplacement
 
             ImGui.EndCombo();
             return changed;
+        }
+
+        private static AetherytePreset? FindSource(IReadOnlyList<AetherytePreset> presets, Settings config, int index)
+        {
+            var rule = config.Rules[index];
+            AetherytePreset? fallback = null;
+            AetherytePreset? pathMatch = null;
+            foreach (var preset in presets)
+            {
+                if (preset.TerritoryID == rule.SourceTerritoryID && preset.RowID == rule.SourceAetheryteRowID)
+                    return preset;
+                if (!IsSourceAvailable(preset, config, index))
+                    continue;
+                fallback ??= preset;
+                if (pathMatch == null && preset.SharedGroupPath.Equals(rule.SourceSharedGroupPath, StringComparison.OrdinalIgnoreCase))
+                    pathMatch = preset;
+            }
+            return pathMatch ?? fallback;
+        }
+
+        private static bool IsSourceAvailable(AetherytePreset preset, Settings config, int ruleIndex)
+        {
+            var rule = config.Rules[ruleIndex];
+            if (preset.TerritoryID == rule.SourceTerritoryID && preset.RowID == rule.SourceAetheryteRowID)
+                return true;
+            for (var index = 0; index < config.Rules.Count; index++)
+                if (index != ruleIndex && config.Rules[index].SourceTerritoryID == preset.TerritoryID &&
+                    config.Rules[index].SourceAetheryteRowID == preset.RowID)
+                    return false;
+            return true;
         }
     }
 

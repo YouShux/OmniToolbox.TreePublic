@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Hooking;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -67,8 +68,8 @@ public sealed unsafe partial class LargeCooldownCounter(LargeCooldownCounter.Set
         var controlSize = new Vector2(controlWidth, ImGui.GetFrameHeight());
         using var table = OmniControls.SettingsTable(
             "##largeCooldownCounterSettings",
-            [OmniControls.MeasureGroup([ImGui.CalcTextSize(fontLabel), controlSize]),
-                OmniControls.MeasureGroup([ImGui.CalcTextSize(sizeLabel), Vector2.Max(controlSize, OmniControls.MeasureInput("-15"))])],
+            [OmniControls.MeasureGroup([OmniTextMeasurements.Measure(fontLabel), controlSize]),
+                OmniControls.MeasureGroup([OmniTextMeasurements.Measure(sizeLabel), Vector2.Max(controlSize, OmniControls.MeasureInput("-15"))])],
             ["##largeCooldownCounterFont", "##largeCooldownCounterFontSize"],
             flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
         if (!table)

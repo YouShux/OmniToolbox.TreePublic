@@ -1,12 +1,17 @@
+using OmniToolbox.UI.Widgets;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
 
 public sealed partial class AutoSortItems
 {
-    internal static class Panel
+    internal sealed class Panel
     {
-        public static bool Draw(Settings config)
+        private readonly List<string> categories = [];
+        private readonly HashSet<string> categoryNames = new(StringComparer.Ordinal);
+        private readonly HashSet<int> drawnRules = [];
+
+        public bool Draw(Settings config)
         {
             var changed = false;
             using (var optionsTable = OmniControls.SettingsTable(
@@ -46,7 +51,7 @@ public sealed partial class AutoSortItems
             var deleteLabel = OmniLoc.Get("Feature.AutoSortItems.DeleteRule");
             var deleteSize = OmniControls.CompactButtonSize(deleteLabel);
             var tabLabel = OmniLoc.Get("Feature.AutoSortItems.Tab");
-            var tabWidth = OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + ImGui.CalcTextSize(tabLabel).X;
+            var tabWidth = OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + OmniTextMeasurements.Measure(tabLabel).X;
             var rules = config.Rules!;
             var enableColumnWidth = OmniControls.MeasureCheckbox(string.Empty).X;
             var categoryWidth = MeasureRuleOptions(AutoSortItems.Categories);
@@ -54,13 +59,19 @@ public sealed partial class AutoSortItems
             var orderWidth = MeasureRuleOptions(AutoSortItems.Orders);
             ReadOnlySpan<string> labels = ["##enabled", OmniLoc.Get("Feature.AutoSortItems.Column.Category"),
             OmniLoc.Get("Feature.AutoSortItems.Column.Condition"), OmniLoc.Get("Feature.AutoSortItems.Column.Actions")];
-            var visibleRowCount = Math.Min(
-                6,
-                rules.Count + rules
-                    .Where(rule => rule.Category is not null)
-                    .Select(rule => rule.Category!)
-                    .Distinct(StringComparer.Ordinal)
-                    .Count());
+            categories.Clear();
+            categoryNames.Clear();
+            var hasCategories = false;
+            var allCategoriesEnabled = true;
+            foreach (var rule in rules)
+                if (rule.Category is { } category)
+                {
+                    hasCategories = true;
+                    allCategoriesEnabled &= rule.Enabled;
+                    if (categoryNames.Add(category))
+                        categories.Add(category);
+                }
+            var visibleRowCount = Math.Min(6, rules.Count + categories.Count);
             var tableHeight = OmniTheme.SmallButtonSize().Y +
                               rowContentHeight * visibleRowCount +
                               ImGui.GetStyle().CellPadding.Y * (visibleRowCount + 1) * 2f +
@@ -82,8 +93,7 @@ public sealed partial class AutoSortItems
                     OmniControls.BeginTableHeaderRow();
                     ImGui.TableNextColumn();
                     ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
-                    var allEnabled = rules.Any(rule => rule.Category is not null) &&
-                                     rules.Where(rule => rule.Category is not null).All(rule => rule.Enabled);
+                    var allEnabled = hasCategories && allCategoriesEnabled;
                     if (!detailLayout)
                         OmniControls.CenterTableItem(new Vector2(OmniTheme.CheckboxSize()), OmniTheme.SmallButtonSize().Y);
                     if (OmniControls.Checkbox("##allEnabled", ref allEnabled))
@@ -102,12 +112,8 @@ public sealed partial class AutoSortItems
                     }
 
                     var removeIndex = -1;
-                    var drawnRules = new HashSet<int>();
-                    foreach (var category in rules
-                                 .Where(rule => rule.Category is not null)
-                                 .Select(rule => rule.Category!)
-                                 .Distinct(StringComparer.Ordinal)
-                                 .ToArray())
+                    drawnRules.Clear();
+                    foreach (var category in categories)
                     {
                         DrawCategoryHeader(config, category, rowContentHeight, detailLayout, ref changed);
                         for (var index = 0; index < rules.Count; index++)
@@ -169,13 +175,13 @@ public sealed partial class AutoSortItems
             }
 
             if (detailLayout)
-                OmniControls.SameLineOrWrap(ImGui.CalcTextSize(categoryLabel).X);
+                OmniControls.SameLineOrWrap(OmniTextMeasurements.Measure(categoryLabel).X);
             else
                 ImGui.TableSetColumnIndex(1);
             ImGui.TableSetBgColor(ImGuiTableBgTarget.CellBg, ImGui.GetColorU32(ImGuiCol.TableHeaderBg));
             if (!detailLayout)
                 OmniControls.CenterTableItem(
-                new Vector2(ImGui.CalcTextSize(categoryLabel).X, ImGui.GetFrameHeight()),
+                new Vector2(OmniTextMeasurements.Measure(categoryLabel).X, ImGui.GetFrameHeight()),
                 rowContentHeight);
             ImGui.AlignTextToFramePadding();
             using (ImRaii.TextWrapPos(0f))
@@ -197,7 +203,7 @@ public sealed partial class AutoSortItems
                 else
                     OmniControls.CenterTableItem(
                     new Vector2(
-                        OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + ImGui.CalcTextSize(tabLabel).X,
+                        OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + OmniTextMeasurements.Measure(tabLabel).X,
                         OmniTheme.CheckboxSize()),
                     rowContentHeight);
                 if (OmniControls.Checkbox($"{tabLabel}##tab", ref tab))

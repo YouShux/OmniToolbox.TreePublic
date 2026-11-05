@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Globalization;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.UI.Controls;
@@ -18,6 +19,9 @@ public sealed partial class LootRollHistory
         private SessionOption[] lootSessions = [];
         private SessionOption[] randomSessions = [];
         private LootParticipant[] participants = [];
+        private ParticipantDisplay[] participantRows = [];
+        private string detailHeading = string.Empty;
+        private string detailStatus = string.Empty;
         private LootRecord? detailRecord;
         private ulong renderedCharacterID;
         private long localizationRevision = -1;
@@ -56,6 +60,7 @@ public sealed partial class LootRollHistory
             if (renderedCharacterID != feature.characterID)
             {
                 renderedCharacterID = feature.characterID;
+                historyMenuRevision++;
                 renderedSnapshot = null;
                 lootRows = [];
                 visibleLootRows = [];
@@ -64,6 +69,9 @@ public sealed partial class LootRollHistory
                 lootSessions = [];
                 randomSessions = [];
                 participants = [];
+                participantRows = [];
+                detailHeading = string.Empty;
+                detailStatus = string.Empty;
                 detailRecord = null;
                 page = HistoryPage.Loot;
                 selectedSession = null;
@@ -76,6 +84,7 @@ public sealed partial class LootRollHistory
             if (ReferenceEquals(snapshot, renderedSnapshot) && localizationRevision == OmniLoc.Revision)
                 return;
             renderedSnapshot = snapshot;
+            historyMenuRevision++;
             localizationRevision = OmniLoc.Revision;
             worldNames.Clear();
             lootRows = snapshot?.Loot.Select(record =>
@@ -187,9 +196,9 @@ public sealed partial class LootRollHistory
             var headerHeight = OmniTheme.Scale(26f);
             var controlsWidth = GetHeaderControlsWidth() + OmniTheme.Scale(8f);
             var padding = OmniTheme.Scale(6f);
-            var timeWidth = ImGui.CalcTextSize("00:00:00").X + padding * 2f;
-            var valueWidth = MathF.Max(ImGui.CalcTextSize(Text("Value")).X,
-                ImGui.CalcTextSize("99").X) + padding * 2f;
+            var timeWidth = OmniTextMeasurements.Measure("00:00:00").X + padding * 2f;
+            var valueWidth = MathF.Max(OmniTextMeasurements.Measure(Text("Value")).X,
+                OmniTextMeasurements.Measure("99").X) + padding * 2f;
             var flexibleWidth = MathF.Max(OmniTheme.Scale(80f),
                 available.X - ImGui.GetStyle().ScrollbarSize - controlsWidth - timeWidth - valueWidth);
             ReadOnlySpan<float> widths = [timeWidth, flexibleWidth * 0.45f, flexibleWidth * 0.25f, valueWidth,
@@ -291,7 +300,7 @@ public sealed partial class LootRollHistory
             x += widths[1];
             DrawLootCell(winner?.PlayerName ?? "—", new Vector2(x, position.Y), new Vector2(widths[2], height), color);
             x += widths[2];
-            DrawLootCell(winner?.Value?.ToString(CultureInfo.CurrentCulture) ?? "—",
+            DrawLootCell(row.WinnerValue,
                 new Vector2(x, position.Y), new Vector2(widths[3], height), color);
             x += widths[3];
             using (ImRaii.PushClipRect(new Vector2(x, position.Y), new Vector2(x + widths[4], position.Y + height), true))
@@ -311,6 +320,9 @@ public sealed partial class LootRollHistory
         private void SetDetails(LootRecord? record)
         {
             detailRecord = record;
+            participantRows = [];
+            detailHeading = string.Empty;
+            detailStatus = string.Empty;
             if (record is null)
             {
                 participants = [];
@@ -329,6 +341,20 @@ public sealed partial class LootRollHistory
                 .ThenBy(player => player.PlayerName, StringComparer.CurrentCulture).ThenBy(player => player.HomeWorldID).ToArray();
             if (record.Winner is { } winner)
                 participants = [winner, .. participants.Where(player => player.EntityID != winner.EntityID)];
+            participantRows = participants.Select(player => new ParticipantDisplay(player,
+                GetPlayerName(player.PlayerName, player.HomeWorldID),
+                player.Choice == LootChoice.Pending ? Text(record.Unassigned.Length > 0 ? "Unknown" : "Pending")
+                    : GetChoiceName(player.Choice), player.Value?.ToString(CultureInfo.CurrentCulture) ?? "—")).ToArray();
+            detailHeading = $"{record.Time.ToLocalTime():MM-dd HH:mm:ss} · {GetAreaName(record.TerritoryID, record.DutyID)}";
+            detailStatus = Text(record.Status switch
+            {
+                LootStatus.Pending => "Waiting",
+                LootStatus.Ended when record.Unassigned.Length == 0 && record.Participants.Length > 0 &&
+                                      record.Participants.All(player => player.Choice == LootChoice.Pass) => "AllPassed",
+                LootStatus.Ended => "Ended",
+                LootStatus.Interrupted => "Interrupted",
+                _ => "Unknown"
+            });
         }
 
         private void DrawLootDetails(LootRecord record)
@@ -338,17 +364,9 @@ public sealed partial class LootRollHistory
                 return;
             var row = Array.Find(lootRows, entry => entry.Record.ID == record.ID);
             ItemSelectionTable.DrawItemCell(record.ItemID, ImGui.GetTextLineHeight(), ImGui.GetTextLineHeight(), row?.Name, false);
-            ImGui.TextDisabled($"{record.Time.ToLocalTime():MM-dd HH:mm:ss} · {GetAreaName(record.TerritoryID, record.DutyID)}");
+            ImGui.TextDisabled(detailHeading);
             if (record.Winner is null)
-                ImGui.TextUnformatted(Text(record.Status switch
-                {
-                    LootStatus.Pending => "Waiting",
-                    LootStatus.Ended when record.Unassigned.Length == 0 && record.Participants.Length > 0 &&
-                                              record.Participants.All(player => player.Choice == LootChoice.Pass) => "AllPassed",
-                    LootStatus.Ended => "Ended",
-                    LootStatus.Interrupted => "Interrupted",
-                    _ => "Unknown"
-                }));
+                ImGui.TextUnformatted(detailStatus);
 
             using (var table = ImRaii.Table("##lootParticipants", 3,
                 ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH | ImGuiTableFlags.SizingStretchProp))
@@ -362,25 +380,26 @@ public sealed partial class LootRollHistory
                     OmniControls.TableHeader(Text("Player"), ImGui.GetTextLineHeight());
                     OmniControls.TableHeader(Text("Choice"), ImGui.GetTextLineHeight());
                     OmniControls.TableHeader(Text("Value"), ImGui.GetTextLineHeight());
-                    foreach (var player in participants)
+                    foreach (var participant in participantRows)
                     {
+                        var player = participant.Player;
                         ImGui.TableNextRow();
                         if (record.Winner is { } awarded && player.EntityID == awarded.EntityID)
                             ImGui.TableSetBgColor(ImGuiTableBgTarget.RowBg0,
                                 ImGui.GetColorU32(OmniTheme.Tokens.Success with { W = 0.2f }));
                         ImGui.TableNextColumn();
-                        DrawCenteredCell(GetPlayerName(player.PlayerName, player.HomeWorldID));
+                        DrawCenteredCell(participant.Name);
                         ImGui.TableNextColumn();
                         if (player.Choice == LootChoice.Pending)
                         {
-                            DrawCenteredCell(Text(record.Unassigned.Length > 0 ? "Unknown" : "Pending"));
+                            DrawCenteredCell(participant.Choice);
                             if (record.Unassigned.Length == 0)
                                 OmniControls.HelpTooltip(Text("PendingHint"));
                         }
                         else
-                            DrawCenteredCell(GetChoiceName(player.Choice));
+                            DrawCenteredCell(participant.Choice);
                         ImGui.TableNextColumn();
-                        DrawCenteredCell(player.Value?.ToString(CultureInfo.CurrentCulture) ?? "—");
+                        DrawCenteredCell(participant.Value);
                     }
                 }
             }
@@ -396,7 +415,7 @@ public sealed partial class LootRollHistory
                 ImGuiTableFlags.RowBg | ImGuiTableFlags.BordersInnerH | ImGuiTableFlags.SizingStretchProp);
             if (!table)
                 return;
-            ImGui.TableSetupColumn(Text("Time"), ImGuiTableColumnFlags.WidthFixed, ImGui.CalcTextSize("00:00:00").X);
+            ImGui.TableSetupColumn(Text("Time"), ImGuiTableColumnFlags.WidthFixed, OmniTextMeasurements.Measure("00:00:00").X);
             ImGui.TableSetupColumn(Text("Player"), ImGuiTableColumnFlags.WidthStretch);
             ImGui.TableSetupColumn(Text("Choice"), ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 5f);
             ImGui.TableSetupColumn(Text("Value"), ImGuiTableColumnFlags.WidthFixed, ImGui.GetFontSize() * 3f);
@@ -447,18 +466,26 @@ public sealed partial class LootRollHistory
             OmniControls.TableHeader(Text("Player"), ImGui.GetTextLineHeight());
             OmniControls.TableHeader(Text("Value"), ImGui.GetTextLineHeight());
             OmniControls.TableHeader(Text("Maximum"), ImGui.GetTextLineHeight());
-            foreach (var row in visibleRandomRows)
+            var clipper = ImGui.ImGuiListClipper();
+            clipper.Begin(visibleRandomRows.Length);
+            while (clipper.Step())
             {
-                ImGui.TableNextRow();
-                ImGui.TableNextColumn();
-                DrawCenteredCell(row.Time);
-                ImGui.TableNextColumn();
-                DrawCenteredCell(row.Player);
-                ImGui.TableNextColumn();
-                DrawCenteredCell(row.Value);
-                ImGui.TableNextColumn();
-                DrawCenteredCell(row.Maximum);
+                for (var index = clipper.DisplayStart; index < clipper.DisplayEnd; index++)
+                {
+                    var row = visibleRandomRows[index];
+                    ImGui.TableNextRow();
+                    ImGui.TableNextColumn();
+                    DrawCenteredCell(row.Time);
+                    ImGui.TableNextColumn();
+                    DrawCenteredCell(row.Player);
+                    ImGui.TableNextColumn();
+                    DrawCenteredCell(row.Value);
+                    ImGui.TableNextColumn();
+                    DrawCenteredCell(row.Maximum);
+                }
             }
+            clipper.End();
+            clipper.Destroy();
         }
 
         private static void DrawCenteredCell(string text)
@@ -505,7 +532,11 @@ public sealed partial class LootRollHistory
         private string Text(string key) => OmniLoc.Get(feature, $"Feature.LootRollHistory.{key}");
 
         private sealed record DisplayRow(Guid SessionID, string Time, string Player, string Value, string Maximum);
-        private sealed record LootDisplayRow(LootRecord Record, string Time, string Name, string PendingPlayers, string Info);
+        private sealed record LootDisplayRow(LootRecord Record, string Time, string Name, string PendingPlayers, string Info)
+        {
+            public string WinnerValue { get; } = Record.Winner?.Value?.ToString(CultureInfo.CurrentCulture) ?? "—";
+        }
+        private sealed record ParticipantDisplay(LootParticipant Player, string Name, string Choice, string Value);
         private sealed record SessionOption(Guid ID, string Label);
 
         private enum HistoryPage

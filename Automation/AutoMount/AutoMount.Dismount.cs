@@ -27,37 +27,43 @@ public sealed unsafe partial class AutoMount
 
     private IsActionUsableDelegate IsActionUsable = null!;
 
-    private void OnUseAction
+    private void OnPreUseAction
     (
-        bool                        result,
-        ActionType                  actionType,
-        uint                        actionID,
-        ulong                       targetID,
-        uint                        extraParam,
-        ActionManager.UseActionMode queueState,
-        uint                        comboRouteID
+        ref bool                        isPrevented,
+        ref ActionType                  actionType,
+        ref uint                        actionID,
+        ref ulong                       targetID,
+        ref uint                        extraParam,
+        ref ActionManager.UseActionMode queueState,
+        ref uint                        comboRouteID
     )
     {
-        if (Activation.IsStopping || issuingAutomaticAction)
+        if (isPrevented || Activation.IsStopping || issuingAutomaticAction)
             return;
 
         mountTasks?.Abort();
-        if (result)
+        if (!DService.Instance().Condition.IsOnMount)
         {
             dismountTasks?.Abort();
             return;
         }
+        var replayTargetID = targetID;
         if (!config.AutoDismount || dismountTasks is null ||
-            !TryPrepareDismount(actionType, actionID, ref targetID))
+            !TryPrepareDismount(actionType, actionID, ref replayTargetID))
             return;
 
         var services = DService.Instance();
         var territoryID = services.ClientState.TerritoryType;
         var contentID = DalamudServices.PlayerState.ContentId;
         var classJob = LocalPlayerState.ClassJob;
-        var replayTargetID = targetID;
+        var replayActionType = actionType;
+        var replayActionID = actionID;
+        var replayExtraParam = extraParam;
+        var replayQueueState = queueState;
+        var replayComboRouteID = comboRouteID;
         dismountTasks.Abort();
         MountCommand.Dismount();
+        isPrevented = true;
         dismountTasks.Enqueue(() =>
         {
             if (Activation.IsStopping || !config.AutoDismount || !services.ClientState.IsLoggedIn ||
@@ -65,14 +71,14 @@ public sealed unsafe partial class AutoMount
                 territoryID != services.ClientState.TerritoryType || classJob != LocalPlayerState.ClassJob ||
                 services.Condition.IsBetweenAreas || services.ObjectTable.LocalPlayer is null)
                 return true;
-            if (services.Condition.IsOnMount)
+            if (services.Condition.IsOnMount || services.Condition[ConditionFlag.Jumping])
                 return false;
             if (replayTargetID is not (0 or 0xE0000000) &&
                 services.ObjectTable.SearchByID(replayTargetID) is null)
                 return true;
 
-            return UseActionManager.Instance().UseAction(actionType, actionID, replayTargetID,
-                extraParam, queueState, comboRouteID);
+            return UseActionManager.Instance().UseAction(replayActionType, replayActionID, replayTargetID,
+                replayExtraParam, replayQueueState, replayComboRouteID);
         }, "Use action after dismounting");
     }
 
@@ -99,7 +105,7 @@ public sealed unsafe partial class AutoMount
 
         var checkedActionID = type == ActionType.Action ? adjustedActionID : actionID;
         if (!LuminaGetter.TryGetRow<LuminaAction>(adjustedActionID, out var action) ||
-            action.CanUseWhileMounted || manager->GetActionStatus(type, checkedActionID, targetID, false, false) == 0 ||
+            action.CanUseWhileMounted ||
             !manager->IsActionOffCooldown(type, checkedActionID) ||
             manager->CheckActionResources(ActionType.Action, adjustedActionID) != 0 ||
             IsActionUsable(manager, ActionType.Action, adjustedActionID) == 0)

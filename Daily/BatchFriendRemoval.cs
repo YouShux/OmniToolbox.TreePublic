@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Globalization;
 using System.Threading;
 using Dalamud.Game.Text.Evaluator;
@@ -184,13 +185,13 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         var worldLabel = OmniLoc.Get(this, "Feature.BatchFriendRemoval.Column.World");
         var checkboxSize = new Vector2(OmniTheme.CheckboxSize());
         var checkboxWidth = OmniControls.MeasureCheckbox(string.Empty).X;
-        var nameWidth = ImGui.CalcTextSize(nameLabel).X;
-        var worldWidth = ImGui.CalcTextSize(worldLabel).X;
+        var nameWidth = OmniTextMeasurements.Measure(nameLabel).X;
+        var worldWidth = OmniTextMeasurements.Measure(worldLabel).X;
         foreach (var friend in friends)
         {
-            nameWidth  = MathF.Max(nameWidth, ImGui.CalcTextSize(friend.DisplayName).X);
+            nameWidth  = MathF.Max(nameWidth, OmniTextMeasurements.Measure(friend.DisplayName).X);
             worldWidth = MathF.Max(worldWidth,
-                ImGui.CalcTextSize(friend.DisplayWorldName).X + ImGui.GetTextLineHeight());
+                OmniTextMeasurements.Measure(friend.DisplayWorldName).X + ImGui.GetTextLineHeight());
         }
 
         var rowContentHeight = MathF.Max(
@@ -270,7 +271,7 @@ public sealed unsafe class BatchFriendRemoval : OmniModuleBase
         var confirmSize = OmniControls.CompactButtonSize(confirmLabel);
         var cancelSize = OmniControls.CompactButtonSize(cancelLabel);
         var actionsSize = OmniControls.MeasureGroup([confirmSize, cancelSize]);
-        var textWidth = MathF.Max(ImGui.CalcTextSize(title).X, ImGui.CalcTextSize(message).X);
+        var textWidth = MathF.Max(OmniTextMeasurements.Measure(title).X, OmniTextMeasurements.Measure(message).X);
         var viewportSize = OmniWindowPlacement.GetWorkArea().Size;
         var width = MathF.Min(MathF.Floor(viewportSize.X), MathF.Ceiling(
             MathF.Max(textWidth, actionsSize.X) + ImGui.GetStyle().WindowPadding.X * 2f));

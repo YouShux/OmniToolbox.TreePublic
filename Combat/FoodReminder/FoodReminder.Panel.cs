@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
@@ -83,8 +84,8 @@ public sealed partial class FoodReminder
             ImGui.SameLine(0f, OmniTheme.Scale(4f));
             OmniControls.HelpIcon(OmniLoc.Get("Feature.FoodReminder.TargetNameMode.Help"), referenceText: OmniLoc.Get("Feature.FoodReminder.TargetNameMode.JobName"));
             OmniControls.SameLineOrWrap(OmniControls.MeasureGroup(
-                [ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Threshold")), OmniControls.MeasureInput("7200", OmniTheme.Scale(110f)),
-                ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Seconds")), OmniControls.HelpIconSize()]).X, OmniTheme.Scale(22f));
+                [OmniTextMeasurements.Measure(OmniLoc.Get("Feature.FoodReminder.Threshold")), OmniControls.MeasureInput("7200", OmniTheme.Scale(110f)),
+                OmniTextMeasurements.Measure(OmniLoc.Get("Feature.FoodReminder.Seconds")), OmniControls.HelpIconSize()]).X, OmniTheme.Scale(22f));
             using (ImRaii.Group())
             {
                 ImGui.AlignTextToFramePadding();
@@ -99,7 +100,7 @@ public sealed partial class FoodReminder
 
                 changed |= ImGui.IsItemDeactivatedAfterEdit();
 
-                OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get("Feature.FoodReminder.Seconds")).X);
+                OmniControls.SameLineOrWrap(OmniTextMeasurements.Measure(OmniLoc.Get("Feature.FoodReminder.Seconds")).X);
                 ImGui.AlignTextToFramePadding();
                 ImGui.TextUnformatted(OmniLoc.Get("Feature.FoodReminder.Seconds"));
                 ImGui.SameLine(0f, OmniTheme.Scale(4f));

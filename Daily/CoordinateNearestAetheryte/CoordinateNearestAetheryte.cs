@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Game.Chat;
 using Dalamud.Game.Text.SeStringHandling;
 using Dalamud.Game.Text.SeStringHandling.Payloads;
@@ -87,7 +88,7 @@ public sealed class CoordinateNearestAetheryte
         var rowHeight = MathF.Max(ImGui.GetFrameHeightWithSpacing(), OmniTheme.Scale(30f));
         string[] labels = [string.Empty, OmniLoc.Get(this, "Feature.CoordinateNearestAetheryte.Column.Name"),
             OmniLoc.Get(this, "Feature.CoordinateNearestAetheryte.Column.Map"), OmniLoc.Get(this, "Feature.CoordinateNearestAetheryte.Column.Id")];
-        var idWidth = ImGui.CalcTextSize(uint.MaxValue.ToString()).X;
+        var idWidth = OmniTextMeasurements.Measure(uint.MaxValue.ToString()).X;
         using var table = OmniControls.DataTable(
             "##coordinateNearestAetheryteTable",
             labels, [OmniControls.MeasureCheckbox(string.Empty).X, OmniControls.MeasureTableHeader(labels[1], true).X, ImGui.GetFontSize() * 4f, idWidth],
@@ -129,7 +130,7 @@ public sealed class CoordinateNearestAetheryte
 
         if (detailLayout)
         {
-            OmniControls.SameLineOrWrap(ImGui.CalcTextSize(labels[1]).X);
+            OmniControls.SameLineOrWrap(OmniTextMeasurements.Measure(labels[1]).X);
             ImGui.TextUnformatted(labels[1]);
             OmniControls.HelpTooltip(OmniLoc.Get(this, "Feature.CoordinateNearestAetheryte.Column.Name.Help"));
         }
@@ -152,8 +153,8 @@ public sealed class CoordinateNearestAetheryte
             }
 
             var rowContentHeight = MathF.Max(ImGui.GetFrameHeight(),
-                MathF.Max(ImGui.CalcTextSize(aetheryte.Name, false, nameWidth).Y,
-                    ImGui.CalcTextSize(aetheryte.MapName, false, mapWidth).Y));
+                MathF.Max(OmniTextMeasurements.Measure(aetheryte.Name, false, nameWidth).Y,
+                    OmniTextMeasurements.Measure(aetheryte.MapName, false, mapWidth).Y));
             ImGui.TableNextRow(ImGuiTableRowFlags.None, detailLayout ? 0f : rowContentHeight);
             ImGui.TableNextColumn();
             if (!detailLayout)

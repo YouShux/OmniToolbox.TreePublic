@@ -39,7 +39,8 @@ public sealed partial class MoreMinimapInformation
             marker.IsVisible = canShow && config.AetherCurrents;
 
         var manager = GameObjectManager.Instance();
-        if (!canShow || manager is null || agentMap is null || mapController is null)
+        if (!canShow || manager is null || agentMap is null || mapController is null ||
+            !config.Players && !config.Friends && !config.Enemies && !config.GatheringPoints && !config.TreasureChests)
             return;
 
         var objects = manager->Objects.IndexSorted;
@@ -59,7 +60,18 @@ public sealed partial class MoreMinimapInformation
         for (var index = 1; index < objects.Length; index++)
         {
             var obj = objects[index].Value;
-            if (obj is null || !obj->GetIsTargetable())
+            if (obj is null)
+                continue;
+
+            var enabled = obj->ObjectKind switch
+            {
+                ObjectKind.Pc => config.Players || config.Friends,
+                ObjectKind.BattleNpc => config.Enemies && obj->SubKind == (byte)BattleNpcSubKind.Combatant,
+                ObjectKind.GatheringPoint => config.GatheringPoints,
+                ObjectKind.Treasure => config.TreasureChests,
+                _ => false
+            };
+            if (!enabled || !obj->GetIsTargetable())
                 continue;
 
             if (!TryGetAppearance(obj, out var iconID, out var color, out var size))
@@ -98,7 +110,9 @@ public sealed partial class MoreMinimapInformation
             marker.Size     = new Vector2(size);
             if (!isPlayer && marker.IconId != iconID)
                 marker.IconId = iconID;
-            marker.MultiplyColor = color.ToVector4().ToVector3();
+            var markerColor = color.ToVector4().ToVector3();
+            if (marker.MultiplyColor != markerColor)
+                marker.MultiplyColor = markerColor;
             marker.IsVisible     = true;
         }
     }

@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Globalization;
 using OmenTools.Dalamud;
 using OmniToolbox.UI.Theme;
@@ -36,7 +37,7 @@ public sealed partial class AutoIshgardRestoration
 
         using var font = Fonts.GetUIFont().Push();
         using var placement = new OmniWindowPlacement.WindowScope("###AutoIshgardRestorationWindow");
-        using var style = new ComicStyleScope();
+        using var style = new OmniStyleScope();
         var inset = OmniTheme.WindowInset();
         var frameInset = OmniTheme.ChromeFrameInset();
         var buttonSize = Vector2.Max(
@@ -47,7 +48,7 @@ public sealed partial class AutoIshgardRestoration
         var compactControlsWidth = buttonSize.X * 2f + OmniTheme.Scale(8f) +
                                    (inset + frameInset) * 2f;
         var compactWidth = MathF.Max(compactControlsWidth,
-            ImGui.CalcTextSize(Title).X +
+            OmniTextMeasurements.Measure(Title).X +
             OmniTheme.TitleExpandIconRight() * 2f + inset * 2f);
         var compactSize = new Vector2(compactWidth,
             OmniTheme.TitleBarHeight() + buttonSize.Y + (inset + frameInset) * 2f);
@@ -55,7 +56,7 @@ public sealed partial class AutoIshgardRestoration
         {
             var errorWidth = MathF.Max(
                 1f, OmniTheme.ClampWindowSize(compactSize).X - (inset + frameInset) * 2f);
-            compactSize.Y += ImGui.CalcTextSize(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Error"), lastError), false, errorWidth).Y +
+            compactSize.Y += OmniTextMeasurements.Measure(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Error"), lastError), false, errorWidth).Y +
                              ImGui.GetStyle().ItemSpacing.Y;
         }
 
@@ -233,9 +234,9 @@ public sealed partial class AutoIshgardRestoration
         var spacing = ImGui.GetStyle().ItemSpacing.X;
         using (ImRaii.Disabled(running || startPending))
         {
-            var jobWidth = ImGui.CalcTextSize(jobText).X + spacing + ImGui.GetStyle().CellPadding.X * 2f;
+            var jobWidth = OmniTextMeasurements.Measure(jobText).X + spacing + ImGui.GetStyle().CellPadding.X * 2f;
             var ticketLabel = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.TicketThreshold");
-            var ticketWidth = ImGui.CalcTextSize(ticketLabel).X + inputWidth + spacing * 2f + ImGui.GetStyle().CellPadding.X * 2f;
+            var ticketWidth = OmniTextMeasurements.Measure(ticketLabel).X + inputWidth + spacing * 2f + ImGui.GetStyle().CellPadding.X * 2f;
             var productionWidth = MathF.Max(ImGui.GetContentRegionAvail().X, jobWidth + ticketWidth + OmniTheme.Scale(180f));
             using (var table = ImRaii.Table("##ishgardProductionSettings", 3, ImGuiTableFlags.SizingStretchSame,
                        new Vector2(productionWidth, 0f)))
@@ -287,11 +288,11 @@ public sealed partial class AutoIshgardRestoration
 
             var stopLabel = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.AutoStopScrips");
             var buyLabel = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.AutoBuyScrips");
-            var checkboxWidth = MathF.Max(ImGui.CalcTextSize(stopLabel).X, ImGui.CalcTextSize(buyLabel).X) +
+            var checkboxWidth = MathF.Max(OmniTextMeasurements.Measure(stopLabel).X, OmniTextMeasurements.Measure(buyLabel).X) +
                                 OmniTheme.CheckboxSize() + ImGui.GetStyle().ItemInnerSpacing.X + spacing;
             var thresholdWidth = MathF.Max(
-                ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.StopThreshold")).X,
-                ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripThreshold")).X) +
+                OmniTextMeasurements.Measure(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.StopThreshold")).X,
+                OmniTextMeasurements.Measure(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.ScripThreshold")).X) +
                 inputWidth + OmniControls.HelpIconSize().X + spacing * 3f;
             var policyWidth = MathF.Max(ImGui.GetContentRegionAvail().X,
                 (checkboxWidth + thresholdWidth) * 2f + ImGui.GetStyle().CellPadding.X * 8f);
@@ -363,7 +364,7 @@ public sealed partial class AutoIshgardRestoration
         EnsureScripCatalog();
         var selected = GetSelectedScripProduct();
         var quantityLabel = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.PurchaseQuantity");
-        var quantityWidth = ImGui.CalcTextSize(quantityLabel).X + OmniTheme.Scale(72f) +
+        var quantityWidth = OmniTextMeasurements.Measure(quantityLabel).X + OmniTheme.Scale(72f) +
                             OmniControls.HelpIconSize().X + ImGui.GetStyle().ItemSpacing.X * 3f +
                             ImGui.GetStyle().CellPadding.X * 2f;
         var purchaseWidth = MathF.Max(ImGui.GetContentRegionAvail().X, quantityWidth + OmniTheme.Scale(180f));

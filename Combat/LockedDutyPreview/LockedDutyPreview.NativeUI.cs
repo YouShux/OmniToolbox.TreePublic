@@ -26,6 +26,7 @@ public sealed partial class LockedDutyPreview
         private readonly Action<LockedDutyPreviewRow>                          onRestore;
         private readonly Action<LockedDutyPreviewRow>                          onWiki;
         private readonly Action<string>                                        onCopyName;
+        private (Vector2 Position, Vector2 Size)? contentLayout;
 
         [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
         public LockedDutyPreviewNativeUI
@@ -123,6 +124,7 @@ public sealed partial class LockedDutyPreview
             lockedTabButton     = null;
             incompleteTabButton = null;
             excludedTabButton   = null;
+            contentLayout = null;
         }
 
         public void UpdateData
@@ -182,6 +184,10 @@ public sealed partial class LockedDutyPreview
 
         private void ResizeContent()
         {
+            var layout = (ContentStartPosition, ContentSize);
+            if (contentLayout == layout)
+                return;
+            contentLayout = layout;
             if (summaryNode is not null)
             {
                 summaryNode.Size = new(ContentSize.X, 24f);

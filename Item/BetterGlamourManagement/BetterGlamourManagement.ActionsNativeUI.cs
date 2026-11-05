@@ -67,7 +67,9 @@ public sealed partial class BetterGlamourManagement
             ResizeContent();
         }
 
-        protected override unsafe void OnUpdate(AtkUnitBase* addon) => ResizeContent();
+        protected override unsafe void OnUpdate(AtkUnitBase* addon) {
+            ResizeContent();
+        }
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {

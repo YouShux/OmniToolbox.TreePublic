@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Plugin.Services;
 using OmenTools;
 using OmenTools.OmenService;
@@ -27,11 +28,11 @@ public sealed partial class MitigationMonitor
         private bool hotkeyHeld;
 
         public Vector2 ModifierSettingSize => OmniControls.MeasureGroup([
-            ImGui.CalcTextSize(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Modifier")),
+            OmniTextMeasurements.Measure(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Modifier")),
             OmniControls.MeasureCombo(GetModifierName(config.HideHotkeyModifier), OmniTheme.Scale(90f))]);
 
         public Vector2 KeySettingSize => OmniControls.MeasureGroup([
-            ImGui.CalcTextSize(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Key")),
+            OmniTextMeasurements.Measure(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Key")),
             Vector2.Max(OmniControls.CompactButtonSize(capturing ? OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Capturing") : GetDisplayName(config.HideHotkey)),
                 new(OmniTheme.Scale(128f), OmniTheme.SmallButtonSize().Y)),
             OmniControls.CompactButtonSize(OmniLoc.Get("Feature.MitigationMonitor.Hotkey.Clear"))]);

@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Excel.Sheets;
 using OmenTools.Interop.Game.Lumina;
@@ -80,7 +81,7 @@ public sealed unsafe partial class AutoMount
         var delayFormat = OmniNumberFormatter.SecondsFormat("%.1f");
         var delayWidth = OmniControls.MeasureFloatInput(delaySeconds, delayFormat, ImGui.GetFontSize() * 8f).X;
         OmniControls.SameLineOrWrap(
-            OmniControls.MeasureGroup([ImGui.CalcTextSize(delayLabel), new Vector2(delayWidth, ImGui.GetFrameHeight())], helpSpacing).X,
+            OmniControls.MeasureGroup([OmniTextMeasurements.Measure(delayLabel), new Vector2(delayWidth, ImGui.GetFrameHeight())], helpSpacing).X,
             spacing);
         using (ImRaii.Group())
         {

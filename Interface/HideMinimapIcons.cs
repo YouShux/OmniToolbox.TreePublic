@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Agent;
@@ -145,7 +146,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                 "##hideMinimapIconsSettings",
                 [OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.HideMinimapIcons.HideOnMinimap")),
                     OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.HideMinimapIcons.HideOnAreaMap")),
-                    OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.HideMinimapIcons.IconScale")),
+                    OmniControls.MeasureGroup([OmniTextMeasurements.Measure(OmniLoc.Get(this, "Feature.HideMinimapIcons.IconScale")),
                         OmniControls.MeasureFloatInput(config.IconScale, "%.1f", OmniTheme.Scale(64f))])],
                 ["##hideMinimapIconsMinimap", "##hideMinimapIconsAreaMap", "##hideMinimapIconsIconScale"],
                 flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
@@ -207,7 +208,7 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
                 "##hideMinimapIconsMarkerSettings",
                 [OmniControls.MeasureGroup([OmniControls.MeasureCheckbox(aetherytesOnTopLabel), OmniControls.HelpIconSize()]),
                     OmniControls.MeasureGroup([OmniControls.MeasureCheckbox(keepTextLabel), OmniControls.HelpIconSize()]),
-                    OmniControls.MeasureGroup([ImGui.CalcTextSize(revealKeyLabel), revealKeySize, OmniControls.HelpIconSize()], spacing)],
+                    OmniControls.MeasureGroup([OmniTextMeasurements.Measure(revealKeyLabel), revealKeySize, OmniControls.HelpIconSize()], spacing)],
                 ["##hideMinimapIconsAetherytesOnTop", "##hideMinimapIconsKeepText", "##hideMinimapIconsRevealKey"],
                 flags: ImGuiTableFlags.SizingStretchProp | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4);
             if (!settingsTable)

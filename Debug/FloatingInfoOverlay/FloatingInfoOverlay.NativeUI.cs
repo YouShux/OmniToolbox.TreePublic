@@ -4,6 +4,7 @@ using Lumina.Excel.Sheets;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.UI.Theme;
+using OmniToolbox.UI.Widgets;
 using LuminaAction = Lumina.Excel.Sheets.Action;
 
 namespace OmniToolbox.TreePublic;
@@ -21,19 +22,39 @@ internal sealed partial class FloatingInfoOverlay
         private readonly List<uint>                 removeBuffer    = [];
         private readonly List<FloatingInfoLine>     lineBuffer      = [];
         private readonly List<FloatingInfoLineRect> lineRectBuffer  = [];
+        private readonly Dictionary<uint, LineSnapshot> lineSnapshots = [];
+        private long localizationRevision = -1;
+        private int displayOptions;
+        private CultureInfo? lineCulture;
 
         public void Draw()
         {
             if (!state.IsActive)
             {
+                lineSnapshots.Clear();
                 return;
             }
 
             if (state.Groups.Count == 0)
             {
+                lineSnapshots.Clear();
                 return;
             }
 
+            var options = (config.ShowMarker ? 1 : 0) | (config.ShowEntityID ? 2 : 0) |
+                (config.ShowDataID ? 4 : 0) | (config.ShowDecimalID ? 8 : 0) | (config.ShowHexID ? 16 : 0) |
+                (config.ShowPosition ? 32 : 0) | (config.ShowRotation ? 64 : 0) | (config.ShowDistance ? 128 : 0) |
+                (config.ShowHealth ? 256 : 0) | (config.ShowMana ? 512 : 0) |
+                (config.ShowCastInfo ? 1024 : 0) | (config.ShowStatusList ? 2048 : 0) | ((int)OmniNumberFormatter.Mode << 12);
+            if (options != displayOptions || localizationRevision != OmniLoc.Revision ||
+                !ReferenceEquals(lineCulture, CultureInfo.CurrentCulture))
+            {
+                displayOptions = options;
+                localizationRevision = OmniLoc.Revision;
+                lineCulture = CultureInfo.CurrentCulture;
+                lineSnapshots.Clear();
+                actionNameCache.Clear();
+            }
             try
             {
                 CleanupPages();
@@ -138,9 +159,15 @@ internal sealed partial class FloatingInfoOverlay
             bool               allowClick
         )
         {
-            var lines = BuildOverlayLines(item, totalCount, currentIndex);
+            if (!lineSnapshots.TryGetValue(groupID, out var snapshot) || !ReferenceEquals(snapshot.Item, item) ||
+                snapshot.TotalCount != totalCount || snapshot.CurrentIndex != currentIndex)
+            {
+                snapshot = new(item, totalCount, currentIndex, [.. BuildOverlayLines(item, totalCount, currentIndex)]);
+                lineSnapshots[groupID] = snapshot;
+            }
+            var lines = snapshot.Lines;
             lineRectBuffer.Clear();
-            if (lines.Count == 0)
+            if (lines.Length == 0)
             {
                 return false;
             }
@@ -151,10 +178,10 @@ internal sealed partial class FloatingInfoOverlay
             var fontSize = ImGui.GetFontSize() * overlayScale;
             var lineSpacing = OmniTheme.Scale(4f) * overlayScale;
             var padding = OmniTheme.Scale(new Vector2(8f, 6f)) * overlayScale;
-            var contentWidth = OmniTheme.Scale(lines.Count > 8 ? 340f : 260f) * overlayScale;
+            var contentWidth = OmniTheme.Scale(lines.Length > 8 ? 340f : 260f) * overlayScale;
             foreach (var line in lines)
                 contentWidth = MathF.Max(contentWidth,
-                    ImGui.CalcTextSizeA(font, fontSize, float.MaxValue, 0f, line.Text, out _).X);
+                    OmniTextMeasurements.MeasureAtSize(line.Text, font, fontSize).X);
             var showCastProgress = config.ShowCastInfo && item.IsCasting && item.TotalCastTime > 0f;
             var castProgressHeight = showCastProgress ? OmniTheme.Scale(6f) * overlayScale : 0f;
             var castProgressGap = showCastProgress ? OmniTheme.Scale(5f) * overlayScale : 0f;
@@ -224,10 +251,15 @@ internal sealed partial class FloatingInfoOverlay
                 drawList.PushClipRect(minimum, clipMaximum, true);
                 var currentPosition = minimum + padding - new Vector2(0f, ImGui.GetScrollY());
                 var mousePosition = ImGui.GetMousePos();
-                for (var index = 0; index < lines.Count; index++)
+                for (var index = 0; index < lines.Length; index++)
                 {
                     var line = lines[index];
-                    var lineHeight = ImGui.CalcTextSizeA(font, fontSize, float.MaxValue, contentWidth, line.Text, out _).Y + lineSpacing;
+                    var lineHeight = OmniTextMeasurements.MeasureAtSize(line.Text, font, fontSize, contentWidth).Y + lineSpacing;
+                    if (currentPosition.Y > clipMaximum.Y + 2f || currentPosition.Y + lineHeight < minimum.Y - 2f)
+                    {
+                        currentPosition.Y += lineHeight;
+                        continue;
+                    }
                     var lineMinimum = new Vector2(minimum.X, MathF.Max(minimum.Y, currentPosition.Y));
                     var lineMaximum = new Vector2(clipMaximum.X, MathF.Min(clipMaximum.Y, currentPosition.Y + lineHeight));
                     if (lineMaximum.Y > lineMinimum.Y)
@@ -279,7 +311,7 @@ internal sealed partial class FloatingInfoOverlay
             {
                 var height = padding.Y * 2f + castProgressGap + castProgressHeight;
                 foreach (var line in lines)
-                    height += ImGui.CalcTextSizeA(font, fontSize, float.MaxValue, width, line.Text, out _).Y + lineSpacing;
+                    height += OmniTextMeasurements.MeasureAtSize(line.Text, font, fontSize, width).Y + lineSpacing;
                 return height;
             }
         }
@@ -740,7 +772,15 @@ internal sealed partial class FloatingInfoOverlay
             }
 
             removeBuffer.Clear();
+            foreach (var groupID in lineSnapshots.Keys)
+                if (!state.Groups.ContainsKey(groupID))
+                    removeBuffer.Add(groupID);
+            foreach (var groupID in removeBuffer)
+                lineSnapshots.Remove(groupID);
+            removeBuffer.Clear();
         }
+
+        private sealed record LineSnapshot(FloatingInfoObject Item, int TotalCount, int CurrentIndex, FloatingInfoLine[] Lines);
 
         private static void ClampToViewport
         (

@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using OmenTools.Interop.Game.Lumina;
 
 namespace OmniToolbox.TreePublic;
@@ -15,12 +16,12 @@ public sealed unsafe partial class AutoDeleteDeepDungeonSave
         var names = dungeonNames ??= Enumerable.Range(1, 4).Select(id => LuminaWrapper.GetDeepDungeonName((uint)id)).ToArray();
         var nameWidth = 0f;
         foreach (var name in names)
-            nameWidth = MathF.Max(nameWidth, ImGui.CalcTextSize(name).X);
+            nameWidth = MathF.Max(nameWidth, OmniTextMeasurements.Measure(name).X);
 
         var checkboxSize = OmniControls.MeasureCheckbox(string.Empty);
         var rowHeight = MathF.Max(checkboxSize.Y, ImGui.GetFrameHeight());
         var rangeWidth = MathF.Max(checkboxSize.X,
-            ImGui.CalcTextSize(string.Format(floorRangeTemplate, DisplayFloorRanges[^1].Minimum, DisplayFloorRanges[^1].Maximum)).X);
+            OmniTextMeasurements.Measure(string.Format(floorRangeTemplate, DisplayFloorRanges[^1].Minimum, DisplayFloorRanges[^1].Maximum)).X);
         var style = ImGui.GetStyle();
         var headerHeight = (ImGui.GetTextLineHeight() * 2f) + style.ItemInnerSpacing.Y;
         var minimumWidth = nameWidth + (rangeWidth * DisplayFloorRanges.Length) +

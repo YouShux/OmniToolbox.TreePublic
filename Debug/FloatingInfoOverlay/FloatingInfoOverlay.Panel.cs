@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Globalization;
 using OmenTools.ImGuiOm;
 using OmenTools.OmenService;
@@ -40,15 +41,15 @@ internal sealed partial class FloatingInfoOverlay
             var changed = false;
             using (var table = OmniControls.SettingsTable(
                        "##floatingInfoGeneral",
-                       [OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.Opacity")),
+                       [OmniControls.MeasureGroup([OmniTextMeasurements.Measure(OmniLoc.Get("Feature.FloatingInfoOverlay.Opacity")),
                             OmniControls.MeasureFloatInput(config.Opacity, "%.2f", OmniTheme.Scale(64f))]),
-                           OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.Range")),
+                           OmniControls.MeasureGroup([OmniTextMeasurements.Measure(OmniLoc.Get("Feature.FloatingInfoOverlay.Range")),
                                OmniControls.MeasureFloatInput(config.Range, "%.0fm", OmniTheme.Scale(64f))]),
-                           OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.MaxObjects")),
+                           OmniControls.MeasureGroup([OmniTextMeasurements.Measure(OmniLoc.Get("Feature.FloatingInfoOverlay.MaxObjects")),
                                OmniControls.MeasureInput(config.MaxObjects.ToString(), OmniTheme.Scale(64f))]),
-                           OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.MergeDistance")),
+                           OmniControls.MeasureGroup([OmniTextMeasurements.Measure(OmniLoc.Get("Feature.FloatingInfoOverlay.MergeDistance")),
                                OmniControls.MeasureFloatInput(config.MergeDistance, "%.0fm", OmniTheme.Scale(64f)), OmniControls.HelpIconSize()]),
-                           OmniControls.MeasureGroup([ImGui.CalcTextSize(OmniLoc.Get("Feature.FloatingInfoOverlay.Scale")),
+                           OmniControls.MeasureGroup([OmniTextMeasurements.Measure(OmniLoc.Get("Feature.FloatingInfoOverlay.Scale")),
                                OmniControls.MeasureFloatInput(config.Scale, "%.2f", OmniTheme.Scale(64f))])],
                        ["##opacity", "##range", "##maxObjects", "##mergeDistance"],
                        flags: ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoPadOuterX, columnsPerRow: 4))
@@ -360,8 +361,8 @@ internal sealed partial class FloatingInfoOverlay
             string[] labels = [OmniLoc.Get("Feature.FloatingInfoOverlay.ShowDataId"),
                 OmniLoc.Get("Feature.FloatingInfoOverlay.DecimalId"), OmniLoc.Get("Feature.FloatingInfoOverlay.Hex"),
                 OmniLoc.Get("Feature.FloatingInfoOverlay.Action")];
-            var numberWidth = ImGui.CalcTextSize(uint.MaxValue.ToString(CultureInfo.InvariantCulture)).X;
-            var hexWidth = ImGui.CalcTextSize("0xFFFFFFFF").X;
+            var numberWidth = OmniTextMeasurements.Measure(uint.MaxValue.ToString(CultureInfo.InvariantCulture)).X;
+            var hexWidth = OmniTextMeasurements.Measure("0xFFFFFFFF").X;
             using var table = OmniControls.DataTable(
                 "##floatingInfoDataIds",
                 labels, [numberWidth, numberWidth, hexWidth, removeButtonSize.X],

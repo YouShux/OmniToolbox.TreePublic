@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Interface.Textures;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Group;
@@ -75,6 +76,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     private readonly Dictionary<ulong, string>                      names              = [];
     private readonly Dictionary<ulong, (int Index, ulong ObjectID)> actorObjects       = [];
     private readonly Dictionary<uint, ISharedImmediateTexture>      statusIconTextures = [];
+    private readonly Dictionary<uint, (bool CanDispel, uint IconID)> statusMetadata     = [];
     private ISharedImmediateTexture?                                dispelIcon;
     private uint                                                    defaultRaiseIconID;
 
@@ -86,6 +88,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         lifetime.Add(() =>
         {
             Clear();
+            statusMetadata.Clear();
             CombatCharacterSnapshot.Clear();
         });
         if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 80))
@@ -105,7 +108,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         var changed = false;
         var matrixWidth = ImGui.GetFontSize() * 5f;
         foreach (var key in DisplayColumns)
-            matrixWidth = MathF.Max(matrixWidth, ImGui.CalcTextSize(OmniLoc.Get(this, $"Feature.RaiseDispelEnhancement.{key}")).X);
+            matrixWidth = MathF.Max(matrixWidth, OmniTextMeasurements.Measure(OmniLoc.Get(this, $"Feature.RaiseDispelEnhancement.{key}")).X);
         var detailLayout = ImGui.GetContentRegionAvail().X < (matrixWidth + ImGui.GetStyle().CellPadding.X * 2f) * 8f;
         using (var table = ImRaii.Table("##raiseDispelMatrix", detailLayout ? 1 : 8,
                    ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.SizingStretchSame,
@@ -185,7 +188,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         var colorSize = new Vector2(ImGui.GetFrameHeight());
         Span<Vector2> colorGroups = stackalloc Vector2[colorLabels.Length];
         for (var index = 0; index < colorLabels.Length; index++)
-            colorGroups[index] = OmniControls.MeasureGroup([ImGui.CalcTextSize(colorLabels[index]), colorSize], OmniTheme.Scale(8f));
+            colorGroups[index] = OmniControls.MeasureGroup([OmniTextMeasurements.Measure(colorLabels[index]), colorSize], OmniTheme.Scale(8f));
         using (var table = OmniControls.SettingsTable("##raiseDispelColors", colorGroups, colorLabels, columnsPerRow: 4))
         {
             if (table)
@@ -213,7 +216,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         ImGui.TableNextColumn();
         ImGui.AlignTextToFramePadding();
         ImGui.SetCursorPosX(ImGui.GetCursorPosX() +
-            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(label).X) * 0.5f));
+            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - OmniTextMeasurements.Measure(label).X) * 0.5f));
         ImGui.TextUnformatted(label);
     }
 
@@ -432,7 +435,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         }
 
         var textScale = Math.Clamp(config.WorldTextScale <= 0f ? 1f : config.WorldTextScale, 0.3f, 3f);
-        var textSize = ImGui.CalcTextSize(text) * textScale;
+        var textSize = OmniTextMeasurements.Measure(text) * textScale;
         var padding = ImGui.GetStyle().FramePadding * textScale;
         var textMin = new Vector2(
             screenPosition.X - textSize.X / 2f - padding.X,
@@ -658,7 +661,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             return;
         }
 
-        var textSize = ImGui.CalcTextSize(text);
+        var textSize = OmniTextMeasurements.Measure(text);
         var position = new Vector2(
             min.X + MathF.Max(2f, size.X - textSize.X - 6f),
             min.Y + (size.Y - textSize.Y) * 0.5f);
@@ -727,6 +730,11 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         names.Clear();
         actorObjects.Clear();
 
+        var raiseEnabled = config.GetRaiseOptions().Enabled;
+        var dispelEnabled = config.GetDispelOptions().Enabled;
+        if (!raiseEnabled && !dispelEnabled)
+            return;
+
         CombatCharacterSnapshot.Refresh();
         var localPlayerEntityID = DService.Instance().ObjectTable.LocalPlayer?.EntityID ?? 0;
         foreach (var player in CombatCharacterSnapshot.Players)
@@ -737,7 +745,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
 
             if (player.IsDead)
             {
-                if (TryGetRaiseStatus(player, out var raiseIconID, out var raiseSourceID))
+                if (raiseEnabled && TryGetRaiseStatus(player, out var raiseIconID, out var raiseSourceID))
                 {
                     MarkRaised(
                         actorKey,
@@ -747,13 +755,14 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             }
             else
             {
-                if (HasDispellableStatus(player))
+                if (dispelEnabled && HasDispellableStatus(player))
                 {
                     MarkDispellable(actorKey);
                 }
 
-                var castType = GetCastType(player.CastActionID);
-                if (player.IsCasting && castType != CastType.None)
+                var castType = player.IsCasting ? GetCastType(player.CastActionID) : CastType.None;
+                if (player.IsCasting &&
+                    (castType == CastType.Raise && raiseEnabled || castType == CastType.Dispel && dispelEnabled))
                 {
                     var targetKey = GetCastTargetKey(player);
                     if (targetKey != 0)
@@ -972,7 +981,7 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         return null;
     }
 
-    private static bool TryGetRaiseStatus
+    private bool TryGetRaiseStatus
     (
         IBattleChara player,
         out uint     iconID,
@@ -984,12 +993,12 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
         foreach (var status in player.StatusList)
         {
             if (status.StatusID is not (RAISE_STATUS_ID or 1140) ||
-                !LuminaGetter.TryGetRow<LuminaStatus>(status.StatusID, out var row))
+                !TryGetStatusMetadata(status.StatusID, out var metadata))
             {
                 continue;
             }
 
-            iconID   = row.Icon;
+            iconID   = metadata.IconID;
             sourceID = status.SourceID;
             return true;
         }
@@ -1001,18 +1010,30 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
     {
         foreach (var status in player.StatusList)
         {
-            if (status.StatusID == 0 || !LuminaGetter.TryGetRow<LuminaStatus>(status.StatusID, out var row))
+            if (status.StatusID == 0 || !TryGetStatusMetadata(status.StatusID, out var metadata))
             {
                 continue;
             }
 
-            if (row.CanDispel && !row.Name.IsEmpty)
+            if (metadata.CanDispel)
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    private bool TryGetStatusMetadata(uint statusID, out (bool CanDispel, uint IconID) metadata)
+    {
+        if (statusMetadata.TryGetValue(statusID, out metadata))
+            return true;
+        if (!LuminaGetter.TryGetRow<LuminaStatus>(statusID, out var row))
+            return false;
+
+        metadata = (row.CanDispel && !row.Name.IsEmpty, row.Icon);
+        statusMetadata.Add(statusID, metadata);
+        return true;
     }
 
     private static CastType GetCastType(uint actionID) => actionID switch

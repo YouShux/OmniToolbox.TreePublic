@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Interface;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
 using Lumina.Excel.Sheets;
@@ -69,7 +70,7 @@ public sealed partial class AutoSwitchConfiguration
         var gearsetPreview = GetGearsetName(editor.GearsetID);
         var territorySize = OmniControls.CompactButtonSize(territoryPreview);
         var nameWidth = MathF.Max(1f,
-            MathF.Floor(ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(nameLabel).X - spacing));
+            MathF.Floor(ImGui.GetContentRegionAvail().X - OmniTextMeasurements.Measure(nameLabel).X - spacing));
         var jobSize = OmniControls.CompactButtonSize(jobPreview);
         var noJobSize = OmniControls.MeasureCheckbox(noJobLabel, rowHeight);
         var gearsetSize = OmniControls.MeasureCombo(gearsetPreview);
@@ -101,7 +102,7 @@ public sealed partial class AutoSwitchConfiguration
         }
 
         OmniControls.SameLineOrWrap(OmniControls.MeasureGroup(
-            [noJobSize, jobSize, ImGui.CalcTextSize(gearsetLabel), gearsetSize], spacing).X, spacing);
+            [noJobSize, jobSize, OmniTextMeasurements.Measure(gearsetLabel), gearsetSize], spacing).X, spacing);
         using (ImRaii.Group())
         {
             var noJob = editor.ClassJobID == 0;
@@ -120,7 +121,7 @@ public sealed partial class AutoSwitchConfiguration
                 CancelFlow();
             }
             OmniControls.SameLineOrWrap(OmniControls.MeasureGroup(
-                [ImGui.CalcTextSize(gearsetLabel), gearsetSize], spacing).X, spacing);
+                [OmniTextMeasurements.Measure(gearsetLabel), gearsetSize], spacing).X, spacing);
             ImGui.AlignTextToFramePadding();
             ImGui.TextUnformatted(gearsetLabel);
             OmniControls.SameLineOrWrap(gearsetSize.X, spacing);
@@ -253,7 +254,7 @@ public sealed partial class AutoSwitchConfiguration
             }
             var textWidth = MathF.Max(1f, headerWidth - ImGui.GetFontSize() - ImGui.GetStyle().FramePadding.X * 2f -
                 ImGui.GetStyle().CellPadding.X * 2f - ImGui.GetStyle().ItemInnerSpacing.X);
-            var textSize = ImGui.CalcTextSize(title, false, textWidth);
+            var textSize = OmniTextMeasurements.Measure(title, false, textWidth);
             var rowContentHeight = MathF.Max(MathF.Max(editSize.Y, enabledSize.Y),
                 textSize.Y + ImGui.GetStyle().FramePadding.Y * 2f);
             if (!detailLayout)

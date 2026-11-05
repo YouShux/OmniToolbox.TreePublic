@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using OmenTools;
@@ -70,7 +71,7 @@ public sealed partial class DirectionalActionRelease
                     continue;
                 }
 
-                var rowContentHeight = MathF.Max(rowHeight, ImGui.CalcTextSize(action.Name.ToString(), false, actionNameWidth).Y);
+                var rowContentHeight = MathF.Max(rowHeight, OmniTextMeasurements.Measure(action.Name.ToString(), false, actionNameWidth).Y);
                 ImGui.TableNextRow(ImGuiTableRowFlags.None, detailLayout ? 0f : rowContentHeight);
                 OmniControls.NextTableField(OmniLoc.Get("Feature.DirectionalActionRelease.Camera"), detailLayout);
                 OmniControls.CenterTableItem(checkboxSize, rowContentHeight);

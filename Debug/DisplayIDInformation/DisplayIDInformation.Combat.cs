@@ -1,3 +1,4 @@
+using System.Text;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.ClientState.Conditions;
@@ -42,7 +43,7 @@ public sealed partial class DisplayIDInformation
         private bool                                         actionEffectHookUnavailable;
         private bool                                         castNodesVisible;
 
-        private readonly Dictionary<nint, TextNode> castNodes = [];
+        private readonly Dictionary<nint, CastTextNode> castNodes = [];
 
         public DisplayIDInformationCombat(DisplayIDInformationConfig config)
         {
@@ -609,6 +610,9 @@ public sealed partial class DisplayIDInformation
 
             var bestLength = int.MaxValue;
             var bestExact = false;
+            var capacity = Encoding.UTF8.GetMaxByteCount(text.Length);
+            Span<byte> buffer = capacity <= 1024 ? stackalloc byte[capacity] : new byte[capacity];
+            ReadOnlySpan<byte> search = buffer[..Encoding.UTF8.GetBytes(text, buffer)];
             for (var index = 0; index < addon->UldManager.NodeListCount; index++)
             {
                 var node = addon->UldManager.NodeList[index];
@@ -618,12 +622,14 @@ public sealed partial class DisplayIDInformation
                 }
 
                 var textNode = (AtkTextNode*)node;
-                var value = textNode->NodeText.ToString();
-                if (!value.Contains(text, StringComparison.Ordinal))
+                if (textNode->NodeText.AsSpan().IndexOf(search) < 0)
                 {
                     continue;
                 }
 
+                var value = textNode->NodeText.ToString();
+                if (!value.Contains(text, StringComparison.Ordinal))
+                    continue;
                 var trimmed = value.Trim();
                 var exact = string.Equals(trimmed, text, StringComparison.Ordinal);
                 if (result == null || exact && !bestExact || exact == bestExact && trimmed.Length < bestLength)
@@ -645,35 +651,49 @@ public sealed partial class DisplayIDInformation
             bool         self
         )
         {
-            var idNode = EnsureCastNode(addon, nameNode);
+            var cached = EnsureCastNode(addon, nameNode);
+            AtkTextNode* idNode = cached;
             if (idNode == null)
             {
                 return;
             }
 
+            var flags = (nameNode->TextFlags | TextFlags.AutoAdjustNodeSize) & ~TextFlags.MultiLine;
+            var fontSize = (byte)Math.Max(8, self ? nameNode->FontSize : nameNode->FontSize - 4);
+            var metricsChanged = cached.MeasuredFlags != flags || cached.MeasuredFontSize != fontSize;
+            var nameChanged = self && (metricsChanged || !nameNode->NodeText.AsSpan().SequenceEqual(cached.SourceName));
+            var textChanged = metricsChanged || cached.DisplayedText != idText;
             idNode->AtkResNode.ToggleVisibility(true);
-            idNode->TextFlags        = (nameNode->TextFlags | TextFlags.AutoAdjustNodeSize) & ~TextFlags.MultiLine;
-            idNode->FontSize         = (byte)Math.Max(8, self ? nameNode->FontSize : nameNode->FontSize - 4);
+            idNode->TextFlags        = flags;
+            idNode->FontSize         = fontSize;
             idNode->AtkResNode.Color = nameNode->AtkResNode.Color;
             idNode->TextColor        = nameNode->TextColor;
             idNode->EdgeColor        = nameNode->EdgeColor;
 
-            if (self)
+            if (nameChanged)
             {
+                cached.SourceName = nameNode->NodeText.AsSpan().ToArray();
                 idNode->SetText(new SeStringBuilder().Append(nameNode->NodeText.ToString()).Build().EncodeWithNullTerminator());
                 idNode->ResizeNodeForCurrentText();
-                var nameWidth = Math.Max(10f, idNode->AtkResNode.Width);
+                cached.NameWidth = Math.Max(10f, idNode->AtkResNode.Width);
+            }
+            if (nameChanged || textChanged)
+            {
                 idNode->SetText(new SeStringBuilder().Append(idText).Build().EncodeWithNullTerminator());
                 idNode->ResizeNodeForCurrentText();
-                var targetX = nameNode->AtkResNode.X + nameWidth;
+                cached.DisplayedText = idText;
+                cached.MeasuredFlags = flags;
+                cached.MeasuredFontSize = fontSize;
+            }
+            if (self)
+            {
+                var targetX = nameNode->AtkResNode.X + cached.NameWidth;
                 var maximumX = nameNode->AtkResNode.X + Math.Max(0f, nameNode->AtkResNode.Width - idNode->AtkResNode.Width - 2f);
                 idNode->AtkResNode.SetXFloat(Math.Min(targetX, maximumX));
                 idNode->AtkResNode.SetYFloat(nameNode->AtkResNode.Y + 2f);
                 return;
             }
 
-            idNode->SetText(new SeStringBuilder().Append(idText).Build().EncodeWithNullTerminator());
-            idNode->ResizeNodeForCurrentText();
             idNode->AtkResNode.SetXFloat(Math.Max(
                 nameNode->AtkResNode.X,
                 nameNode->AtkResNode.X + nameNode->AtkResNode.Width - idNode->AtkResNode.Width));
@@ -682,7 +702,7 @@ public sealed partial class DisplayIDInformation
                 nameNode->AtkResNode.Y + Math.Max(8f, nameNode->AtkResNode.Height) - 4f));
         }
 
-        private AtkTextNode* EnsureCastNode
+        private CastTextNode EnsureCastNode
         (
             AtkUnitBase* addon,
             AtkTextNode* anchor
@@ -691,7 +711,7 @@ public sealed partial class DisplayIDInformation
             if (castNodes.TryGetValue((nint)addon, out var existing))
                 return existing;
 
-            var node = new TextNode();
+            var node = new CastTextNode();
             node.AttachNode(anchor, NodePosition.BeforeTarget);
             castNodes.Add((nint)addon, node);
             return node;
@@ -913,6 +933,15 @@ public sealed partial class DisplayIDInformation
             }
 
             return true;
+        }
+
+        private sealed class CastTextNode : TextNode
+        {
+            internal string? DisplayedText;
+            internal byte[] SourceName = [];
+            internal TextFlags MeasuredFlags;
+            internal byte MeasuredFontSize;
+            internal float NameWidth;
         }
 
         private readonly record struct IdName

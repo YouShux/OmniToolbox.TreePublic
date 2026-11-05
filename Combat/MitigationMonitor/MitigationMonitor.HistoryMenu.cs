@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Globalization;
 using System.IO;
 using OmniToolbox.UI;
@@ -35,6 +36,8 @@ public sealed partial class MitigationMonitor
             OmniLoc.Get("Feature.MitigationMonitor.History.Import"),
             OmniLoc.Get("Feature.MitigationMonitor.History.Export"),
             OmniLoc.Get("Feature.MitigationMonitor.History.Empty"));
+
+        long IOmniRecordHistorySource<MitigationCombatHistory>.Revision => historyVersion + 1;
 
         bool IOmniRecordHistorySource<MitigationCombatHistory>.IsCurrentSelected => ActiveHistoryKey is null;
 
@@ -102,12 +105,12 @@ public sealed partial class MitigationMonitor
             if (!ImGui.IsPopupOpen(IMPORT_POPUP_ID))
                 return;
 
-            var contentWidth = ImGui.CalcTextSize(OmniLoc.Get("Feature.MitigationMonitor.History.NoImportFiles")).X;
+            var contentWidth = OmniTextMeasurements.Measure(OmniLoc.Get("Feature.MitigationMonitor.History.NoImportFiles")).X;
             if (importFiles.Length == 0)
-                contentWidth = MathF.Max(contentWidth, ImGui.CalcTextSize(replayStore.ExportDirectory).X);
+                contentWidth = MathF.Max(contentWidth, OmniTextMeasurements.Measure(replayStore.ExportDirectory).X);
             else
                 foreach (var file in importFiles)
-                    contentWidth = MathF.Max(contentWidth, ImGui.CalcTextSize(Path.GetFileName(file)).X);
+                    contentWidth = MathF.Max(contentWidth, OmniTextMeasurements.Measure(Path.GetFileName(file)).X);
             var style = ImGui.GetStyle();
             var workSize = OmniWindowPlacement.GetWorkArea().Size;
             var minimumSize = Vector2.Min(new(contentWidth + style.FramePadding.X * 2f +

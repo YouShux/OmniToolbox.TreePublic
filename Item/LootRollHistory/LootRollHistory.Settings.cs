@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 using OmniToolbox.UI.Theme;
@@ -24,7 +25,7 @@ public sealed partial class LootRollHistory
             changed |= ImGui.IsItemDeactivatedAfterEdit();
         }
         var opacityLabel = OmniLoc.Get(this, "Feature.LootRollHistory.Opacity");
-        OmniControls.SameLineOrWrap(OmniControls.MeasureGroup([ImGui.CalcTextSize(opacityLabel), new Vector2(inputWidth, 0f)]).X);
+        OmniControls.SameLineOrWrap(OmniControls.MeasureGroup([OmniTextMeasurements.Measure(opacityLabel), new Vector2(inputWidth, 0f)]).X);
         using (ImRaii.Group())
         {
             ImGui.AlignTextToFramePadding();

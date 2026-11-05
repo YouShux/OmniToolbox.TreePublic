@@ -1,9 +1,11 @@
+using OmniToolbox.UI.Widgets;
 using System.Drawing;
 using System.Globalization;
 using Dalamud.Interface;
 using Dalamud.Interface.Textures;
 using OmenTools.Extensions;
 using OmniToolbox.UI.Theme;
+using TreeToolKit;
 using static OmniToolbox.TreePublic.MitigationMonitor;
 
 namespace OmniToolbox.TreePublic;
@@ -21,6 +23,13 @@ public sealed partial class MitigationMonitor
         ];
 
         private readonly Dictionary<uint, ISharedImmediateTexture> iconTextures = [];
+        private readonly Dictionary<MitigationRecord, RecordDisplay> recordDisplays = [];
+        private readonly Dictionary<(string Text, float Width), string> fittedTexts = [];
+        private readonly Dictionary<float, string> statusDurations = [];
+        private long localizationRevision = -1;
+        private CultureInfo? displayCulture;
+        private int numberMode = -1;
+        private (nint Font, float Size, long Revision) fittedLayout;
 
         public float CalculateRowHeight
         (
@@ -34,7 +43,7 @@ public sealed partial class MitigationMonitor
             MitigationRecord record,
             float            width
         ) =>
-            ImGui.CalcTextSize(MitigationRecordCopyText.Build(record), false, MathF.Max(1f, width - config.Scale(8f))).Y +
+            OmniTextMeasurements.Measure(GetCopyText(record), false, MathF.Max(1f, width - config.Scale(8f))).Y +
             config.Scale(8f) + CalculateStatusHeight(record, width);
 
         public void DrawDetail
@@ -45,9 +54,9 @@ public sealed partial class MitigationMonitor
             float            height
         )
         {
-            var text = MitigationRecordCopyText.Build(record);
+            var text = GetCopyText(record);
             var textWidth = MathF.Max(1f, width - config.Scale(8f));
-            var textHeight = ImGui.CalcTextSize(text, false, textWidth).Y;
+            var textHeight = OmniTextMeasurements.Measure(text, false, textWidth).Y;
             ImGui.GetWindowDrawList().AddText(ImGui.GetFont(), ImGui.GetFontSize(), position + config.Scale(new Vector2(4f)),
                 ImGui.GetColorU32(ImGuiCol.Text), text, textWidth);
             var statusTop = textHeight + config.Scale(8f);
@@ -95,7 +104,8 @@ public sealed partial class MitigationMonitor
 
             var offset = pressed ? new Vector2(0f, config.Scale(1f)) : Vector2.Zero;
             var x = rowMin.X;
-            DrawText(MitigationText.FormatElapsed(record.Elapsed), new(x, rowMin.Y), layout.Time, rowHeight, null, true, offset);
+            var display = GetDisplay(record);
+            DrawText(display.Elapsed, new(x, rowMin.Y), layout.Time, rowHeight, null, true, offset);
             x += layout.Time;
             DrawAction(record, new(x, rowMin.Y), layout.Action, rowHeight, offset);
             x += layout.Action;
@@ -104,7 +114,7 @@ public sealed partial class MitigationMonitor
             DrawDamage(record, new(x, rowMin.Y), layout.Damage, rowHeight, offset);
             x += layout.Damage;
             DrawText(
-                record.Kind == MitigationRecordKind.Wipe ? "—" : $"{record.MitigationPercent:0.#}%",
+                display.Mitigation,
                 new(x, rowMin.Y),
                 layout.Mitigation,
                 rowHeight,
@@ -115,7 +125,49 @@ public sealed partial class MitigationMonitor
             DrawStatuses(record, new(x, rowMin.Y), layout.Status, rowHeight, offset);
         }
 
-        public void ResetRuntime() => iconTextures.Clear();
+        public void ResetRuntime()
+        {
+            iconTextures.Clear();
+            recordDisplays.Clear();
+            fittedTexts.Clear();
+            statusDurations.Clear();
+        }
+
+        internal string GetCopyText(MitigationRecord record)
+        {
+            var display = GetDisplay(record);
+            return display.Detail ??= MitigationRecordCopyText.Build(record);
+        }
+
+        private RecordDisplay GetDisplay(MitigationRecord record)
+        {
+            if (localizationRevision != OmniLoc.Revision || !ReferenceEquals(displayCulture, CultureInfo.CurrentCulture) ||
+                numberMode != (int)OmniNumberFormatter.Mode)
+            {
+                localizationRevision = OmniLoc.Revision;
+                displayCulture = CultureInfo.CurrentCulture;
+                numberMode = (int)OmniNumberFormatter.Mode;
+                recordDisplays.Clear();
+            }
+            if (recordDisplays.TryGetValue(record, out var display))
+                return display;
+            if (recordDisplays.Count >= MAX_DISPLAY_ENTRIES)
+                recordDisplays.Clear();
+            var seconds = new string[record.Statuses.Length];
+            for (var index = 0; index < seconds.Length; index++)
+                seconds[index] = GetStatusDuration(record.Statuses[index].RemainingSeconds);
+            var damage = record switch
+            {
+                { Missed: true } => OmniLoc.Get("Feature.MitigationMonitor.Damage.Miss"),
+                { Invulnerable: true } => OmniLoc.Get("Feature.MitigationMonitor.Damage.Invulnerable"),
+                _ => OmniNumberFormatter.Format(record.Damage)
+            };
+            display = new(MitigationText.FormatElapsed(record.Elapsed),
+                record.Kind == MitigationRecordKind.Wipe ? "—" : $"{record.MitigationPercent:0.#}%",
+                damage, seconds);
+            recordDisplays.Add(record, display);
+            return display;
+        }
 
         private void DrawText
         (
@@ -129,7 +181,7 @@ public sealed partial class MitigationMonitor
         )
         {
             var display = FitText(text, MathF.Max(config.Scale(4f), width - config.Scale(8f)));
-            var textSize = ImGui.CalcTextSize(display);
+            var textSize = OmniTextMeasurements.Measure(display);
             ImGui.GetWindowDrawList().AddText(
                 min + offset + new Vector2(
                     centered ? MathF.Max(0f, (width - textSize.X) * 0.5f) : config.Scale(4f),
@@ -165,10 +217,10 @@ public sealed partial class MitigationMonitor
             var iconWidth = config.Scale(17f);
             var spacing = config.Scale(5f);
             var display = FitText(record.ActionName, MathF.Max(config.Scale(4f), width - iconWidth - config.Scale(12f)));
-            var textSize = ImGui.CalcTextSize(display);
+            var textSize = OmniTextMeasurements.Measure(display);
             var startX = min.X + MathF.Max(0f, (width - iconWidth - spacing - textSize.X) * 0.5f);
             var iconText = icon.ToIconString();
-            var iconSize = ImGui.CalcTextSize(iconText);
+            var iconSize = OmniTextMeasurements.Measure(iconText);
             ImGui.GetWindowDrawList().AddText(
                 new Vector2(startX + MathF.Max(0f, (iconWidth - iconSize.X) * 0.5f), min.Y + MathF.Max(0f, (rowHeight - iconSize.Y) * 0.5f)) + offset,
                 OmniTheme.Color(color),
@@ -245,15 +297,11 @@ public sealed partial class MitigationMonitor
                 DamageKind.Magical => MAGICAL_DAMAGE_ICON_ID,
                 _ => SPECIAL_DAMAGE_ICON_ID
             };
-            var text = record.Missed
-                ? OmniLoc.Get("Feature.MitigationMonitor.Damage.Miss")
-                : record.Invulnerable
-                    ? OmniLoc.Get("Feature.MitigationMonitor.Damage.Invulnerable")
-                    : OmniNumberFormatter.Format(record.Damage);
+            var text = GetDisplay(record).Damage;
             var iconSize = config.Scale(new Vector2(18f));
             var spacing = config.Scale(4f);
             var display = FitText(text, MathF.Max(config.Scale(10f), width - iconSize.X - config.Scale(8f)));
-            var textSize = ImGui.CalcTextSize(display);
+            var textSize = OmniTextMeasurements.Measure(display);
             var startX = min.X + MathF.Max(0f, (width - iconSize.X - spacing - textSize.X) * 0.5f);
             if (GetIconHandle(iconID) is { } handle)
             {
@@ -289,9 +337,9 @@ public sealed partial class MitigationMonitor
             var lineCount = 1;
             var usedWidth = 0f;
             var gap = config.Scale(-3f);
-            foreach (var status in record.Statuses)
+            for (var index = 0; index < record.Statuses.Length; index++)
             {
-                var slotWidth = GetStatusSlotWidth(status, iconWidth);
+                var slotWidth = GetStatusSlotWidth(GetStatusDuration(record.Statuses[index].RemainingSeconds), iconWidth);
                 var nextWidth = usedWidth == 0f ? slotWidth : usedWidth + gap + slotWidth;
                 if (usedWidth > 0f && nextWidth > availableWidth)
                 {
@@ -332,6 +380,7 @@ public sealed partial class MitigationMonitor
             var y = min.Y + MathF.Max(0f, (rowHeight - CalculateStatusHeight(record, width)) * 0.5f);
             var availableWidth = MathF.Max(iconSlotSize.X, width - config.Scale(8f));
             var gap = config.Scale(-3f);
+            var durations = GetDisplay(record).StatusSeconds;
             var statusIndex = 0;
             while (statusIndex < record.Statuses.Length)
             {
@@ -339,7 +388,7 @@ public sealed partial class MitigationMonitor
                 var lineWidth = 0f;
                 while (statusIndex < record.Statuses.Length)
                 {
-                    var slotWidth = GetStatusSlotWidth(record.Statuses[statusIndex], iconSlotSize.X);
+                    var slotWidth = GetStatusSlotWidth(durations[statusIndex], iconSlotSize.X);
                     var nextWidth = lineWidth == 0f ? slotWidth : lineWidth + gap + slotWidth;
                     if (lineWidth > 0f && nextWidth > availableWidth)
                     {
@@ -354,9 +403,9 @@ public sealed partial class MitigationMonitor
                 for (var index = lineStart; index < statusIndex; index++)
                 {
                     var status = record.Statuses[index];
-                    var seconds = MathF.Ceiling(status.RemainingSeconds).ToString("0", CultureInfo.InvariantCulture);
-                    var textSize = ImGui.CalcTextSize(seconds) * 0.76f;
-                    var slotWidth = GetStatusSlotWidth(status, iconSlotSize.X);
+                    var seconds = durations[index];
+                    var textSize = OmniTextMeasurements.Measure(seconds) * 0.76f;
+                    var slotWidth = GetStatusSlotWidth(seconds, iconSlotSize.X);
                     var iconMin = new Vector2(x + (slotWidth - iconSize.X) * 0.5f, y) + offset;
                     var iconMax = iconMin + iconSize;
                     if (GetIconHandle(status.IconID) is { } handle)
@@ -401,14 +450,24 @@ public sealed partial class MitigationMonitor
 
         private static float GetStatusSlotWidth
         (
-            ActiveMitigation status,
+            string           seconds,
             float            iconWidth
         ) =>
             MathF.Max(
                 iconWidth,
-                ImGui.CalcTextSize(MathF.Ceiling(status.RemainingSeconds).ToString(
-                    "0",
-                    CultureInfo.InvariantCulture)).X * 0.82f);
+                OmniTextMeasurements.Measure(seconds).X * 0.82f);
+
+        private string GetStatusDuration(float remaining)
+        {
+            var seconds = MathF.Ceiling(remaining);
+            if (statusDurations.TryGetValue(seconds, out var text))
+                return text;
+            if (statusDurations.Count >= MAX_DISPLAY_ENTRIES)
+                statusDurations.Clear();
+            text = seconds.ToString("0", CultureInfo.InvariantCulture);
+            statusDurations.Add(seconds, text);
+            return text;
+        }
 
         private ImTextureID? GetIconHandle(uint iconID)
         {
@@ -471,30 +530,49 @@ public sealed partial class MitigationMonitor
             };
         }
 
-        internal static string FitText
+        internal unsafe string FitText
         (
             string text,
             float  width
         )
         {
-            if (string.IsNullOrEmpty(text) || ImGui.CalcTextSize(text).X <= width)
+            if (string.IsNullOrEmpty(text) || OmniTextMeasurements.Measure(text).X <= width)
             {
                 return text;
             }
 
+            var layout = ((nint)ImGui.GetFont().Handle, ImGui.GetFontSize(), Fonts.Revision);
+            if (fittedLayout != layout)
+            {
+                fittedLayout = layout;
+                fittedTexts.Clear();
+            }
+            if (fittedTexts.TryGetValue((text, width), out var cached))
+                return cached;
+            if (fittedTexts.Count >= MAX_DISPLAY_ENTRIES)
+                fittedTexts.Clear();
+
             const string ELLIPSIS = "...";
-            var available = MathF.Max(0f, width - ImGui.CalcTextSize(ELLIPSIS).X);
+            var available = MathF.Max(0f, width - OmniTextMeasurements.Measure(ELLIPSIS).X);
             var info = new StringInfo(text);
             for (var length = info.LengthInTextElements - 1; length > 0; length--)
             {
                 var candidate = info.SubstringByTextElements(0, length);
-                if (ImGui.CalcTextSize(candidate).X <= available)
+                if (OmniTextMeasurements.Measure(candidate).X <= available)
                 {
-                    return candidate + ELLIPSIS;
+                    var fitted = candidate + ELLIPSIS;
+                    fittedTexts.Add((text, width), fitted);
+                    return fitted;
                 }
             }
 
+            fittedTexts.Add((text, width), ELLIPSIS);
             return ELLIPSIS;
+        }
+
+        private sealed record RecordDisplay(string Elapsed, string Mitigation, string Damage, string[] StatusSeconds)
+        {
+            public string? Detail;
         }
 
         #region 常量
@@ -506,6 +584,8 @@ public sealed partial class MitigationMonitor
         private const uint SPECIAL_DAMAGE_ICON_ID = 60013;
 
         private const float STATUS_ICON_TEXT_GAP = -6f;
+
+        private const int MAX_DISPLAY_ENTRIES = 2048;
 
         #endregion
     }

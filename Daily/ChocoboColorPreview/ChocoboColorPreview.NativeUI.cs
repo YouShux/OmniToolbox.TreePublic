@@ -166,7 +166,9 @@ public sealed partial class ChocoboColorPreview
             ApplyData();
         }
 
-        protected override unsafe void OnUpdate(AtkUnitBase* addon) => feedOrderListNode?.Update();
+        protected override unsafe void OnUpdate(AtkUnitBase* addon) {
+            feedOrderListNode?.Update();
+        }
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {

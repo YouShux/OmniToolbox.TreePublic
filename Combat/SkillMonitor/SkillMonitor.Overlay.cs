@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Drawing;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Objects.Enums;
@@ -26,13 +27,16 @@ public sealed partial class SkillMonitor
     {
         private uint               activeCountdownColor = 0xFFFFFFFF;
         private readonly List<int> visibleDefinitions   = [];
+        private readonly List<IconLayout> iconLayout = [];
         private IFontHandle?       countdownFont;
         private FontType           loadedFont;
+        private Vector2            placeholderSize;
 
         public void Dispose()
         {
             countdownFont?.Dispose();
             countdownFont = null;
+            iconLayout.Clear();
         }
 
         public void Draw()
@@ -74,19 +78,26 @@ public sealed partial class SkillMonitor
                 return;
             }
             using var font = countdownFont.Push();
+            placeholderSize = OmniTextMeasurements.Measure("?");
             var drawList = ImGui.GetBackgroundDrawList();
+            iconLayout.Clear();
+            for (var memberIndex = 0; memberIndex < 8; memberIndex++)
+            {
+                var member = tracker.GetMember(memberIndex);
+                if (member.Visible)
+                    BuildMemberLayout(memberIndex, member.ClassJobID, member.Level, partyList);
+            }
             foreach (var clip in GameWindowClip.GetVisibleRegions())
             {
                 drawList.PushClipRect(clip.Min, clip.Max, true);
-                for (var memberIndex = 0; memberIndex < 8; memberIndex++)
+                foreach (var icon in iconLayout)
                 {
-                    var member = tracker.GetMember(memberIndex);
-                    if (!member.Visible)
+                    if (icon.Maximum.X < clip.Min.X || icon.Maximum.Y < clip.Min.Y ||
+                        icon.Minimum.X > clip.Max.X || icon.Minimum.Y > clip.Max.Y)
                     {
                         continue;
                     }
-
-                    DrawMember(memberIndex, member.ClassJobID, member.Level, partyList, drawList);
+                    DrawIcon(drawList, icon);
                 }
                 drawList.PopClipRect();
             }
@@ -127,13 +138,12 @@ public sealed partial class SkillMonitor
             }
         }
 
-        private void DrawMember
+        private void BuildMemberLayout
         (
             int             memberIndex,
             uint            classJobID,
             byte            level,
-            AddonPartyList* partyList,
-            ImDrawListPtr   drawList
+            AddonPartyList* partyList
         )
         {
             if (classJobID >= definitionIndexesByJob.Length)
@@ -198,90 +208,69 @@ public sealed partial class SkillMonitor
                     var definitionIndex = visibleDefinitions[index];
                     var definition = definitions[definitionIndex];
                     var currentSize = GetIconSize(definition, iconSize);
-                    DrawIcon(drawList, definition, tracker.GetState(memberIndex, definitionIndex),
-                        position + new Vector2(0f, (classJobIconSize - currentSize.Y) * 0.5f), currentSize);
+                    iconLayout.Add(PrepareIcon(memberIndex, definitionIndex,
+                        position + new Vector2(0f, (classJobIconSize - currentSize.Y) * 0.5f), currentSize));
                     position.X += currentSize.X + spacing;
                 }
             }
         }
 
-        private void DrawIcon
-        (
-            ImDrawListPtr            drawList,
-            SkillMonitorDefinition   definition,
-            SkillMonitorRuntimeState state,
-            Vector2                  position,
-            Vector2                  size
-        )
+        private IconLayout PrepareIcon(int member, int definitionIndex, Vector2 position, Vector2 size)
         {
+            var definition = definitions[definitionIndex];
+            var state = tracker.GetState(member, definitionIndex);
+            var text = string.Empty;
+            var color = activeCountdownColor;
+            var fontSize = size.Y * (definition.IsFood ? 0.6f : 0.8f);
+            if (definition.IsFood)
+            {
+                if (state.StatusActive)
+                    text = state.StatusText ?? string.Empty;
+                color = OmniTheme.Color(KnownColor.PaleTurquoise.ToVector4());
+            }
+            else if (state.DisplayState == SkillMonitorDisplayState.Active)
+                text = state.StatusText ?? string.Empty;
+            else if (state.DisplayState == SkillMonitorDisplayState.Cooldown)
+            {
+                text = state.CooldownText ?? string.Empty;
+                color = OmniTheme.Color(Vector4.One);
+            }
+            var textSize = text.Length == 0 ? Vector2.Zero
+                : OmniTextMeasurements.Measure(text) * (fontSize / ImGui.GetFontSize());
+            var textPosition = definition.IsFood
+                ? new Vector2(position.X + (size.X - textSize.X) * 0.5f, position.Y + size.Y - textSize.Y * 0.55f)
+                : position + (size - textSize) * 0.5f;
+            var edge = new Vector2(fontSize / 20f + 1f);
+            var minimum = Vector2.Min(position - placeholderSize, textPosition - edge);
+            var maximum = Vector2.Max(position + size + placeholderSize, textPosition + textSize + edge);
+            return new(definitionIndex, state, position, size, text, textPosition, fontSize, color, minimum, maximum);
+        }
+
+        private void DrawIcon(ImDrawListPtr drawList, IconLayout icon)
+        {
+            var definition = definitions[icon.Definition];
+            var state = icon.State;
             FramedGameIcon.Draw(
                 drawList,
                 definition.IconID,
-                position,
-                size,
+                icon.Position,
+                icon.Size,
                 dimmed: state.DisplayState == SkillMonitorDisplayState.Inactive,
                 active: state.DisplayState == SkillMonitorDisplayState.Active,
                 drawFrame: !definition.IsFood,
                 preserveAspectRatio: definition.IsFood);
-
-            if (definition.IsFood)
+            if (!definition.IsFood && state.DisplayState == SkillMonitorDisplayState.Cooldown)
             {
-                if (state.StatusActive && !string.IsNullOrEmpty(state.StatusText))
-                {
-                    DrawFoodDuration(drawList, state.StatusText, position, size);
-                }
-
-                return;
+                DrawCooldownMask(drawList, icon.Position, icon.Size, state.CooldownProgress);
+                FramedGameIcon.DrawFrame(drawList, icon.Position, icon.Size);
             }
-
-            if (state.DisplayState == SkillMonitorDisplayState.Active)
-            {
-                DrawCenteredText(
-                    drawList,
-                    state.StatusText ?? string.Empty,
-                    position,
-                    size,
-                    activeCountdownColor);
-            }
-            else if (state.DisplayState == SkillMonitorDisplayState.Cooldown)
-            {
-                DrawCooldownMask(drawList, position, size, state.CooldownProgress);
-                FramedGameIcon.DrawFrame(drawList, position, size);
-                DrawCenteredText(drawList, state.CooldownText ?? string.Empty, position, size, OmniTheme.Color(Vector4.One));
-            }
+            if (icon.Text.Length > 0)
+                DrawOutlinedText(drawList, icon.Text, icon.TextPosition, icon.Color, icon.FontSize);
         }
 
-        private static void DrawCenteredText
-        (
-            ImDrawListPtr drawList,
-            string        text,
-            Vector2       position,
-            Vector2       size,
-            uint          color
-        )
-        {
-            var fontSize = size.Y * 0.8f;
-            var textSize = ImGui.CalcTextSize(text) * (fontSize / ImGui.GetFontSize());
-            var textPosition = position + (size - textSize) * 0.5f;
-            DrawOutlinedText(drawList, text, textPosition, color, fontSize);
-        }
-
-        private static void DrawFoodDuration
-        (
-            ImDrawListPtr drawList,
-            string        text,
-            Vector2       position,
-            Vector2       size
-        )
-        {
-            var fontSize = size.Y * 0.6f;
-            var textSize = ImGui.CalcTextSize(text) * (fontSize / ImGui.GetFontSize());
-            var textPosition = new Vector2(
-                position.X + (size.X - textSize.X) * 0.5f,
-                position.Y + size.Y - textSize.Y * 0.55f);
-            var color = OmniTheme.Color(KnownColor.PaleTurquoise.ToVector4());
-            DrawOutlinedText(drawList, text, textPosition, color, fontSize);
-        }
+        private readonly record struct IconLayout(int Definition, SkillMonitorRuntimeState State,
+            Vector2 Position, Vector2 Size, string Text, Vector2 TextPosition, float FontSize, uint Color,
+            Vector2 Minimum, Vector2 Maximum);
 
         private static void DrawOutlinedText
         (

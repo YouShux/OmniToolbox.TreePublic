@@ -172,6 +172,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         new("asc", 281, "Feature.AutoSortItems.Order.Ascending")
     ];
 
+    private readonly Panel panel = new();
     private readonly HashSet<string> queuedCategories = new(StringComparer.Ordinal);
     private TaskHelper?              taskHelper;
     private AddonEventRegistry?      addonEvents;
@@ -211,7 +212,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
 
     public override bool HasSettings => true;
 
-    public override bool DrawSettings() => Panel.Draw(config);
+    public override bool DrawSettings() => panel.Draw(config);
 
     public void RequestSort()
     {

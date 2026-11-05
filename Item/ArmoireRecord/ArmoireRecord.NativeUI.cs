@@ -83,7 +83,9 @@ public sealed partial class ArmoireRecord
             feature.SyncWindowPosition();
         }
 
-        protected override unsafe void OnDraw(AtkUnitBase* addon) => feature.SyncWindowPosition();
+        protected override unsafe void OnDraw(AtkUnitBase* addon) {
+            feature.SyncWindowPosition();
+        }
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
         {

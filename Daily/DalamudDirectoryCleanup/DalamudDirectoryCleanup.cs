@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -117,14 +118,14 @@ public sealed partial class DalamudDirectoryCleanup : OmniModuleBase
         var rowContentHeight = MathF.Max(checkboxSize.Y, ImGui.GetFrameHeight());
         var rowHeight = rowContentHeight + ImGui.GetStyle().CellPadding.Y * 2f;
         ReadOnlySpan<string> labels = ["##selection", Text("Category"), Text("Path"), Text("Size"), Text("Modified")];
-        var categoryWidth = ImGui.CalcTextSize(labels[1]).X;
+        var categoryWidth = OmniTextMeasurements.Measure(labels[1]).X;
         ReadOnlySpan<Category> categories = [Category.Logs, Category.Backups, Category.PluginConfigs];
         foreach (var category in categories)
-            categoryWidth = MathF.Max(categoryWidth, ImGui.CalcTextSize(Text(category.ToString())).X);
+            categoryWidth = MathF.Max(categoryWidth, OmniTextMeasurements.Measure(Text(category.ToString())).X);
         var spacing = ImGui.GetStyle().FramePadding.X * 2f;
         categoryWidth += spacing;
-        var sizeWidth = MathF.Max(ImGui.CalcTextSize(labels[3]).X, ImGui.CalcTextSize("999.99 GiB").X) + spacing;
-        var dateWidth = MathF.Max(ImGui.CalcTextSize(labels[4]).X, ImGui.CalcTextSize("0000-00-00").X) + spacing;
+        var sizeWidth = MathF.Max(OmniTextMeasurements.Measure(labels[3]).X, OmniTextMeasurements.Measure("999.99 GiB").X) + spacing;
+        var dateWidth = MathF.Max(OmniTextMeasurements.Measure(labels[4]).X, OmniTextMeasurements.Measure("0000-00-00").X) + spacing;
         var minimumPathWidth = ImGui.GetFontSize() * 12f;
         var pathWidth = MathF.Max(minimumPathWidth, ImGui.GetContentRegionAvail().X - checkboxSize.X -
             categoryWidth - sizeWidth - dateWidth - ImGui.GetStyle().CellPadding.X * labels.Length * 2f -

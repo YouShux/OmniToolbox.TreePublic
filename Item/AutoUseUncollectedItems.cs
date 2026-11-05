@@ -49,6 +49,10 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
     private readonly Dictionary<uint, CollectionType> itemTypes         = [];
     private readonly Dictionary<uint, long>           blindBoxRetryAt   = [];
     private readonly Throttler<ulong>                 fieldNoteRequests = new();
+    private readonly Dictionary<uint, (Item Row, ItemActionKind Action, int JobID)?> collectibleMetadata = [];
+    private readonly Dictionary<uint, bool> collectibleChecks = [];
+    private readonly Dictionary<uint, bool> blindBoxChecks = [];
+    private readonly List<(InventoryType Container, int Slot, uint ItemID, uint BaseItemID)> blindBoxCandidates = [];
     private TaskHelper?                               taskHelper;
 
     public AutoUseUncollectedItems
@@ -91,6 +95,10 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
     protected override void OnStop()
     {
         taskHelper = null;
+        collectibleMetadata.Clear();
+        collectibleChecks.Clear();
+        blindBoxChecks.Clear();
+        blindBoxCandidates.Clear();
     }
 
     public override bool HasSettings => true;
@@ -171,13 +179,15 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
             actionManager->AnimationLock > 0)
             return;
 
-        if (!Inventories.Player.TryGetFirstItem(CanUseCollectible, out var slot) &&
-            (!config.EnabledTypes.Contains(CollectionType.BlindBox) || Inventories.Player.IsFull() ||
-             !Inventories.Player.TryGetFirstItem(CanOpenBlindBox, out slot)))
+        if (!TryFindUsableItem(inventoryManager, out var slot, out var isBlindBox))
             return;
 
         var baseItemID = slot->GetBaseItemId();
         var itemID = slot->GetItemId();
+        if (Activation.IsStopping || DalamudServices.IsUnloading || helper.IsBusy ||
+            (isBlindBox ? !IsBlindBoxAvailable(baseItemID, itemID) : !IsCollectibleAvailable(*slot)) ||
+            actionManager->GetActionStatus(ActionType.Item, itemID) != 0)
+            return;
         var quantity = inventoryManager->GetInventoryItemCount(baseItemID, false, false, false);
         if (inventoryContext->UseItem(itemID) != 0)
         {
@@ -199,16 +209,105 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
             timeoutAction: () => DelayBlindBox(baseItemID));
     }
 
-    private bool CanUseCollectible(InventoryItem slot)
+    private bool TryFindUsableItem(InventoryManager* manager, out InventoryItem* result, out bool isBlindBox)
     {
-        var itemID = slot.GetBaseItemId();
-        if (!LuminaGetter.TryGetRow<Item>(itemID, out var item) || !item.ItemAction.IsValid)
+        collectibleChecks.Clear();
+        blindBoxChecks.Clear();
+        blindBoxCandidates.Clear();
+        result = null;
+        isBlindBox = false;
+        var searchBlindBoxes = config.EnabledTypes.Contains(CollectionType.BlindBox);
+        var searchItems = true;
+        var hasEmptySlot = false;
+        foreach (var type in Inventories.Player)
+        {
+            var container = manager->GetInventoryContainer(type);
+            if (container == null || !container->IsLoaded)
+            {
+                if (!searchBlindBoxes || hasEmptySlot)
+                    break;
+                searchItems = false;
+                continue;
+            }
+
+            for (var index = 0; index < container->Size; index++)
+            {
+                var slot = container->GetInventorySlot(index);
+                if (slot == null)
+                    continue;
+                if (slot->ItemId == 0)
+                {
+                    hasEmptySlot = true;
+                    continue;
+                }
+                if (!searchItems)
+                    continue;
+                if (CanUseCollectible(*slot))
+                {
+                    result = slot;
+                    return true;
+                }
+                if (searchBlindBoxes)
+                    blindBoxCandidates.Add((type, index, slot->GetItemId(), slot->GetBaseItemId()));
+            }
+            if (!searchItems && hasEmptySlot)
+                break;
+        }
+
+        if (!searchBlindBoxes || !hasEmptySlot)
             return false;
 
-        var itemAction = item.ItemAction.Value;
-        var actionKind = (ItemActionKind)itemAction.Action.RowId;
+        foreach (var candidate in blindBoxCandidates)
+        {
+            if (!CanOpenBlindBox(candidate.BaseItemID, candidate.ItemID))
+                continue;
+
+            var container = manager->GetInventoryContainer(candidate.Container);
+            if (container == null || !container->IsLoaded || candidate.Slot >= container->Size)
+                continue;
+            var slot = container->GetInventorySlot(candidate.Slot);
+            if (slot == null || slot->GetItemId() != candidate.ItemID || slot->GetBaseItemId() != candidate.BaseItemID)
+                continue;
+
+            result = slot;
+            isBlindBox = true;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool CanUseCollectible(InventoryItem slot)
+    {
+        var itemID = slot.GetItemId();
+        if (collectibleChecks.TryGetValue(itemID, out var result))
+            return result;
+
+        result = IsCollectibleAvailable(slot);
+        collectibleChecks.Add(itemID, result);
+        return result;
+    }
+
+    private bool IsCollectibleAvailable(InventoryItem slot)
+    {
+        var itemID = slot.GetBaseItemId();
+        if (!collectibleMetadata.TryGetValue(itemID, out var metadata) &&
+            LuminaGetter.TryGetRow<Item>(itemID, out var row))
+        {
+            if (row.ItemAction.IsValid)
+            {
+                var action = row.ItemAction.Value;
+                metadata = (row, (ItemActionKind)action.Action.RowId, action.Data[0]);
+            }
+            collectibleMetadata.Add(itemID, metadata);
+        }
+        if (metadata is not { } info)
+            return false;
+
+        var actionKind = info.Action;
         var enabled = actionKind switch
         {
+            ItemActionKind.BuddyEquip => config.EnabledTypes.Contains(CollectionType.Barding),
             ItemActionKind.SecretRecipeBook => config.UseSecretRecipeBooks,
             ItemActionKind.FolkloreTome => config.UseFolkloreTomes,
             ItemActionKind.FieldNote => config.UseFieldNotes,
@@ -230,12 +329,12 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
                 return false;
 
             var state = PublicContentOccultCrescent.GetState();
-            var jobID = itemAction.Data[0];
+            var jobID = info.JobID;
             if (state == null || jobID >= state->SupportJobLevels.Length || state->SupportJobLevels[jobID] != 0)
                 return false;
         }
-        else if (!DalamudServices.UnlockState.IsItemUnlockable(item) ||
-                 DalamudServices.UnlockState.IsItemUnlocked(item))
+        else if (!DalamudServices.UnlockState.IsItemUnlockable(info.Row) ||
+                 DalamudServices.UnlockState.IsItemUnlocked(info.Row))
         {
             return false;
         }
@@ -257,9 +356,18 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
         return unlockState == 2;
     }
 
-    private bool CanOpenBlindBox(InventoryItem slot)
+    private bool CanOpenBlindBox(uint baseItemID, uint itemID)
     {
-        var blindBoxItemID = slot.GetBaseItemId();
+        if (blindBoxChecks.TryGetValue(itemID, out var result))
+            return result;
+
+        result = IsBlindBoxAvailable(baseItemID, itemID);
+        blindBoxChecks.Add(itemID, result);
+        return result;
+    }
+
+    private bool IsBlindBoxAvailable(uint blindBoxItemID, uint itemID)
+    {
         if (blindBoxRetryAt.TryGetValue(blindBoxItemID, out var retryAt) &&
             Environment.TickCount64 < retryAt)
             return false;
@@ -267,7 +375,7 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
 
         var pool = sourceService.GetBlindBoxDropPool(blindBoxItemID);
         if (pool.Count == 0 ||
-            ActionManager.Instance()->GetActionStatus(ActionType.Item, slot.GetItemId()) != 0)
+            ActionManager.Instance()->GetActionStatus(ActionType.Item, itemID) != 0)
             return false;
 
         // 收录页的盲盒池包含无法由 UnlockState 标记的普通奖励，按奖励池实际的解锁状态判断。
@@ -300,6 +408,7 @@ public sealed unsafe class AutoUseUncollectedItems : OmniModuleBase
 
     private enum ItemActionKind : uint
     {
+        BuddyEquip = 1013,
         SecretRecipeBook = 2136,
         FolkloreTome = 4107,
         FieldNote = 19743,

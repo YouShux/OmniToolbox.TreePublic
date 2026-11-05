@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Interface;
 using OmenTools;
@@ -169,10 +170,10 @@ public sealed partial class LootRollHistory
             return false;
         }
 
-        public float ModifierSettingWidth => ImGui.CalcTextSize(Text("Modifier")).X +
+        public float ModifierSettingWidth => OmniTextMeasurements.Measure(Text("Modifier")).X +
                                              ImGui.GetStyle().ItemSpacing.X + OmniTheme.Scale(72f);
 
-        public float KeySettingWidth => ImGui.CalcTextSize(Text("HideKey")).X +
+        public float KeySettingWidth => OmniTextMeasurements.Measure(Text("HideKey")).X +
                                         OmniControls.CompactButtonSize(capturingKey ? Text("Capturing") :
                                             feature.config.HideKey == 0 ? Text("Unbound") : ((VirtualKey)feature.config.HideKey).ToString()).X +
                                         OmniControls.CompactButtonSize(Text("ClearKey")).X + ImGui.GetStyle().ItemSpacing.X * 2f;

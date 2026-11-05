@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using OmniToolbox.UI;
 using OmniToolbox.UI.Controls;
 
@@ -7,12 +8,16 @@ public sealed partial class LootRollHistory
 {
     private sealed partial class HistoryWindow : IOmniRecordHistorySource<HistoryWindow.SessionOption>
     {
+        private long historyMenuRevision = 1;
+
+        long IOmniRecordHistorySource<SessionOption>.Revision => historyMenuRevision * 2 + (page == HistoryPage.Random ? 1 : 0);
+
         OmniRecordHistoryMenu.Labels IOmniRecordHistorySource<SessionOption>.Labels =>
             new(string.Empty, Text("Import"), Text("Export"), Text("Empty"));
 
         float IOmniRecordHistorySource<SessionOption>.HeaderWidth =>
-            MathF.Ceiling(ImGui.CalcTextSize(Text("Loot")).X + ImGui.GetStyle().FramePadding.X * 2f) +
-            MathF.Ceiling(ImGui.CalcTextSize(Text("Random")).X + ImGui.GetStyle().FramePadding.X * 2f) +
+            MathF.Ceiling(OmniTextMeasurements.Measure(Text("Loot")).X + ImGui.GetStyle().FramePadding.X * 2f) +
+            MathF.Ceiling(OmniTextMeasurements.Measure(Text("Random")).X + ImGui.GetStyle().FramePadding.X * 2f) +
             ImGui.GetStyle().ItemSpacing.X;
 
         bool IOmniRecordHistorySource<SessionOption>.IsCurrentSelected =>

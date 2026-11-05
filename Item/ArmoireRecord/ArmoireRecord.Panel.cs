@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Text.SeStringHandling;
@@ -77,13 +78,13 @@ public sealed partial class ArmoireRecord
             var scopeLabel = OmniLoc.Get("Feature.ArmoireRecord.Scope.Title");
             var excludeLabel = OmniLoc.Get("Feature.ArmoireRecord.Scope.Exclude");
             var helpIconWidth = OmniControls.HelpIconSize().X + style.ItemSpacing.X;
-            var labelWidth = MathF.Max(ImGui.CalcTextSize(scopeLabel).X, ImGui.CalcTextSize(excludeLabel).X) + helpIconWidth;
+            var labelWidth = MathF.Max(OmniTextMeasurements.Measure(scopeLabel).X, OmniTextMeasurements.Measure(excludeLabel).X) + helpIconWidth;
             var availableWidth = ImGui.GetContentRegionAvail().X;
             var rowHeight = MathF.Max(OmniTheme.CheckboxSize(), ImGui.GetFrameHeight());
             var columnWidth = OmniTheme.CheckboxSize();
             foreach (var column in Columns)
             {
-                var width = ImGui.CalcTextSize(OmniLoc.Get($"Feature.ArmoireRecord.Scope.{column.Key}")).X;
+                var width = OmniTextMeasurements.Measure(OmniLoc.Get($"Feature.ArmoireRecord.Scope.{column.Key}")).X;
                 columnWidth = MathF.Max(columnWidth, width + (column.Key == "Gearsets" ? helpIconWidth : 0f));
             }
             var detailLayout = availableWidth < labelWidth + Columns.Length * columnWidth +
@@ -174,7 +175,7 @@ public sealed partial class ArmoireRecord
         )
         {
             var style = ImGui.GetStyle();
-            var size = ImGui.CalcTextSize(label) + new Vector2(OmniControls.HelpIconSize().X + style.ItemSpacing.X, 0f);
+            var size = OmniTextMeasurements.Measure(label) + new Vector2(OmniControls.HelpIconSize().X + style.ItemSpacing.X, 0f);
             var cursor = ImGui.GetCursorPos();
             var availableWidth = ImGui.GetContentRegionAvail().X;
             ImGui.SetCursorPos(
@@ -191,7 +192,7 @@ public sealed partial class ArmoireRecord
         {
             var style = ImGui.GetStyle();
             var label = OmniLoc.Get("Feature.ArmoireRecord.Scope.Gearsets");
-            var size = ImGui.CalcTextSize(label) + new Vector2(OmniControls.HelpIconSize().X + style.ItemSpacing.X, 0f);
+            var size = OmniTextMeasurements.Measure(label) + new Vector2(OmniControls.HelpIconSize().X + style.ItemSpacing.X, 0f);
             var cursor = ImGui.GetCursorPos();
             var availableWidth = ImGui.GetContentRegionAvail().X;
             ImGui.SetCursorPos(

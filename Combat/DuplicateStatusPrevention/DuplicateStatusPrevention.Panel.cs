@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Collections.Frozen;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
@@ -86,7 +87,7 @@ public sealed partial class DuplicateStatusPrevention
                 "##duplicateStatusActions",
                 [OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Action"), OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Status")],
                 [MathF.Max(ImGui.GetFontSize() * 10f, checkboxSize.X * 2f +
-                ImGui.CalcTextSize(OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Action")).X), ImGui.GetFontSize() * 6f],
+                OmniTextMeasurements.Measure(OmniLoc.Get("Feature.DuplicateStatusPrevention.Column.Action")).X), ImGui.GetFontSize() * 6f],
                 [ImGui.GetFontSize() * 14f, ImGui.GetFontSize() * 10f], out var detailLayout,
                 ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingStretchSame,
                 new Vector2(

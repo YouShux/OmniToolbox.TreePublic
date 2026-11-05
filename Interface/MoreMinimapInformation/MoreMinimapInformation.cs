@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Threading.Tasks;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.ClientState.Keys;
@@ -114,7 +115,7 @@ public sealed partial class MoreMinimapInformation(MoreMinimapInformation.Settin
         var spacing = ImGui.GetStyle().ItemInnerSpacing.X;
         var hideKeyLabel = OmniLoc.Get(this, "Feature.MoreMinimapInformation.HideKey");
         var hideKeySize = OmniControls.MeasureCombo(GetHideKeyName(config.HideKey), OmniTheme.Scale(140f));
-        sizes[^1] = OmniControls.MeasureGroup([ImGui.CalcTextSize(hideKeyLabel), hideKeySize], spacing);
+        sizes[^1] = OmniControls.MeasureGroup([OmniTextMeasurements.Measure(hideKeyLabel), hideKeySize], spacing);
 
         using var table = OmniControls.SettingsTable(
             "##moreMinimapInformation", sizes,

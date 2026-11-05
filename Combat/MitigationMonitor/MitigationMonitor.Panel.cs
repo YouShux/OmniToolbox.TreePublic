@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Interface.Textures;
 using OmenTools.Extensions;
 using OmniToolbox.UI.Theme;
@@ -46,7 +47,7 @@ public sealed partial class MitigationMonitor
             var iconSize = new Vector2(MathF.Max(OmniTheme.SmallButtonSize().Y, ImGui.GetFrameHeight()));
             var targetSize = OmniControls.MeasureGroup(
                 [
-                    ImGui.CalcTextSize(targetLabel),
+                    OmniTextMeasurements.Measure(targetLabel),
                     characterNameSize,
                     jobNameSize,
                     iconSize,
@@ -120,7 +121,7 @@ public sealed partial class MitigationMonitor
                 "%.0f%%",
                 OmniTheme.Scale(150f));
             OmniControls.SameLineOrWrap(
-                OmniControls.MeasureGroup([ImGui.CalcTextSize(opacityLabel), opacitySize]).X);
+                OmniControls.MeasureGroup([OmniTextMeasurements.Measure(opacityLabel), opacitySize]).X);
             using (ImRaii.Group())
             {
                 var opacity = config.Opacity * 100f;

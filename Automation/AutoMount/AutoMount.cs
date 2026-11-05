@@ -79,11 +79,11 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
         activation.OnStopping(() => services.ClientState.TerritoryChanged -= OnTerritoryChanged);
         activation.OnStopping(() => services.ClientState.Logout -= OnLogout);
         activation.OnStopping(() => services.Condition.ConditionChange -= OnConditionChanged);
-        activation.OnStopping(() => UseActionManager.Instance().Unreg(OnUseAction));
+        activation.OnStopping(() => UseActionManager.Instance().Unreg(OnPreUseAction));
         services.ClientState.TerritoryChanged += OnTerritoryChanged;
         services.ClientState.Logout += OnLogout;
         services.Condition.ConditionChange += OnConditionChanged;
-        if (!UseActionManager.Instance().RegPostUseAction(OnUseAction))
+        if (!UseActionManager.Instance().RegPreUseAction(OnPreUseAction))
             throw new InvalidOperationException("Automatic mount action registration failed.");
     }
 

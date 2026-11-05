@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using Dalamud.Utility;
 using OmenTools;
 using OmenTools.Interop.Game.Lumina;
@@ -109,7 +110,7 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
         }
 
         var inputWidth = OmniControls.MeasureInput(int.MaxValue.ToString(), OmniTheme.Scale(120f)).X;
-        OmniControls.SameLineOrWrap(ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.ItemTooltipRemark.ItemId")).X +
+        OmniControls.SameLineOrWrap(OmniTextMeasurements.Measure(OmniLoc.Get(this, "Feature.ItemTooltipRemark.ItemId")).X +
             inputWidth + ImGui.GetStyle().ItemSpacing.X, OmniTheme.Scale(12f));
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(OmniLoc.Get(this, "Feature.ItemTooltipRemark.ItemId"));
@@ -211,7 +212,7 @@ public sealed unsafe partial class ItemTooltipRemark : OmniModuleBase
                 {
                     rowContentHeight = MathF.Max(rowContentHeight,
                         ItemSelectionTable.MeasureItemCellHeight(LuminaWrapper.GetItemName(itemID), itemWidth, iconSize));
-                    rowContentHeight = MathF.Max(rowContentHeight, ImGui.CalcTextSize(remark, false, remarkWidth).Y);
+                    rowContentHeight = MathF.Max(rowContentHeight, OmniTextMeasurements.Measure(remark, false, remarkWidth).Y);
                 }
                 rowHeight = rowContentHeight + cellPadding;
             }

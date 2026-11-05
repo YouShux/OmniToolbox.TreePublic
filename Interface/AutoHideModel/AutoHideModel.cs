@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Diagnostics;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Hooking;
@@ -89,6 +90,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
     private readonly HashSet<nint>                                                               hiddenObjects                    = [];
     private readonly HashSet<uint>                                                               friendPlayers                    = [];
     private readonly HashSet<uint>                                                               partyPlayers                     = [];
+    private readonly HashSet<uint>                                                               partyMemberIDs                   = [];
     private readonly HashSet<uint>                                                               freeCompanyPlayers               = [];
     private readonly HashSet<uint>                                                               beastmasterPlayers               = [];
     private readonly List<Vector3>                                                               nearbyAvailableQuestNPCPositions = [];
@@ -98,6 +100,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
     private (nint Address, uint Territory, sbyte Ward, byte Division)                            yardContext;
     private nint                                                                                 housingLayoutAddress;
     private Hook<ActionEffectHandler.Delegates.Receive>?                                         ActionEffectHook;
+    private Hook<EventFramework.Delegates.ProcessEventPlay>?                                     EventSceneHook;
     private long                                                                                 asylumBlockUntil;
     private long                                                                                 asylumAllowUntil;
     private long                                                                                 sacredSoilBlockUntil;
@@ -142,6 +145,19 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         });
         lifetime.OnStopping(ActionEffectHook.Disable);
         ActionEffectHook.Enable();
+        var eventSceneAddress = EventFramework.MemberFunctionPointers.ProcessEventPlay;
+        if (eventSceneAddress == null)
+            throw new InvalidOperationException("无法获取游戏剧情处理入口。");
+        EventSceneHook = DService.Instance().Hook.HookFromAddress<EventFramework.Delegates.ProcessEventPlay>(
+            (nint)eventSceneAddress,
+            OnEventScene);
+        lifetime.Add(() =>
+        {
+            EventSceneHook?.Dispose();
+            EventSceneHook = null;
+        });
+        lifetime.OnStopping(EventSceneHook.Disable);
+        EventSceneHook.Enable();
         if (!FrameworkManager.Instance().Reg(OnFrameworkUpdate, 100))
         {
             throw new InvalidOperationException("Auto hide model update registration failed.");
@@ -309,7 +325,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
     {
         var label = $"{OmniLoc.Get("Feature.AutoHideModel.Houses")}：";
         if (columnPositions != Vector4.Zero)
-            ImGui.SetCursorPosX(columnPositions.X - ImGui.CalcTextSize(label).X * 0.5f);
+            ImGui.SetCursorPosX(columnPositions.X - OmniTextMeasurements.Measure(label).X * 0.5f);
         ImGui.AlignTextToFramePadding();
         ImGui.TextUnformatted(label);
         OmniControls.SameLineOrWrap(OmniControls.MeasureCheckbox(OmniLoc.Get("Feature.AutoHideModel.HouseSize.Small")).X);
@@ -361,7 +377,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         ImGui.AlignTextToFramePadding();
         ImGui.SetCursorPosX(
             ImGui.GetCursorPosX() +
-            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(OmniLoc.Get(labelKey)).X) * 0.5f));
+            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - OmniTextMeasurements.Measure(OmniLoc.Get(labelKey)).X) * 0.5f));
         ImGui.TextUnformatted(OmniLoc.Get(labelKey));
         var changed = DrawCenteredCheckbox(
             $"{id}HideAll",
@@ -442,7 +458,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
 
         ImGui.SetCursorPosX(
             ImGui.GetCursorPosX() +
-            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(text).X) * 0.5f));
+            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - OmniTextMeasurements.Measure(text).X) * 0.5f));
         ImGui.TextUnformatted(text);
     }
 
@@ -452,7 +468,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         var text = "-";
         ImGui.SetCursorPosX(
             ImGui.GetCursorPosX() +
-            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - ImGui.CalcTextSize(text).X) * 0.5f));
+            MathF.Max(0f, (ImGui.GetContentRegionAvail().X - OmniTextMeasurements.Measure(text).X) * 0.5f));
         ImGui.TextDisabled(text);
     }
 
@@ -504,6 +520,10 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
 
     private void UpdateVisibility()
     {
+        var protectNPCs = !config.HideUnimportantNpcs || ShouldProtectNPCs();
+        if (protectNPCs)
+            RestoreNPCVisibility();
+
         if (ShouldSuspendByCondition())
         {
             RestoreNonPlayerVisibility();
@@ -539,8 +559,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         var isBound = GameState.TerritoryIntendedUse is not (TerritoryIntendedUse.OccultCrescent or TerritoryIntendedUse.Bozja) &&
                       DService.Instance().Condition[ConditionFlag.BoundByDuty] &&
                       localGameObject->EventId.ContentId != EventHandlerContent.TreasureHuntDirector;
-        RefreshPlayerContainers(objectManager, localPlayer);
-        RefreshNearbyAvailableQuestNPCs(objectManager, localGameObject);
+        RefreshVisibilityContext(objectManager, localPlayer);
         var playerCount = 0;
         for (var index = OBJECT_SCAN_START; index < UNIMPORTANT_NPC_SCAN_END; index++)
         {
@@ -552,7 +571,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
 
             if (index >= UNIMPORTANT_NPC_SCAN_START)
             {
-                SetVisibility(gameObject, !ShouldHideUnimportantNPC(gameObject));
+                SetVisibility(gameObject, protectNPCs || !ShouldHideUnimportantNPC(gameObject));
                 continue;
             }
 
@@ -611,7 +630,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         }
     }
 
-    private void RefreshPlayerContainers
+    private void RefreshVisibilityContext
     (
         GameObjectManager* objectManager,
         Character*         localPlayer
@@ -624,11 +643,52 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         }
         friendPlayers.Clear();
         partyPlayers.Clear();
+        partyMemberIDs.Clear();
         freeCompanyPlayers.Clear();
-        for (var index = OBJECT_SCAN_START; index < OBJECT_SCAN_END; index++)
+        nearbyAvailableQuestNPCPositions.Clear();
+        var groupManager = GroupManager.Instance();
+        if (groupManager != null)
+        {
+            var memberCount = Math.Min((int)groupManager->MainGroup.MemberCount, 8);
+            for (var index = 0; index < memberCount; index++)
+            {
+                var member = groupManager->MainGroup.GetPartyMemberByIndex(index);
+                if (member != null)
+                    partyMemberIDs.Add(member->EntityId);
+            }
+        }
+
+        var crossRealm = InfoProxyCrossRealm.Instance();
+        if (crossRealm != null && crossRealm->IsInCrossRealmParty)
+        {
+            foreach (var group in crossRealm->CrossRealmGroups)
+            {
+                foreach (var member in group.GroupMembers)
+                    partyMemberIDs.Add(member.EntityId);
+            }
+        }
+
+        var needsFriends = config.Players.ShowFriends || config.Pets.ShowFriends || config.Beasts.ShowFriends ||
+                           config.Chocobos.ShowFriends || config.Minions.ShowFriends;
+        var needsFreeCompany = config.Players.ShowFreeCompany || config.Pets.ShowFreeCompany || config.Beasts.ShowFreeCompany ||
+                               config.Chocobos.ShowFreeCompany || config.Minions.ShowFreeCompany;
+        var scanEnd = config.HideUnimportantNpcs ? UNIMPORTANT_NPC_SCAN_END : OBJECT_SCAN_END;
+        for (var index = OBJECT_SCAN_START; index < scanEnd; index++)
         {
             var gameObject = objectManager->Objects.IndexSorted[index].Value;
-            if (gameObject == null ||
+            if (gameObject == null)
+                continue;
+
+            if (config.HideUnimportantNpcs && gameObject->ObjectKind == ClientObjectKind.EventNpc &&
+                gameObject->TargetableStatus.HasFlag(ObjectTargetableFlags.IsTargetable) &&
+                QuestIcons.Normal.Contains(gameObject->NamePlateIconId) &&
+                Vector3.DistanceSquared(gameObject->Position, localPlayer->GameObject.Position) <=
+                AVAILABLE_QUEST_NPC_DISTANCE_SQUARED)
+            {
+                nearbyAvailableQuestNPCPositions.Add(gameObject->Position);
+            }
+
+            if (index >= OBJECT_SCAN_END ||
                 !gameObject->IsCharacter() ||
                 gameObject->ObjectKind != ClientObjectKind.Pc ||
                 gameObject->EntityId == INVALID_ENTITY_ID)
@@ -641,44 +701,18 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
             {
                 beastmasterPlayers.Add(gameObject->EntityId);
             }
-            if (character->IsFriend)
+            if (needsFriends && character->IsFriend)
             {
                 friendPlayers.Add(gameObject->EntityId);
             }
 
-            if (IsObjectIDInParty(gameObject->EntityId))
-            {
+            if (partyMemberIDs.Contains(gameObject->EntityId))
                 partyPlayers.Add(gameObject->EntityId);
-            }
 
-            if (IsSameFreeCompany(character, localPlayer))
+            if (needsFreeCompany && IsSameFreeCompany(character, localPlayer))
             {
                 freeCompanyPlayers.Add(gameObject->EntityId);
             }
-        }
-    }
-
-    private void RefreshNearbyAvailableQuestNPCs
-    (
-        GameObjectManager* objectManager,
-        GameObject*        localGameObject
-    )
-    {
-        nearbyAvailableQuestNPCPositions.Clear();
-        for (var index = OBJECT_SCAN_START; index < UNIMPORTANT_NPC_SCAN_END; index++)
-        {
-            var gameObject = objectManager->Objects.IndexSorted[index].Value;
-            if (gameObject == null ||
-                gameObject->ObjectKind != ClientObjectKind.EventNpc ||
-                !gameObject->TargetableStatus.HasFlag(ObjectTargetableFlags.IsTargetable) ||
-                !QuestIcons.Normal.Contains(gameObject->NamePlateIconId) ||
-                Vector3.DistanceSquared(gameObject->Position, localGameObject->Position) >
-                AVAILABLE_QUEST_NPC_DISTANCE_SQUARED)
-            {
-                continue;
-            }
-
-            nearbyAvailableQuestNPCPositions.Add(gameObject->Position);
         }
     }
 
@@ -754,7 +788,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
 
         return unitConfig.ShowFriends && friendPlayers.Contains(ownerID) ||
                unitConfig.ShowFreeCompany && freeCompanyPlayers.Contains(ownerID) ||
-               unitConfig.ShowParty && IsObjectIDInParty(ownerID);
+               unitConfig.ShowParty && partyMemberIDs.Contains(ownerID);
     }
 
     private bool ShouldHideGroundEffectOwner
@@ -764,7 +798,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
     ) =>
         config.HideGroundHealingEffects &&
         ownerID != localPlayer->GameObject.EntityId &&
-        !IsObjectIDInParty(ownerID);
+        !partyMemberIDs.Contains(ownerID);
 
     private bool IsTargetOfTarget(Character* character)
     {
@@ -851,6 +885,46 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
                 gameObject->RenderFlags &= ~INVISIBLE_FLAGS;
             }
         }
+    }
+
+    private void RestoreNPCVisibility()
+    {
+        if (hiddenObjects.Count == 0)
+            return;
+
+        var objectManager = GameObjectManager.Instance();
+        if (objectManager == null)
+            return;
+
+        for (var index = OBJECT_SCAN_START; index < UNIMPORTANT_NPC_SCAN_END; index++)
+        {
+            var gameObject = objectManager->Objects.IndexSorted[index].Value;
+            if (gameObject != null && gameObject->ObjectKind == ClientObjectKind.EventNpc)
+                Show(gameObject);
+        }
+    }
+
+    private void OnEventScene
+    (
+        EventFramework* framework,
+        GameObject*     gameObject,
+        EventId         eventID,
+        short           scene,
+        ulong           flags,
+        uint*           parameters,
+        byte            count
+    )
+    {
+        try
+        {
+            RestoreNPCVisibility();
+        }
+        catch (Exception exception)
+        {
+            DService.Instance().Log.Error(exception, "恢复剧情 NPC 显示失败，事件 ID：{EventID}，场景：{Scene}。", eventID.Id, scene);
+        }
+
+        EventSceneHook?.Original(framework, gameObject, eventID, scene, flags, parameters, count);
     }
 
     private void OnActionEffect
@@ -1012,6 +1086,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
         UpdateYardVisibility(true);
         friendPlayers.Clear();
         partyPlayers.Clear();
+        partyMemberIDs.Clear();
         freeCompanyPlayers.Clear();
         nearbyAvailableQuestNPCPositions.Clear();
         ClearGroundEffectDecisions();
@@ -1358,6 +1433,7 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
     private bool ShouldHideUnimportantNPC(GameObject* gameObject)
     {
         if (!config.HideUnimportantNpcs ||
+            gameObject->ObjectKind != ClientObjectKind.EventNpc ||
             gameObject->TargetableStatus.HasFlag(ObjectTargetableFlags.IsTargetable) ||
             gameObject->EventHandler != null)
         {
@@ -1374,6 +1450,31 @@ internal sealed unsafe class AutoHideModel(AutoHideModelConfig config) : OmniMod
 
         return true;
     }
+
+    private static bool ShouldProtectNPCs()
+    {
+        var condition = DService.Instance().Condition;
+        if (ShouldSuspendByCondition() ||
+            condition[ConditionFlag.OccupiedInEvent] ||
+            condition[ConditionFlag.OccupiedInQuestEvent])
+            return true;
+
+        var framework = EventFramework.Instance();
+        if (framework != null &&
+            (framework->EventState1.EventId.Id != 0 ||
+             framework->EventState2.EventId.Id != 0 ||
+             framework->EventSceneModule.TaskManager.Tasks.Count != 0))
+            return true;
+
+        var targetSystem = TargetSystem.Instance();
+        return targetSystem != null &&
+               (IsInteractableNPC(targetSystem->Target) || IsInteractableNPC(targetSystem->SoftTarget));
+    }
+
+    private static bool IsInteractableNPC(GameObject* gameObject) =>
+        gameObject != null &&
+        gameObject->ObjectKind == ClientObjectKind.EventNpc &&
+        gameObject->TargetableStatus.HasFlag(ObjectTargetableFlags.IsTargetable);
 
     private static bool ShouldHide(AutoHideUnitConfig unitConfig) =>
         unitConfig.HideAll ||

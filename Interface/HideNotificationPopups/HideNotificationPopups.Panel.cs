@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
@@ -24,8 +25,8 @@ public sealed unsafe partial class HideNotificationPopups
         var style = ImGui.GetStyle();
         var availableWidth = ImGui.GetContentRegionAvail().X;
         var minimumCardWidth = MathF.Max(OmniTheme.Scale(220f),
-            ImGui.CalcTextSize(OmniLoc.Get(this, "Guildhest")).X +
-            ImGui.CalcTextSize(OmniLoc.Get(this, "Visible")).X + OmniTheme.Scale(36f));
+            OmniTextMeasurements.Measure(OmniLoc.Get(this, "Guildhest")).X +
+            OmniTextMeasurements.Measure(OmniLoc.Get(this, "Visible")).X + OmniTheme.Scale(36f));
         var columns = Math.Clamp((int)((availableWidth - style.ScrollbarSize) /
             (minimumCardWidth + style.CellPadding.X * 2f)), 1, 3);
         var rows = (displayBannerIDs.Length + columns) / columns;
@@ -110,7 +111,7 @@ public sealed unsafe partial class HideNotificationPopups
         {
             var label = iconID == 0 ? OmniLoc.Get(this, "Guildhest") :
                 $"{string.Format(OmniLoc.Get(this, "Banner"), iconID)}\n{OmniLoc.Get(this, "PreviewUnavailable")}";
-            var textSize = ImGui.CalcTextSize(label, false, contentSize.X);
+            var textSize = OmniTextMeasurements.Measure(label, false, contentSize.X);
             drawList.AddText(ImGui.GetFont(), ImGui.GetFontSize(),
                 position + padding + Vector2.Max(Vector2.Zero, contentSize - textSize) * 0.5f,
                 textColor, label, contentSize.X);
@@ -118,9 +119,9 @@ public sealed unsafe partial class HideNotificationPopups
 
         var status = OmniLoc.Get(this, selected ? "Hidden" : "Visible");
         var statusPadding = OmniTheme.Scale(new Vector2(6f, 2f));
-        var statusTextSize = ImGui.CalcTextSize(status);
-        var statusSize = Vector2.Max(ImGui.CalcTextSize(OmniLoc.Get(this, "Hidden")),
-            ImGui.CalcTextSize(OmniLoc.Get(this, "Visible"))) + statusPadding * 2f;
+        var statusTextSize = OmniTextMeasurements.Measure(status);
+        var statusSize = Vector2.Max(OmniTextMeasurements.Measure(OmniLoc.Get(this, "Hidden")),
+            OmniTextMeasurements.Measure(OmniLoc.Get(this, "Visible"))) + statusPadding * 2f;
         var statusPosition = position + new Vector2(MathF.Max(padding.X, size.X - padding.X - statusSize.X),
             size.Y - padding.Y - statusSize.Y);
         if (iconID == 0 && texture is not null)

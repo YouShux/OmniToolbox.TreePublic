@@ -1,3 +1,4 @@
+using OmniToolbox.UI.Widgets;
 using OmniToolbox.UI.Theme;
 
 namespace OmniToolbox.TreePublic;
@@ -23,10 +24,10 @@ public sealed unsafe partial class HotbarAdjustments
                         [OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.HotbarAdjustments.UnlockActions")),
                          OmniControls.HelpIconSize()])),
                 OmniControls.MeasureGroup(
-                    [ImGui.CalcTextSize(opacityLabel), OmniTheme.Scale(new Vector2(100f, 0f))], spacing),
+                    [OmniTextMeasurements.Measure(opacityLabel), OmniTheme.Scale(new Vector2(100f, 0f))], spacing),
                 OmniControls.MeasureCheckbox(OmniLoc.Get(this, "Feature.HotbarAdjustments.HideLocks")),
                 OmniControls.MeasureGroup(
-                    [ImGui.CalcTextSize(OmniLoc.Get(this, "Feature.HotbarAdjustments.Modifier")),
+                    [OmniTextMeasurements.Measure(OmniLoc.Get(this, "Feature.HotbarAdjustments.Modifier")),
                      modifierSize, OmniControls.HelpIconSize()], spacing)
             ],
             ["##hotbarBackground", "##hotbarBackgroundOpacity", "##hotbarLocks", "##hotbarLockModifier"],
