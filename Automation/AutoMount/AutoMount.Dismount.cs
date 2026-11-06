@@ -105,6 +105,7 @@ public sealed unsafe partial class AutoMount
 
         var checkedActionID = type == ActionType.Action ? adjustedActionID : actionID;
         if (!LuminaGetter.TryGetRow<LuminaAction>(adjustedActionID, out var action) ||
+            manager->GetActionStatus(type, checkedActionID, targetID, false, false) == 0 ||
             action.CanUseWhileMounted ||
             !manager->IsActionOffCooldown(type, checkedActionID) ||
             manager->CheckActionResources(ActionType.Action, adjustedActionID) != 0 ||
