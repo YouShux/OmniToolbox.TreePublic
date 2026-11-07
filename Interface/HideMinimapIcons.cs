@@ -1,10 +1,8 @@
 using OmniToolbox.UI.Widgets;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
-using Dalamud.Game.Agent;
 using Dalamud.Game.ClientState.Keys;
 using FFXIVClientStructs.FFXIV.Client.UI;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
 using OmenTools;
@@ -86,10 +84,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
         aetheryteIconID = (uint)LuminaGetter.GetRowOrDefault<MapSymbol>(1).Icon;
         aethernetIconID = (uint)LuminaGetter.GetRowOrDefault<MapSymbol>(2).Icon;
         var lifetime = Activation;
-        var agentLifecycle = DService.Instance().AgentLifecycle;
-        lifetime.OnStopping(() => agentLifecycle.UnregisterListener(OnMapAgentUpdate));
-        agentLifecycle.RegisterListener(AgentEvent.PreUpdate, Dalamud.Game.Agent.AgentId.Map, OnMapAgentUpdate);
-        agentLifecycle.RegisterListener(AgentEvent.PostUpdate, Dalamud.Game.Agent.AgentId.Map, OnMapAgentUpdate);
         lifetime.OnStopping(() => DalamudServices.AddonLifecycle.UnregisterListener(
             AddonEvent.PreDraw,
             NAVI_MAP_ADDON_NAME,
@@ -128,7 +122,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
 
     protected override void OnStop()
     {
-        RestoreMapControlState();
         ApplyCurrentMaps(true);
         hiddenNodes.Clear();
         originalIconScales.Clear();
@@ -435,13 +428,6 @@ public sealed unsafe partial class HideMinimapIcons : OmniModuleBase
 
     private void ApplyCurrentMaps(bool restore)
     {
-        if (restore || !config.AetherytesOnTop)
-        {
-            var agent = AgentMap.Instance();
-            if (agent is not null)
-                agent->IsControlKeyPressed = true;
-        }
-
         var unitManager = RaptureAtkUnitManager.Instance();
         if (unitManager != null)
         {

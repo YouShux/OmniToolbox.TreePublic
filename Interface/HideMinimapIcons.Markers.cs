@@ -1,8 +1,4 @@
-using Dalamud.Game.Agent;
-using Dalamud.Game.Agent.AgentArgTypes;
-using FFXIVClientStructs.FFXIV.Client.System.Input;
 using FFXIVClientStructs.FFXIV.Client.UI;
-using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using OmenTools.Extensions;
 using TreeToolKit;
@@ -16,45 +12,6 @@ public sealed unsafe partial class HideMinimapIcons
     private readonly List<nint>                                                                           pendingAetheryteMarkers = [];
     private uint                                                                                          aetheryteIconID;
     private uint                                                                                          aethernetIconID;
-    private KeyStateFlags                                                                                 mapControlState;
-    private bool                                                                                          mapControlOverridden;
-
-    private void OnMapAgentUpdate
-    (
-        AgentEvent type,
-        AgentArgs  args
-    )
-    {
-        if (type == AgentEvent.PostUpdate)
-        {
-            RestoreMapControlState();
-            return;
-        }
-
-        var agent = args.GetAgentPointer<AgentMap>();
-        var input = UIInputData.Instance();
-        if (!config.AetherytesOnTop || agent is null || agent->SelectedTerritoryId == 0 || input is null)
-            return;
-
-        mapControlState      = input->KeyboardInputs.KeyState[(int)SeVirtualKey.CONTROL];
-        mapControlOverridden = true;
-        input->KeyboardInputs.KeyState[(int)SeVirtualKey.CONTROL] = KeyStateFlags.Down | KeyStateFlags.Held;
-    }
-
-    private void RestoreMapControlState()
-    {
-        if (!mapControlOverridden)
-            return;
-
-        mapControlOverridden = false;
-        var input = UIInputData.Instance();
-        if (input is not null)
-            input->KeyboardInputs.KeyState[(int)SeVirtualKey.CONTROL] = mapControlState;
-
-        var agent = AgentMap.Instance();
-        if (agent is not null)
-            agent->IsControlKeyPressed = (mapControlState & (KeyStateFlags.Down | KeyStateFlags.Held)) != 0;
-    }
 
     private void ClearMarkerLayers(nint addon)
     {
