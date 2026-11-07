@@ -176,6 +176,9 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
     private readonly HashSet<string> queuedCategories = new(StringComparer.Ordinal);
     private TaskHelper?              taskHelper;
     private AddonEventRegistry?      addonEvents;
+    private Func<bool>?              pendingMergeCompletion;
+    private bool                     retainerTransferActive;
+    private bool                     sortFailed;
 
     protected override void OnStart(FeatureLifetime activation)
     {
@@ -202,6 +205,9 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         taskHelper?.Abort();
         taskHelper = null;
         queuedCategories.Clear();
+        pendingMergeCompletion = null;
+        retainerTransferActive = false;
+        sortFailed = false;
     }
 
     protected override void OnDestroy()
@@ -243,6 +249,41 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         QueueAllEnabled(manual: true);
     }
 
+    internal bool BeginRetainerTransfer()
+    {
+        if (!IsEnabled || Activation.IsStopping)
+            return true;
+
+        if (!retainerTransferActive)
+        {
+            retainerTransferActive = true;
+            taskHelper?.Abort();
+            queuedCategories.Clear();
+        }
+        var module = ItemOrderModule.Instance();
+        return module is not null && !IsInventoryUpdatePending() &&
+               !IsBusy(module->InventorySorter) && !IsBusy(GetActiveRetainerSorter(module));
+    }
+
+    internal void EndRetainerTransfer(bool sort)
+    {
+        if (!retainerTransferActive)
+            return;
+
+        retainerTransferActive = false;
+        if (!sort || !IsEnabled || Activation.IsStopping)
+            return;
+
+        sortFailed = false;
+        QueueCategory("inventory");
+        QueueCategory("retainer");
+    }
+
+    internal bool IsRetainerSortPending => IsEnabled &&
+        (queuedCategories.Contains("inventory") || queuedCategories.Contains("retainer"));
+
+    internal bool HasSortFailed => IsEnabled && sortFailed;
+
     private void EnsureTaskHelper()
     {
         if (taskHelper is not null)
@@ -254,8 +295,15 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             TimeoutMS = SORT_TIMEOUT_MS
         };
         Activation.Add(taskHelper);
-        taskHelper.TaskTimeout += _ => queuedCategories.Clear();
-        taskHelper.TaskGetException += _ => queuedCategories.Clear();
+        taskHelper.TaskTimeout += _ => OnSortFailed();
+        taskHelper.TaskGetException += _ => OnSortFailed();
+    }
+
+    private void OnSortFailed()
+    {
+        queuedCategories.Clear();
+        pendingMergeCompletion = null;
+        sortFailed = true;
     }
 
     private void RegisterAutoSortAddon
@@ -264,7 +312,8 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         System.Action queueAction
     )
     {
-        addonEvents!.Register(AddonEvent.PostShow, addonName, (_, _) => queueAction());
+        addonEvents!.Register(AddonEvent.PostSetup, addonName, (_, _) => queueAction());
+        addonEvents.Register(AddonEvent.PostShow, addonName, (_, _) => queueAction());
         if (IsAddonVisible(addonName))
             queueAction();
     }
@@ -289,10 +338,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             if (IsCategoryEnabled(category) &&
                 (category == "inventory" || IsArmouryCategory(category) || IsCategoryVisible(category)))
             {
-                QueueCategory(
-                    category,
-                    waitForMergeContainers: config.AutoMerge && category is "saddlebag" or "rightsaddlebag",
-                    manual: manual);
+                QueueCategory(category, manual: manual);
             }
         }
     }
@@ -338,7 +384,6 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
     private void QueueCategory
     (
         string category,
-        bool   waitForMergeContainers = false,
         bool   manual = false
     )
     {
@@ -368,7 +413,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         }
 
         var shouldMerge = config.AutoMerge && GetMergeContainers(category) is not null;
-        if (rules.Length == 0 && !shouldMerge)
+        if (rules.Length == 0 && !shouldMerge && category != "retainer")
         {
             queuedCategories.Remove(category);
             return;
@@ -377,11 +422,11 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         if (shouldMerge)
         {
             taskHelper.Enqueue(
-                () => MergeNext(category, waitForMergeContainers, manual),
+                () => MergeNext(category, manual),
                 $"Merge stacks {category}");
         }
 
-        if (rules.Length > 0)
+        if (rules.Length > 0 || category == "retainer")
         {
             taskHelper.Enqueue(() => StartSort(category, rules, manual), $"Start sort {category}");
         }
@@ -396,6 +441,9 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         bool                         manual
     )
     {
+        if (category is "retainer" or "saddlebag" or "rightsaddlebag" && !IsCategoryVisible(category))
+            return true;
+
         if (!CanSort(category, manual))
         {
             return false;
@@ -407,41 +455,45 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             return true;
         }
 
-        var command = $"/itemsort clear {categoryCommand}";
-        ChatManager.Instance().SendCommand(command);
-        foreach (var rule in rules)
+        if (rules.Count > 0)
         {
-            var condition = GetCommand(Conditions, rule.Condition);
-            var order = GetCommand(Orders, rule.Order);
-            if (!string.IsNullOrEmpty(condition) && !string.IsNullOrEmpty(order))
+            ChatManager.Instance().SendCommand($"/itemsort clear {categoryCommand}");
+            foreach (var rule in rules.Where(rule => rule.Enabled))
             {
-                command = $"/itemsort condition {categoryCommand} {condition} {order}";
-                ChatManager.Instance().SendCommand(command);
+                var condition = GetCommand(Conditions, rule.Condition);
+                var order = GetCommand(Orders, rule.Order);
+                if (!string.IsNullOrEmpty(condition) && !string.IsNullOrEmpty(order))
+                {
+                    ChatManager.Instance().SendCommand($"/itemsort condition {categoryCommand} {condition} {order}");
+                }
+            }
+
+            if (IsCategoryTabbed(category))
+            {
+                var tab = GetCommand(273);
+                if (!string.IsNullOrEmpty(tab))
+                {
+                    ChatManager.Instance().SendCommand($"/itemsort condition {categoryCommand} {tab}");
+                }
             }
         }
 
-        if (IsCategoryTabbed(category))
-        {
-            var tab = GetCommand(273);
-            if (!string.IsNullOrEmpty(tab))
-            {
-                command = $"/itemsort condition {categoryCommand} {tab}";
-                ChatManager.Instance().SendCommand(command);
-            }
-        }
-
-        command = $"/itemsort execute {categoryCommand}";
-        ChatManager.Instance().SendCommand(command);
+        ChatManager.Instance().SendCommand($"/itemsort execute {categoryCommand}");
         return true;
     }
 
     private bool MergeNext
     (
         string category,
-        bool   waitForContainers,
         bool   manual
     )
     {
+        if (category is "retainer" or "saddlebag" or "rightsaddlebag" && !IsCategoryVisible(category))
+        {
+            pendingMergeCompletion = null;
+            return true;
+        }
+
         if (!CanSort(category, manual))
         {
             return false;
@@ -459,19 +511,6 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             return true;
         }
 
-        if (waitForContainers)
-        {
-            for (var index = 0; index < containers.Length; index++)
-            {
-                var container = manager->GetInventoryContainer(containers[index]);
-                if (container is null || !container->IsLoaded)
-                {
-                    return false;
-                }
-            }
-        }
-
-        var hasMergeCandidate = false;
         for (var sourceIndex = 0; sourceIndex < containers.Length; sourceIndex++)
         {
             var sourceContainer = manager->GetInventoryContainer(containers[sourceIndex]);
@@ -507,7 +546,8 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
                             continue;
                         }
 
-                        hasMergeCandidate = true;
+                        var sourceState = SlotState.Capture(containers[sourceIndex], source);
+                        var targetState = SlotState.Capture(containers[targetIndex], target);
                         var result = manager->MoveItemSlot(
                                 containers[sourceIndex],
                                 (ushort)source->Slot,
@@ -516,6 +556,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
                                 true);
                         if (result == 0)
                         {
+                            pendingMergeCompletion = () => sourceState.HasChanged() && targetState.HasChanged();
                             return false;
                         }
                     }
@@ -523,14 +564,38 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             }
         }
 
-        // 手动整理在合并被游戏拒绝时继续排序，避免等待合并任务超时。
-        return manual || !hasMergeCandidate;
+        return true;
     }
 
     private bool FinishSort(string category)
     {
+        if ((category == "inventory" || IsCategoryVisible(category)) && !CanSort(category, true))
+            return false;
+
         queuedCategories.Remove(category);
         return true;
+    }
+
+    private bool IsInventoryUpdatePending()
+    {
+        var manager = InventoryManager.Instance();
+        if (manager is null)
+            return true;
+
+        foreach (ref var operation in manager->PendingOperations)
+        {
+            if (!operation.IsEmpty)
+                return true;
+        }
+
+        if (pendingMergeCompletion is null)
+            return false;
+
+        if (!pendingMergeCompletion())
+            return true;
+
+        pendingMergeCompletion = null;
+        return false;
     }
 
     private static bool TryGetMergeSource
@@ -583,8 +648,12 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             return false;
         }
 
-        var isVisibleInventoryInteraction = category is "inventory" or "retainer" or "saddlebag" or "rightsaddlebag" &&
-                                            IsCategoryVisible(category);
+        if (category is "inventory" or "retainer" && retainerTransferActive || IsInventoryUpdatePending())
+            return false;
+
+        var isVisibleInventoryInteraction =
+            category is "inventory" or "retainer" or "saddlebag" or "rightsaddlebag" && IsCategoryVisible(category) ||
+            category == "inventory" && IsCategoryVisible("retainer");
         if (!manual && !isVisibleInventoryInteraction && services.Condition.IsOccupiedInEvent)
         {
             return false;
@@ -602,11 +671,6 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
 
         if (category is "retainer" or "saddlebag" or "rightsaddlebag" &&
             !IsCategoryVisible(category))
-        {
-            return false;
-        }
-
-        if (category is "saddlebag" or "rightsaddlebag" && !AreContainersLoaded(category))
         {
             return false;
         }
@@ -651,7 +715,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             "rightsaddlebag" => module->PremiumSaddleBagSorter,
             _ => null
         };
-        if (sorter is null)
+        if (sorter is null || !IsSorterReady(category, sorter))
         {
             return false;
         }
@@ -676,7 +740,7 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
     private static bool IsBusy(ItemOrderModuleSorter* sorter) =>
         sorter is not null && sorter->SortFunctionIndex != -1;
 
-    private static bool AreContainersLoaded(string category)
+    private static bool IsSorterReady(string category, ItemOrderModuleSorter* sorter)
     {
         var containers = GetMergeContainers(category);
         var manager = InventoryManager.Instance();
@@ -685,16 +749,18 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
             return false;
         }
 
+        var slotCount = 0;
         for (var index = 0; index < containers.Length; index++)
         {
             var container = manager->GetInventoryContainer(containers[index]);
-            if (container is null || !container->IsLoaded)
+            if (container is null || !container->IsLoaded || container->Items is null)
             {
                 return false;
             }
+            slotCount += container->Size;
         }
 
-        return true;
+        return sorter->ItemsPerPage > 0 && sorter->Items.Count == slotCount;
     }
 
     private static bool IsInValidZone(bool manual) =>
@@ -823,6 +889,20 @@ public sealed unsafe partial class AutoSortItems(AutoSortItems.Settings config) 
         uint   RowID,
         string LocalizationKey
     );
+
+    private readonly record struct SlotState(InventoryType Container, ushort Slot, uint ItemID, int Quantity)
+    {
+        public static SlotState Capture(InventoryType container, InventoryItem* item) =>
+            new(container, (ushort)item->Slot, item->ItemId, item->Quantity);
+
+        public bool HasChanged()
+        {
+            var manager = InventoryManager.Instance();
+            var container = manager is null ? null : manager->GetInventoryContainer(Container);
+            var item = container is null || !container->IsLoaded ? null : container->GetInventorySlot(Slot);
+            return item is not null && (item->ItemId != ItemID || item->Quantity != Quantity);
+        }
+    }
 
     #region 常量
 
