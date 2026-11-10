@@ -53,10 +53,11 @@ public sealed partial class PartyFinderInDuty
 
         CaptureNativeCountState(addon);
         var now = Environment.TickCount64;
-        if (!shareService.IsLoading && !shareService.IsConnected && now >= nextSnapshotRetryAt)
+        if (!shareService.IsLoading &&
+            (!shareService.IsConnected || shareService.ListingCount == 0) && now >= nextSnapshotRetryAt)
         {
             refreshRequested    = true;
-            nextSnapshotRetryAt = now + 5_000;
+            nextSnapshotRetryAt = now + (shareService.IsConnected ? 40_000 : 5_000);
         }
         if (refreshRequested)
         {

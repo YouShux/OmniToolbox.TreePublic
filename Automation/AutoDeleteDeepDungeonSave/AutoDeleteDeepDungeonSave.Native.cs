@@ -60,7 +60,7 @@ public sealed unsafe partial class AutoDeleteDeepDungeonSave
         slot = default;
         var offset = SAVE_VALUES_OFFSET + (index * SAVE_VALUES_STRIDE);
         if (addon->AtkValues[offset].Type != AtkValueType.Int || addon->AtkValues[offset].Int != 1 ||
-            addon->AtkValues[offset + 2].Type != AtkValueType.UInt ||
+            addon->AtkValues[offset + 2].Type is not (AtkValueType.Int or AtkValueType.UInt) ||
             GetText(addon, offset + 1) != DService.Instance().SeStringEvaluator.EvaluateFromAddon(10403, [(uint)index + 1]).ExtractText() ||
             !TryGetFloor(GetText(addon, offset + 3), dungeonID, out var floor))
             return false;
@@ -129,7 +129,8 @@ public sealed unsafe partial class AutoDeleteDeepDungeonSave
     private static bool IsDeleteConfirmation(AddonSelectYesno* confirmation, AtkUnitBase* saveAddon)
     {
         if (confirmation->ConfirmCheckBox == null ||
-            confirmation->YesButton == null || GetText((AtkUnitBase*)confirmation, 8) != LuminaWrapper.GetAddonText(10413))
+            confirmation->YesButton == null || GetText((AtkUnitBase*)confirmation, 8) != LuminaWrapper.GetAddonText(10413) ||
+            !saveAddon->AtkValues[2].String.HasValue || !saveAddon->AtkValues[3].String.HasValue)
             return false;
 
         var actual = GetText((AtkUnitBase*)confirmation, 0).ReplaceLineEndings("\n");
@@ -141,7 +142,11 @@ public sealed unsafe partial class AutoDeleteDeepDungeonSave
                 new ReadOnlySeString(saveAddon->AtkValues[3].String.AsSpan()),
                 style
             ];
-            if (DService.Instance().SeStringEvaluator.EvaluateFromAddon(10412, parameters).ExtractText().ReplaceLineEndings("\n") == actual)
+            var expected = DService.Instance().SeStringEvaluator.EvaluateFromAddon(10412, parameters)
+                .ExtractText().ReplaceLineEndings("\n");
+            var paragraphEnd = expected.IndexOf("\n\n", StringComparison.Ordinal);
+            var opening = paragraphEnd < 0 ? expected : expected[..paragraphEnd];
+            if (opening.Length > 0 && actual.StartsWith(opening, StringComparison.Ordinal))
                 return true;
         }
         return false;

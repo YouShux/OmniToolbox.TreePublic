@@ -1,7 +1,11 @@
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Hooking;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using FFXIVClientStructs.FFXIV.Component.Exd;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Excel.Sheets;
+using OmenTools;
 using OmenTools.Interop.Game.Lumina;
 using OmniToolbox.Common.Module.Abstractions;
 using OmniToolbox.Common.Module.Enums;
@@ -25,24 +29,64 @@ public sealed unsafe class LockedPortraitPreview : OmniModuleBase
         });
 
     private readonly Dictionary<(byte DatasetIndex, ushort RowID), byte> originalUnlockStates = [];
-    private AddonEventRegistry?                                          addonEvents;
+    private readonly Dictionary<nint, bool> platePreviewConditions = [];
+    private AddonEventRegistry? addonEvents;
+    private nint plateDesignAgent;
+    private int platePreviewThreadID;
+
+    private Hook<ExdModule.Delegates.GetBannerConditionUnlockState> GetBannerConditionUnlockStateHook = null!;
+    private Hook<AgentInterface.Delegates.Show> PlateDesignShowHook = null!;
+    private Hook<AtkModuleInterface.AtkEventInterface.Delegates.ReceiveEvent> PlateDesignReceiveEventHook = null!;
+    private Hook<AgentInterface.Delegates.Update> PlateDesignUpdateHook = null!;
 
     protected override void OnStart(FeatureLifetime activation)
     {
+        var agents = AgentModule.Instance();
+        var agent = agents == null ? null : agents->GetAgentByInternalId(AgentId.CharaCardDesignSetting);
+        if (agent == null)
+            throw new InvalidOperationException("Plate design agent is unavailable.");
+
+        plateDesignAgent = (nint)agent;
         addonEvents = new(DalamudServices.AddonLifecycle);
         activation.OnStopping(addonEvents.Dispose);
         addonEvents.Register(AddonEvent.PostSetup, "BannerEditor", OnEditorEvent);
         addonEvents.Register(AddonEvent.PreFinalize, "BannerEditor", OnEditorEvent);
-        UpdateEntries(false);
 
+        GetBannerConditionUnlockStateHook = DService.Instance().Hook.HookFromAddress<ExdModule.Delegates.GetBannerConditionUnlockState>(
+            ExdModule.MemberFunctionPointers.GetBannerConditionUnlockState,
+            OnGetBannerConditionUnlockState);
+        activation.Add(GetBannerConditionUnlockStateHook);
+        activation.OnStopping(GetBannerConditionUnlockStateHook.Disable);
+        GetBannerConditionUnlockStateHook.Enable();
+
+        PlateDesignShowHook = DService.Instance().Hook.HookFromAddress<AgentInterface.Delegates.Show>(
+            agent->VirtualTable->Show, OnPlateDesignShow);
+        activation.Add(PlateDesignShowHook);
+        activation.OnStopping(PlateDesignShowHook.Disable);
+        PlateDesignShowHook.Enable();
+
+        PlateDesignReceiveEventHook = DService.Instance().Hook.HookFromAddress<AtkModuleInterface.AtkEventInterface.Delegates.ReceiveEvent>(
+            agent->VirtualTable->ReceiveEvent, OnPlateDesignReceiveEvent);
+        activation.Add(PlateDesignReceiveEventHook);
+        activation.OnStopping(PlateDesignReceiveEventHook.Disable);
+        PlateDesignReceiveEventHook.Enable();
+
+        PlateDesignUpdateHook = DService.Instance().Hook.HookFromAddress<AgentInterface.Delegates.Update>(
+            agent->VirtualTable->Update, OnPlateDesignUpdate);
+        activation.Add(PlateDesignUpdateHook);
+        activation.OnStopping(PlateDesignUpdateHook.Disable);
+        PlateDesignUpdateHook.Enable();
+        UpdateEntries(false);
     }
 
     protected override void OnStop()
     {
         addonEvents = null;
+        plateDesignAgent = 0;
+        platePreviewThreadID = 0;
+        platePreviewConditions.Clear();
         UpdateEntries(true);
         originalUnlockStates.Clear();
-
     }
 
     private void OnEditorEvent
@@ -58,6 +102,89 @@ public sealed unsafe class LockedPortraitPreview : OmniModuleBase
         }
 
         UpdateEntries(false);
+    }
+
+    private void OnPlateDesignShow(AgentInterface* agent)
+    {
+        var previousThreadID = platePreviewThreadID;
+        if ((nint)agent == plateDesignAgent)
+        {
+            platePreviewConditions.Clear();
+            platePreviewThreadID = Environment.CurrentManagedThreadId;
+        }
+
+        try
+        {
+            PlateDesignShowHook.Original(agent);
+        }
+        finally
+        {
+            platePreviewThreadID = previousThreadID;
+        }
+    }
+
+    private AtkValue* OnPlateDesignReceiveEvent
+    (
+        AtkModuleInterface.AtkEventInterface* agent,
+        AtkValue* returnValue,
+        AtkValue* values,
+        uint valueCount,
+        ulong eventKind
+    )
+    {
+        var previousThreadID = platePreviewThreadID;
+        if ((nint)agent == plateDesignAgent)
+            platePreviewThreadID = Environment.CurrentManagedThreadId;
+
+        try
+        {
+            return PlateDesignReceiveEventHook.Original(agent, returnValue, values, valueCount, eventKind);
+        }
+        finally
+        {
+            platePreviewThreadID = previousThreadID;
+        }
+    }
+
+    private void OnPlateDesignUpdate(AgentInterface* agent, uint frameCount)
+    {
+        var previousThreadID = platePreviewThreadID;
+        if ((nint)agent == plateDesignAgent)
+            platePreviewThreadID = Environment.CurrentManagedThreadId;
+
+        try
+        {
+            PlateDesignUpdateHook.Original(agent, frameCount);
+        }
+        finally
+        {
+            platePreviewThreadID = previousThreadID;
+        }
+    }
+
+    private int OnGetBannerConditionUnlockState(void* row)
+    {
+        var unlockState = GetBannerConditionUnlockStateHook.Original(row);
+        if (platePreviewThreadID != Environment.CurrentManagedThreadId || row == null)
+            return unlockState;
+
+        return unlockState == 2 || unlockState == 3 && IsPlatePreviewAvailable(row) ? 1 : unlockState;
+    }
+
+    private bool IsPlatePreviewAvailable(void* row)
+    {
+        if (platePreviewConditions.TryGetValue((nint)row, out var available))
+            return available;
+
+        var index = 0u;
+        foreach (var condition in LuminaGetter.Get<BannerCondition>())
+        {
+            var nativeRow = ExdModule.GetBannerConditionByIndex(index++);
+            if (nativeRow != null)
+                platePreviewConditions[(nint)nativeRow] = condition.UnlockType2 > 1;
+        }
+
+        return platePreviewConditions.GetValueOrDefault((nint)row);
     }
 
     private void UpdateEntries(bool restore)

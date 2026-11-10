@@ -51,6 +51,8 @@ public sealed partial class AutoQuest
             }
             if (!state.Accepted)
             {
+                blockers = Conditions(definition);
+                if (blockers.Length != 0) return false;
                 if (TryEligibleJob(definition, out var classJobID, out var gearsetID) && LocalPlayerState.ClassJob != classJobID)
                 {
                     step = new(QuestStepKind.SwitchJob, 0, 0, null, gearsetID, state.Sequence, ReadStateKey(target), new(), ClassJobID: classJobID);
