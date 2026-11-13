@@ -5,7 +5,6 @@ using OmenTools.Extensions;
 using OmenTools.Info.Lumina;
 using OmenTools.Interop.Game.Helpers;
 using OmenTools.Interop.Game.Lumina;
-using OmniToolbox.PublicBridge;
 using TreeToolKit;
 
 namespace OmniToolbox.Modules;
@@ -14,10 +13,11 @@ public sealed partial class PartyFinderInDuty
 {
     private unsafe void EnsureNativeHeader(AddonLookingForGroup* addon)
     {
-        if (headerNode != null && headerDataCenterID == shareService.DataCenterID)
+        var localDataCenterID = shareService.DataCenterID;
+        if (headerNode != null && headerDataCenterID == localDataCenterID)
             return;
         ReleaseNativeHeader();
-        if (addon->RootNode == null)
+        if (addon->RootNode == null || localDataCenterID == 0)
             return;
 
         headerNode = new ResNode
@@ -26,18 +26,15 @@ public sealed partial class PartyFinderInDuty
             Size = new(Math.Max(0f, addon->RootNode->Width - 180f), 24f)
         };
         headerNode.AttachNode((AtkUnitBase*)addon);
-        headerDataCenterID = shareService.DataCenterID;
-        var otherDataCenters = Sheets.CNWorlds.Values
-            .Select(world => world.DataCenter)
-            .Where(dataCenter => dataCenter.RowId != shareService.DataCenterID)
-            .DistinctBy(dataCenter => dataCenter.RowId)
-            .OrderBy(dataCenter => dataCenter.RowId)
-            .Take(3)
-            .ToArray();
+        headerDataCenterID = localDataCenterID;
+        var dataCenterIDs = Sheets.CNWorlds.Values
+            .Select(world => world.DataCenter.RowId)
+            .Distinct()
+            .OrderBy(id => id != localDataCenterID)
+            .ThenBy(id => id);
         var x = 0f;
-        foreach (var dataCenter in otherDataCenters)
+        foreach (var dataCenterID in dataCenterIDs)
         {
-            var dataCenterID = dataCenter.RowId;
             var name = LuminaWrapper.GetDataCenterName(dataCenterID);
             var button = new TabBarRadioButtonNode
             {
@@ -46,8 +43,7 @@ public sealed partial class PartyFinderInDuty
                 String = name,
                 OnClick = () => SelectDataCenter(dataCenterID)
             };
-            button.Component->AlwaysFireButtonClickEvent = true;
-            button.LabelNode.FontSize                    = 12;
+            button.LabelNode.FontSize = 12;
             button.AttachNode(headerNode);
             dataCenterButtons[dataCenterID] = button;
             x += button.Width + 6f;
@@ -58,29 +54,25 @@ public sealed partial class PartyFinderInDuty
 
     private unsafe void SelectDataCenter(uint dataCenterID)
     {
-        if (!CanOperatePartyFinder())
+        if (!windowOpen || !CanOperatePartyFinder() || dataCenterID == SelectedDataCenterID)
             return;
-        CloseSharedDetail();
-        selectedDataCenterID = selectedDataCenterID == dataCenterID ? 0 : dataCenterID;
-        shareService.CancelSnapshotRequest();
-        selectedListing = null;
-        currentPage     = 0;
-        injectedVersion = -1;
-        var shared = UsesSharedData;
-        injectionRequested      = shared;
-        categoryCountsRequested = shared;
-        refreshRequested        = shared;
-        if (shared)
+        remoteDataCenterID = dataCenterID == shareService.DataCenterID ? 0 : dataCenterID;
+        currentPage        = 0;
+        if (UsesSharedData)
         {
+            CloseSharedDetail();
+            shareService.CancelSnapshotRequest();
             var addon = AddonHelper.GetByName<AddonLookingForGroup>("LookingForGroup");
             if (addon != null && ((AtkUnitBase*)addon)->IsAddonAndNodesReady())
             {
                 CaptureNativeCountState(addon);
                 ClearNativeList();
-                injectionRequested      = true;
-                categoryCountsRequested = true;
-                refreshRequested        = true;
             }
+            injectedVersion         = -1;
+            injectionRequested      = true;
+            categoryCountsRequested = true;
+            refreshRequested        = true;
+            nativeRefreshRequested  = false;
         }
         else
             SwitchToNativeData();
@@ -104,10 +96,11 @@ public sealed partial class PartyFinderInDuty
 
     private void UpdateDataCenterSelection()
     {
+        var selectedID = SelectedDataCenterID;
         foreach (var (dataCenterID, button) in dataCenterButtons)
         {
-            button.IsSelected = dataCenterID == selectedDataCenterID;
-            button.IsChecked  = dataCenterID == selectedDataCenterID;
+            button.IsSelected = dataCenterID == selectedID;
+            button.IsChecked  = dataCenterID == selectedID;
         }
     }
 

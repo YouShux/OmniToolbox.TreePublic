@@ -393,7 +393,6 @@ public sealed unsafe class RaiseDispelEnhancement(RaiseDispelEnhancementConfig c
             return;
         }
 
-        // 状态扫描限频，世界坐标逐帧读取；校验身份以防对象槽位被复用。
         var services = DService.Instance();
         var gameObject = services.ObjectTable[actor.Index];
         if (gameObject != null && gameObject.GameObjectID == actor.ObjectID &&

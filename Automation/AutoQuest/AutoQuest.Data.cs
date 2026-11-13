@@ -157,7 +157,7 @@ public sealed partial class AutoQuest
             var state = ReadState(target.ID);
             if (target.Sequence is { } sequence && state.Accepted && state.Sequence >= sequence) return true;
             if (!TryDefinition(target.ID, out var definition)) return false;
-            if (!definition.Repeatable) return state.Completed;
+            if (!definition.Repeatable) return state.Completed && !state.Accepted;
             if (roundID is null || roundCharacterID != DalamudServices.PlayerState.ContentId) return false;
             if (completedRepeats.Contains(target.ID)) return true;
             if (!state.Accepted && pendingTurnIns.TryGetValue(target.ID, out var evidence) &&
@@ -168,6 +168,12 @@ public sealed partial class AutoQuest
                 return true;
             }
             return false;
+        }
+
+        public unsafe bool IsQuestAccepted(QuestTarget target)
+        {
+            var manager = QuestManager.Instance();
+            return target.Type == QuestTargetType.Quest && manager != null && manager->IsQuestAccepted(target.Normalize().ID);
         }
 
         public byte GetSequence(QuestTarget target) => target.Type == QuestTargetType.Quest
@@ -322,15 +328,16 @@ public sealed partial class AutoQuest
                 objectives.Add(new(index, todo.ToDoCompleteSeq, todo.ToDoQty, locations));
             }
             var issuer = LuminaGetter.TryGetRow<Level>(row.IssuerLocation.RowId, out var issuerLevel) ? Location(issuerLevel) : null;
+            // 255 是交付阶段；这类前置在交付完成后才算满足。
             var prerequisites = row.PreviousQuest.Select((quest, index) => quest.RowId == 0 ? null :
-                new QuestTarget(QuestTargetType.Quest, NormalizeID(quest.RowId), index == 0 && row.Unknown7 != 0 ? row.Unknown7 : null))
+                new QuestTarget(QuestTargetType.Quest, NormalizeID(quest.RowId), index == 0 && row.Unknown7 is > 0 and < byte.MaxValue ? row.Unknown7 : null))
                 .OfType<QuestTarget>().ToArray();
             return new(row.RowId, row.Name.ToString(), row.Id.ToString(), row.IsRepeatable, row.QuestRepeatFlag.RowId,
                 row.IssuerStart.RowId, row.TargetEnd.RowId, issuer, prerequisites, row.PreviousQuestJoin,
                 row.QuestLock.Where(static quest => quest.RowId != 0).Select(static quest => NormalizeID(quest.RowId)).ToArray(), row.QuestLockJoin,
                 row.ClassJobCategory0.RowId, row.ClassJobCategory1.RowId, row.ClassJobLevel[0], row.ClassJobLevel[1],
                 row.ClassJobRequired.RowId, row.GrandCompany.RowId, row.GrandCompanyRank.RowId, row.Expansion.RowId,
-                row.Festival.RowId, row.BellStart, row.BellEnd, row.BeastTribe.RowId, row.BeastReputationRank.RowId,
+                row.Festival.RowId, row.BellStart, row.BellEnd, row.BeastTribe.RowId, row.BeastReputationRank.RowId, row.BeastReputationValue,
                 row.MountRequired.RowId, row.SatisfactionNpc.RowId, row.SatisfactionLevel, row.IsHouseRequired,
                 row.InstanceContent.Where(static instance => instance.RowId != 0).Select(static instance => instance.RowId).ToArray(),
                 row.InstanceContentJoin, symbols, [.. objectives], row.QuestListenerParams.Where(static listener => listener.Listener != 0)
@@ -517,7 +524,7 @@ public sealed partial class AutoQuest
             QuestTarget[] Prerequisites, byte PrerequisiteJoin, uint[] Locks, byte LockJoin,
             uint PrimaryJobCategory, uint SecondaryJobCategory, ushort PrimaryLevel, ushort SecondaryLevel,
             uint RequiredJob, uint Company, uint CompanyRank, uint Expansion,
-            uint Festival, ushort BellStart, ushort BellEnd, uint Tribe, uint TribeRank, uint Mount,
+            uint Festival, ushort BellStart, ushort BellEnd, uint Tribe, uint TribeRank, ushort TribeReputationValue, uint Mount,
             uint Satisfaction, byte SatisfactionLevel, bool HouseRequired, uint[] Instances, byte InstanceJoin,
             Dictionary<string, uint> Symbols, QuestObjective[] Objectives, QuestListener[] Listeners
         );
@@ -553,6 +560,9 @@ public sealed partial class AutoQuest
         bool RequireHQ = false,
         uint BaitID = 0,
         bool AllowFlight = true,
-        uint ClassJobID = 0
+        uint ClassJobID = 0,
+        uint EnemyNameID = 0,
+        float EnemySearchRadius = 20f,
+        bool ActivateCombatByProximity = false
     );
 }

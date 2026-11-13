@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
+using Dalamud.Utility;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Misc;
+using FFXIVClientStructs.FFXIV.Component.Text;
 using OmenTools;
 using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using TreeTools;
@@ -22,6 +25,73 @@ public sealed partial class LootRollHistory
             if (recordingSession is { } session)
                 lootNotices.Enqueue((session, notice));
         }
+    }
+
+    private unsafe void OnLootLogMessage(uint logMessageID, LogMessageQueueItem item)
+    {
+        if (item.SourceKind == EntityRelationKind.None || string.IsNullOrWhiteSpace(item.SourceNameString) ||
+            item.Parameters.Count == 0 || item.Parameters[0].Type != TextParameterType.Integer)
+            return;
+        if (logMessageID is LOOT_ROLL_LOG_MESSAGE_ID or LOOT_AWARD_LOG_MESSAGE_ID or LOOT_AWARD_COUNT_LOG_MESSAGE_ID)
+        {
+            if (logMessageID != LOOT_ROLL_LOG_MESSAGE_ID)
+            {
+                if (logMessageID == LOOT_AWARD_COUNT_LOG_MESSAGE_ID &&
+                    (item.Parameters.Count < 2 || item.Parameters[1].Type != TextParameterType.Integer))
+                    return;
+                var awardCount = logMessageID == LOOT_AWARD_COUNT_LOG_MESSAGE_ID
+                    ? item.Parameters[1].IntValue : 1;
+                if (awardCount <= 0)
+                    return;
+                OnLootNotice(new LootRollNotice
+                {
+                    Time = DateTimeOffset.UtcNow,
+                    Kind = LootRollNoticeKind.Award,
+                    ItemID = (uint)item.Parameters[0].IntValue,
+                    Count = (uint)awardCount,
+                    ActorName = item.SourceNameString,
+                    ActorWorldID = item.SourceHomeWorld
+                });
+                return;
+            }
+            if (item.Parameters.Count < 4 ||
+                item.Parameters[1].Type != TextParameterType.String ||
+                item.Parameters[2].Type != TextParameterType.Integer ||
+                item.Parameters[3].Type != TextParameterType.Integer)
+                return;
+        }
+        else
+        {
+            return;
+        }
+        var choiceText = item.Parameters[1].StringValue.ExtractText();
+        var needText = OmniLoc.Get(this, "Feature.LootRollHistory.Need");
+        var greedText = OmniLoc.Get(this, "Feature.LootRollHistory.Greed");
+        var choice = choiceText.Contains(needText, StringComparison.OrdinalIgnoreCase)
+            ? LootChoice.Need
+            : choiceText.Contains(greedText, StringComparison.OrdinalIgnoreCase)
+                ? LootChoice.Greed
+                : LootChoice.Pending;
+        if (choice == LootChoice.Pending)
+            return;
+        var itemID = (uint)item.Parameters[0].IntValue;
+        var count = (uint)item.Parameters[3].IntValue;
+        var value = item.Parameters[2].IntValue;
+        if (itemID == 0 || count == 0 || value is < 1 or > 99 ||
+            item.SourceKind == EntityRelationKind.None ||
+            string.IsNullOrWhiteSpace(item.SourceNameString))
+            return;
+        OnLootNotice(new LootRollNotice
+        {
+            Time = DateTimeOffset.UtcNow,
+            Kind = LootRollNoticeKind.Score,
+            ItemID = itemID,
+            Count = count,
+            Value = value,
+            ActorName = item.SourceNameString,
+            ActorWorldID = item.SourceHomeWorld,
+            Code = choice == LootChoice.Need ? 1u : 2u
+        });
     }
 
     private void DrainLootNotices()
@@ -119,7 +189,7 @@ public sealed partial class LootRollHistory
             return;
         }
 
-        if (notice.ActorID is 0 or 0xE0000000 ||
+        if ((notice.ActorID is 0 or 0xE0000000) && string.IsNullOrWhiteSpace(notice.ActorName) ||
             !lootGroups.TryGetValue(notice.ItemID, out var candidates))
             return;
         if (notice.Kind == LootRollNoticeKind.Score &&
@@ -134,27 +204,19 @@ public sealed partial class LootRollHistory
         int? points = notice.Kind == LootRollNoticeKind.Score && notice.Value is >= 1 and <= 99
             ? notice.Value : null;
         var isAward = notice.Kind == LootRollNoticeKind.Award;
-        if (candidates.Ambiguous)
-        {
-            foreach (var candidate in candidates.Members)
-            {
-                var observed = ResolveLootPlayer(notice.ActorID, candidate.Record);
-                if (!isAward)
-                    observed = observed with { Choice = playerChoice, Value = points };
-                var observation = new LootObservation(notice.Time, observed, isAward);
-                var observations = candidate.Record.Unassigned;
-                if (observations.Length == MAX_UNASSIGNED_EVENTS)
-                    observations = observations[1..];
-                candidate.Record = candidate.Record with { Unassigned = [.. observations, observation] };
-                storage?.RecordLoot(characterID, candidate.Record);
-            }
+        if (!isAward && candidates.Members.Any(candidate => candidate.Record.Participants.Any(player =>
+                MatchesLootPlayer(player, notice) && player.Choice == playerChoice && player.Value == points)))
             return;
-        }
-
-        var target = candidates.Members[0];
-        if (target.Record.Count != notice.Count || target.Record.Status != LootStatus.Pending)
+        var eligible = candidates.Members.Where(candidate =>
+            candidate.Record.Count == notice.Count && candidate.Record.Status == LootStatus.Pending).ToArray();
+        if (eligible.Length == 0)
             return;
-        var player = ResolveLootPlayer(notice.ActorID, target.Record);
+        var target = eligible.FirstOrDefault(candidate => HasPendingLootPlayer(candidate.Record, notice)) ?? eligible[0];
+        var player = notice.ActorID is not (0 or 0xE0000000)
+            ? ResolveLootPlayer(notice.ActorID, target.Record)
+            : ResolveLootPlayer(notice.ActorName, notice.ActorWorldID, target.Record);
+        if (player is null)
+            return;
         if (!isAward)
             UpdateLootPlayer(target, player with { Choice = playerChoice, Value = points });
         if (isAward)
@@ -222,6 +284,94 @@ public sealed partial class LootRollHistory
             return new(entityID, player.Name, player.HomeWorld.RowId, LootChoice.Pending, null);
         return new(entityID, $"{OmniLoc.Get(this, "Feature.LootRollHistory.Unknown")} ({entityID:X8})",
             0, LootChoice.Pending, null);
+    }
+
+    private LootParticipant? ResolveLootPlayer(string? playerName, uint homeWorldID, LootRecord record)
+    {
+        if (string.IsNullOrWhiteSpace(playerName))
+            return null;
+        var known = record.Participants.FirstOrDefault(player =>
+            string.Equals(player.PlayerName, playerName, StringComparison.OrdinalIgnoreCase) &&
+            (homeWorldID == 0 || player.HomeWorldID == homeWorldID));
+        if (known is not null)
+            return known;
+        var services = DService.Instance();
+        foreach (var member in services.PartyList)
+        {
+            if (string.Equals(member.Name.TextValue, playerName, StringComparison.OrdinalIgnoreCase) &&
+                (homeWorldID == 0 || member.World.RowId == homeWorldID))
+                return new(member.EntityId, member.Name.TextValue, member.World.RowId, LootChoice.Pending, null);
+        }
+        foreach (var gameObject in services.ObjectTable)
+        {
+            if (gameObject is IPlayerCharacter player &&
+                string.Equals(player.Name, playerName, StringComparison.OrdinalIgnoreCase) &&
+                (homeWorldID == 0 || player.HomeWorld.RowId == homeWorldID))
+                return new(player.EntityID, player.Name, player.HomeWorld.RowId, LootChoice.Pending, null);
+        }
+        return null;
+    }
+
+    private static bool HasPendingLootPlayer(LootRecord record, LootRollNotice notice)
+    {
+        return record.Participants.Any(player => player.Choice == LootChoice.Pending && MatchesLootPlayer(player, notice));
+    }
+
+    private static bool MatchesLootPlayer(LootParticipant player, LootRollNotice notice)
+    {
+        return notice.ActorID is not (0 or 0xE0000000)
+            ? player.EntityID == notice.ActorID
+            : string.Equals(player.PlayerName, notice.ActorName, StringComparison.OrdinalIgnoreCase) &&
+              (notice.ActorWorldID == 0 || player.HomeWorldID == notice.ActorWorldID);
+    }
+
+    private unsafe void CaptureLoot()
+    {
+        if (!lootTrackingSupported || characterID == 0 || recordingSession is not { } session)
+            return;
+        var nativeLoot = Loot.Instance();
+        if (nativeLoot == null)
+            return;
+        var local = DService.Instance().ObjectTable.LocalPlayer;
+        foreach (ref readonly var slot in nativeLoot->Items)
+        {
+            if (slot.ChestObjectId is 0 or 0xE0000000 || slot.ChestItemIndex > byte.MaxValue ||
+                slot.ItemId == 0 || slot.ItemCount == 0)
+                continue;
+            var key = (slot.ChestObjectId, slot.ChestItemIndex);
+            if (!liveLoot.TryGetValue(key, out var loot) || loot.Record.ItemID != slot.ItemId)
+            {
+                ApplyLootNotice(session, new()
+                {
+                    Kind = LootRollNoticeKind.Item,
+                    Time = DateTimeOffset.UtcNow,
+                    ChestID = slot.ChestObjectId,
+                    ChestItemIndex = slot.ChestItemIndex,
+                    ItemID = slot.ItemId,
+                    Count = slot.ItemCount
+                });
+                if (!liveLoot.TryGetValue(key, out loot))
+                    continue;
+            }
+            if (local is null || loot.Record.Status != LootStatus.Pending)
+                continue;
+            var choice = slot.RollResult switch
+            {
+                RollResult.Needed => LootChoice.Need,
+                RollResult.Greeded => LootChoice.Greed,
+                RollResult.Passed => LootChoice.Pass,
+                _ when slot.RollState == RollState.Rolled => LootChoice.Selected,
+                _ => LootChoice.Pending
+            };
+            if (choice == LootChoice.Pending)
+                continue;
+            var player = ResolveLootPlayer(local.EntityID, loot.Record);
+            int? value = null;
+            if (choice is LootChoice.Need or LootChoice.Greed)
+                value = slot.RollValue is >= 1 and <= 99 ? slot.RollValue : player.Value;
+            if (player.Choice != choice || player.Value != value)
+                UpdateLootPlayer(loot, player with { Choice = choice, Value = value });
+        }
     }
 
     private unsafe void SyncLootPresence()
@@ -341,4 +491,12 @@ public sealed partial class LootRollHistory
         public List<LiveLoot> Members { get; } = [];
         public bool Ambiguous;
     }
+
+    #region 常量
+
+    private const uint LOOT_ROLL_LOG_MESSAGE_ID = 1231;
+    private const uint LOOT_AWARD_LOG_MESSAGE_ID = 1232;
+    private const uint LOOT_AWARD_COUNT_LOG_MESSAGE_ID = 1233;
+
+    #endregion
 }

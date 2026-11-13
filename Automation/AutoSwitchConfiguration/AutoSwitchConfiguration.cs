@@ -78,8 +78,6 @@ public sealed partial class AutoSwitchConfiguration : OmniModuleBase
         this.config     = config;
         this.saveConfig = saveConfig;
         this.source     = source;
-        if (config.MigrateLegacy())
-            saveConfig();
     }
 
     protected override void OnStart(FeatureLifetime activation)

@@ -197,6 +197,8 @@ public sealed partial class AutoIshgardRestoration : OmniModuleBase
         this.tryTeleport    = tryTeleport;
         this.isTeleportBusy = isTeleportBusy;
         this.cancelTeleport = cancelTeleport;
+        panelSize = new("###AutoIshgardRestorationWindow", () => config.ExpandedWindowSize,
+            size => { config.ExpandedWindowSize = size; saveConfig(); });
     }
 
     protected override void OnStart(FeatureLifetime activation)
@@ -232,16 +234,11 @@ public sealed partial class AutoIshgardRestoration : OmniModuleBase
         return true;
     }
 
-    public override bool TryHandleCommand(string arguments) => HandleCommandArguments(arguments);
-
-    public override bool TryHandleCommand
-    (
-        string command,
-        string arguments
-    )
+    public override bool TryHandleCommand(string arguments)
     {
-        return string.Equals(command, "ishgardrestoration", StringComparison.OrdinalIgnoreCase) &&
-            HandleCommandArguments(arguments);
+        if (!string.IsNullOrWhiteSpace(arguments)) return false;
+        OpenConfigurationWindow();
+        return true;
     }
 
     public override bool HasSettings => true;
@@ -258,23 +255,9 @@ public sealed partial class AutoIshgardRestoration : OmniModuleBase
         config.ScripItemID        = defaults.ScripItemID;
         config.ScripQuantity      = defaults.ScripQuantity;
         config.ExpandedWindowSize = defaults.ExpandedWindowSize;
-        windowSizePending         = true;
+        panelSize.Restore();
         saveConfig();
         return true;
-    }
-
-    private bool HandleCommandArguments(string arguments)
-    {
-        var command = arguments.Trim();
-        if (command.Length == 0 ||
-            string.Equals(command, "open", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(command, "窗口", StringComparison.OrdinalIgnoreCase))
-        {
-            OpenConfigurationWindow();
-            return true;
-        }
-
-        return false;
     }
 
     private void ToggleProduction()

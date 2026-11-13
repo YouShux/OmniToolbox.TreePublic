@@ -16,6 +16,56 @@ namespace OmniToolbox.TreePublic;
 
 public sealed unsafe partial class AutoMount
 {
+    public bool IsAvailable => mountTasks is { IsDisposed: false };
+
+    public bool RequestMount()
+    {
+        var services = DService.Instance();
+        if (services.Condition.IsOnMount)
+            return true;
+        var tasks = mountTasks;
+        if (tasks is null || tasks.IsDisposed || services.ObjectTable.LocalPlayer is null)
+            return false;
+
+        if (tasks.IsBusy)
+            return true;
+
+        var request = new MountRequest(
+            DalamudServices.PlayerState.ContentId,
+            services.ClientState.TerritoryType,
+            MountTrigger.Navigation);
+        if (!IsMountRequestValid(request))
+            return false;
+
+        tasks.Abort();
+        tasks.TimeoutMS = 10_000;
+        tasks.Enqueue(() => TryMount(request), "Mount for navigation", 5_000);
+        tasks.Enqueue(() => DService.Instance().Condition.IsOnMount, "Wait for mount", 5_000);
+        return true;
+    }
+
+    public bool RequestDismount()
+    {
+        if (mountTasks is { IsDisposed: false } pendingMount)
+            pendingMount.Abort();
+        var services = DService.Instance();
+        if (!services.Condition.IsOnMount)
+            return true;
+        var tasks = dismountTasks;
+        if (tasks is null || tasks.IsDisposed)
+            return false;
+        if (tasks.IsBusy)
+            return true;
+
+        tasks.Abort();
+        MountCommand.Dismount();
+        tasks.Enqueue(
+            () => !services.Condition.IsOnMount && !services.Condition[ConditionFlag.Jumping],
+            "Wait for dismount",
+            1_500);
+        return true;
+    }
+
     private static readonly CompSig IsActionUsableSig = new("48 89 5C 24 ?? 55 56 57 48 83 EC ?? 32 DB 41 8B F8 48 83 3D ?? ?? ?? ?? ?? 8B F2 48 8B E9");
 
     private delegate byte IsActionUsableDelegate

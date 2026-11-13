@@ -6,8 +6,6 @@ public sealed class BetterGlamourPreset
 
     public string Name { get; set; } = string.Empty;
 
-    public int GearsetIndex { get; set; } = -1;
-
     public Dictionary<ulong, List<int>> GearsetBindings { get; set; } = [];
 
     public ushort GlassesID { get; set; }

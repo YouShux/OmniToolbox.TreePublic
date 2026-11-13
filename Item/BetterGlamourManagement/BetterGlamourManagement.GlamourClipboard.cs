@@ -93,7 +93,6 @@ public sealed partial class BetterGlamourManagement
                 throw new InvalidDataException("条目没有任何外观数据。");
             preset.Name            = preset.Name.Trim();
             preset.ID              = Guid.NewGuid().ToString("N");
-            preset.GearsetIndex    = -1;
             preset.GearsetBindings = [];
             return preset;
         }

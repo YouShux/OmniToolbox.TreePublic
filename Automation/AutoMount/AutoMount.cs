@@ -216,7 +216,30 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
             mountTasks?.Abort();
             return true;
         }
+        return TryUseMount();
+    }
+
+    internal bool TryMountForNavigation()
+    {
+        var services = DService.Instance();
+        var territoryID = services.ClientState.TerritoryType;
+        var request = new MountRequest(DalamudServices.PlayerState.ContentId, territoryID, MountTrigger.Navigation);
+        var condition = services.Condition;
+        if (!IsMountRequestValid(request) || !IsMountSceneReady(territoryID) ||
+            mountTasks is { IsDisposed: true } || IsEnabled && mountTasks is null ||
+            dismountTasks is { IsBusy: true } || condition.IsOnMount ||
+            condition[ConditionFlag.InCombat] || LocalPlayerState.Instance().IsMoving)
+            return false;
+
+        return mountTasks is { IsBusy: true } || TryUseMount();
+    }
+
+    private bool TryUseMount()
+    {
+        var condition = DService.Instance().Condition;
         if (condition.IsOccupiedInEvent || condition.IsCasting || condition[ConditionFlag.Jumping] ||
+            condition[ConditionFlag.Mounting] || condition[ConditionFlag.Mounting71] ||
+            condition[ConditionFlag.Unconscious] ||
             condition[ConditionFlag.ExecutingCraftingAction] || condition[ConditionFlag.ExecutingGatheringAction])
             return false;
 
@@ -252,7 +275,7 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
     private bool IsMountRequestValid(MountRequest request)
     {
         var services = DService.Instance();
-        if (Activation.IsStopping || !services.ClientState.IsLoggedIn || request.ContentID == 0 ||
+        if (mountTasks is not null && Activation.IsStopping || !services.ClientState.IsLoggedIn || request.ContentID == 0 ||
             request.ContentID != DalamudServices.PlayerState.ContentId ||
             request.TerritoryID != services.ClientState.TerritoryType || services.ClientState.IsPvP ||
             !LuminaGetter.TryGetRow<TerritoryType>(request.TerritoryID, out var territory) || !territory.Mount ||
@@ -273,6 +296,7 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
             MountTrigger.CraftEnd => config.MountWhenCraftEnd,
             MountTrigger.GatherEnd => config.MountWhenGatherEnd,
             MountTrigger.CombatEnd => config.MountWhenCombatEnd,
+            MountTrigger.Navigation => true,
             _ => false
         };
     }
@@ -306,7 +330,8 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
         ZoneChange,
         CraftEnd,
         GatherEnd,
-        CombatEnd
+        CombatEnd,
+        Navigation
     }
 
     private readonly record struct MountRequest(ulong ContentID, uint TerritoryID, MountTrigger Trigger);

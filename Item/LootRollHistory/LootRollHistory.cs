@@ -157,11 +157,15 @@ public sealed unsafe partial class LootRollHistory : OmniModuleBase
         activation.OnStopping(() => DalamudServices.ChatGUI.ChatMessage -= OnRandomMessage);
         DalamudServices.ChatGUI.ChatMessage += OnRandomMessage;
 
+        activation.OnStopping(() => LogMessageManager.Instance().Unreg(OnLootLogMessage));
+        if (!LogMessageManager.Instance().RegPost(OnLootLogMessage))
+            throw new InvalidOperationException("Loot roll message registration failed.");
+
         RefreshCharacter();
         var observer = new LootRollObserver(OnLootNotice);
         activation.Add(observer);
         lootTrackingSupported = observer.IsSupported;
-        CaptureExistingLoot();
+        CaptureLoot();
         activation.OnStopping(() =>
         {
             observer.Dispose();
@@ -209,6 +213,7 @@ public sealed unsafe partial class LootRollHistory : OmniModuleBase
     private void OnFrameworkUpdate(IFramework _)
     {
         RefreshCharacter();
+        CaptureLoot();
         DrainLootNotices();
         SyncLootPresence();
         window?.UpdateHotkey();
@@ -237,7 +242,7 @@ public sealed unsafe partial class LootRollHistory : OmniModuleBase
         if (currentID != 0)
         {
             storage?.Load(currentID);
-            CaptureExistingLoot();
+            CaptureLoot();
         }
     }
 
@@ -284,7 +289,7 @@ public sealed unsafe partial class LootRollHistory : OmniModuleBase
             recordingSession = new(characterID, id, territoryID, dutyID);
         }
         if (!continueSession)
-            CaptureExistingLoot();
+            CaptureLoot();
     }
 
     private sealed record RandomRoll(DateTimeOffset Time, string PlayerName, uint HomeWorldID, int Value, int Maximum)

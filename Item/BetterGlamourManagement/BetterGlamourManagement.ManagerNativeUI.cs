@@ -619,9 +619,7 @@ public sealed partial class BetterGlamourManagement
             gearsetDropDownNode.SelectedOption = indices.Count > 0
                 ? string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.BoundGearsets"), string.Join(", ", indices.Select(static index => index + 1)))
                 : OmniLoc.Get("Feature.BetterGlamourManagement.Unbound");
-            gearsetDropDownNode.TextTooltip    = preset.GearsetIndex >= 0
-                ? string.Format(OmniLoc.Get("Feature.BetterGlamourManagement.LegacyGearsetHint"), preset.GearsetIndex + 1)
-                : OmniLoc.Get("Feature.BetterGlamourManagement.BindGearsetHint");
+            gearsetDropDownNode.TextTooltip = OmniLoc.Get("Feature.BetterGlamourManagement.BindGearsetHint");
             if (indices.Count > 0)
                 gearsetDropDownNode.TextTooltip += $"\n{string.Join("\n", gearsetOptions.Where(option => indices.Contains(option.Index)).Select(static option => option.Label))}";
         }

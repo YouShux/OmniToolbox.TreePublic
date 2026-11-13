@@ -95,6 +95,49 @@ public sealed partial class AutoQuest
             }
             var objectives = definition.Objectives.Where(objective => objective.CompleteSequence == state.Sequence)
                 .Where(objective => !TryReadTodo(target.ID, objective.Index, out var completed) || !completed).ToArray();
+            if (target.ID == 66558 && state.Sequence == 5 && objectives.Length == 1)
+            {
+                var objective = objectives[0];
+                if (!definition.Symbols.TryGetValue("ITEM0", out var itemID) ||
+                    !definition.Symbols.TryGetValue("EOBJECT0", out var objectID) ||
+                    !definition.Listeners.Any(listener => listener.Sequence == state.Sequence &&
+                        listener.TodoIndex == objective.Index && listener.EventType == 8 && listener.ObjectID == objectID) ||
+                    !LuminaGetter.TryGetRow<EventItem>(itemID, out var item) || item.Quest.RowId != target.ID ||
+                    !item.Action.IsValid || !item.Action.Value.TargetArea)
+                {
+                    blockers = [new("quest_action_binding_unresolved", target.ID)];
+                    return false;
+                }
+                var location = ResolveLocation(definition, objectID, objective.Locations, out var locationError);
+                if (location is null)
+                {
+                    blockers = [new(locationError ?? "target_location_unresolved", target.ID)];
+                    return false;
+                }
+                step = MakeStep(QuestStepKind.UseItem, 0, location, state, target, objective.Index) with { Argument = itemID };
+                return true;
+            }
+            if (target.ID == 66558 && objectives.Length == 1 && state.Sequence is 1 or 2 or 3 or 4 or 6)
+            {
+                var objective = objectives[0];
+                var listeners = definition.Listeners.Where(listener => listener.Sequence == state.Sequence &&
+                    listener.TodoIndex == objective.Index && listener.EventType == 1 &&
+                    listener.ConditionType == 0 && listener.ConditionValue == 0 && listener.ConditionOperator == 3 &&
+                    listener.Variable0 == 255 && listener.Variable1 == 255).ToArray();
+                if (listeners.Length != 1)
+                {
+                    blockers = [new("objective_listener_ambiguous", target.ID)];
+                    return false;
+                }
+                var objectID = listeners[0].ObjectID;
+                var location = ResolveLocation(definition, objectID, objective.Locations, out var locationError);
+                if (location is null)
+                {
+                    blockers = [new(locationError ?? "target_location_unresolved", target.ID)];
+                    return false;
+                }
+                return TryInteraction(script, definition, state, target, objectID, location, objective.Index, out step, out blockers);
+            }
             if (TryListenerStep(definition, state, target, objectives, false, out step, out blockers))
                 return step is not null;
             var candidates = new HashSet<uint>();
@@ -108,6 +151,50 @@ public sealed partial class AutoQuest
                 return step is not null;
             if (TryListenerStep(definition, state, target, objectives, true, out step, out blockers))
                 return step is not null;
+            if (objectives.Length == 1 && TryEventRange(definition, state.Sequence, objectives[0], out var ambush) &&
+                definition.Listeners.Any(listener => listener.Sequence == state.Sequence && listener.EventType == 5))
+            {
+                var enemies = definition.Listeners.Where(listener => listener.Sequence == state.Sequence &&
+                        listener.EventType == 5 && listener.ConditionType == 3 && IsUnconditionalListener(listener) &&
+                        LuminaGetter.TryGetRow<Level>(listener.ConditionValue, out var level) &&
+                        level.Type == 9 && level.Object.RowId == listener.ObjectID && level.Territory.RowId == ambush.TerritoryID)
+                    .Select(listener => LuminaGetter.TryGetRow<Level>(listener.ConditionValue, out var level) ? Location(level) : null)
+                    .OfType<QuestLocation>()
+                    .ToArray();
+                if (enemies.Select(static location => location.ObjectID).Distinct().ToArray() is [var enemyID])
+                {
+                    if (TryCombatJob(state, target, definition.PrimaryLevel, out step, out blockers)) return step is not null;
+                    step = MakeStep(QuestStepKind.Combat, enemyID, ambush, state, target, objectives[0].Index) with
+                    {
+                        ActivateCombatByProximity = true
+                    };
+                    return true;
+                }
+            }
+            if (definition.Listeners.Any(listener => listener.Sequence == state.Sequence && listener.EventType == 8 &&
+                    listener.ConditionType == 1 && listener.TodoIndex < 24 && objectives.Any(objective => objective.Index == listener.TodoIndex)))
+            {
+                blockers = [new("quest_capture_item_unresolved", target.ID)];
+                return false;
+            }
+            foreach (var objective in objectives)
+            {
+                var drops = definition.Listeners.Where(listener => listener.Sequence == state.Sequence &&
+                    listener.EventType == 9 && listener.ConditionType == 1 && IsUnconditionalListener(listener) &&
+                    listener.TodoIndex == objective.Index).ToArray();
+                if (drops is not [var drop] || objective.Locations.Distinct().ToArray() is not [var ground] ||
+                    !LuminaGetter.TryGetRow<BNpcBase>(drop.ObjectID, out _) ||
+                    !LuminaGetter.TryGetRow<BNpcName>(drop.ConditionValue, out _)) continue;
+                if (TryCombatJob(state, target, definition.PrimaryLevel, out step, out blockers)) return step is not null;
+                step = MakeStep(QuestStepKind.Combat, drop.ObjectID, ground, state, target, objective.Index) with
+                {
+                    EnemyNameID = drop.ConditionValue,
+                    EnemySearchRadius = 50f
+                };
+                return true;
+            }
+            if (TryObjectiveListenerInteraction(script, definition, state, target, objectives, out step, out blockers))
+                return step is not null;
             var accepted = new List<uint>();
             string? conditionError = null;
             foreach (var candidate in candidates.Order())
@@ -119,6 +206,9 @@ public sealed partial class AutoQuest
                 }
                 if (canInteract) accepted.Add(candidate);
             }
+            if (accepted.Count > 1 && objectives.Length == 1 &&
+                TrySelectQuestItemRecipient(script, definition, state, objectives[0], accepted, out var recipient))
+                accepted = [recipient];
             foreach (var objective in objectives)
             {
                 var matched = objective.Locations.Where(location => accepted.Contains(location.ObjectID)).ToArray();
@@ -152,7 +242,7 @@ public sealed partial class AutoQuest
                 return TryInteraction(script, definition, state, target, objectID, location,
                     objectives.Length == 1 ? objectives[0].Index : null, out step, out blockers);
             }
-            if (accepted.Count == 0 && objectives.Length == 1 && TryEventRange(definition, objectives[0], out var range))
+            if (accepted.Count == 0 && objectives.Length == 1 && TryEventRange(definition, state.Sequence, objectives[0], out var range))
             {
                 step = MakeStep(QuestStepKind.WalkTo, 0, range, state, target, objectives[0].Index) with { AllowFlight = false };
                 return true;
@@ -161,6 +251,42 @@ public sealed partial class AutoQuest
                 symbol.StartsWith("QUESTBATTLE", StringComparison.Ordinal)) ? "quest_duty_binding_unresolved" : "objective_mechanism_unresolved";
             blockers = [new(conditionError ?? (accepted.Count > 1 ? "objective_target_ambiguous" : unresolved), target.ID)];
             return false;
+        }
+
+        private bool TrySelectQuestItemRecipient(QuestScript script, QuestDefinition definition, QuestState state,
+            QuestObjective objective, List<uint> candidates, out uint recipient)
+        {
+            recipient = 0;
+            var method = script.Contains("GetNpcTradeItemInfo") ? "GetNpcTradeItemInfo" :
+                script.Contains("getNpcTradeItemInfo") ? "getNpcTradeItemInfo" : null;
+            if (method is null || script.ParameterCount(method) != 4) return false;
+            foreach (var objectID in candidates)
+            {
+                if (!definition.Listeners.Any(listener => listener.Sequence == state.Sequence && listener.EventType == 1 &&
+                        listener.TodoIndex == objective.Index && listener.ObjectID == objectID)) continue;
+                if (!script.TryEvaluate(method, definition.Symbols,
+                        (getter, args) => ReadGetter(getter, args, definition, state, objectID),
+                        [new LuaSelf(), 1d, (double)state.Sequence, (double)objectID], out var values, out _)) return false;
+                if (values.Length == 0 || values[0] is null) continue;
+                if (values[0] is not LuaTable trade || trade.Count != 14 || trade.Get(3d) is not false ||
+                    trade.Values().Skip(3).Any(static value => value is not 0d && value is not false)) return false;
+                uint itemID;
+                uint quantity;
+                try
+                {
+                    itemID = QuestScript.Unsigned(trade.Get(1d));
+                    quantity = QuestScript.Unsigned(trade.Get(2d));
+                }
+                catch (LuaEvaluationException)
+                {
+                    return false;
+                }
+                if (quantity is 0 or > int.MaxValue || !LuminaGetter.TryGetRow<EventItem>(itemID, out var item) ||
+                    item.Quest.RowId != definition.ID || CountItem(itemID, false) < quantity) continue;
+                if (recipient != 0) return false;
+                recipient = objectID;
+            }
+            return recipient != 0;
         }
 
         private unsafe bool TryListenerStep(QuestDefinition definition, QuestState state, QuestTarget target, QuestObjective[] objectives,
@@ -182,9 +308,9 @@ public sealed partial class AutoQuest
                     return true;
                 }
                 var listener = listeners[0];
-                if (listener.EventType is 2 or 18)
+                if (listener.EventType == 18)
                 {
-                    blockers = [new(listener.EventType == 2 ? "quest_emote_binding_unresolved" : "quest_action_binding_unresolved", target.ID)];
+                    blockers = [new("quest_action_binding_unresolved", target.ID)];
                     return true;
                 }
                 if (listener.Variable0 != 255 || listener.Variable1 != 255 || listener.ConditionOperator != 3)
@@ -224,6 +350,20 @@ public sealed partial class AutoQuest
                     return true;
                 }
                 var tokens = QuotedText(TodoText(definition, objective.Index));
+                if (listener.EventType == 2)
+                {
+                    var emotes = tokens.Length == 1
+                        ? LuminaGetter.Get<Emote>().Where(emote => emote.RowId != 0 && emote.RowId <= ushort.MaxValue &&
+                            string.Equals(emote.Name.ToString(), tokens[0], StringComparison.Ordinal)).Take(2).ToArray()
+                        : [];
+                    if (emotes.Length != 1)
+                    {
+                        blockers = [new("quest_emote_binding_unresolved", target.ID)];
+                        return true;
+                    }
+                    step = MakeStep(QuestStepKind.Emote, listener.ObjectID, location, state, target, objective.Index) with { Argument = emotes[0].RowId };
+                    return true;
+                }
                 if (listener.EventType == 23)
                 {
                     if (tokens.Length != 1 || tokens[0].Length == 0 || tokens[0].Length > 400 ||
@@ -604,7 +744,20 @@ public sealed partial class AutoQuest
 
         private bool IsPrerequisiteSatisfied(QuestTarget target) => IsSatisfied(target) ||
             target.Type == QuestTargetType.Quest && DService.Instance().ClientState.IsLoggedIn &&
-            IsValidQuestID(target.Normalize().ID) && QuestManager.IsQuestComplete(target.Normalize().ID);
+            IsValidQuestID(target.Normalize().ID) && !IsQuestAccepted(target) &&
+            QuestManager.IsQuestComplete(target.Normalize().ID);
+
+        public QuestBlocker? CheckAcceptance(QuestTarget target)
+        {
+            if (!TryDefinition(target.ID, out var definition))
+                return new("quest_row_unavailable", target.ID);
+            if (definition.Prerequisites.Length > 0 &&
+                (definition.PrerequisiteJoin == 2
+                    ? !definition.Prerequisites.Any(IsPrerequisiteSatisfied)
+                    : !definition.Prerequisites.All(IsPrerequisiteSatisfied)))
+                return new("quest_prerequisite_incomplete", target.ID);
+            return Conditions(definition).FirstOrDefault();
+        }
 
         private unsafe QuestBlocker[] Conditions(QuestDefinition definition)
         {
@@ -621,8 +774,17 @@ public sealed partial class AutoQuest
                 blockers.Add(new("quest_secondary_job_required", definition.SecondaryJobCategory));
             if (definition.Company != 0 && definition.Company != player->GrandCompany) blockers.Add(new("quest_grand_company_required", definition.Company));
             if (definition.CompanyRank > player->GetGrandCompanyRank()) blockers.Add(new("quest_grand_company_rank_required", definition.CompanyRank));
-            if (definition.Tribe != 0 && player->GetBeastTribeRank((byte)definition.Tribe) < definition.TribeRank)
-                blockers.Add(new("quest_society_rank_required", definition.TribeRank));
+            if (definition.Tribe != 0)
+            {
+                var tribe = (byte)definition.Tribe;
+                var rank = player->GetBeastTribeRank(tribe);
+                if (rank < definition.TribeRank)
+                    blockers.Add(new("quest_society_rank_required", definition.TribeRank));
+                else if (rank > 0 && rank == definition.TribeRank &&
+                         !definition.Repeatable && definition.TribeReputationValue == ushort.MaxValue &&
+                         player->GetBeastTribeCurrentReputation(tribe) < player->GetBeastTribeNeededReputation(tribe))
+                    blockers.Add(new("quest_society_reputation_required", definition.ID));
+            }
             if (definition.Mount != 0 && !player->IsMountUnlocked(definition.Mount)) blockers.Add(new("quest_mount_required", definition.Mount));
             if (definition.Festival != 0) blockers.Add(new("quest_festival_schedule_unresolved", definition.Festival));
             if (definition.BellStart != definition.BellEnd) blockers.Add(new("quest_time_window_unresolved", definition.ID));
@@ -755,9 +917,24 @@ public sealed partial class AutoQuest
                 case "IsUnlockLinkUnlocked":
                     if (args.Length < 2 || UIState.Instance() == null) throw new LuaEvaluationException("script_unlock_argument_unresolved");
                     return [UIState.Instance()->IsUnlockLinkUnlocked(QuestScript.Unsigned(args[1]))];
+                case "GetQuestBitFlag8":
+                    if (args.Length != 3 || args[0] is not LuaPlayer ||
+                        NormalizeID(QuestScript.Unsigned(args[1])) != definition.ID || !state.Accepted || state.Variables.Length != 6)
+                        return [new LuaUnknown("quest_variable_getter_unverified")];
+                    var bit = QuestScript.Unsigned(args[2]);
+                    if (bit is < 1 or > 8) return [new LuaUnknown("quest_variable_getter_unverified")];
+                    return [(state.Variables[5] & (0x80 >> ((int)bit - 1))) != 0];
                 default:
                     if (name.StartsWith("GetQuestUI8", StringComparison.Ordinal))
-                        return [new LuaUnknown("quest_variable_getter_unverified")];
+                    {
+                        if (name.Length is not (12 or 13) || name[11] is < 'A' or > 'F' ||
+                            name.Length == 13 && name[12] is not ('H' or 'L') || args.Length != 2 || args[0] is not LuaPlayer ||
+                            NormalizeID(QuestScript.Unsigned(args[1])) != definition.ID || !state.Accepted || state.Variables.Length != 6)
+                            return [new LuaUnknown("quest_variable_getter_unverified")];
+                        var variable = state.Variables[name[11] - 'A'];
+                        if (name.Length == 12) return [(double)variable];
+                        return [(double)(name[12] == 'H' ? variable >> 4 : variable & 15)];
+                    }
                     throw new LuaEvaluationException($"script_getter_unsupported:{name}");
             }
         }
@@ -789,32 +966,85 @@ public sealed partial class AutoQuest
             return null;
         }
 
-        private static bool TryEventRange(QuestDefinition definition, QuestObjective objective, out QuestLocation range)
+        private static bool IsUnconditionalListener(QuestListener listener) =>
+            listener.Variable0 == 255 && listener.Variable1 == 255 && listener.ConditionOperator == 3;
+
+        private bool TryObjectiveListenerInteraction(QuestScript script, QuestDefinition definition, QuestState state,
+            QuestTarget target, QuestObjective[] objectives, out QuestStep? step, out QuestBlocker[] blockers)
+        {
+            step = null;
+            blockers = [];
+            foreach (var objective in objectives)
+            {
+                var candidates = definition.Listeners.Where(listener => listener.Sequence == state.Sequence &&
+                        listener.TodoIndex == objective.Index && listener.EventType == 1 &&
+                        listener.ConditionType == 0 && listener.ConditionValue == 0 && IsUnconditionalListener(listener))
+                    .Select(static listener => listener.ObjectID).Distinct().ToArray();
+                if (candidates.Length == 0 || objective.Quantity != candidates.Length) continue;
+
+                var placements = new List<QuestLocation>();
+                foreach (var id in candidates)
+                {
+                    if (!TryScriptCondition(script, definition, state, "IsAcceptEvent", id, out var allowed, out var error))
+                    {
+                        blockers = [new(error ?? "script_condition_result_unresolved", target.ID)];
+                        return true;
+                    }
+                    if (!allowed) continue;
+                    var location = ResolveLocation(definition, id, objective.Locations, out error);
+                    if (location is null)
+                    {
+                        blockers = [new(error ?? "target_location_unresolved", target.ID)];
+                        return true;
+                    }
+                    placements.Add(location);
+                }
+                if (placements.Count == 0) continue;
+                var services = DService.Instance();
+                var territory = services.ClientState.TerritoryType;
+                var position = services.ObjectTable.LocalPlayer?.Position ?? Vector3.Zero;
+                var live = services.ObjectTable.Where(static obj => obj.IsValid() && obj.IsTargetable)
+                    .Select(static obj => obj.DataID).ToHashSet();
+                var nearest = placements.OrderBy(location => location.TerritoryID == territory ? 0 : 1)
+                    .ThenBy(location => location.TerritoryID == territory && live.Contains(location.ObjectID) ? 0 : 1)
+                    .ThenBy(location => Vector3.DistanceSquared(location.Position, position)).First();
+                TryInteraction(script, definition, state, target, nearest.ObjectID, nearest, objective.Index, out step, out blockers);
+                return true;
+            }
+            return false;
+        }
+
+        private static bool TryEventRange(QuestDefinition definition, byte sequence, QuestObjective objective, out QuestLocation range)
         {
             range = new(0, 0, Vector3.Zero, 0);
             var candidates = new List<QuestLocation>();
             foreach (var symbol in definition.Symbols)
             {
-                if (!symbol.Key.StartsWith("EVENTRANGE", StringComparison.Ordinal) || !LuminaGetter.TryGetRow<Level>(symbol.Value, out var level)) continue;
+                if (!symbol.Key.StartsWith("EVENTRANGE", StringComparison.Ordinal) ||
+                    !LuminaGetter.TryGetRow<Level>(symbol.Value, out var level)) continue;
                 var location = Location(level);
-                if (location is null || location.Radius > 15 || location.ObjectID != 0) continue;
+                if (location is null || location.Radius > 15) continue;
+                if (location.ObjectID != 0 && (location.ObjectType != 49 ||
+                    !definition.Listeners.Any(listener => listener.Sequence == sequence && listener.EventType == 10 &&
+                        listener.ConditionType == 3 && listener.ConditionValue == level.RowId &&
+                        listener.ObjectID == location.ObjectID && IsUnconditionalListener(listener)))) continue;
                 if (objective.Locations.Any(mark => mark.TerritoryID == location.TerritoryID &&
                     Vector3.DistanceSquared(mark.Position, location.Position) <= MathF.Max(9, mark.Radius * mark.Radius)))
                     candidates.Add(location);
             }
-            if (candidates.Count != 1) return false;
-            range = candidates[0];
+            if (candidates.Distinct().ToArray() is not [var unique]) return false;
+            range = unique;
             return true;
         }
 
         private QuestStep MakeStep(QuestStepKind kind, uint objectID, QuestLocation location, QuestState state, QuestTarget target, int? todoIndex = null) =>
             new(kind, objectID, location.TerritoryID, location.Position, 0, state.Sequence, ReadStateKey(target), new(todoIndex));
 
-        private static QuestAvailability Availability(QuestBlocker[] blockers) => blockers.Any(static blocker =>
+        internal static QuestAvailability Availability(QuestBlocker[] blockers) => blockers.Any(static blocker =>
             blocker.Code.Contains("unsupported", StringComparison.Ordinal) || blocker.Code.Contains("unresolved", StringComparison.Ordinal) ||
-            blocker.Code.Contains("unimplemented", StringComparison.Ordinal) || blocker.Code.Contains("unverified", StringComparison.Ordinal) ||
+            blocker.Code.Contains("unimplemented", StringComparison.Ordinal) || blocker.Code.Contains("unverified", StringComparison.Ordinal) || blocker.Code.EndsWith("_ambiguous", StringComparison.Ordinal) ||
             blocker.Code.StartsWith("script_", StringComparison.Ordinal) && blocker.Code != "script_loading" || blocker.Code == "quest_script_unavailable")
             ? QuestAvailability.Unsupported :
-            blockers.Any(static blocker => blocker.Code is "script_loading" or "resource_loading") ? QuestAvailability.Waiting : QuestAvailability.Blocked;
+            blockers.Any(static blocker => blocker.RetryAt is not null || blocker.Code is "script_loading" or "resource_loading") ? QuestAvailability.Waiting : QuestAvailability.Blocked;
     }
 }

@@ -31,7 +31,7 @@ public sealed partial class PartyFinderInDuty
             return;
 
         var addon = (AddonLookingForGroup*)args.Addon.Address;
-        if (addon == null || !((AtkUnitBase*)addon)->IsAddonAndNodesReady())
+        if (addon == null || !((AtkUnitBase*)addon)->IsVisible || !((AtkUnitBase*)addon)->IsAddonAndNodesReady())
             return;
 
         if (!windowOpen)

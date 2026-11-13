@@ -12,15 +12,9 @@ public sealed partial class AutoIshgardRestoration
 
     private bool windowExpanded;
 
-    private bool windowCollapsed;
-
-    private bool windowSizePending;
+    private readonly OmniWindowSize panelSize;
 
     private bool windowFocusRequested;
-
-    private float lastWindowScale;
-
-    private Vector2 lastViewportSize;
 
     public override bool DrawSettings()
     {
@@ -38,51 +32,17 @@ public sealed partial class AutoIshgardRestoration
         using var font = Fonts.GetUIFont().Push();
         using var placement = new OmniWindowPlacement.WindowScope("###AutoIshgardRestorationWindow");
         using var style = new OmniStyleScope();
-        var inset = OmniTheme.WindowInset();
-        var frameInset = OmniTheme.ChromeFrameInset();
-        var buttonSize = Vector2.Max(
-            OmniControls.CompactButtonSize(OmniLoc.Get(this, running || startPending
-                ? "Feature.AutoIshgardRestoration.UI.Stop" : "Feature.AutoIshgardRestoration.UI.Start"), 80f),
-            OmniControls.CompactButtonSize(OmniLoc.Get(this, windowExpanded
-                ? "Feature.AutoIshgardRestoration.UI.Collapse" : "Feature.AutoIshgardRestoration.UI.Expand"), 80f));
-        var compactControlsWidth = buttonSize.X * 2f + OmniTheme.Scale(8f) +
-                                   (inset + frameInset) * 2f;
-        var compactWidth = MathF.Max(compactControlsWidth,
-            OmniTextMeasurements.Measure(Title).X +
-            OmniTheme.TitleExpandIconRight() * 2f + inset * 2f);
-        var compactSize = new Vector2(compactWidth,
-            OmniTheme.TitleBarHeight() + buttonSize.Y + (inset + frameInset) * 2f);
-        if (!windowExpanded && !windowCollapsed && !string.IsNullOrWhiteSpace(lastError))
-        {
-            var errorWidth = MathF.Max(
-                1f, OmniTheme.ClampWindowSize(compactSize).X - (inset + frameInset) * 2f);
-            compactSize.Y += OmniTextMeasurements.Measure(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Error"), lastError), false, errorWidth).Y +
-                             ImGui.GetStyle().ItemSpacing.Y;
-        }
-
-        var viewportSize = OmniWindowPlacement.GetWorkArea("###AutoIshgardRestorationWindow").Size;
-        var applyWindowSize = !windowExpanded || windowCollapsed || windowSizePending ||
-                              MathF.Abs(lastWindowScale - OmniTheme.ScaleValue) > 0.001f ||
-                              lastViewportSize != viewportSize;
-        var targetSize = windowExpanded
-            ? OmniTheme.Scale(config.ExpandedWindowSize)
-            : compactSize;
-        if (windowCollapsed)
-            targetSize = OmniTheme.CollapsedWindowSize(windowExpanded ? targetSize.X : compactWidth);
-        if (windowExpanded && !windowCollapsed)
-            ImGui.SetNextWindowSizeConstraints(OmniTheme.ClampWindowSize(OmniTheme.Scale(new Vector2(320f, 240f))),
-                viewportSize);
-        if (applyWindowSize)
-        {
-            ImGui.SetNextWindowSize(OmniTheme.ClampWindowSize(targetSize), ImGuiCond.Always);
-            windowSizePending = false;
-        }
-        lastWindowScale  = OmniTheme.ScaleValue;
-        lastViewportSize = viewportSize;
+        var runLabel = OmniLoc.Get(this, running || startPending
+            ? "Feature.AutoIshgardRestoration.UI.Stop" : "Feature.AutoIshgardRestoration.UI.Start");
+        var actionLabel = OmniLoc.Get(this, windowExpanded
+            ? "Feature.AutoIshgardRestoration.UI.Collapse" : "Feature.AutoIshgardRestoration.UI.Expand");
+        var buttonSize = OmniAutomationPanel.MeasureButtons(runLabel, actionLabel);
+        panelSize.Apply(new(720f, 480f), new(320f, 240f),
+            windowExpanded ? null : OmniAutomationPanel.MeasureCompactSize(Title, buttonSize));
         ImGui.SetNextWindowCollapsed(false, ImGuiCond.Always);
         var flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
                     ImGuiWindowFlags.NoBackground;
-        if (!windowExpanded || windowCollapsed) flags |= ImGuiWindowFlags.NoResize;
+        if (!windowExpanded) flags |= ImGuiWindowFlags.NoResize;
         OmniWindowChrome.SetNextWindowPosition("###AutoIshgardRestorationWindow");
         if (windowFocusRequested)
         {
@@ -97,18 +57,8 @@ public sealed partial class AutoIshgardRestoration
 
         try
         {
-            if (windowExpanded && !windowCollapsed && !applyWindowSize && !ImGui.IsMouseDown(ImGuiMouseButton.Left))
-            {
-                var actualSize = OmniTheme.PreserveWindowSize(ImGui.GetWindowSize(), targetSize);
-                var size = OmniTheme.Unscale(actualSize);
-                if (float.IsFinite(size.X) && float.IsFinite(size.Y) && size.X > 0f && size.Y > 0f &&
-                    (MathF.Abs(actualSize.X - targetSize.X) > 1f || MathF.Abs(actualSize.Y - targetSize.Y) > 1f))
-                {
-                    config.ExpandedWindowSize = size;
-                    saveConfig();
-                }
-            }
-            DrawWindowContents(ImGui.GetWindowPos(), ImGui.GetWindowSize(), buttonSize);
+            panelSize.SaveAfterResize();
+            DrawWindowContents(ImGui.GetWindowPos(), ImGui.GetWindowSize(), buttonSize, runLabel, actionLabel);
         }
         finally
         {
@@ -120,60 +70,49 @@ public sealed partial class AutoIshgardRestoration
     (
         Vector2 windowPosition,
         Vector2 windowSize,
-        Vector2 buttonSize
+        Vector2 buttonSize,
+        string runLabel,
+        string actionLabel
     )
     {
-        var (framePosition, frameSize) = OmniWindowChrome.GetFrameBounds(windowPosition, windowSize, windowCollapsed);
-        var chrome = OmniWindowChrome.Draw(
+        var (framePosition, frameSize) = OmniWindowChrome.GetFrameBounds(windowPosition, windowSize, false);
+        var chrome = OmniAutomationPanel.DrawChrome(
             framePosition,
             frameSize,
-            windowCollapsed,
             Title,
             "##collapseAutoIshgardRestoration",
             "##closeAutoIshgardRestoration");
         if (chrome.ToggleCollapse)
         {
-            windowCollapsed   = !windowCollapsed;
-            windowSizePending = true;
+            windowExpanded = !windowExpanded;
+            return;
         }
 
         if (chrome.CloseClicked)
         {
             windowOpen = false;
+            return;
         }
 
-        if (!windowOpen || windowCollapsed || chrome.ToggleCollapse)
+        var layout = OmniAutomationPanel.Arrange(framePosition, frameSize, !windowExpanded, buttonSize);
+        var buttons = OmniAutomationPanel.DrawButtons(layout, runLabel, running || startPending, actionLabel);
+        if (buttons.RunClicked)
+            ToggleProduction();
+        if (buttons.CollapseClicked)
         {
+            windowExpanded = !windowExpanded;
             return;
         }
-
-        var (bodyPosition, bodySize) = OmniWindowChrome.GetContentBounds(framePosition, frameSize);
-        if (windowExpanded)
-            OmniControls.DrawPanelBackground(bodyPosition, bodySize, OmniTheme.Tokens.Surface);
-        var controlPadding = windowExpanded ? OmniTheme.Scale(OmniTheme.Tokens.WindowPadding) : Vector2.Zero;
-        ImGui.SetCursorScreenPos(bodyPosition + controlPadding);
-        DrawWindowActionRow(MathF.Max(1f, bodySize.X - controlPadding.X * 2f), buttonSize);
-        if (windowSizePending)
-            return;
         if (!windowExpanded)
-        {
-            if (!string.IsNullOrWhiteSpace(lastError))
-            {
-                using var wrap = ImRaii.TextWrapPos(ImGui.GetCursorPosX() + bodySize.X);
-                ImGui.TextUnformatted(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Error"), lastError));
-            }
-
             return;
-        }
 
-        ImGui.SetCursorScreenPos(new Vector2(bodyPosition.X, ImGui.GetCursorScreenPos().Y + controlPadding.Y));
+        ImGui.SetCursorScreenPos(layout.ContentPosition);
         using var background = ImRaii.PushColor(ImGuiCol.ChildBg, Vector4.Zero);
         using var padding = ImRaii.PushStyle(ImGuiStyleVar.WindowPadding,
             OmniTheme.Scale(OmniTheme.Tokens.WindowPadding));
-        var remainingHeight = MathF.Max(1f, bodyPosition.Y + bodySize.Y - ImGui.GetCursorScreenPos().Y);
         using var content = ImRaii.Child(
             "##autoIshgardWindowContent",
-            new Vector2(bodySize.X, remainingHeight),
+            layout.ContentSize,
             false,
             ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.AlwaysUseWindowPadding | ImGuiWindowFlags.HorizontalScrollbar);
         if (!content)
@@ -182,43 +121,6 @@ public sealed partial class AutoIshgardRestoration
         }
 
         DrawConfigurationContents();
-    }
-
-    private void DrawWindowActionRow
-    (
-        float   availableWidth,
-        Vector2 buttonSize
-    )
-    {
-        var rowPosition = ImGui.GetCursorScreenPos();
-        var primaryLabel = OmniLoc.Get(this, running || startPending
-            ? "Feature.AutoIshgardRestoration.UI.Stop" : "Feature.AutoIshgardRestoration.UI.Start");
-        var secondaryLabel = OmniLoc.Get(this, windowExpanded
-            ? "Feature.AutoIshgardRestoration.UI.Collapse" : "Feature.AutoIshgardRestoration.UI.Expand");
-        var spacing = OmniTheme.Scale(8f);
-        var secondaryWidth = MathF.Min(buttonSize.X, MathF.Max(1f, (availableWidth - spacing) * 0.5f));
-        var primarySize = new Vector2(MathF.Max(1f, availableWidth - secondaryWidth - spacing), buttonSize.Y);
-        var secondarySize = new Vector2(secondaryWidth, buttonSize.Y);
-        if (OmniControls.SmallButton(
-                primaryLabel,
-                running || startPending,
-                primarySize))
-        {
-            ToggleProduction();
-        }
-
-        ImGui.SetCursorScreenPos(new Vector2(
-            rowPosition.X + MathF.Max(0f, availableWidth - secondarySize.X),
-            rowPosition.Y));
-        if (OmniControls.SmallButton(secondaryLabel, false, secondarySize))
-        {
-            windowExpanded ^= true;
-            windowSizePending = true;
-        }
-
-        ImGui.SetCursorScreenPos(new Vector2(
-            rowPosition.X,
-            rowPosition.Y + buttonSize.Y + ImGui.GetStyle().ItemSpacing.Y));
     }
 
     private void DrawConfigurationContents()
@@ -444,8 +346,6 @@ public sealed partial class AutoIshgardRestoration
     {
         windowOpen           = true;
         windowExpanded       = false;
-        windowCollapsed      = false;
-        windowSizePending    = true;
         windowFocusRequested = true;
     }
 }

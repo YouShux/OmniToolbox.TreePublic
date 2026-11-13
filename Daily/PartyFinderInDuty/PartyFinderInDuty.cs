@@ -67,7 +67,7 @@ public sealed unsafe partial class PartyFinderInDuty
     private readonly Dictionary<uint, TabBarRadioButtonNode>             dataCenterButtons           = [];
     private ResNode?                                                     headerNode;
     private PartyFinderShareModels.Listing[]                             viewListings                = [];
-    private uint                                                         selectedDataCenterID;
+    private uint                                                         remoteDataCenterID;
     private uint                                                         headerDataCenterID;
     private int                                                          currentPage;
     private int                                                          filteredListingCount;
@@ -135,6 +135,7 @@ public sealed unsafe partial class PartyFinderInDuty
         addonEvents.Register(AddonEvent.PreFinalize, "LookingForGroupDetail", OnPartyFinderDetailEvent);
         addonEvents.Register(AddonEvent.PreDraw, "LookingForGroup", OnPartyFinderPreDraw);
         addonEvents.Register(AddonEvent.PreReceiveEvent, "LookingForGroup", OnPartyFinderReceiveEvent);
+        addonEvents.Register(AddonEvent.PreHide, "LookingForGroup", OnPartyFinderHidden);
         addonEvents.Register(AddonEvent.PreFinalize, "LookingForGroup", OnPartyFinderClosed);
         var agentLifecycle = DService.Instance().AgentLifecycle;
         agentLifecycle.RegisterListener(AgentEvent.PreReceiveEvent,
@@ -144,7 +145,8 @@ public sealed unsafe partial class PartyFinderInDuty
         activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
 
         var addon = AddonHelper.GetByName<AddonLookingForGroup>("LookingForGroup");
-        if (CanOperatePartyFinder() && addon != null && ((AtkUnitBase*)addon)->IsAddonAndNodesReady())
+        if (CanOperatePartyFinder() && addon != null && ((AtkUnitBase*)addon)->IsVisible &&
+            ((AtkUnitBase*)addon)->IsAddonAndNodesReady())
             BeginViewing();
     }
 
@@ -170,7 +172,7 @@ public sealed unsafe partial class PartyFinderInDuty
         refreshRequested        = false;
         nativeRefreshRequested  = false;
         windowOpen              = false;
-        selectedDataCenterID    = 0;
+        remoteDataCenterID      = 0;
         viewListings            = [];
         nativeCountsCaptured    = false;
         nativeListInjected      = false;
@@ -234,6 +236,13 @@ public sealed unsafe partial class PartyFinderInDuty
             injectionRequested = true;
     }
 
+    private void OnPartyFinderHidden(AddonEvent _, AddonArgs args)
+    {
+        windowOpen         = false;
+        remoteDataCenterID = 0;
+        shareService.CancelSnapshotRequest();
+    }
+
     private void OnPartyFinderClosed
     (
         AddonEvent _,
@@ -247,7 +256,7 @@ public sealed unsafe partial class PartyFinderInDuty
         nativeCountsCaptured    = false;
         nativeListInjected      = false;
         windowOpen              = false;
-        selectedDataCenterID    = 0;
+        remoteDataCenterID      = 0;
         selectedListing         = null;
         viewListings            = [];
         injectedVersion         = -1;
@@ -261,16 +270,20 @@ public sealed unsafe partial class PartyFinderInDuty
 
     private void BeginViewing()
     {
-        windowOpen           = true;
-        selectedDataCenterID = 0;
-        currentPage          = 0;
+        CloseSharedDetail();
+        remoteDataCenterID = 0;
+        currentPage        = 0;
         var shared = UsesSharedData;
+        if (shared && nativeListInjected)
+            ClearNativeList();
+        windowOpen              = true;
         nativeRefreshRequested  = !shared;
         refreshRequested        = shared;
         injectedVersion         = -1;
         nextSnapshotRetryAt     = 0;
         injectionRequested      = shared;
         categoryCountsRequested = shared;
+        UpdateDataCenterSelection();
     }
 
     private void OnFrameworkUpdate(IFramework _)
@@ -288,7 +301,7 @@ public sealed unsafe partial class PartyFinderInDuty
         refreshRequested       = false;
         nativeRefreshRequested = false;
         nextSnapshotRetryAt    = 0;
-        selectedDataCenterID   = 0;
+        remoteDataCenterID     = 0;
     }
 
     private void OnAgentEvent
@@ -381,11 +394,11 @@ public sealed unsafe partial class PartyFinderInDuty
     private bool IsInDuty => DService.Instance().Condition.Any(
         ConditionFlag.BoundByDuty, ConditionFlag.BoundByDuty56, ConditionFlag.BoundByDuty95);
 
-    private bool UsesSharedData => CanOperatePartyFinder() && (IsInDuty || selectedDataCenterID != 0);
+    private bool UsesSharedData => CanOperatePartyFinder() && (IsInDuty || remoteDataCenterID != 0);
 
-    private uint SelectedDataCenterID => selectedDataCenterID == 0
+    private uint SelectedDataCenterID => remoteDataCenterID == 0
         ? shareService.DataCenterID
-        : selectedDataCenterID;
+        : remoteDataCenterID;
 
     private readonly record struct NativeCounterState
     (

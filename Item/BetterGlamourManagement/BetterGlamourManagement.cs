@@ -114,7 +114,6 @@ public sealed unsafe partial class BetterGlamourManagement
             ["Feature.BetterGlamourManagement.ItemPicker.SortLevel"] = "Feature.BetterGlamourManagement.ItemPicker.SortLevel",
             ["Feature.BetterGlamourManagement.ItemPicker.SortName"] = "Feature.BetterGlamourManagement.ItemPicker.SortName",
             ["Feature.BetterGlamourManagement.ItemPicker.Title"] = "Feature.BetterGlamourManagement.ItemPicker.Title",
-            ["Feature.BetterGlamourManagement.LegacyGearsetHint"] = "Feature.BetterGlamourManagement.LegacyGearsetHint",
             ["Feature.BetterGlamourManagement.MainHand"] = "Feature.BetterGlamourManagement.MainHand",
             ["Feature.BetterGlamourManagement.NewPreset"] = "Feature.BetterGlamourManagement.NewPreset",
             ["Feature.BetterGlamourManagement.NoDye"] = "Feature.BetterGlamourManagement.NoDye",
@@ -689,7 +688,6 @@ public sealed unsafe partial class BetterGlamourManagement
             throw new InvalidOperationException("职业套装无效。");
 
         var previousBindings = new Dictionary<BetterGlamourPreset, List<int>?>();
-        var previousGearsetIndex = preset.GearsetIndex;
         foreach (var other in config.Presets)
         {
             other.GearsetBindings.TryGetValue(contentID, out var previousIndices);
@@ -712,14 +710,12 @@ public sealed unsafe partial class BetterGlamourManagement
             }
         }
 
-        preset.GearsetIndex = -1;
         try
         {
             saveConfig();
         }
         catch
         {
-            preset.GearsetIndex = previousGearsetIndex;
             foreach (var (other, previousIndices) in previousBindings)
             {
                 if (previousIndices is null)

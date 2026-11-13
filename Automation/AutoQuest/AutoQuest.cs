@@ -22,15 +22,7 @@ public sealed partial class AutoQuest(IQuestTravelService travel, IQuestCombatSe
         Category = ModuleCategory.Automation,
         Author = "YouShu",
         ShowsAutoPathStatus = true,
-        Commands =
-        [
-            new("CommandOpen", OmniCommandCatalog.FormatModule(nameof(AutoQuest), "open")),
-            new("CommandStart", OmniCommandCatalog.FormatModule(nameof(AutoQuest), "start <任务ID>")),
-            new("CommandAll", OmniCommandCatalog.FormatModule(nameof(AutoQuest), "all")),
-            new("CommandPause", OmniCommandCatalog.FormatModule(nameof(AutoQuest), "pause")),
-            new("CommandResume", OmniCommandCatalog.FormatModule(nameof(AutoQuest), "resume")),
-            new("CommandStop", OmniCommandCatalog.FormatModule(nameof(AutoQuest), "stop"))
-        ]
+        Commands = [new("CommandOpen", OmniCommandCatalog.Format("autoquest"))]
     };
 
     public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(
@@ -44,11 +36,8 @@ public sealed partial class AutoQuest(IQuestTravelService travel, IQuestCombatSe
     private bool starting;
     private bool restoring;
     private bool windowOpen;
+    private bool panelFocusRequested;
     private bool panelCollapsed;
-    private bool panelRestore = true;
-    private Vector2 panelSize;
-    private float panelScale;
-    private Vector2 panelViewport;
     private string search = string.Empty;
     private QuestTargetType? filter;
     private QuestCatalogPage? page;
@@ -59,6 +48,7 @@ public sealed partial class AutoQuest(IQuestTravelService travel, IQuestCombatSe
 
     public Func<CancellationToken, Task<bool>>? EnableForRequestAsync { get; set; }
     public Func<Task>? RestoreAfterRequestAsync { get; set; }
+    public bool IsAutomationBusy => starting || restoring || session is not null;
     public OperationSnapshot? LatestOperation => operations.Latest;
 
     public event Action<OperationSnapshot>? OperationChanged
@@ -314,7 +304,11 @@ public sealed partial class AutoQuest(IQuestTravelService travel, IQuestCombatSe
         var goal = current.Goals[current.GoalIndex];
         if (current.Current is { } activeTarget && current.Step is { } activeStep && IsOwnedQuestEvent(current))
             return ExecuteCurrentStep(current, goal, activeTarget, activeStep);
-        if (data.IsSatisfied(goal))
+        var selected = current.Current ?? goal;
+        var finishSelected = current.Request.FinishAcceptedQuestFirst &&
+                             (current.Step is { Kind: QuestStepKind.AcceptQuest } || data.IsQuestAccepted(selected)) &&
+                             !data.IsSatisfied(selected);
+        if (!finishSelected && data.IsSatisfied(goal))
         {
             LogTransition(current, "target-complete", $"goal={goal.Type}:{goal.ID}");
             current.Results[goal] = new(goal, QuestAvailability.Satisfied, []);
@@ -325,7 +319,8 @@ public sealed partial class AutoQuest(IQuestTravelService travel, IQuestCombatSe
             current.Error = null;
             return current.Request.Relation == QuestTargetRelation.Any && current.Request.Mode == QuestRequestMode.Targets;
         }
-        var next = data.Next(goal, current.BlockedPrerequisites, out var blockers);
+        QuestBlocker[] blockers = [];
+        var next = finishSelected ? selected : data.Next(goal, current.BlockedPrerequisites, out blockers);
         if (next is null)
             return SetBlocked(current, goal, blockers);
         if (current.Current != next)
@@ -345,7 +340,7 @@ public sealed partial class AutoQuest(IQuestTravelService travel, IQuestCombatSe
             current.StepStartedAt = Environment.TickCount64;
             return false;
         }
-        if (current.Step is { } pendingStep && current.ActionSent &&
+        if (current.Step is { } pendingStep && current.ActionSent && !current.OwnsCombat &&
             !IsOwnedQuestEvent(current) && data.ReadStateKey(next) != pendingStep.StateKey)
         {
             StopOwned(current);
@@ -361,10 +356,18 @@ public sealed partial class AutoQuest(IQuestTravelService travel, IQuestCombatSe
             current.StepStartedAt = Environment.TickCount64;
             current.ActionSent = false;
             current.AcceptSent = false;
+            current.AcceptOfferIdleSince = 0;
             current.TurnInSent = false;
             current.HandOverSent = false;
             current.HandOver = null;
             current.GatheringProgressAt = 0;
+            current.CombatSearchPoint = 0;
+            current.CombatSearchPass = 0;
+            current.CombatSearchPointUntil = 0;
+            current.CombatRespawnUntil = 0;
+            current.CombatTravelActor = 0;
+            current.CancellingCombatTravel = false;
+            current.UnreachableCombatActors.Clear();
             current.GatheringActionAt = 0;
             LogTransition(current, "step-start", $"kind={step.Kind} sequence={step.Sequence} territory={step.TerritoryID} object={step.ObjectID} argument={step.Argument} job={step.ClassJobID}");
         }
@@ -380,7 +383,7 @@ public sealed partial class AutoQuest(IQuestTravelService travel, IQuestCombatSe
             return false;
         LogTransition(current, "step-failure", $"error={failure} related={current.RelatedID}");
         if (failure is "navigation_busy" or "combat_busy" or "plugin_busy" or "resource_loading" or
-            "player_busy" or "character_busy" or "character_not_ready" or "external_interaction_busy" or
+            "player_busy" or "character_busy" or "character_not_ready" or "external_interaction_busy" or "combat_target_unconfirmed" or
             "external_gathering_busy" or "npc_entry_unavailable")
         {
             current.Error = failure;
@@ -417,12 +420,16 @@ public sealed partial class AutoQuest(IQuestTravelService travel, IQuestCombatSe
             current.Error = blockers[0].Code;
             return false;
         }
-        var availability = blockers.Any(static blocker => blocker.Code.Contains("unsupported", StringComparison.Ordinal) ||
-            blocker.Code.Contains("unresolved", StringComparison.Ordinal) || blocker.Code.Contains("unimplemented", StringComparison.Ordinal) ||
-            blocker.Code.Contains("unverified", StringComparison.Ordinal) ||
-            blocker.Code.StartsWith("script_", StringComparison.Ordinal) && blocker.Code != "script_loading")
-            ? QuestAvailability.Unsupported : blockers.Any(static blocker => blocker.RetryAt is not null ||
-                blocker.Code is "resource_loading" or "script_loading") ? QuestAvailability.Waiting : QuestAvailability.Blocked;
+        var availability = QuestData.Availability(blockers);
+        if (current.Request.FinishAcceptedQuestFirst && availability != QuestAvailability.Unsupported && current.Current is { } active &&
+            (blockers[0].Code is "navigation_route_exhausted" or "navigation_failed" or "navigation_timeout" ||
+             data.IsQuestAccepted(active) && !data.IsSatisfied(active)))
+        {
+            current.Error = blockers[0].Code;
+            Pause(current.Operation.OperationID);
+            LogTransition(current, "quest-paused", $"quest={active.ID} blocker={current.Error}");
+            return false;
+        }
         current.Results[goal] = new(goal, availability, blockers);
         var blockerText = string.Join(",", blockers.Select(static blocker => blocker.Code));
         LogTransition(current, "target-blocked", $"goal={goal.Type}:{goal.ID} target={current.Current?.ID} blockers={blockerText}");
@@ -530,11 +537,19 @@ public sealed partial class AutoQuest(IQuestTravelService travel, IQuestCombatSe
         public bool Paused { get; set; }
         public bool ActionSent { get; set; }
         public bool AcceptSent { get; set; }
+        public long AcceptOfferIdleSince { get; set; }
         public bool TurnInSent { get; set; }
         public bool HandOverSent { get; set; }
         public HandOverProgress? HandOver { get; set; }
         public bool OwnsTravel { get; set; }
         public bool OwnsCombat { get; set; }
+        public int CombatSearchPoint { get; set; }
+        public int CombatSearchPass { get; set; }
+        public long CombatSearchPointUntil { get; set; }
+        public long CombatRespawnUntil { get; set; }
+        public ulong CombatTravelActor { get; set; }
+        public bool CancellingCombatTravel { get; set; }
+        public HashSet<ulong> UnreachableCombatActors { get; } = [];
         public bool CleanupRequested { get; set; }
         public bool CleanupErrorReported { get; set; }
         public uint OwnedEventID { get; set; }

@@ -1,6 +1,8 @@
 using System.Threading.Tasks;
 using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Game.ClientState.Objects.Enums;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -18,12 +20,17 @@ public sealed partial class AutoQuest
 {
     private string? ExecuteStep(Session current, QuestTarget target, QuestStep step)
     {
-        if (DService.Instance().Condition.IsBetweenAreas)
+        var services = DService.Instance();
+        if (services.Condition.IsBetweenAreas)
         {
+            current.AcceptOfferIdleSince = 0;
             current.Phase = QuestExecutionPhase.Waiting;
             return null;
         }
-        if (IsOwnedQuestEvent(current) && DService.Instance().Condition.IsWatchingCutscene)
+        var ownsQuestEvent = IsOwnedQuestEvent(current);
+        if (ownsQuestEvent)
+            current.AcceptOfferIdleSince = 0;
+        if (ownsQuestEvent && services.Condition.IsWatchingCutscene)
         {
             current.Phase = QuestExecutionPhase.Interacting;
             current.StepStartedAt = Environment.TickCount64;
@@ -38,12 +45,37 @@ public sealed partial class AutoQuest
             step.Kind is not (QuestStepKind.Combat or QuestStepKind.Duty or QuestStepKind.Craft or QuestStepKind.Gather or QuestStepKind.Fish))
             return "interaction_timeout";
 
-        if (IsOwnedQuestEvent(current))
+        if (ownsQuestEvent)
         {
             current.Phase = QuestExecutionPhase.Interacting;
             return DriveQuestUI(current, target, step);
         }
-
+        if (current.Request.AllowEurekaEntry && step.ObjectID == 1024517 && current.OwnedActorID != 0 &&
+            IsRodneyEntranceEvent(current.OwnedActorID))
+            return "eureka_quest_unavailable";
+        if (step.Kind == QuestStepKind.AcceptQuest && current.ActionSent && !current.AcceptSent)
+        {
+            if (GetQuestIssuerDialogue(current.OwnedActorID) is { } dialogueID)
+            {
+                current.OwnedEventID = dialogueID;
+                current.RelatedID = target.ID;
+                return "quest_accept_not_offered";
+            }
+            // 有些接取限制由服务器在 NPC 对话里告知，任务表不一定能预检。
+            if (services.Condition.IsOccupiedInEvent || services.Condition.IsWatchingCutscene || !UIModule.IsScreenReady())
+                current.AcceptOfferIdleSince = 0;
+            else
+            {
+                var now = Environment.TickCount64;
+                if (current.AcceptOfferIdleSince == 0) current.AcceptOfferIdleSince = now;
+                if (now - current.AcceptOfferIdleSince >= 5_000)
+                {
+                    current.RelatedID = target.ID;
+                    return "quest_accept_not_offered";
+                }
+            }
+            return null;
+        }
         if (step.Kind == QuestStepKind.Duty)
             return DriveDuty(current, step);
         if (step.Kind == QuestStepKind.Craft)
@@ -67,31 +99,62 @@ public sealed partial class AutoQuest
             return null;
         }
 
-        var gameObject = FindStepObject(target, step, out var ambiguity);
-        if (ambiguity)
-            return "target_instance_unresolved";
         if (step.Kind == QuestStepKind.Combat)
         {
             if (!current.OwnsCombat)
             {
-                if (gameObject is null)
+                IGameObject? combatTarget;
+                if (step.EnemyNameID != 0)
+                {
+                    var searchError = ApproachRoamingEnemy(current, step, out var enemy);
+                    if (searchError is not null || enemy is null)
+                        return searchError;
+                    combatTarget = enemy;
+                }
+                else
+                    combatTarget = FindStepObject(target, step, out _);
+                if (combatTarget is null)
                 {
                     if (step.Position is not { } combatAnchor)
                         return "target_location_unresolved";
-                    var anchorError = Approach(current, step, combatAnchor, 10);
-                    return anchorError ?? (current.OwnsTravel ? null : "target_not_found");
+                    var anchorError = Approach(current, step, combatAnchor, step.ActivateCombatByProximity ? 1f : 10f);
+                    if (anchorError is not null || current.OwnsTravel)
+                        return anchorError;
+                    if (step.ActivateCombatByProximity && Environment.TickCount64 - current.StepStartedAt < 12_000)
+                        return null;
+                    return "target_not_found";
                 }
-                var navigationError = Approach(current, step, gameObject.Position, 20);
-                if (navigationError is not null || current.OwnsTravel)
-                    return navigationError;
-                TargetManager.Target = gameObject;
+                if (step.EnemyNameID == 0)
+                {
+                    var navigationError = Approach(current, step, combatTarget.Position, 20);
+                    if (navigationError is not null || current.OwnsTravel)
+                        return navigationError;
+                }
+                if (TargetManager.Target?.GameObjectID != combatTarget.GameObjectID)
+                {
+                    TargetManager.Target = combatTarget;
+                    if (TargetManager.Target?.GameObjectID != combatTarget.GameObjectID)
+                        return "combat_target_unconfirmed";
+                }
                 if (!combat.TryStart(current.Operation.OperationID, out var error))
                     return error ?? "combat_unavailable";
                 current.OwnsCombat = true;
                 current.ActionSent = true;
+                current.StepStartedAt = Environment.TickCount64;
+                LogTransition(current, "combat-target-engaged", $"actor={combatTarget.GameObjectID:X} dataID={combatTarget.DataID} nameID={step.EnemyNameID}");
             }
             current.Phase = QuestExecutionPhase.Fighting;
             var status = combat.Tick(current.Operation.OperationID);
+            if (status is { State: QuestWorkState.Running, Error: null } &&
+                step.EnemyNameID == 0 &&
+                (TargetManager.Target is not IBattleNPC { IsDead: false, IsTargetable: true, CurrentHp: > 0 } selected ||
+                 selected.DataID != step.ObjectID) &&
+                FindStepObject(target, step, out _) is { } nextEnemy)
+            {
+                TargetManager.Target = nextEnemy;
+                if (TargetManager.Target?.GameObjectID == nextEnemy.GameObjectID)
+                    LogTransition(current, "combat-target-switched", $"actor={nextEnemy.GameObjectID:X} dataID={nextEnemy.DataID}");
+            }
             if (status.State == QuestWorkState.Failed)
                 return status.Error ?? "combat_failed";
             if (Environment.TickCount64 - current.StepStartedAt > 180_000)
@@ -99,7 +162,15 @@ public sealed partial class AutoQuest
             if (status.State == QuestWorkState.Succeeded)
             {
                 current.OwnsCombat = false;
-                current.ActionSent = false;
+                if (step.EnemyNameID == 0)
+                    current.ActionSent = false;
+                else
+                {
+                    current.CombatSearchPoint = 0;
+                    current.CombatSearchPass = 0;
+                    current.UnreachableCombatActors.Clear();
+                    LogTransition(current, "combat-rescan");
+                }
                 return null;
             }
             return null;
@@ -107,12 +178,16 @@ public sealed partial class AutoQuest
 
         if (current.ActionSent)
             return null;
+        var gameObject = FindStepObject(target, step, out var ambiguity);
+        if (ambiguity)
+            return "target_instance_unresolved";
         if (DService.Instance().Condition.IsOccupiedInEvent)
             return "external_interaction_busy";
         var position = gameObject?.Position ?? step.Position;
         if (position is null)
             return "target_location_unresolved";
-        var approach = Approach(current, step, position.Value, step.Kind == QuestStepKind.WalkTo ? 1 : 3);
+        var radius = step.Kind == QuestStepKind.WalkTo ? 1f : 3f;
+        var approach = Approach(current, step, position.Value, radius);
         if (approach is not null || current.OwnsTravel)
             return approach;
         if (step.Kind == QuestStepKind.WalkTo)
@@ -122,13 +197,22 @@ public sealed partial class AutoQuest
         }
         if (step.ObjectID != 0 && gameObject is null)
             return "target_not_found";
-        if (gameObject is not null)
-            TargetManager.Target = gameObject;
         current.Phase = QuestExecutionPhase.Interacting;
+        if (gameObject is not null && TargetManager.Target?.GameObjectID != gameObject.GameObjectID)
+        {
+            TargetManager.Target = gameObject;
+            if (step.Kind == QuestStepKind.Emote)
+                return null;
+        }
         if (step.Kind is QuestStepKind.AcceptQuest or QuestStepKind.CompleteQuest or QuestStepKind.Interact)
         {
             if (gameObject is null)
                 return "target_not_found";
+            if (step.Kind == QuestStepKind.AcceptQuest && data.CheckAcceptance(target) is { } blocker)
+            {
+                current.RelatedID = blocker.RelatedID;
+                return blocker.Code;
+            }
             current.OwnedEventID = target.ID;
             current.OwnedActorID = gameObject.GameObjectID;
             TargetManager.Instance().InteractWithObject(gameObject);
@@ -147,15 +231,151 @@ public sealed partial class AutoQuest
                 ? actionManager.UseActionLocation(step.Argument >= 2_000_000 ? ActionType.EventItem : ActionType.Item, step.Argument, location: position.Value)
                 : actionManager.UseAction(step.Argument >= 2_000_000 ? ActionType.EventItem : ActionType.Item, step.Argument, targetID),
             QuestStepKind.Action => actionManager.UseAction(ActionType.Action, step.Argument, targetID),
-            QuestStepKind.Emote => ExecuteEmote(step.Argument),
+            QuestStepKind.Emote => ExecuteEmote(step.Argument, targetID),
             QuestStepKind.Say => SendQuestSpeech(step.Text),
             _ => false
         };
         if (!sent)
             return "quest_action_failed";
+        if (step.Kind == QuestStepKind.Emote && gameObject is not null)
+        {
+            current.OwnedEventID = target.ID;
+            current.OwnedActorID = gameObject.GameObjectID;
+        }
         current.ActionSent = true;
         return null;
     }
+
+
+    private string? ApproachRoamingEnemy(Session current, QuestStep step, out IBattleNPC? enemy)
+    {
+        enemy = null;
+        var services = DService.Instance();
+        if (services.ObjectTable.LocalPlayer is not { } player)
+            return "character_not_ready";
+        var id = current.Operation.OperationID;
+        var now = Environment.TickCount64;
+        var atTerritory = services.ClientState.TerritoryType == step.TerritoryID;
+        if (atTerritory)
+        {
+            var distance = float.MaxValue;
+            foreach (var candidate in services.ObjectTable.OfType<IBattleNPC>())
+            {
+                if (!candidate.IsValid() || !candidate.IsTargetable || candidate.IsDead || candidate.CurrentHp == 0 ||
+                    candidate.BattleNPCKind != BattleNpcSubKind.Combatant || candidate.FateID != 0 ||
+                    candidate.DataID != step.ObjectID || candidate.NameID != step.EnemyNameID ||
+                    current.UnreachableCombatActors.Contains(candidate.GameObjectID))
+                    continue;
+                var candidateDistance = Vector3.DistanceSquared(player.Position, candidate.Position);
+                if (candidate.GameObjectID == current.CombatTravelActor || candidateDistance < distance)
+                {
+                    enemy = candidate;
+                    distance = candidateDistance;
+                    if (candidate.GameObjectID == current.CombatTravelActor)
+                        break;
+                }
+            }
+        }
+
+        if (current.OwnsTravel)
+        {
+            if (atTerritory && !current.CancellingCombatTravel &&
+                (current.CombatTravelActor == 0 && enemy is not null ||
+                 current.CombatTravelActor != 0 && enemy?.GameObjectID != current.CombatTravelActor))
+            {
+                travel.Cancel(id);
+                current.CancellingCombatTravel = true;
+            }
+            var status = travel.Tick(id);
+            if (status.State == QuestWorkState.Running)
+            {
+                current.Phase = QuestExecutionPhase.Travelling;
+                enemy = null;
+                return null;
+            }
+
+            current.OwnsTravel = false;
+            var cancelled = current.CancellingCombatTravel;
+            current.CancellingCombatTravel = false;
+            var actor = current.CombatTravelActor;
+            current.CombatTravelActor = 0;
+            if (!cancelled)
+            {
+                if (status.State == QuestWorkState.Succeeded && actor == 0)
+                    current.CombatSearchPointUntil = now + 1_500;
+                else if (status.State != QuestWorkState.Succeeded)
+                {
+                    if (!atTerritory || status.Error is not ("navigation_failed" or "navigation_timeout" or "navigation_route_exhausted"))
+                        return status.Error ?? "navigation_failed";
+                    if (actor != 0)
+                    {
+                        current.UnreachableCombatActors.Add(actor);
+                        enemy = null;
+                    }
+                    else
+                        current.CombatSearchPoint++;
+                    LogTransition(current, "combat-route-unreachable", $"actor={actor:X} point={current.CombatSearchPoint} reason={status.Error}");
+                    enemy = null;
+                    return null;
+                }
+            }
+        }
+
+        if (enemy is not null)
+        {
+            current.CombatSearchPointUntil = 0;
+            current.CombatRespawnUntil = 0;
+            if (Vector3.DistanceSquared(player.Position, enemy.Position) <= 20f * 20f)
+                return null;
+            current.CombatTravelActor = enemy.GameObjectID;
+            LogTransition(current, "combat-target-approach", $"actor={enemy.GameObjectID:X} position={enemy.Position}");
+            var result = Approach(current, step, enemy.Position, 16f);
+            if (!current.OwnsTravel)
+                current.CombatTravelActor = 0;
+            enemy = null;
+            return result;
+        }
+
+        if (step.Position is not { } anchor)
+            return "target_location_unresolved";
+        if (!atTerritory)
+            return Approach(current, step, anchor, 10f);
+
+        current.Phase = QuestExecutionPhase.Waiting;
+        if (current.CombatSearchPointUntil != 0)
+        {
+            if (now < current.CombatSearchPointUntil)
+                return null;
+            current.CombatSearchPointUntil = 0;
+            current.CombatSearchPoint++;
+        }
+        if (current.CombatSearchPoint >= CombatSearchOffsets.Length)
+        {
+            if (current.CombatRespawnUntil == 0)
+            {
+                current.CombatRespawnUntil = now + 8_000;
+                LogTransition(current, "combat-search-wait", $"pass={current.CombatSearchPass + 1}");
+            }
+            if (now < current.CombatRespawnUntil)
+                return null;
+            if (++current.CombatSearchPass >= 2)
+                return "quest_combat_search_exhausted";
+            current.CombatSearchPoint = 0;
+            current.CombatRespawnUntil = 0;
+            current.UnreachableCombatActors.Clear();
+        }
+
+        var offset = CombatSearchOffsets[current.CombatSearchPoint] * step.EnemySearchRadius;
+        var point = anchor + new Vector3(offset.X, 0f, offset.Y);
+        LogTransition(current, "combat-search-point", $"pass={current.CombatSearchPass + 1} point={current.CombatSearchPoint + 1} position={point}");
+        var error = Approach(current, step, point, 10f);
+        if (!current.OwnsTravel && error is null)
+            current.CombatSearchPointUntil = now + 1_500;
+        return error;
+    }
+
+    private static readonly Vector2[] CombatSearchOffsets =
+        [Vector2.Zero, new(0.8f, 0f), new(0f, 0.8f), new(-0.8f, 0f), new(0f, -0.8f)];
 
     private string? Approach(Session current, QuestStep step, Vector3 position, float radius)
     {
@@ -182,10 +402,13 @@ public sealed partial class AutoQuest
             return "character_not_ready";
         if (services.ClientState.TerritoryType == territory && Vector3.DistanceSquared(localPlayer.Position, position) <= radius * radius)
             return null;
-        if (!travel.TryStart(current.Operation.OperationID, new(territory, position, radius, step.AllowFlight), out var error))
+        if (!travel.TryStart(current.Operation.OperationID, new(territory, position, radius, step.AllowFlight)
+            {
+                AllowEurekaEntry = current.Request.AllowEurekaEntry
+            }, out var error))
             return error ?? "navigation_unavailable";
         current.OwnsTravel = true;
-        LogTransition(current, "travel-start", $"territory={territory} destination={position} radius={radius}");
+        LogTransition(current, "travel-start", $"territory={territory} destination={position} radius={radius} allowFlight={step.AllowFlight}");
         current.StepStartedAt = Environment.TickCount64;
         current.Phase = QuestExecutionPhase.Travelling;
         return null;
@@ -205,9 +428,11 @@ public sealed partial class AutoQuest
         {
             if (!candidate.IsValid() || candidate.DataID != step.ObjectID || !candidate.IsTargetable)
                 continue;
-            if (step.Kind == QuestStepKind.Combat && candidate is not IBattleNPC { IsDead: false, CurrentHp: > 0 })
+            if (step.Kind == QuestStepKind.Combat && (candidate is not IBattleNPC { IsDead: false, CurrentHp: > 0 } enemy ||
+                    step.EnemyNameID != 0 && enemy.NameID != step.EnemyNameID))
                 continue;
-            if (step.Position is { } anchor && Vector3.DistanceSquared(candidate.Position, anchor) > 400)
+            var radius = step.Kind == QuestStepKind.Combat ? step.EnemySearchRadius : 20f;
+            if (step.Position is { } anchor && Vector3.DistanceSquared(candidate.Position, anchor) > radius * radius)
                 continue;
             if (step.Kind != QuestStepKind.Combat && handler != null && handler->EventObjects.Count != 0)
             {
@@ -244,13 +469,41 @@ public sealed partial class AutoQuest
                                   (framework->EventState2.EventId.Id == current.OwnedEventID && framework->EventState2.ObjectId == current.OwnedActorID)))
             return true;
         var selector = EventHandlerSelector.Instance();
-        return selector != null && selector->Target != null && selector->Target->GetGameObjectId() == current.OwnedActorID;
+        return selector != null && selector->OptionsCount != 0 && selector->Target != null &&
+               selector->Target->GetGameObjectId() == current.OwnedActorID;
+    }
+
+    private static unsafe bool IsRodneyEntranceEvent(ulong actorID)
+    {
+        var services = DService.Instance();
+        var framework = EventFramework.Instance();
+        var menu = services.GameGUI.GetAddonByName<AtkUnitBase>("SelectString");
+        return framework != null && menu != null && menu->IsVisible &&
+               (framework->EventState1.EventId.Id == 721355 && framework->EventState1.ObjectId == actorID ||
+                framework->EventState2.EventId.Id == 721355 && framework->EventState2.ObjectId == actorID);
+    }
+
+    private static unsafe uint? GetQuestIssuerDialogue(ulong actorID)
+    {
+        var framework = EventFramework.Instance();
+        var menu = DService.Instance().GameGUI.GetAddonByName<AtkUnitBase>("SelectString");
+        if (actorID == 0 || framework == null || menu == null || !menu->IsVisible ||
+            !DService.Instance().Condition.IsOccupiedInEvent)
+            return null;
+        var primary = framework->EventState1;
+        var secondary = framework->EventState2;
+        if (primary.ObjectId == actorID && primary.EventId.ContentId is EventHandlerContent.CustomTalk or EventHandlerContent.DefaultTalk)
+            return primary.EventId.Id;
+        if (secondary.ObjectId == actorID && secondary.EventId.ContentId is EventHandlerContent.CustomTalk or EventHandlerContent.DefaultTalk)
+            return secondary.EventId.Id;
+        return null;
     }
 
     private unsafe string? DriveQuestUI(Session current, QuestTarget target, QuestStep step)
     {
         var selector = EventHandlerSelector.Instance();
-        if (selector != null && selector->Target != null)
+        if (selector != null && selector->OptionsCount != 0 && selector->Target != null &&
+            selector->Target->GetGameObjectId() == current.OwnedActorID)
         {
             for (var index = 0; index < selector->OptionsCount && index < selector->Options.Length; index++)
                 if (selector->Options[index].Handler != null && selector->Options[index].Handler->Info.EventId.Id == target.ID)
@@ -258,7 +511,12 @@ public sealed partial class AutoQuest
                     EventFramework.Instance()->InteractWithHandlerFromSelector(index);
                     return null;
                 }
-            return "quest_event_selector_unresolved";
+            if (current.Request.AllowEurekaEntry && step.ObjectID == 1024517)
+                return "eureka_quest_unavailable";
+            if (step.Kind != QuestStepKind.AcceptQuest)
+                return "quest_event_selector_unresolved";
+            current.RelatedID = target.ID;
+            return "quest_accept_not_offered";
         }
         var services = DService.Instance();
         var accept = services.GameGUI.GetAddonByName<AddonJournalAccept>("JournalAccept");
@@ -268,6 +526,11 @@ public sealed partial class AutoQuest
                 return "unexpected_quest_accept";
             if (current.AcceptSent)
                 return null;
+            if (data.CheckAcceptance(target) is { } blocker)
+            {
+                current.RelatedID = blocker.RelatedID;
+                return blocker.Code;
+            }
             current.AcceptSent = ClickQuestButton((AtkUnitBase*)accept, accept->AcceptButton);
             return current.AcceptSent ? null : "quest_accept_unavailable";
         }
@@ -311,10 +574,13 @@ public sealed partial class AutoQuest
         return true;
     }
 
-    private static unsafe bool ExecuteEmote(uint id)
+    private static unsafe bool ExecuteEmote(uint id, ulong targetID)
     {
-        var manager = FFXIVClientStructs.FFXIV.Client.Game.Control.EmoteManager.Instance();
-        return id <= ushort.MaxValue && manager != null && manager->CanExecuteEmote((ushort)id) && manager->ExecuteEmote((ushort)id);
+        var manager = EmoteManager.Instance();
+        if (id > ushort.MaxValue || manager == null || !manager->CanExecuteEmote((ushort)id))
+            return false;
+        var option = new EmoteController.PlayEmoteOption { TargetId = targetID };
+        return manager->ExecuteEmote((ushort)id, &option);
     }
 
     private static bool SendQuestSpeech(string? text)

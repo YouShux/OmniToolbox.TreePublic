@@ -10,6 +10,7 @@ using OmniToolbox.Common.Module.Enums;
 using OmniToolbox.Common.Module.Models;
 using AgentContentsFinder = FFXIVClientStructs.Expansion.FFXIV.Client.UI.Agent.AgentContentsFinder;
 using ContentsFinderQueueInfo = FFXIVClientStructs.Expansion.FFXIV.Client.Game.UI.ContentsFinderQueueInfo;
+using ContentsType = FFXIVClientStructs.FFXIV.Client.UI.Agent.ContentsType;
 
 namespace OmniToolbox.TreePublic;
 
@@ -77,21 +78,26 @@ public sealed unsafe class AutoCommenceDuty : OmniModuleBase
 
     private void TryCommence()
     {
-        if (Activation.IsStopping)
-            return;
+        if (!Activation.IsStopping)
+            TryCommence(0);
+    }
 
+    internal static bool TryCommence(uint expectedDutyID)
+    {
         var contentsFinder = ContentsFinder.Instance();
         if (contentsFinder is null || contentsFinder->QueueInfo.QueueState != ContentsFinderQueueState.Ready)
-            return;
+            return false;
+        var entry = contentsFinder->QueueInfo.PoppedQueueEntry;
+        if (expectedDutyID != 0 && (entry.ContentType != ContentsType.Regular || entry.Id != expectedDutyID))
+            return false;
 
         var playerState = PlayerState.Instance();
         var conditions = Conditions.Instance();
         if (playerState is null || !playerState->IsLoaded || conditions is null || conditions->Dead ||
             playerState->CurrentClassJobId != contentsFinder->QueueInfo.QueuedClassJobId)
-            return;
+            return false;
 
         var agent = AgentContentsFinder.Instance();
-        if (agent is not null)
-            agent->RespondToDuty(true);
+        return agent is not null && agent->RespondToDuty(true);
     }
 }
