@@ -220,16 +220,19 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
         return TryUseMount();
     }
 
-    internal bool TryMountForNavigation(bool useRoulette = false)
+    internal bool TryMountForNavigation(bool useRoulette = false) =>
+        TryMountForNavigation(out _, useRoulette);
+
+    internal bool TryMountForNavigation(out bool canMount, bool useRoulette = false)
     {
         var services = DService.Instance();
         var territoryID = services.ClientState.TerritoryType;
         var request = new MountRequest(DalamudServices.PlayerState.ContentId, territoryID, MountTrigger.Navigation);
         var condition = services.Condition;
-        if (!IsMountRequestValid(request) || !IsMountSceneReady(territoryID) ||
-            mountTasks is { IsDisposed: true } || IsEnabled && mountTasks is null ||
-            dismountTasks is { IsBusy: true } || condition.IsOnMount ||
-            condition[ConditionFlag.InCombat])
+        canMount = IsMountRequestValid(request) && mountTasks is not { IsDisposed: true } &&
+                   (!IsEnabled || mountTasks is not null);
+        if (!canMount || !IsMountSceneReady(territoryID) || dismountTasks is { IsBusy: true } ||
+            condition.IsOnMount || condition[ConditionFlag.InCombat])
             return false;
 
         return TryUseMount(useRoulette) || mountTasks is { IsBusy: true };
