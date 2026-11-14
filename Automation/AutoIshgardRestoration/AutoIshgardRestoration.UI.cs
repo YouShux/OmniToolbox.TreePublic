@@ -10,7 +10,7 @@ public sealed partial class AutoIshgardRestoration
 {
     private bool windowOpen;
 
-    private bool windowExpanded;
+    private bool windowCollapsed;
 
     private readonly OmniWindowSize panelSize;
 
@@ -34,22 +34,19 @@ public sealed partial class AutoIshgardRestoration
         using var style = new OmniStyleScope();
         var runLabel = OmniLoc.Get(this, running || startPending
             ? "Feature.AutoIshgardRestoration.UI.Stop" : "Feature.AutoIshgardRestoration.UI.Start");
-        var actionLabel = OmniLoc.Get(this, windowExpanded
-            ? "Feature.AutoIshgardRestoration.UI.Collapse" : "Feature.AutoIshgardRestoration.UI.Expand");
-        var buttonSize = OmniAutomationPanel.MeasureButtons(runLabel, actionLabel);
-        panelSize.Apply(new(720f, 480f), new(320f, 240f),
-            windowExpanded ? null : OmniAutomationPanel.MeasureCompactSize(Title, buttonSize));
-        ImGui.SetNextWindowCollapsed(false, ImGuiCond.Always);
+        var compactLabel = OmniLoc.Get(this, panelSize.IsCompact
+            ? "Feature.AutoIshgardRestoration.UI.Expand" : "Feature.AutoIshgardRestoration.UI.Collapse");
+        var buttonSize = OmniAutomationPanel.MeasureButtons(runLabel, compactLabel);
+        OmniAutomationPanel.ApplySize(panelSize, new(720f, 480f), new(320f, 240f), windowCollapsed, Title, buttonSize);
         var flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoScrollbar |
                     ImGuiWindowFlags.NoBackground;
-        if (!windowExpanded) flags |= ImGuiWindowFlags.NoResize;
         OmniWindowChrome.SetNextWindowPosition("###AutoIshgardRestorationWindow");
         if (windowFocusRequested)
         {
             ImGui.SetNextWindowFocus();
             windowFocusRequested = false;
         }
-        if (!ImGui.Begin("###AutoIshgardRestorationWindow", flags))
+        if (!OmniWindowChrome.Begin("###AutoIshgardRestorationWindow", flags, windowCollapsed, panelSize.IsCompact))
         {
             ImGui.End();
             return;
@@ -58,7 +55,7 @@ public sealed partial class AutoIshgardRestoration
         try
         {
             panelSize.SaveAfterResize();
-            DrawWindowContents(ImGui.GetWindowPos(), ImGui.GetWindowSize(), buttonSize, runLabel, actionLabel);
+            DrawWindowContents(ImGui.GetWindowPos(), ImGui.GetWindowSize(), buttonSize, runLabel, compactLabel);
         }
         finally
         {
@@ -72,39 +69,31 @@ public sealed partial class AutoIshgardRestoration
         Vector2 windowSize,
         Vector2 buttonSize,
         string runLabel,
-        string actionLabel
+        string compactLabel
     )
     {
-        var (framePosition, frameSize) = OmniWindowChrome.GetFrameBounds(windowPosition, windowSize, false);
+        var (framePosition, frameSize) = OmniWindowChrome.GetFrameBounds(windowPosition, windowSize, windowCollapsed);
         var chrome = OmniAutomationPanel.DrawChrome(
             framePosition,
-            frameSize,
+            frameSize, windowCollapsed,
             Title,
             "##collapseAutoIshgardRestoration",
             "##closeAutoIshgardRestoration");
-        if (chrome.ToggleCollapse)
-        {
-            windowExpanded = !windowExpanded;
-            return;
-        }
 
         if (chrome.CloseClicked)
         {
             windowOpen = false;
             return;
         }
+        if (chrome.ApplyCollapse(ref windowCollapsed) || windowCollapsed) return;
 
-        var layout = OmniAutomationPanel.Arrange(framePosition, frameSize, !windowExpanded, buttonSize);
-        var buttons = OmniAutomationPanel.DrawButtons(layout, runLabel, running || startPending, actionLabel);
-        if (buttons.RunClicked)
+        var layout = OmniAutomationPanel.Arrange(framePosition, frameSize, buttonSize, showCollapseButton: true, minimumSelectorWidth: 0f, compact: panelSize.IsCompact);
+        var (runClicked, compactClicked) = OmniAutomationPanel.DrawButtons(layout, runLabel, running || startPending, compactLabel);
+        if (panelSize.ApplyCompact(compactClicked)) return;
+        if (runClicked)
             ToggleProduction();
-        if (buttons.CollapseClicked)
-        {
-            windowExpanded = !windowExpanded;
-            return;
-        }
-        if (!windowExpanded)
-            return;
+
+        if (panelSize.IsCompact) return;
 
         ImGui.SetCursorScreenPos(layout.ContentPosition);
         using var background = ImRaii.PushColor(ImGuiCol.ChildBg, Vector4.Zero);
@@ -125,6 +114,11 @@ public sealed partial class AutoIshgardRestoration
 
     private void DrawConfigurationContents()
     {
+        OmniAutomationPanel.DrawStatusLine(status,
+            string.IsNullOrWhiteSpace(lastError) ? null :
+                string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Error"), lastError),
+            showStatusLabel: true);
+
         var selected = FindRecipe(config.SelectedRecipeID);
         var playerState = DalamudServices.PlayerState;
         var jobID = playerState.IsLoaded ? playerState.ClassJob.RowId : 0;
@@ -256,9 +250,6 @@ public sealed partial class AutoIshgardRestoration
 
         UpdateVoucherCount(DateTime.UtcNow);
         ImGui.TextUnformatted(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.VoucherCount"), FormatVoucherCount(voucherCount, voucherLimit)));
-        ImGui.TextWrapped(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Status"), status));
-        if (!string.IsNullOrWhiteSpace(lastError))
-            ImGui.TextWrapped(string.Format(CultureInfo.InvariantCulture, OmniLoc.Get(this, "Feature.AutoIshgardRestoration.UI.Error"), lastError));
     }
 
     private void DrawScripPurchaseSettings()
@@ -344,8 +335,12 @@ public sealed partial class AutoIshgardRestoration
 
     private void OpenConfigurationWindow()
     {
-        windowOpen           = true;
-        windowExpanded       = false;
+        if (!windowOpen)
+        {
+            windowCollapsed = false;
+            panelSize.IsCompact = true;
+        }
+        windowOpen = true;
         windowFocusRequested = true;
     }
 }

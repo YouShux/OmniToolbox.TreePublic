@@ -277,25 +277,18 @@ public sealed partial class BetterGlamourManagement
             Volatile.Write(ref cachedPhoneStatus, Status());
         }
 
-        internal bool TryGetHairAppearance(out CustomizeData customize)
+        internal bool TryGetOriginalHairAppearance(out CustomizeData customize)
         {
             customize = default;
             if (!enabled || !Safe())
                 return false;
 
             if (ownsTryon && context?.ObjectTable.LocalPlayer?.Address == player && baselineHairAppearance is { } baseline)
-                customize = pendingPreset == null ? desired.CustomizeData : baseline;
+                customize = baseline;
             else if (getBaseHairAppearance?.Invoke() is { } current)
                 customize = current;
             else
                 return false;
-
-            if (pendingPreset is { } plan)
-            {
-                customize.HairColor       = plan.HairColor ?? customize.HairColor;
-                customize.HighlightsColor = plan.HighlightColor ?? customize.HighlightsColor;
-                customize.Highlights      = plan.HighlightsEnabled ?? customize.Highlights;
-            }
 
             return true;
         }

@@ -208,9 +208,11 @@ public sealed partial class BetterGlamourManagement
             return new()
             {
                 TexturePath = "ui/uld/ListColorChooser.tex",
-                TextureCoordinates = new(48f, 88f),
-                TextureSize = new(40f),
-                Size = new(40f),
+                // 混合层仅覆盖色块，避免透明留边参与混合。
+                TextureCoordinates = new(54f, 94f),
+                TextureSize = new(28f),
+                Position = new(6f),
+                Size = new(28f),
                 WrapMode = WrapMode.Stretch,
                 ImageNodeFlags = flags,
                 AddColor = new(highlight ? 0f : -128f / 255f),

@@ -25,7 +25,6 @@ public sealed class AutoFateSync : OmniModuleBase
         });
 
     private ushort currentFateID;
-    private bool syncConfirmed;
     private long nextSyncAttempt;
 
     public Func<bool>? IsAutomationRunning { get; set; }
@@ -39,7 +38,7 @@ public sealed class AutoFateSync : OmniModuleBase
         activation.OnStopping(() => framework.Unreg(OnUpdate));
     }
 
-    private unsafe void OnUpdate(IFramework _)
+    private unsafe void OnUpdate(IFramework framework)
     {
         if (!IsEnabled || Activation.IsStopping) return;
         if (IsAutomationRunning?.Invoke() == true)
@@ -51,7 +50,7 @@ public sealed class AutoFateSync : OmniModuleBase
         var services = DService.Instance();
         var condition = services.Condition;
         if (!services.ClientState.IsLoggedIn || condition.IsBetweenAreas ||
-            services.ObjectTable.LocalPlayer is not { } player)
+            services.ObjectTable.LocalPlayer is null)
         {
             SetCurrentFate(0);
             return;
@@ -67,27 +66,45 @@ public sealed class AutoFateSync : OmniModuleBase
 
         if (currentFateID != fate->FateId)
             SetCurrentFate(fate->FateId);
-        if (syncConfirmed) return;
-        if (manager->IsSyncedToFate(fate))
-        {
-            syncConfirmed = true;
-            return;
-        }
-        if (TargetManager.Target is not IBattleNPC { IsDead: false } target || target.FateID != currentFateID ||
-            fate->MaxLevel == 0 || player.Level <= fate->MaxLevel || condition.IsOnMount ||
+        if (TargetManager.Target is IBattleNPC { IsDead: false } target && target.FateID == currentFateID)
+            EnsureTargetLevel(target, ref nextSyncAttempt, out _);
+    }
+
+    // 自动流程直接使用同一同步逻辑，无需启用面向手动战斗的模块。
+    public static unsafe bool EnsureTargetLevel(IBattleNPC target, ref long nextAttempt, out bool requested)
+    {
+        requested = false;
+        var fateID = target.FateID;
+        if (fateID == 0) return true;
+        var services = DService.Instance();
+        var condition = services.Condition;
+        var manager = FateManager.Instance();
+        if (manager == null || !services.ClientState.IsLoggedIn || condition.IsBetweenAreas ||
+            services.ObjectTable.LocalPlayer is not { } player)
+            return false;
+
+        var fate = manager->GetFateById(fateID);
+        if (fate == null || fate->State is not (FateState.Preparing or FateState.Running) || fate->MaxLevel == 0)
+            return false;
+        if (player.Level <= fate->MaxLevel || manager->IsSyncedToFate(fate))
+            return true;
+        if (manager->GetCurrentFateId() != fateID || condition.IsOnMount ||
             condition[ConditionFlag.InFlight] || condition[ConditionFlag.Unconscious])
-            return;
+            return false;
 
         var now = Environment.TickCount64;
-        if (now < nextSyncAttempt) return;
-        nextSyncAttempt = now + 1_000;
-        FateCommand.SyncLevel(currentFateID);
+        if (now >= nextAttempt)
+        {
+            nextAttempt = now + 1_000;
+            FateCommand.SyncLevel(fateID);
+            requested = true;
+        }
+        return false;
     }
 
     private void SetCurrentFate(ushort fateID)
     {
         currentFateID = fateID;
-        syncConfirmed = false;
         nextSyncAttempt = 0;
     }
 }

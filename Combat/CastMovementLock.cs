@@ -2,7 +2,6 @@ using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Game.ClientState.Keys;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.Expansion.FFXIV.Client.Game.Control;
-using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.System.Input;
 using OmenTools;
 using OmenTools.OmenService;
@@ -137,7 +136,7 @@ public sealed unsafe class CastMovementLock : OmniModuleBase
                !service.KeyState[key] && !service.KeyState[(VirtualKey)leftKey] &&
                !service.KeyState[(VirtualKey)(leftKey + 1)] &&
                service.ObjectTable.LocalPlayer is { IsCasting: true } player &&
-               player.CastActionType != ActionType.Mount &&
+               !AutoMount.IsMountCast(player) &&
                service.Condition[ConditionFlag.Casting];
     }
 

@@ -87,6 +87,10 @@ public sealed partial class SkillMonitor
                 if (member.Visible)
                     BuildMemberLayout(memberIndex, member.ClassJobID, member.Level, partyList);
             }
+            if (iconLayout.Count == 0)
+                return;
+
+            var skin = HotbarSkin.Read();
             foreach (var clip in GameWindowClip.GetVisibleRegions())
             {
                 drawList.PushClipRect(clip.Min, clip.Max, true);
@@ -97,7 +101,7 @@ public sealed partial class SkillMonitor
                     {
                         continue;
                     }
-                    DrawIcon(drawList, icon);
+                    DrawIcon(drawList, icon, skin);
                 }
                 drawList.PopClipRect();
             }
@@ -246,24 +250,41 @@ public sealed partial class SkillMonitor
             return new(definitionIndex, state, position, size, text, textPosition, fontSize, color, minimum, maximum);
         }
 
-        private void DrawIcon(ImDrawListPtr drawList, IconLayout icon)
+        private void DrawIcon(ImDrawListPtr drawList, IconLayout icon, HotbarSkin skin)
         {
             var definition = definitions[icon.Definition];
             var state = icon.State;
+            var active = state.DisplayState == SkillMonitorDisplayState.Active;
+            var coolingDown = !definition.IsFood && state.DisplayState == SkillMonitorDisplayState.Cooldown;
+            var nativeFrame = !definition.IsFood && skin.Frame.Handle != nint.Zero;
+            var nativeCooldown = coolingDown && skin.Cooldown.Handle != nint.Zero;
+            var iconPosition = nativeFrame ? icon.Position + icon.Size * new Vector2(4f / 48f, 3f / 48f) : icon.Position;
+            var iconSize = nativeFrame ? icon.Size * (40f / 48f) : icon.Size;
             FramedGameIcon.Draw(
                 drawList,
                 definition.IconID,
-                icon.Position,
-                icon.Size,
+                iconPosition,
+                iconSize,
                 dimmed: state.DisplayState == SkillMonitorDisplayState.Inactive,
-                active: state.DisplayState == SkillMonitorDisplayState.Active,
-                drawFrame: !definition.IsFood,
+                active: active && !nativeFrame,
+                drawFrame: !definition.IsFood && !nativeFrame,
                 preserveAspectRatio: definition.IsFood);
-            if (!definition.IsFood && state.DisplayState == SkillMonitorDisplayState.Cooldown)
-            {
+
+            if (coolingDown && !nativeCooldown)
                 DrawCooldownMask(drawList, icon.Position, icon.Size, state.CooldownProgress);
-                FramedGameIcon.DrawFrame(drawList, icon.Position, icon.Size);
+
+            if (nativeFrame)
+            {
+                drawList.AddImage(skin.Frame.TextureID, icon.Position, icon.Position + icon.Size,
+                    skin.Frame.UVMinimum, skin.Frame.UVMaximum, OmniTheme.Color(Vector4.One));
+                if (active)
+                    FramedGameIcon.DrawActiveFrame(drawList, icon.Position, icon.Size);
             }
+            else if (coolingDown && !nativeCooldown)
+                FramedGameIcon.DrawFrame(drawList, icon.Position, icon.Size);
+
+            if (nativeCooldown)
+                skin.DrawCooldown(drawList, icon.Position, icon.Size, state.CooldownProgress);
             if (icon.Text.Length > 0)
                 DrawOutlinedText(drawList, icon.Text, icon.TextPosition, icon.Color, icon.FontSize);
         }

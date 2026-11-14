@@ -59,6 +59,7 @@ public sealed partial class BetterGlamourManagement
         private readonly List<GearsetOption>                                         gearsetOptions          = [];
         private readonly Dictionary<BetterGlamourItem, uint>                         previousItems           = [];
         private readonly Dictionary<(BetterGlamourItem Item, int Channel), byte>     previousDyes            = [];
+        private readonly Dictionary<int, byte?>                                     previousHairColors      = [];
         private List<BetterGlamourPreset>                                            presets                 = [];
         private BetterGlamourPreset?                                                 selectedPreset;
         private bool                                                                 pendingEditorRefresh;
@@ -319,6 +320,7 @@ public sealed partial class BetterGlamourManagement
             ClosePickers();
             previousItems.Clear();
             previousDyes.Clear();
+            previousHairColors.Clear();
         }
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
@@ -345,6 +347,7 @@ public sealed partial class BetterGlamourManagement
             pendingGearsetRefresh = false;
             previousItems.Clear();
             previousDyes.Clear();
+            previousHairColors.Clear();
             presetListNode      = null;
             separatorNode       = null;
             emptyNode           = null;
@@ -455,6 +458,7 @@ public sealed partial class BetterGlamourManagement
         {
             previousItems.Clear();
             previousDyes.Clear();
+            previousHairColors.Clear();
             presets        = newPresets;
             selectedPreset = presets.Count == 0
                 ? null
@@ -498,6 +502,7 @@ public sealed partial class BetterGlamourManagement
             selectedPreset = preset;
             previousItems.Clear();
             previousDyes.Clear();
+            previousHairColors.Clear();
             onSelected(preset);
             ApplySelection();
         }
@@ -645,7 +650,9 @@ public sealed partial class BetterGlamourManagement
                     NotifyPresetChanged(owner);
                 },
                 editorHairAppearance,
-                ClearItem: () => ClearItemSelection(owner, BetterGlamourEditorItemKind.Hairstyle, null));
+                ClearDye: channel => SetHairColor(owner, channel, null),
+                ClearItem: () => ClearItemSelection(owner, BetterGlamourEditorItemKind.Hairstyle, null),
+                UndoDye: channel => UndoHairColor(owner, channel));
             var glasses = new BetterGlamourEditorRow(
                 OmniLoc.Get("Feature.BetterGlamourManagement.Part.Glasses"),
                 owner,
@@ -687,8 +694,13 @@ public sealed partial class BetterGlamourManagement
 
         private CustomizeData? GetHairAppearance()
         {
-            if (selectedPreset is not { } preset || !portraitPreview.TryGetHairAppearance(out var appearance))
+            if (selectedPreset is not { } preset || !portraitPreview.TryGetOriginalHairAppearance(out var appearance))
                 return null;
+            return ApplyHairColors(preset, appearance);
+        }
+
+        private static CustomizeData ApplyHairColors(BetterGlamourPreset preset, CustomizeData appearance)
+        {
             appearance.HairColor       = preset.HairColor ?? appearance.HairColor;
             appearance.HighlightsColor = preset.HighlightColor ?? appearance.HighlightsColor;
             appearance.Highlights      = preset.HighlightsEnabled ?? appearance.Highlights;
@@ -862,26 +874,44 @@ public sealed partial class BetterGlamourManagement
 
         private void OpenHairColor(BetterGlamourPreset owner)
         {
-            if (!IsCurrentPreset(owner) || GetHairAppearance() is not { } appearance ||
-                !TryGetHairPalette(appearance.Tribe, appearance.Sex, false, out var hairColors) ||
-                !TryGetHairPalette(appearance.Tribe, appearance.Sex, true, out var highlightColors) ||
-                !portraitPreview.TryGetHairAppearance(out var originalAppearance))
+            if (!IsCurrentPreset(owner) || !portraitPreview.TryGetOriginalHairAppearance(out var originalAppearance) ||
+                !TryGetHairPalette(originalAppearance.Tribe, originalAppearance.Sex, false, out var hairColors) ||
+                !TryGetHairPalette(originalAppearance.Tribe, originalAppearance.Sex, true, out var highlightColors))
                 return;
+            var appearance = ApplyHairColors(owner, originalAppearance);
             itemPicker?.Close();
             dyePicker?.Close();
             hairColorPicker ??= new();
             hairColorPicker.OpenFor(hairColors, highlightColors, appearance.HairColor, appearance.HighlightsColor,
                 originalAppearance.HairColor, originalAppearance.HighlightsColor,
-                (channel, color) =>
-                {
-                    if (!IsCurrentPreset(owner))
-                        return;
-                    if (channel == 0)
-                        owner.HairColor = color;
-                    else
-                        owner.HighlightColor = color;
-                    NotifyPresetChanged(owner);
-                });
+                (channel, color) => SetHairColor(owner, channel, color),
+                channel => UndoHairColor(owner, channel));
+        }
+
+        private void SetHairColor(BetterGlamourPreset owner, int channel, byte? color)
+        {
+            if (!IsCurrentPreset(owner))
+                return;
+            var previous = channel == 0 ? owner.HairColor : owner.HighlightColor;
+            if (previous == color)
+                return;
+            previousHairColors[channel] = previous;
+            ApplyHairColor(owner, channel, color);
+        }
+
+        private void UndoHairColor(BetterGlamourPreset owner, int channel)
+        {
+            if (IsCurrentPreset(owner) && previousHairColors.Remove(channel, out var color))
+                ApplyHairColor(owner, channel, color);
+        }
+
+        private void ApplyHairColor(BetterGlamourPreset owner, int channel, byte? color)
+        {
+            if (channel == 0)
+                owner.HairColor = color;
+            else
+                owner.HighlightColor = color;
+            NotifyPresetChanged(owner);
         }
 
         private void ClosePickers()

@@ -45,9 +45,13 @@ public sealed partial class AutoQuest
 
     private void OpenWindow()
     {
+        if (!windowOpen)
+        {
+            panelCollapsed = false;
+            panelSize.IsCompact = false;
+        }
         windowOpen = true;
         panelFocusRequested = true;
-        panelCollapsed = false;
     }
 
     private void DrawWindow()
@@ -60,21 +64,18 @@ public sealed partial class AutoQuest
 
         var running = operations.Current is not null;
         var runLabel = OmniLoc.Get(this, running ? "Stop" : "Start");
-        var actionLabel = OmniLoc.Get(this, panelCollapsed ? "Expand" : "Collapse");
-        var buttonSize = OmniAutomationPanel.MeasureButtons(runLabel, actionLabel);
-        panelSize.Apply(new(780f, 620f), new(360f, 300f),
-            panelCollapsed ? OmniAutomationPanel.MeasureCompactSize(Title, buttonSize) : null);
+        var compactLabel = OmniLoc.Get(this, panelSize.IsCompact ? "Expand" : "Collapse");
+        var buttonSize = OmniAutomationPanel.MeasureButtons(runLabel, compactLabel);
+        OmniAutomationPanel.ApplySize(panelSize, new(780f, 620f), new(360f, 300f), panelCollapsed, Title, buttonSize);
         if (panelFocusRequested)
         {
             ImGui.SetNextWindowFocus();
             panelFocusRequested = false;
         }
-        ImGui.SetNextWindowCollapsed(false, ImGuiCond.Always);
         OmniWindowChrome.SetNextWindowPosition("###OmniAutoQuest");
         var flags = ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoCollapse |
                     ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.NoScrollbar;
-        if (panelCollapsed) flags |= ImGuiWindowFlags.NoResize;
-        if (!ImGui.Begin("###OmniAutoQuest", flags))
+        if (!OmniWindowChrome.Begin("###OmniAutoQuest", flags, panelCollapsed, panelSize.IsCompact))
         {
             ImGui.End();
             return;
@@ -83,24 +84,17 @@ public sealed partial class AutoQuest
         {
             var status = GetStatus();
             panelSize.SaveAfterResize();
-            var (framePosition, frameSize) = OmniWindowChrome.GetFrameBounds(ImGui.GetWindowPos(), ImGui.GetWindowSize(), false);
-            var chrome = OmniAutomationPanel.DrawChrome(framePosition, frameSize, Title,
+            var (framePosition, frameSize) = OmniWindowChrome.GetFrameBounds(ImGui.GetWindowPos(), ImGui.GetWindowSize(), panelCollapsed);
+            var chrome = OmniAutomationPanel.DrawChrome(framePosition, frameSize, panelCollapsed, Title,
                 "##collapseAutoQuest", "##closeAutoQuest");
             if (chrome.CloseClicked) { windowOpen = false; return; }
-            if (chrome.ToggleCollapse) { panelCollapsed = !panelCollapsed; return; }
+            if (chrome.ApplyCollapse(ref panelCollapsed) || panelCollapsed) return;
 
-            var statusText = OmniLoc.Get(this, "Status") + ": " + OmniLoc.Get(this, "Phase." + status.Phase);
-            var layout = OmniAutomationPanel.Arrange(framePosition, frameSize, panelCollapsed, buttonSize,
-                OmniTextMeasurements.Measure(statusText).X);
-            if (!panelCollapsed)
-            {
-                ImGui.SetCursorScreenPos(layout.SelectorPosition);
-                ImGui.AlignTextToFramePadding();
-                ImGui.TextUnformatted(statusText);
-            }
-            var buttons = OmniAutomationPanel.DrawButtons(layout, runLabel, running, actionLabel,
+            var layout = OmniAutomationPanel.Arrange(framePosition, frameSize, buttonSize, showCollapseButton: true, minimumSelectorWidth: 0f, compact: panelSize.IsCompact);
+            var (runClicked, compactClicked) = OmniAutomationPanel.DrawButtons(layout, runLabel, running, compactLabel,
                 !running && (starting || restoring || selected.Count == 0));
-            if (buttons.RunClicked)
+            if (panelSize.ApplyCompact(compactClicked)) return;
+            if (runClicked)
             {
                 if (operations.Current is { } active)
                     CancelOperation(active.OperationID);
@@ -111,12 +105,8 @@ public sealed partial class AutoQuest
                         Targets = [.. selected.OrderBy(static item => item.Type).ThenBy(static item => item.ID)]
                     }));
             }
-            if (buttons.CollapseClicked)
-            {
-                panelCollapsed = !panelCollapsed;
-                return;
-            }
-            if (panelCollapsed) return;
+
+            if (panelSize.IsCompact) return;
 
             ImGui.SetCursorScreenPos(layout.ContentPosition);
             using var childColor = ImRaii.PushColor(ImGuiCol.ChildBg, Vector4.Zero);
@@ -125,15 +115,20 @@ public sealed partial class AutoQuest
                 ImGuiWindowFlags.NoBackground | ImGuiWindowFlags.AlwaysUseWindowPadding);
             if (!child) return;
 
-            ImGui.TextWrapped($"{status.Completed}/{status.Completed + status.Remaining} · {status.Blocked}");
+            var idle = status.Phase == QuestExecutionPhase.Idle;
+            var statusText = idle ? null : OmniLoc.Get(this, "Phase." + status.Phase);
+            var notice = panelError is { Length: > 0 } ? FormatBlocker(panelError) : null;
+            if (status.Reason is { Length: > 0 } reason && reason != panelError)
+                notice = notice is null ? FormatBlocker(reason) : $"{notice} · {FormatBlocker(reason)}";
+            OmniAutomationPanel.DrawStatusLine(statusText, notice,
+                string.IsNullOrEmpty(panelError) && status.Phase == QuestExecutionPhase.Waiting ? OmniTheme.Tokens.Warning : null,
+                showStatusLabel: true);
+            if (!idle)
+                ImGui.TextWrapped($"{status.Completed}/{status.Completed + status.Remaining} · {status.Blocked}");
             if (status.CurrentTarget is { } current)
                 ImGui.TextWrapped($"{current.ID} · {status.Sequence} · {status.Step}");
-            if (status.Reason is { Length: > 0 } reason)
-                ImGui.TextWrapped(FormatBlocker(reason));
             DrawOperationControls(status);
             ImGui.Spacing();
-            if (panelError is { Length: > 0 })
-                ImGui.TextWrapped(FormatBlocker(panelError));
             var searchLabel = OmniLoc.Get(this, "Search");
             var typePreview = filter is { } type ? OmniLoc.Get(this, "Type." + type) : OmniLoc.Get(this, "AllTypes");
             var typeSize = OmniControls.MeasureCombo(OmniLoc.Get(this, "AllTypes"));

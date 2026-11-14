@@ -160,7 +160,7 @@ public sealed partial class PartyFinderInDuty
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var rawSnapshot = shareService.GetSnapshot();
         var snapshot = rawSnapshot
-            .Where(listing => IsActiveListing(listing, now))
+            .Where(listing => IsActiveListing(listing, now) && !IsDutyHidden(listing.DutyType, listing.DutyID))
             .OrderByDescending(listing => listing.ObservedAt)
             .DistinctBy(listing => listing.ID)
             .ToArray();

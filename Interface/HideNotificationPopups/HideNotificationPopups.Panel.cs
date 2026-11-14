@@ -32,8 +32,7 @@ public sealed unsafe partial class HideNotificationPopups
         var rows = (displayBannerIDs.Length + columns) / columns;
         var cardHeight = MathF.Ceiling(MathF.Max(OmniTheme.Scale(88f), ImGui.GetTextLineHeightWithSpacing() * 3f));
         var rowHeight = cardHeight + style.CellPadding.Y * 2f;
-        var tableHeight = MathF.Min(Math.Min(rows, 6) * rowHeight,
-            MathF.Max(rowHeight, ImGui.GetContentRegionAvail().Y - style.ItemSpacing.Y));
+        var tableHeight = Math.Min(rows, 6) * rowHeight;
         using var table = ImRaii.Table("##notificationPopups", columns,
             ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingStretchSame | ImGuiTableFlags.NoSavedSettings,
             new Vector2(availableWidth, tableHeight));

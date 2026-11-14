@@ -20,7 +20,9 @@ public sealed unsafe class AutoConfirmAreaTravel : OmniModuleBase
     public override ModuleInfo Info { get; } = new()
     {
         Category = ModuleCategory.Automation,
-        Author   = "YouShu"
+        Author   = "YouShu",
+        PreviewImageURL = System.IO.Path.Combine(DalamudServices.PluginInterface.AssemblyLocation.DirectoryName!,
+            "Assets", "AutoConfirmAreaTravel-1.png")
     };
 
     public override ModuleLocalization Localization { get; } = ModuleLocalization.FromResources(

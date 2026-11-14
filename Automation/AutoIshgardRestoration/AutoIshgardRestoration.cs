@@ -153,7 +153,6 @@ public sealed partial class AutoIshgardRestoration : OmniModuleBase
             ["Feature.AutoIshgardRestoration.UI.SelectPurchaseItem"] = "Feature.AutoIshgardRestoration.UI.SelectPurchaseItem",
             ["Feature.AutoIshgardRestoration.UI.SelectRecipe"] = "Feature.AutoIshgardRestoration.UI.SelectRecipe",
             ["Feature.AutoIshgardRestoration.UI.Start"] = "Feature.AutoIshgardRestoration.UI.Start",
-            ["Feature.AutoIshgardRestoration.UI.Status"] = "Feature.AutoIshgardRestoration.UI.Status",
             ["Feature.AutoIshgardRestoration.UI.Stop"] = "Feature.AutoIshgardRestoration.UI.Stop",
             ["Feature.AutoIshgardRestoration.UI.StopThreshold"] = "Feature.AutoIshgardRestoration.UI.StopThreshold",
             ["Feature.AutoIshgardRestoration.UI.StopThresholdHelp"] = "Feature.AutoIshgardRestoration.UI.StopThresholdHelp",
@@ -206,7 +205,7 @@ public sealed partial class AutoIshgardRestoration : OmniModuleBase
         if (!GameState.IsCN)
             throw new InvalidOperationException(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.CNOnly"));
 
-        status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.Idle");
+        status = null;
         Activation.OnStopping(() => DalamudServices.Framework.Update -= OnFrameworkUpdate);
         DalamudServices.Framework.Update += OnFrameworkUpdate;
         Activation.OnStopping(() => DalamudServices.PluginInterface.UiBuilder.Draw -= DrawConfigurationWindow);
@@ -271,7 +270,7 @@ public sealed partial class AutoIshgardRestoration : OmniModuleBase
         if (running || startPending)
         {
             startPending = false;
-            StopProduction(OmniLoc.Get(this, "Feature.AutoIshgardRestoration.Stopped"));
+            StopProduction();
             return;
         }
 

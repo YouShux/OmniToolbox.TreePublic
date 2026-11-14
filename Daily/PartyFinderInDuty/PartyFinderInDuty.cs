@@ -25,8 +25,9 @@ namespace OmniToolbox.Modules;
 [ModuleApiVersion(1)]
 public sealed unsafe partial class PartyFinderInDuty
 (
-    IFeatureAccess           featureGate,
-    IPartyFinderShareService shareService
+    PartyFinderInDuty.Settings config,
+    IFeatureAccess             featureGate,
+    IPartyFinderShareService   shareService
 ) : OmniModuleBase
 {
     public override ModuleInfo Info { get; } = new()
@@ -50,7 +51,14 @@ public sealed unsafe partial class PartyFinderInDuty
             ["PresentJobs"] = "Feature.PartyFinderInDuty.PresentJobs",
             ["NoJobRestriction"] = "Feature.PartyFinderInDuty.NoJobRestriction",
             ["None"] = "Feature.PartyFinderInDuty.None",
-            ["Close"] = "Feature.PartyFinderInDuty.Close"
+            ["Close"] = "Feature.PartyFinderInDuty.Close",
+            ["HiddenOnly"] = "Feature.PartyFinderInDuty.HiddenOnly",
+            ["DutySearch"] = "Feature.PartyFinderInDuty.DutySearch",
+            ["DutyName"] = "Feature.PartyFinderInDuty.DutyName",
+            ["DutyType"] = "Feature.PartyFinderInDuty.DutyType",
+            ["HideMatchingDuties"] = "Feature.PartyFinderInDuty.HideMatchingDuties",
+            ["UnhideMatchingDuties"] = "Feature.PartyFinderInDuty.UnhideMatchingDuties",
+            ["NoMatchingDuties"] = "Feature.PartyFinderInDuty.NoMatchingDuties"
         });
 
     private Hook<AgentInterface.Delegates.IsActivatable>                 IsActivatableHook           = null!;
@@ -141,6 +149,9 @@ public sealed unsafe partial class PartyFinderInDuty
         agentLifecycle.RegisterListener(AgentEvent.PreReceiveEvent,
             Dalamud.Game.Agent.AgentId.LookingForGroup, OnAgentEvent);
         activation.OnStopping(() => agentLifecycle.UnregisterListener(OnAgentEvent));
+        var partyFinder = DService.Instance().PartyFinder;
+        partyFinder.ReceiveListing += OnReceiveListing;
+        activation.OnStopping(() => partyFinder.ReceiveListing -= OnReceiveListing);
         FrameworkManager.Instance().Reg(OnFrameworkUpdate);
         activation.OnStopping(() => FrameworkManager.Instance().Unreg(OnFrameworkUpdate));
 

@@ -237,7 +237,7 @@ public sealed partial class BetterGlamourManagement
                     : data.Preset.HighlightColor ?? customize.HighlightsColor;
                 dye.SetColor(colorID < colors.Length ? colors[colorID] : KnownColor.Gray.Vector());
                 dye.IsEnabled   = true;
-                dye.TextTooltip = $"{label}：{colorID}";
+                dye.TextTooltip = $"{label}：{colorID}\n{OmniLoc.Get("Feature.BetterGlamourManagement.HairColors.EditorClickHint")}";
             }
         }
     }

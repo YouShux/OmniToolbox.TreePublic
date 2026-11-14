@@ -1,3 +1,4 @@
+using Dalamud.Game.ClientState.Keys;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using KamiToolKit.BaseTypes;
 using KamiToolKit.Nodes;
@@ -69,7 +70,10 @@ public sealed partial class BetterGlamourManagement
         private readonly HairColorSwatchNode?[,]     previewNodes        = new HairColorSwatchNode?[2, 2];
         private readonly TextNode?[,]                previewLabels       = new TextNode?[2, 2];
         private readonly SimpleImageNode?[]          selectionFrames     = new SimpleImageNode?[2];
-        private Action<int, byte>?                   onSelected;
+        private SimpleImageNode?                     hoverFrame;
+        private HairColorSwatchNode?                 hoveredSwatch;
+        private Action<int, byte?>?                  onSelected;
+        private Action<int>?                         onUndo;
         private Vector2                              lastContentPosition;
         private Vector2                              lastContentSize;
 
@@ -93,7 +97,8 @@ public sealed partial class BetterGlamourManagement
             byte              highlightColor,
             byte              originalHairColor,
             byte              originalHighlightColor,
-            Action<int, byte> selected
+            Action<int, byte?> selected,
+            Action<int>        undo
         )
         {
             colors[0]      = hairPalette;
@@ -103,6 +108,7 @@ public sealed partial class BetterGlamourManagement
             originalIDs[0] = originalHairColor;
             originalIDs[1] = originalHighlightColor;
             onSelected     = selected;
+            onUndo         = undo;
             if (!IsOpen)
                 Size = GetRequiredContentSize() + new Vector2(ContentPadding.X * 2f + 8f, ContentPadding.Y + 54f);
             else
@@ -160,7 +166,9 @@ public sealed partial class BetterGlamourManagement
         protected override unsafe void OnHide(AtkUnitBase* addon)
         {
             RootNode.HideTooltip();
+            SetHoveredSwatch(null);
             onSelected = null;
+            onUndo     = null;
         }
 
         protected override unsafe void OnFinalize(AtkUnitBase* addon)
@@ -168,17 +176,23 @@ public sealed partial class BetterGlamourManagement
             Array.Clear(previewNodes);
             Array.Clear(previewLabels);
             Array.Clear(selectionFrames);
+            hoverFrame   = null;
+            hoveredSwatch = null;
             for (var channel = 0; channel < colors.Length; channel++)
             {
                 swatches[channel].Clear();
                 colors[channel] = [];
             }
             onSelected          = null;
+            onUndo              = null;
             lastContentPosition = lastContentSize = Vector2.Zero;
         }
 
         private unsafe void RebuildPalettes()
         {
+            SetHoveredSwatch(null);
+            NativeNodeDetach.DetachAndDispose(hoverFrame);
+            hoverFrame = null;
             for (var channel = 0; channel < colors.Length; channel++)
             {
                 var previousFrame = selectionFrames[channel];
@@ -195,61 +209,76 @@ public sealed partial class BetterGlamourManagement
                 var name = OmniLoc.Get(channel == 0
                     ? "Feature.BetterGlamourManagement.HairColor"
                     : "Feature.BetterGlamourManagement.HighlightColor");
+                var hint = OmniLoc.Get("Feature.BetterGlamourManagement.HairColors.PaletteClickHint");
                 for (var index = 0; index < colors[channel].Length; index++)
                 {
                     if (index >= nodes.Count)
                     {
                         var colorID = (byte)index;
                         var swatch = new HairColorSwatchNode();
+                        swatch.CollisionNode.ShowClickableCursor = true;
+                        swatch.CollisionNode.AddEvent(AtkEventType.MouseOver, () => SetHoveredSwatch(swatch));
+                        swatch.CollisionNode.AddEvent(AtkEventType.MouseOut, () =>
+                        {
+                            if (ReferenceEquals(hoveredSwatch, swatch))
+                                SetHoveredSwatch(null);
+                        });
                         swatch.CollisionNode.AddEvent(AtkEventType.MouseClick, (_, _, _, _, eventData) =>
                         {
-                            if (eventData is not null && eventData->IsLeftClick)
-                                SelectColor(paletteChannel, colorID);
+                            if (eventData is null)
+                                return;
+                            if (eventData->IsLeftClick)
+                                onSelected?.Invoke(paletteChannel, colorID);
+                            else if (eventData->IsRightClick)
+                            {
+                                if (DalamudServices.KeyState[VirtualKey.CONTROL])
+                                    onUndo?.Invoke(paletteChannel);
+                                else
+                                    onSelected?.Invoke(paletteChannel, null);
+                            }
                         });
                         swatch.AttachNode(this);
                         nodes.Add(swatch);
                     }
                     nodes[index].Color = colors[channel][index];
-                    nodes[index].CollisionNode.SetTextTooltip($"{name}：{index}");
+                    nodes[index].CollisionNode.SetTextTooltip($"{name}：{index}\n{hint}");
                 }
-                var frame = new SimpleImageNode
-                {
-                    TexturePath = "ui/uld/CharaMake.tex",
-                    TextureCoordinates = new(428f, 180f),
-                    TextureSize = new(20f, 16f),
-                    Size = new(20f, 16f),
-                    Scale = new((SWATCH_WIDTH + 4f) / 20f, (SWATCH_HEIGHT + 4f) / 16f)
-                };
+                var frame = CreateColorFrame(new(SWATCH_WIDTH + 4f, SWATCH_HEIGHT + 4f));
                 frame.AttachNode(this);
                 selectionFrames[channel] = frame;
             }
+            hoverFrame = CreateColorFrame(new(SWATCH_WIDTH, SWATCH_HEIGHT));
+            hoverFrame.Alpha = 0.65f;
+            hoverFrame.AttachNode(this);
             lastContentSize = Vector2.Zero;
             ResizeContent();
             NativeNodeDetach.UpdateNodeLists((AtkUnitBase*)this);
         }
 
-        private void SelectColor
-        (
-            int  channel,
-            byte colorID
-        )
+        private static SimpleImageNode CreateColorFrame(Vector2 size) => new()
         {
-            if (colorID >= colors[channel].Length || onSelected is null)
+            TexturePath = "ui/uld/CharaMake.tex",
+            TextureCoordinates = new(428f, 180f),
+            TextureSize = new(20f, 16f),
+            Size = new(20f, 16f),
+            Scale = size / new Vector2(20f, 16f),
+            IsVisible = false
+        };
+
+        private void SetHoveredSwatch(HairColorSwatchNode? swatch)
+        {
+            hoveredSwatch = swatch;
+            if (hoverFrame is not { } frame)
                 return;
-            selectedIDs[channel] = colorID;
-            RefreshSelection();
-            onSelected(channel, colorID);
+            frame.IsVisible = swatch is not null;
+            if (swatch is not null)
+                frame.Position = swatch.Position;
         }
 
         private void RefreshSelection()
         {
             for (var channel = 0; channel < colors.Length; channel++)
             {
-                foreach (var swatch in swatches[channel])
-                {
-                    swatch.Alpha                             = 1f;
-                    swatch.CollisionNode.ShowClickableCursor = true;
-                }
                 if (selectionFrames[channel] is { } frame)
                 {
                     var index = selectedIDs[channel];
@@ -268,6 +297,7 @@ public sealed partial class BetterGlamourManagement
                         preview.Color = colors[channel][index];
                 }
             }
+            SetHoveredSwatch(hoveredSwatch);
         }
 
         private void ResizeContent()

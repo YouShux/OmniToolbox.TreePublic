@@ -5,6 +5,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using Lumina.Excel.Sheets;
 using OmenTools;
+using OmenTools.Dalamud.Services.Game.Object.Abstractions.ObjectKinds;
 using OmenTools.Extensions;
 using OmenTools.Interop.Game.Lumina;
 using OmenTools.OmenService;
@@ -211,7 +212,7 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
         if (!IsMountSceneReady(request.TerritoryID))
             return false;
         if (!IsMountRequestValid(request) || condition.IsOnMount ||
-            condition[ConditionFlag.InCombat] || LocalPlayerState.Instance().IsMoving)
+            condition[ConditionFlag.InCombat])
         {
             mountTasks?.Abort();
             return true;
@@ -219,7 +220,7 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
         return TryUseMount();
     }
 
-    internal bool TryMountForNavigation()
+    internal bool TryMountForNavigation(bool useRoulette = false)
     {
         var services = DService.Instance();
         var territoryID = services.ClientState.TerritoryType;
@@ -228,13 +229,22 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
         if (!IsMountRequestValid(request) || !IsMountSceneReady(territoryID) ||
             mountTasks is { IsDisposed: true } || IsEnabled && mountTasks is null ||
             dismountTasks is { IsBusy: true } || condition.IsOnMount ||
-            condition[ConditionFlag.InCombat] || LocalPlayerState.Instance().IsMoving)
+            condition[ConditionFlag.InCombat])
             return false;
 
-        return mountTasks is { IsBusy: true } || TryUseMount();
+        return TryUseMount(useRoulette) || mountTasks is { IsBusy: true };
     }
 
-    private bool TryUseMount()
+    internal static bool IsMountCast(IBattleChara? player) =>
+        player is { IsCasting: true } &&
+        (player.CastActionType == ActionType.Mount ||
+         player is { CastActionType: ActionType.GeneralAction, CastActionID: MOUNT_ROULETTE_ACTION_ID });
+
+    internal void JumpForNavigation() => UseAutomaticAction(ActionType.GeneralAction, JUMP_ACTION_ID);
+
+    internal void CancelPendingMount() => mountTasks?.Abort();
+
+    private bool TryUseMount(bool useRoulette = false)
     {
         var condition = DService.Instance().Condition;
         if (condition.IsOccupiedInEvent || condition.IsCasting || condition[ConditionFlag.Jumping] ||
@@ -249,14 +259,17 @@ public sealed unsafe partial class AutoMount : OmniModuleBase
             return false;
         var selectedMount = 0u;
         var unlockedCount = 0;
-        foreach (var mountID in config.SelectedMounts)
+        if (!useRoulette)
         {
-            if (mountID == 0 || !playerState->IsMountUnlocked(mountID))
-                continue;
+            foreach (var mountID in config.SelectedMounts)
+            {
+                if (mountID == 0 || !playerState->IsMountUnlocked(mountID))
+                    continue;
 
-            unlockedCount++;
-            if (Random.Shared.Next(unlockedCount) == 0)
-                selectedMount = mountID;
+                unlockedCount++;
+                if (Random.Shared.Next(unlockedCount) == 0)
+                    selectedMount = mountID;
+            }
         }
 
         var type = selectedMount == 0 ? ActionType.GeneralAction : ActionType.Mount;

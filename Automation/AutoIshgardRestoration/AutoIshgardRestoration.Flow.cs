@@ -21,7 +21,7 @@ public sealed partial class AutoIshgardRestoration
 
     private AutomationPhase phase;
 
-    private string status = OmniLoc.Get("Feature.AutoIshgardRestoration.Idle");
+    private string? status;
 
     private string lastError = string.Empty;
 
@@ -101,7 +101,7 @@ public sealed partial class AutoIshgardRestoration
         status = OmniLoc.Get(this, "Feature.AutoIshgardRestoration.AlreadyInFirmament");
     }
 
-    private void StopProduction(string reason)
+    private void StopProduction(string? reason = null)
     {
         StopOwnedTeleport();
         CleanupScripPurchase();
